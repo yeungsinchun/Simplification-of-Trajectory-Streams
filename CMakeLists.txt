@@ -35,8 +35,8 @@ target_link_libraries(simplify
 target_compile_options(simplify PRIVATE -Wall -Wextra -Wpedantic)
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT MSVC)
-  target_compile_options(simplify PRIVATE -fsanitize=address,undefined -g)
-  target_link_options(simplify PRIVATE -fsanitize=address,undefined -g)
+  target_compile_options(simplify PRIVATE -fsanitize=address -fno-omit-frame-pointer -g)
+  target_link_options(simplify PRIVATE -fsanitize=address -fno-omit-frame-pointer -g)
 endif()
 
 # generate target (single source; you can keep macro or make it explicit)

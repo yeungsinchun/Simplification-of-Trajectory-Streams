@@ -24,7 +24,7 @@ using Polygon_with_holes =  CGAL::Polygon_with_holes_2<Kernel>;
 
 constexpr double TOL = 1e-6;
 constexpr double EPSILON = 0.5;
-constexpr double DELTA = 1e4;
+constexpr double DELTA = 1e5;
 constexpr double SQRT2 =
     1.41421356237; // sqrt in STL does not have constexpr version !?
 constexpr double GRID = EPSILON * DELTA / (2 * SQRT2);
@@ -279,17 +279,6 @@ std::vector<Point> get_points_from_grid(const Point &p) {
 
 std::vector<int> find_tangent_idx(const Point &p,
                                  const std::vector<Point> &S) {
-    auto to_string = [=](CGAL::Epeck::Orientation e) {
-        if (e == CGAL::COLLINEAR) {
-            return "collinear";
-        } else if (e == CGAL::LEFT_TURN) {
-            return "left";
-        } else if (e == CGAL::RIGHT_TURN) {
-            return "right";
-        } else {
-            return "what??";
-        }
-    };
     int n = S.size();
     std::vector<int> tangent;
     for (int i = 0; i < n; i++) {
@@ -382,10 +371,6 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
     return F;
 }
 
-void poly_test(Polygon p) {
-    // std::cerr << p.is_simple() << ' ' << p.is_counterclockwise_oriented() << ' ' << p.is_convex() << '\n';
-}
-
 int get_longest_stab(const std::vector<Point> &stream, int cur,
                      std::vector<Point> &simplified, MultiViewer& viewer) {
     const Point& p0 = stream[cur];
@@ -459,14 +444,12 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
         viewer_process_events();
         // std::this_thread::sleep_for(std::chrono::seconds(1));
         cur++;
-        std::cout << "[cur]: " << cur << '\n';
     }
     simplified.emplace_back(buffer[0]);
     simplified.emplace_back(buffer[1]);
     viewer.addSimplifiedPoint(buffer[0]);
     viewer.addSimplifiedPoint(buffer[1]);
     viewer_process_events();
-    std::cout << "simplified!\n";
     return cur;
 }
 
@@ -489,6 +472,6 @@ int main(int argc, char** argv) {
     QApplication app(argc, argv);
     MultiViewer viewer;
     viewer.show();
-    simplify(stream, viewer);
+     simplify(stream, viewer);
     return app.exec();
 }
