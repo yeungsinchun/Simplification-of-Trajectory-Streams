@@ -8,6 +8,10 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <limits>
+#include <exception>
+#include <fstream>
+#include <filesystem>
 #include <QApplication>
 #include <thread>
 #include <chrono>
@@ -24,13 +28,15 @@ using Polygon_with_holes =  CGAL::Polygon_with_holes_2<Kernel>;
 
 constexpr double TOL = 1e-6;
 constexpr double EPSILON = 0.5;
-constexpr double DELTA = 1e5;
 constexpr double SQRT2 =
     1.41421356237; // sqrt in STL does not have constexpr version !?
-constexpr double GRID = EPSILON * DELTA / (2 * SQRT2);
 
-constexpr double BMIN = -2e6;
-constexpr double BMAX = 2e6;
+// Bounding square [BMIN, BMAX]^2
+// Compute from input data in main() so the display fits the points.
+double BMIN;
+double BMAX;
+constexpr double DELTA = 0.2;
+constexpr double GRID = EPSILON * DELTA / (2 * SQRT2);
 
 /*
 void draw_points_svg(const std::vector<Point> &pts,
@@ -108,6 +114,146 @@ void print_polygon (const CGAL::Polygon_2<Kernel, Container>& P)
   return;
 }
 
+// Write an SVG snapshot visualizing p (green dot), polygon S (blue outline),
+// and polygon F (red outline, translucent fill). Overwrites the same file
+// each call so the last write reflects the most recent state before a crash.
+static void write_F_svg(const Point& p,
+                        const std::vector<Point>& S,
+                        const std::vector<Point>& F,
+                        const std::string& filename = "../data/F.svg",
+                        int W = 800, int H = 800, double margin = 20.0)
+{
+    // Gather bounds from p, S, and F
+    double minx = std::numeric_limits<double>::infinity();
+    double miny = std::numeric_limits<double>::infinity();
+    double maxx = -std::numeric_limits<double>::infinity();
+    double maxy = -std::numeric_limits<double>::infinity();
+    auto consider = [&](const Point& q){
+        double x = CGAL::to_double(q.x());
+        double y = CGAL::to_double(q.y());
+        minx = std::min(minx, x); miny = std::min(miny, y);
+        maxx = std::max(maxx, x); maxy = std::max(maxy, y);
+    };
+    consider(p);
+    for (const auto& q : S) consider(q);
+    for (const auto& q : F) consider(q);
+    if (!std::isfinite(minx) || !std::isfinite(miny) || !std::isfinite(maxx) || !std::isfinite(maxy)) {
+        minx = -1.0; miny = -1.0; maxx = 1.0; maxy = 1.0;
+    }
+    double dx = maxx - minx, dy = maxy - miny;
+    if (dx <= 0) dx = 1.0;
+    if (dy <= 0) dy = 1.0;
+    // add 5% padding
+    double pad_x = 0.05 * dx, pad_y = 0.05 * dy;
+    minx -= pad_x; maxx += pad_x; miny -= pad_y; maxy += pad_y;
+    dx = maxx - minx; dy = maxy - miny;
+    double scale = std::min((W - 2 * margin) / dx, (H - 2 * margin) / dy);
+    auto mapx = [&](double x) { return margin + (x - minx) * scale; };
+    auto mapy = [&](double y) { return H - (margin + (y - miny) * scale); };
+
+    std::filesystem::create_directories(std::filesystem::path(filename).parent_path());
+    std::ofstream os(filename);
+    if (!os) return;
+    os.setf(std::ios::fixed);
+    os << std::setprecision(6);
+    os << "<?xml version=\"1.0\" standalone=\"no\"?>\n";
+    os << "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" << W
+       << "\" height=\"" << H << "\" viewBox=\"0 0 " << W << " " << H
+       << "\">\n";
+    os << "<rect x=\"0\" y=\"0\" width=\"" << W << "\" height=\"" << H
+       << "\" fill=\"white\" stroke=\"none\"/>\n";
+
+    auto draw_poly = [&](const std::vector<Point>& poly,
+                         const char* stroke, const char* fill,
+                         double stroke_width, double fill_opacity) {
+        if (poly.empty()) return;
+        os << "<polygon points=\"";
+        for (const auto& q : poly) {
+            os << mapx(CGAL::to_double(q.x())) << "," << mapy(CGAL::to_double(q.y())) << " ";
+        }
+        os << "\" stroke=\"" << stroke << "\" stroke-width=\"" << stroke_width
+           << "\" fill=\"" << fill << "\" fill-opacity=\"" << fill_opacity << "\"/>\n";
+    };
+
+    // S: blue outline, no fill
+    draw_poly(S, "#1f77b4", "none", 2.0, 0.0);
+    // F: green outline, no fill
+    draw_poly(F, "#3f1398ff", "none", 2.0, 0.0);
+    // p: green point
+    os << "<circle cx=\"" << mapx(CGAL::to_double(p.x()))
+       << "\" cy=\"" << mapy(CGAL::to_double(p.y()))
+       << "\" r=\"3\" fill=\"#2ca02c\" stroke=\"none\"/>\n";
+
+    os << "</svg>\n";
+}
+
+// REMOVE LATER: print simple/orientation/area
+static void print_poly_info(const Polygon& P, const char* name = "poly") {
+    std::cerr << name << ": size=" << P.size();
+    bool simple = false;
+    try {
+        simple = P.is_simple();
+        std::cerr << ", simple=" << (simple ? "yes" : "no");
+    } catch (...) {
+        std::cerr << ", simple=err\n";
+        return;
+    }
+    if (!simple) {
+        std::cerr << "\n";
+        return;
+    }
+    try {
+        std::cerr << ", orient="
+                  << (P.is_counterclockwise_oriented() ? "CCW" : "CW");
+    } catch (...) {
+        std::cerr << ", orient=err";
+    }
+    try {
+        std::cerr << ", area=" << CGAL::to_double(P.area()) << "\n";
+    } catch (...) {
+        std::cerr << ", area=err\n";
+    }
+}
+
+// REMOVE LATER: Sanitize polygon: drop duplicate and collinear vertices, enforce CCW
+static void sanitize_polygon(Polygon &P, const char* name = "poly") {
+    auto safe_is_simple = [](const Polygon& poly) -> bool {
+        try { return poly.is_simple(); } catch (...) { return false; }
+    };
+    auto safe_is_clockwise = [](const Polygon& poly) -> bool {
+        try { return poly.is_clockwise_oriented(); } catch (...) { return false; }
+    };
+    // gather vertices, remove consecutive duplicates
+    std::vector<Point> pts;
+    pts.reserve(P.size());
+    for (auto it = P.vertices_begin(); it != P.vertices_end(); ++it) {
+        if (pts.empty() || *it != pts.back()) pts.push_back(*it);
+    }
+    if (pts.size() > 1 && pts.front() == pts.back()) pts.pop_back();
+
+    // remove collinear triples
+    auto is_collinear = [](const Point &a, const Point &b, const Point &c) {
+        return CGAL::orientation(a, b, c) == CGAL::COLLINEAR;
+    };
+    std::vector<Point> cleaned;
+    cleaned.reserve(pts.size());
+    for (size_t i = 0; i < pts.size(); ++i) {
+        if (pts.size() <= 2) { cleaned.push_back(pts[i]); continue; }
+        const Point &a = pts[(i + pts.size() - 1) % pts.size()];
+        const Point &b = pts[i];
+        const Point &c = pts[(i + 1) % pts.size()];
+        if (!is_collinear(a, b, c)) cleaned.push_back(b);
+    }
+
+    Polygon Q(cleaned.begin(), cleaned.end());
+    if (Q.size() >= 3 && safe_is_clockwise(Q)) Q.reverse_orientation();
+    if (!safe_is_simple(Q)) {
+        std::cerr << "sanitize_polygon: still not simple for '" << name << "'\n";
+        print_polygon(Q);
+    }
+    P = std::move(Q);
+}
+
 // Pretty-print a polygon with holes.
 template<class Kernel, class Container>
 void print_polygon_with_holes
@@ -179,48 +325,64 @@ std::optional<Point> ray_hit_bbox(const Point &p, const Point &dir) {
 }
 
 enum class Bbox_edge {
-    BOTTOM, // 0
-    RIGHT,  // 1
-    TOP,    // 2
-    LEFT,   // 3
+    BL = 0,
+    BOTTOM = 1,
+    BR = 2,
+    RIGHT = 3,
+    TR = 4,
+    TOP = 5,
+    TL = 6,
+    LEFT = 7,
 };
 
-const std::array<Point, 4> bbox_corner = {
-    Point(BMIN, BMIN), Point(BMAX, BMIN), Point(BMAX, BMAX),
-    Point(BMIN, BMAX)};
+// Return current bbox corners (clockwise starting from bottom-left)
+static std::array<Point, 4> current_bbox_corner() {
+    return {Point(BMIN, BMIN), Point(BMAX, BMIN), Point(BMAX, BMAX),
+            Point(BMIN, BMAX)};
+}
 
-const std::vector<Point> bbox =
-    std::vector<Point>(bbox_corner.begin(), bbox_corner.end());
+// Return current bbox as vector of points
+static std::vector<Point> current_bbox() {
+    auto c = current_bbox_corner();
+    return std::vector<Point>(c.begin(), c.end());
+}
 
 std::optional<Bbox_edge> which_edge(const Point &s) {
     double x = CGAL::to_double(s.x()), y = CGAL::to_double(s.y());
-    if (std::abs(y - BMIN) < TOL)
-        return Bbox_edge::BOTTOM;
-    if (std::abs(x - BMAX) < TOL)
-        return Bbox_edge::RIGHT;
-    if (std::abs(y - BMAX) < TOL)
-        return Bbox_edge::TOP;
-    if (std::abs(x - BMIN) < TOL)
-        return Bbox_edge::LEFT;
+    bool on_left   = std::abs(x - BMIN) < TOL;
+    bool on_right  = std::abs(x - BMAX) < TOL;
+    bool on_bottom = std::abs(y - BMIN) < TOL;
+    bool on_top    = std::abs(y - BMAX) < TOL;
+
+    // Corners first
+    if (on_left && on_bottom) return Bbox_edge::BL;
+    if (on_right && on_bottom) return Bbox_edge::BR;
+    if (on_right && on_top) return Bbox_edge::TR;
+    if (on_left && on_top) return Bbox_edge::TL;
+
+    // Edges
+    if (on_bottom) return Bbox_edge::BOTTOM;
+    if (on_right)  return Bbox_edge::RIGHT;
+    if (on_top)    return Bbox_edge::TOP;
+    if (on_left)   return Bbox_edge::LEFT;
     return std::nullopt;
 }
 
-void append_rect_pts(std::vector<Point> &out, Bbox_edge e1, Bbox_edge e2,
+void append_rect_pts(std::vector<Point> &out, Bbox_edge from, Bbox_edge to,
                      bool ccw) {
-    if (ccw) { // e.g., if a_edge = bottom (0), b_edge = top (2): need to append
-               // bottom right (1) and top right (2)
-        int begin = (static_cast<int>(e1) + 1) % 4;
-        int end = (static_cast<int>(e2) + 1) % 4;
-        while (begin != end) {
-            out.push_back(bbox_corner[begin]);
-            begin = (begin + 1) % 4;
-        }
-    } else {
-        int begin = (static_cast<int>(e1) + 3) % 4;
-        int end = (static_cast<int>(e2) + 3) % 4;
-        while (begin != end) {
-            out.push_back(bbox_corner[begin]);
-            begin = (begin + 3) % 4;
+    auto corners = current_bbox_corner(); // order: BL(0), BR(1), TR(2), TL(3)
+
+    auto next = [&](int idx) {
+        return (idx + (ccw ? 1 : 7)) % 8; // modulo 8
+    };
+
+    int i = static_cast<int>(from);
+    int j = static_cast<int>(to);
+    if (i == j) return;
+    for (int k = next(i); k != j; k = next(k)) {
+        if ((k & 1) == 0) { // corner indices: 0,2,4,6
+            int ci = k / 2; // map 0->0(BL),2->1(BR),4->2(TR),6->3(TL)
+            out.push_back(corners[ci]);
         }
     }
 }
@@ -323,9 +485,14 @@ std::optional<Point> intersect_ray_with_rect(const Point& p, const Point& direct
 }
 
 std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
-    // Precondition: S should be counterclockwise
+    // CGAL_precondition(Polygon(S.begin(), S.end()).is_counterclockwise_oriented());
     assert(S.size() != 2); // this could happen?
-    if (S.size() == 1 || point_in_convex(p, S)) return bbox;
+    if (S.size() == 1 || point_in_convex(p, S)) {
+        auto F = current_bbox();
+        write_F_svg(p, S, F);
+        std::cerr << "Case " << 1 << std::endl;
+        return F;
+    }
     std::vector<int> tangent = find_tangent_idx(p, S);
     // std::cerr << "tangent size: " << tangent.size() << std::endl;
     assert(tangent.size() == 2);
@@ -334,7 +501,10 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
     std::optional<Point> hit2 = intersect_ray_with_rect(p, S[tangent[1]]);
     if (!hit1 || !hit2) {
         std::cerr << "Ray doesn't intersect with bounding box!\n";
-        return bbox;
+        auto F = current_bbox();
+        write_F_svg(p, S, F);
+        std::cerr << "Case " << 2 << std::endl;
+        return F;
     }
     std::optional<Bbox_edge> e1 = which_edge(hit1.value());
     std::optional<Bbox_edge> e2 = which_edge(hit2.value());
@@ -348,6 +518,7 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
     if (CGAL::squared_distance(S[(tangent[0] + 1) % n], p) <
         CGAL::squared_distance(S[(tangent[1] + 1) % n], p)) {
         // [i..j] (inclusive)
+        std::cerr << "First\n";
         std::copy(S.begin() + tangent[0], S.begin() + tangent[1] + 1,
                   std::back_inserter(F));
         // walk from hit2 to hit1 ccw to close
@@ -356,6 +527,7 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
         F.push_back(hit1.value());
     } else {
         // reverse([j..n-1] + [0..i]) (inclusive)
+        std::cerr << "Second\n";
         std::copy(S.begin() + tangent[1], S.end(),
                   std::back_inserter(F));
         std::copy(S.begin(), S.begin() + tangent[0] + 1,
@@ -366,8 +538,19 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
     }
     if (!e1 || !e2) {
         std::cerr << "Cannot determine which Bbox edge the ray intersect with.\n";
-        return bbox;
+        auto F = current_bbox();
+        write_F_svg(p, S, F);
+        std::cerr << "Case " << 3 << std::endl;
+        return F;
     }
+    write_F_svg(p, S, F);
+    for (size_t i = 0; i < F.size(); i++) {
+        std::cerr << "(" << F[i].x() << ',' << F[i].y() << ") ";
+    }
+    std::cerr << '\n';
+    std::cerr << hit1.value().x() << ' ' << hit1.value().y() << '\n';
+    std::cerr << hit2.value().x() << ' ' << hit2.value().y() << '\n';
+    std::cerr << "Case " << 4 << std::endl;
     return F;
 }
 
@@ -399,6 +582,7 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
             std::vector<Point> Gi = get_conv_from_grid(pi);
             Polygon F_poly(F.begin(), F.end());
             Polygon Gi_poly(Gi.begin(), Gi.end());
+            Polygon S_poly(S[i].begin(), S[i].end());
             if (i == 0) {
                 // viewer.addPolygon(F_poly);
                 // viewer.addPolygon(Gi_poly);
@@ -415,7 +599,42 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
             std::cerr << "done\n";
             std::cerr.flush();
             */
-            CGAL::intersection(F_poly, Gi_poly, back_inserter(new_S[i]));
+            // Validate and sanitize polygons before boolean ops
+            // Only print minimal info before sanitize to avoid triggering
+            // CGAL preconditions on invalid polygons.
+            print_poly_info(S_poly, "S_poly(before)");
+            print_poly_info(F_poly, "F_poly(before)");
+            print_poly_info(Gi_poly, "Gi_poly(before)");
+            // sanitize_polygon(F_poly, "F_poly");
+            // sanitize_polygon(Gi_poly, "Gi_poly");
+            print_poly_info(F_poly, "F_poly(after)");
+            print_poly_info(Gi_poly, "Gi_poly(after)");
+            if (F_poly.is_clockwise_oriented()) F_poly.reverse_orientation();
+            if (Gi_poly.is_clockwise_oriented()) Gi_poly.reverse_orientation();
+            // Early reject invalid/degenerate polygons to avoid CGAL preconditions
+            auto safe_is_simple = [](const Polygon& poly) -> bool {
+                try { return poly.is_simple(); } catch (...) { return false; }
+            };
+            if (F_poly.size() < 3 || !safe_is_simple(F_poly)) {
+                std::cerr << "Rejecting F_poly (degenerate/invalid) at i=" << i << "\n";
+                dead[i] = true; dead_cnt++; continue;
+            }
+            if (Gi_poly.size() < 3 || !safe_is_simple(Gi_poly)) {
+                std::cerr << "Rejecting Gi_poly (degenerate/invalid) at i=" << i << "\n";
+                dead[i] = true; dead_cnt++; continue;
+            }
+            // Log the exact source location of the next intersection call.
+            std::cerr << "[DBG] Next line will call CGAL::intersection at "
+                      << __FILE__ << ":" << (__LINE__ + 1) << "\n";
+            try {
+                CGAL::intersection(F_poly, Gi_poly, back_inserter(new_S[i]));
+            } catch (const std::exception &e) {
+                std::cerr << "CGAL::intersection threw: " << e.what() << "\n";
+                std::cerr << "At grid idx i=" << i << "\n";
+                print_polygon(F_poly);
+                print_polygon(Gi_poly);
+                throw;
+            }
             if (new_S[i].size() == 0) {
                 dead[i] = true;
                 dead_cnt++;
@@ -468,6 +687,29 @@ int main(int argc, char** argv) {
     std::vector<Point> stream(N);
     for (int i = 0; i < N; i++) {
         std::cin >> stream[i];
+    }
+    // Compute bounding square
+    if (!stream.empty()) {
+        double minx = std::numeric_limits<double>::infinity();
+        double miny = std::numeric_limits<double>::infinity();
+        double maxx = -std::numeric_limits<double>::infinity();
+        double maxy = -std::numeric_limits<double>::infinity();
+        for (const auto &p : stream) {
+            double x = CGAL::to_double(p.x());
+            double y = CGAL::to_double(p.y());
+            minx = std::min(minx, x);
+            miny = std::min(miny, y);
+            maxx = std::max(maxx, x);
+            maxy = std::max(maxy, y);
+        }
+        double dx = maxx - minx;
+        double dy = maxy - miny;
+        double span = std::max(dx, dy);
+        double pad = span * 0.05;
+        double overall_min = std::min(minx, miny) - pad;
+        double overall_max = std::max(maxx, maxy) + pad;
+        BMIN = overall_min;
+        BMAX = overall_max;
     }
     QApplication app(argc, argv);
     MultiViewer viewer;
