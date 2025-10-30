@@ -35,7 +35,7 @@ constexpr double SQRT2 =
 // Compute from input data in main() so the display fits the points.
 double BMIN;
 double BMAX;
-constexpr double DELTA = 0.2;
+constexpr double DELTA = 1000;
 constexpr double GRID = EPSILON * DELTA / (2 * SQRT2);
 
 /*
@@ -114,9 +114,7 @@ void print_polygon (const CGAL::Polygon_2<Kernel, Container>& P)
   return;
 }
 
-// Write an SVG snapshot visualizing p (green dot), polygon S (blue outline),
-// and polygon F (red outline, translucent fill). Overwrites the same file
-// each call so the last write reflects the most recent state before a crash.
+// TO BE REMOVED
 static void write_F_svg(const Point& p,
                         const std::vector<Point>& S,
                         const std::vector<Point>& F,
@@ -187,7 +185,7 @@ static void write_F_svg(const Point& p,
     os << "</svg>\n";
 }
 
-// REMOVE LATER: print simple/orientation/area
+// TO BE REMOVED: print simple/orientation/area
 static void print_poly_info(const Polygon& P, const char* name = "poly") {
     std::cerr << name << ": size=" << P.size();
     bool simple = false;
@@ -213,45 +211,6 @@ static void print_poly_info(const Polygon& P, const char* name = "poly") {
     } catch (...) {
         std::cerr << ", area=err\n";
     }
-}
-
-// REMOVE LATER: Sanitize polygon: drop duplicate and collinear vertices, enforce CCW
-static void sanitize_polygon(Polygon &P, const char* name = "poly") {
-    auto safe_is_simple = [](const Polygon& poly) -> bool {
-        try { return poly.is_simple(); } catch (...) { return false; }
-    };
-    auto safe_is_clockwise = [](const Polygon& poly) -> bool {
-        try { return poly.is_clockwise_oriented(); } catch (...) { return false; }
-    };
-    // gather vertices, remove consecutive duplicates
-    std::vector<Point> pts;
-    pts.reserve(P.size());
-    for (auto it = P.vertices_begin(); it != P.vertices_end(); ++it) {
-        if (pts.empty() || *it != pts.back()) pts.push_back(*it);
-    }
-    if (pts.size() > 1 && pts.front() == pts.back()) pts.pop_back();
-
-    // remove collinear triples
-    auto is_collinear = [](const Point &a, const Point &b, const Point &c) {
-        return CGAL::orientation(a, b, c) == CGAL::COLLINEAR;
-    };
-    std::vector<Point> cleaned;
-    cleaned.reserve(pts.size());
-    for (size_t i = 0; i < pts.size(); ++i) {
-        if (pts.size() <= 2) { cleaned.push_back(pts[i]); continue; }
-        const Point &a = pts[(i + pts.size() - 1) % pts.size()];
-        const Point &b = pts[i];
-        const Point &c = pts[(i + 1) % pts.size()];
-        if (!is_collinear(a, b, c)) cleaned.push_back(b);
-    }
-
-    Polygon Q(cleaned.begin(), cleaned.end());
-    if (Q.size() >= 3 && safe_is_clockwise(Q)) Q.reverse_orientation();
-    if (!safe_is_simple(Q)) {
-        std::cerr << "sanitize_polygon: still not simple for '" << name << "'\n";
-        print_polygon(Q);
-    }
-    P = std::move(Q);
 }
 
 // Pretty-print a polygon with holes.
@@ -485,7 +444,6 @@ std::optional<Point> intersect_ray_with_rect(const Point& p, const Point& direct
 }
 
 std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
-    // CGAL_precondition(Polygon(S.begin(), S.end()).is_counterclockwise_oriented());
     assert(S.size() != 2); // this could happen?
     if (S.size() == 1 || point_in_convex(p, S)) {
         auto F = current_bbox();
@@ -511,12 +469,19 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
 
     int n = int(S.size());
     assert(n >= 3);
-    // std::cerr << n << ' ' << tangent[1] << ' ' << tangent[0] << std::endl;
+    CGAL_precondition(Polygon(S.begin(), S.end()).is_counterclockwise_oriented());
+    std::cerr << "tangent:" << ' ' << tangent[0] << ' ' << tangent[1] << std::endl;
     // This is false
     assert(tangent[1] - tangent[0] - 1 >= 1 || tangent[0] + n - tangent[1] - 1 >= 1);
     std::vector<Point> F;
-    if (CGAL::squared_distance(S[(tangent[0] + 1) % n], p) <
-        CGAL::squared_distance(S[(tangent[1] + 1) % n], p)) {
+    // auto avg = [](const Point& a, const Point& b) {
+    //     return Point{(a.x() + b.x())/2, (a.y() + b.y())/2};
+    // };
+    // if (CGAL::squared_distance(S[(tangent[0] + 1) % n], p) <
+    // CGAL::squared_distance(S[(tangent[1] + 1) % n], p)) {
+    // if (CGAL::squared_distance(S[(tangent[0] + 1) % n], p) <
+    //  CGAL::squared_distance(avg(S[tangent[1]], S[tangent[0]]), p)) {
+    if (CGAL::right_turn(p, S[tangent[0]], S[tangent[1]]))  {
         // [i..j] (inclusive)
         std::cerr << "First\n";
         std::copy(S.begin() + tangent[0], S.begin() + tangent[1] + 1,
@@ -587,31 +552,21 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
                 // viewer.addPolygon(F_poly);
                 // viewer.addPolygon(Gi_poly);
             }
-            /*
-            std::cerr << "F\n";
+            // std::cerr << "F\n";
             viewer.addPolygon(F_poly);
-            print_polygon(F_poly);
-            poly_test(F_poly);
-            std::cerr << "Gi\n";
+            // print_polygon(F_poly);
+            // std::cerr << "Gi\n";
             viewer.addPolygon(Gi_poly);
-            print_polygon(Gi_poly);
-            poly_test(Gi_poly);
-            std::cerr << "done\n";
-            std::cerr.flush();
-            */
-            // Validate and sanitize polygons before boolean ops
-            // Only print minimal info before sanitize to avoid triggering
-            // CGAL preconditions on invalid polygons.
+            // print_polygon(Gi_poly);
+            // std::cerr << "done\n";
+            // std::cerr.flush();
+            // Validate polygons before boolean ops
             print_poly_info(S_poly, "S_poly(before)");
             print_poly_info(F_poly, "F_poly(before)");
             print_poly_info(Gi_poly, "Gi_poly(before)");
-            // sanitize_polygon(F_poly, "F_poly");
-            // sanitize_polygon(Gi_poly, "Gi_poly");
             print_poly_info(F_poly, "F_poly(after)");
             print_poly_info(Gi_poly, "Gi_poly(after)");
-            if (F_poly.is_clockwise_oriented()) F_poly.reverse_orientation();
-            if (Gi_poly.is_clockwise_oriented()) Gi_poly.reverse_orientation();
-            // Early reject invalid/degenerate polygons to avoid CGAL preconditions
+            /*
             auto safe_is_simple = [](const Polygon& poly) -> bool {
                 try { return poly.is_simple(); } catch (...) { return false; }
             };
@@ -626,6 +581,7 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
             // Log the exact source location of the next intersection call.
             std::cerr << "[DBG] Next line will call CGAL::intersection at "
                       << __FILE__ << ":" << (__LINE__ + 1) << "\n";
+            */
             try {
                 CGAL::intersection(F_poly, Gi_poly, back_inserter(new_S[i]));
             } catch (const std::exception &e) {
@@ -713,7 +669,9 @@ int main(int argc, char** argv) {
     }
     QApplication app(argc, argv);
     MultiViewer viewer;
+    // Provide algorithm parameters for on-screen HUD
+    viewer.setParameters(DELTA, EPSILON);
     viewer.show();
-     simplify(stream, viewer);
+    simplify(stream, viewer);
     return app.exec();
 }
