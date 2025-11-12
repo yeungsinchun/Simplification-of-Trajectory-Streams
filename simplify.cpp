@@ -9,12 +9,9 @@
 #include <vector>
 #include <string>
 #include <limits>
-#include <exception>
 #include <fstream>
 #include <filesystem>
 #include <QApplication>
-#include <thread>
-#include <chrono>
 #include "drawing.h"
 
 using Kernel = CGAL::Exact_predicates_exact_constructions_kernel;
@@ -26,18 +23,51 @@ using Rect = CGAL::Iso_rectangle_2<Kernel>;
 using Polygon = CGAL::Polygon_2<Kernel>;
 using Polygon_with_holes =  CGAL::Polygon_with_holes_2<Kernel>;
 
+bool showF = false; // true if -F is passed
+bool showG = false; // true if -G is passed
+bool showS = false; // true if -S is passed
+
 constexpr double TOL = 1e-6;
 constexpr double EPSILON = 0.5;
 constexpr double SQRT2 =
     1.41421356237; // sqrt in STL does not have constexpr version !?
 
 // Bounding square [BMIN, BMAX]^2
-// Compute from input data in main() so the display fits the points.
-double BMIN;
-double BMAX;
-constexpr double DELTA = 1000;
+extern const double BMIN = -10000;
+extern const double BMAX = 10000;
+// Bounding data points (convex hull should not exceed bounding box)
+const double DATAMIN = -8000;
+const double DATAMAX= 8000;
+// TODO: DELTA should not be too high that convex hull goes out of bounding square, which may cause the program to crash
+constexpr double DELTA = 500;
 constexpr double GRID = EPSILON * DELTA / (2 * SQRT2);
 
+static void normalize_stream(std::vector<Point> &stream) {
+    if (stream.empty()) return;
+    double minx = std::numeric_limits<double>::infinity();
+    double miny = std::numeric_limits<double>::infinity();
+    double maxx = -std::numeric_limits<double>::infinity();
+    double maxy = -std::numeric_limits<double>::infinity();
+    for (const auto &p : stream) {
+        double x = CGAL::to_double(p.x());
+        double y = CGAL::to_double(p.y());
+        minx = std::min(minx, x);
+        miny = std::min(miny, y);
+        maxx = std::max(maxx, x);
+        maxy = std::max(maxy, y);
+    }
+    double data_min = std::min(minx, miny);
+    double data_max = std::max(maxx, maxy);
+    if (data_max <= data_min) return; // nothing to do
+    double scale = (DATAMAX - DATAMIN) / (data_max - data_min);
+    for (auto &p : stream) {
+        double x = CGAL::to_double(p.x());
+        double y = CGAL::to_double(p.y());
+        double nx = DATAMIN + (x - data_min) * scale;
+        double ny = DATAMIN + (y - data_min) * scale;
+        p = Point(nx, ny);
+    }
+}
 /*
 void draw_points_svg(const std::vector<Point> &pts,
                      const std::string &filename = "../data/points.svg",
@@ -444,15 +474,18 @@ std::optional<Point> intersect_ray_with_rect(const Point& p, const Point& direct
 }
 
 std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
-    assert(S.size() != 2); // this could happen?
-    if (S.size() == 1 || point_in_convex(p, S)) {
+    // assert(S.size() != 2); // wait why this check??
+    if (S.size() == 1) {
         auto F = current_bbox();
         write_F_svg(p, S, F);
-        std::cerr << "Case " << 1 << std::endl;
+        return F;
+    }
+    if (point_in_convex(p, S)) {
+        auto F = current_bbox();
+        write_F_svg(p, S, F);
         return F;
     }
     std::vector<int> tangent = find_tangent_idx(p, S);
-    // std::cerr << "tangent size: " << tangent.size() << std::endl;
     assert(tangent.size() == 2);
 
     std::optional<Point> hit1 = intersect_ray_with_rect(p, S[tangent[0]]);
@@ -461,7 +494,6 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
         std::cerr << "Ray doesn't intersect with bounding box!\n";
         auto F = current_bbox();
         write_F_svg(p, S, F);
-        std::cerr << "Case " << 2 << std::endl;
         return F;
     }
     std::optional<Bbox_edge> e1 = which_edge(hit1.value());
@@ -470,7 +502,7 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
     int n = int(S.size());
     assert(n >= 3);
     CGAL_precondition(Polygon(S.begin(), S.end()).is_counterclockwise_oriented());
-    std::cerr << "tangent:" << ' ' << tangent[0] << ' ' << tangent[1] << std::endl;
+    // std::cerr << "tangent:" << ' ' << tangent[0] << ' ' << tangent[1] << std::endl;
     // This is false
     assert(tangent[1] - tangent[0] - 1 >= 1 || tangent[0] + n - tangent[1] - 1 >= 1);
     std::vector<Point> F;
@@ -483,7 +515,7 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
     //  CGAL::squared_distance(avg(S[tangent[1]], S[tangent[0]]), p)) {
     if (CGAL::right_turn(p, S[tangent[0]], S[tangent[1]]))  {
         // [i..j] (inclusive)
-        std::cerr << "First\n";
+        // std::cerr << "First\n";
         std::copy(S.begin() + tangent[0], S.begin() + tangent[1] + 1,
                   std::back_inserter(F));
         // walk from hit2 to hit1 ccw to close
@@ -492,7 +524,7 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
         F.push_back(hit1.value());
     } else {
         // reverse([j..n-1] + [0..i]) (inclusive)
-        std::cerr << "Second\n";
+        // std::cerr << "Second\n";
         std::copy(S.begin() + tangent[1], S.end(),
                   std::back_inserter(F));
         std::copy(S.begin(), S.begin() + tangent[0] + 1,
@@ -505,10 +537,10 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
         std::cerr << "Cannot determine which Bbox edge the ray intersect with.\n";
         auto F = current_bbox();
         write_F_svg(p, S, F);
-        std::cerr << "Case " << 3 << std::endl;
         return F;
     }
     write_F_svg(p, S, F);
+    /*
     for (size_t i = 0; i < F.size(); i++) {
         std::cerr << "(" << F[i].x() << ',' << F[i].y() << ") ";
     }
@@ -516,26 +548,23 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
     std::cerr << hit1.value().x() << ' ' << hit1.value().y() << '\n';
     std::cerr << hit2.value().x() << ' ' << hit2.value().y() << '\n';
     std::cerr << "Case " << 4 << std::endl;
+    */
     return F;
 }
 
 int get_longest_stab(const std::vector<Point> &stream, int cur,
                      std::vector<Point> &simplified, MultiViewer& viewer) {
     const Point& p0 = stream[cur];
+    int p0cur = cur;
+    std::cerr << "[p0]: " << cur << std::endl;
     viewer.addOriginalPoint(p0);
-    cur++; // What if stream ends here?
+    viewer.markP0(p0);
     std::vector<Point> P = get_points_from_grid(p0);
     std::array<Point, 2> buffer = {p0};
-    std::vector<std::vector<Point>> S(P.size());
-    for (int i = 0; i < int(P.size()); i++) {
-        S[i].push_back(P[i]);
-    }
+    std::vector<std::vector<Point>> S(P.size(), std::vector<Point>{p0});
     int dead_cnt = 0;
     std::vector<int> dead(P.size());
     while (cur < int(stream.size())) {
-        if (dead_cnt == int(P.size())) {
-            break;
-        }
         const Point& pi  = stream[cur];
         viewer.addOriginalPoint(pi);
         std::vector<std::vector<Polygon_with_holes>> new_S(P.size());
@@ -548,49 +577,24 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
             Polygon F_poly(F.begin(), F.end());
             Polygon Gi_poly(Gi.begin(), Gi.end());
             Polygon S_poly(S[i].begin(), S[i].end());
-            if (i == 0) {
-                // viewer.addPolygon(F_poly);
-                // viewer.addPolygon(Gi_poly);
-            }
             // std::cerr << "F\n";
-            viewer.addPolygon(F_poly);
+            // viewer.addPolygon(F_poly);
             // print_polygon(F_poly);
             // std::cerr << "Gi\n";
-            viewer.addPolygon(Gi_poly);
+            // viewer.addPolygon(Gi_poly);
             // print_polygon(Gi_poly);
             // std::cerr << "done\n";
             // std::cerr.flush();
             // Validate polygons before boolean ops
-            print_poly_info(S_poly, "S_poly(before)");
-            print_poly_info(F_poly, "F_poly(before)");
-            print_poly_info(Gi_poly, "Gi_poly(before)");
-            print_poly_info(F_poly, "F_poly(after)");
-            print_poly_info(Gi_poly, "Gi_poly(after)");
-            /*
-            auto safe_is_simple = [](const Polygon& poly) -> bool {
-                try { return poly.is_simple(); } catch (...) { return false; }
-            };
-            if (F_poly.size() < 3 || !safe_is_simple(F_poly)) {
-                std::cerr << "Rejecting F_poly (degenerate/invalid) at i=" << i << "\n";
-                dead[i] = true; dead_cnt++; continue;
-            }
-            if (Gi_poly.size() < 3 || !safe_is_simple(Gi_poly)) {
-                std::cerr << "Rejecting Gi_poly (degenerate/invalid) at i=" << i << "\n";
-                dead[i] = true; dead_cnt++; continue;
-            }
-            // Log the exact source location of the next intersection call.
-            std::cerr << "[DBG] Next line will call CGAL::intersection at "
-                      << __FILE__ << ":" << (__LINE__ + 1) << "\n";
-            */
-            try {
-                CGAL::intersection(F_poly, Gi_poly, back_inserter(new_S[i]));
-            } catch (const std::exception &e) {
-                std::cerr << "CGAL::intersection threw: " << e.what() << "\n";
-                std::cerr << "At grid idx i=" << i << "\n";
-                print_polygon(F_poly);
-                print_polygon(Gi_poly);
-                throw;
-            }
+
+            if (showF) 
+                viewer.addPolygon(F_poly);
+            else if (showG)
+                viewer.addPolygon(Gi_poly);
+            else if (showS)
+                viewer.addPolygon(S_poly);
+            CGAL::intersection(F_poly, Gi_poly, back_inserter(new_S[i]));
+
             if (new_S[i].size() == 0) {
                 dead[i] = true;
                 dead_cnt++;
@@ -603,6 +607,9 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
             std::cout << new_S[i].size() << '\n';
             */
         }
+        if (dead_cnt == int(P.size())) {
+            break;
+        }
         for (int i = 0; i < int(P.size()); i++) {
             if (dead[i]) continue;
             S[i].clear();
@@ -610,15 +617,15 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
                       new_S.begin()->begin()->outer_boundary().vertices_end(),
                       std::back_inserter(S[i]));
         }
+
         /*
         Polygon S_poly(S[0].begin(), S[0].end());
         std::cout << "S\n";
         viewer.addPolygon(S_poly);
         poly_test(S_poly);
         */
-        viewer_process_events();
-        // std::this_thread::sleep_for(std::chrono::seconds(1));
         cur++;
+        viewer_process_events();
     }
     simplified.emplace_back(buffer[0]);
     simplified.emplace_back(buffer[1]);
@@ -638,38 +645,26 @@ std::vector<Point> simplify(const std::vector<Point> &stream, MultiViewer& viewe
 }
 
 int main(int argc, char** argv) {
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i],"-F") == 0) {
+            showF = true;
+        }
+        if (strcmp(argv[i],"-S") == 0) {
+            showS = true;
+        }
+        if (strcmp(argv[i],"-G") == 0) {
+            showG = true;
+        }
+    }
     int N;
     std::cin >> N;
     std::vector<Point> stream(N);
     for (int i = 0; i < N; i++) {
         std::cin >> stream[i];
     }
-    // Compute bounding square
-    if (!stream.empty()) {
-        double minx = std::numeric_limits<double>::infinity();
-        double miny = std::numeric_limits<double>::infinity();
-        double maxx = -std::numeric_limits<double>::infinity();
-        double maxy = -std::numeric_limits<double>::infinity();
-        for (const auto &p : stream) {
-            double x = CGAL::to_double(p.x());
-            double y = CGAL::to_double(p.y());
-            minx = std::min(minx, x);
-            miny = std::min(miny, y);
-            maxx = std::max(maxx, x);
-            maxy = std::max(maxy, y);
-        }
-        double dx = maxx - minx;
-        double dy = maxy - miny;
-        double span = std::max(dx, dy);
-        double pad = span * 0.05;
-        double overall_min = std::min(minx, miny) - pad;
-        double overall_max = std::max(maxx, maxy) + pad;
-        BMIN = overall_min;
-        BMAX = overall_max;
-    }
+    normalize_stream(stream);
     QApplication app(argc, argv);
     MultiViewer viewer;
-    // Provide algorithm parameters for on-screen HUD
     viewer.setParameters(DELTA, EPSILON);
     viewer.show();
     simplify(stream, viewer);

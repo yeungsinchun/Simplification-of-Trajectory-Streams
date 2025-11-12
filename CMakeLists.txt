@@ -6,10 +6,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Debug CACHE STRING "" FORCE)
+  set(CMAKE_BUILD_TYPE Debug CACHE STRING "BUILD TYPE" FORCE)
 endif()
 
-# enable Qt auto-moc/resources
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC OFF)
@@ -23,9 +22,11 @@ add_executable(simplify
   drawing.cpp
 )
 
-target_link_libraries(simplify PRIVATE CGAL::CGAL_Qt6)
-
-target_compile_options(simplify PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(simplify
+  PRIVATE
+    CGAL::CGAL_Qt6
+    Qt6::Core Qt6::Gui Qt6::Widgets
+)
 
 #[===[
 create_single_source_cgal_program("generate.cpp")
