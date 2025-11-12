@@ -68,66 +68,6 @@ static void normalize_stream(std::vector<Point> &stream) {
         p = Point(nx, ny);
     }
 }
-/*
-void draw_points_svg(const std::vector<Point> &pts,
-                     const std::string &filename = "../data/points.svg",
-                     int W = 800, int H = 800, double margin = 20.0,
-                     double point_radius = 3.5) {
-    double minx = 1e300, miny = 1e300, maxx = -1e300, maxy = -1e300;
-    for (const auto &p : pts) {
-        double x = CGAL::to_double(p.x()), y = CGAL::to_double(p.y());
-        minx = std::min(minx, x);
-        miny = std::min(miny, y);
-        maxx = std::max(maxx, x);
-        maxy = std::max(maxy, y);
-    }
-    if (pts.empty() || !(minx <= maxx)) {
-        minx = -1.0;
-        miny = -1.0;
-        maxx = 1.0;
-        maxy = 1.0;
-    }
-
-    double dx = maxx - minx;
-    double dy = maxy - miny;
-    if (dx == 0)
-        dx = 1.0;
-    if (dy == 0)
-        dy = 1.0;
-    double scale = std::min((W - 2 * margin) / dx, (H - 2 * margin) / dy);
-
-    auto mapx = [&](double x) { return margin + (x - minx) * scale; };
-    auto mapy = [&](double y) { return H - (margin + (y - miny) * scale); };
-
-    std::filesystem::create_directories(
-        std::filesystem::path(filename).parent_path());
-    std::ofstream os(filename);
-    if (!os)
-        return;
-
-    os << "<?xml version=\"1.0\" standalone=\"no\"?>\n";
-    os << "<svg xmlns=\"http://www.w3.org/2000/svg\" "
-       << "width=\"" << W << "\" height=\"" << H << "\" viewBox=\"0 0 " << W
-       << " " << H << "\">\n";
-
-    // background
-    os << "<rect x=\"0\" y=\"0\" width=\"" << W << "\" height=\"" << H
-       << "\" fill=\"white\" stroke=\"none\" />\n";
-
-    // points as filled circles
-    os.setf(std::ios::fixed);
-    os << std::setprecision(6);
-    for (const auto &p : pts) {
-        double x = mapx(CGAL::to_double(p.x()));
-        double y = mapy(CGAL::to_double(p.y()));
-        os << "<circle cx=\"" << x << "\" cy=\"" << y << "\" r=\""
-           << point_radius << "\" fill=\"black\" stroke=\"none\" />\n";
-    }
-
-    os << "</svg>\n";
-    os.close();
-}
-*/
 
 // Copied from examples/Boolean_set_operations/print_utils.cpp
 // Pretty-print a CGAL polygon.
@@ -142,77 +82,6 @@ void print_polygon (const CGAL::Polygon_2<Kernel, Container>& P)
   std::cout << " ]" << std::endl;
 
   return;
-}
-
-// TO BE REMOVED
-static void write_F_svg(const Point& p,
-                        const std::vector<Point>& S,
-                        const std::vector<Point>& F,
-                        const std::string& filename = "../data/F.svg",
-                        int W = 800, int H = 800, double margin = 20.0)
-{
-    // Gather bounds from p, S, and F
-    double minx = std::numeric_limits<double>::infinity();
-    double miny = std::numeric_limits<double>::infinity();
-    double maxx = -std::numeric_limits<double>::infinity();
-    double maxy = -std::numeric_limits<double>::infinity();
-    auto consider = [&](const Point& q){
-        double x = CGAL::to_double(q.x());
-        double y = CGAL::to_double(q.y());
-        minx = std::min(minx, x); miny = std::min(miny, y);
-        maxx = std::max(maxx, x); maxy = std::max(maxy, y);
-    };
-    consider(p);
-    for (const auto& q : S) consider(q);
-    for (const auto& q : F) consider(q);
-    if (!std::isfinite(minx) || !std::isfinite(miny) || !std::isfinite(maxx) || !std::isfinite(maxy)) {
-        minx = -1.0; miny = -1.0; maxx = 1.0; maxy = 1.0;
-    }
-    double dx = maxx - minx, dy = maxy - miny;
-    if (dx <= 0) dx = 1.0;
-    if (dy <= 0) dy = 1.0;
-    // add 5% padding
-    double pad_x = 0.05 * dx, pad_y = 0.05 * dy;
-    minx -= pad_x; maxx += pad_x; miny -= pad_y; maxy += pad_y;
-    dx = maxx - minx; dy = maxy - miny;
-    double scale = std::min((W - 2 * margin) / dx, (H - 2 * margin) / dy);
-    auto mapx = [&](double x) { return margin + (x - minx) * scale; };
-    auto mapy = [&](double y) { return H - (margin + (y - miny) * scale); };
-
-    std::filesystem::create_directories(std::filesystem::path(filename).parent_path());
-    std::ofstream os(filename);
-    if (!os) return;
-    os.setf(std::ios::fixed);
-    os << std::setprecision(6);
-    os << "<?xml version=\"1.0\" standalone=\"no\"?>\n";
-    os << "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" << W
-       << "\" height=\"" << H << "\" viewBox=\"0 0 " << W << " " << H
-       << "\">\n";
-    os << "<rect x=\"0\" y=\"0\" width=\"" << W << "\" height=\"" << H
-       << "\" fill=\"white\" stroke=\"none\"/>\n";
-
-    auto draw_poly = [&](const std::vector<Point>& poly,
-                         const char* stroke, const char* fill,
-                         double stroke_width, double fill_opacity) {
-        if (poly.empty()) return;
-        os << "<polygon points=\"";
-        for (const auto& q : poly) {
-            os << mapx(CGAL::to_double(q.x())) << "," << mapy(CGAL::to_double(q.y())) << " ";
-        }
-        os << "\" stroke=\"" << stroke << "\" stroke-width=\"" << stroke_width
-           << "\" fill=\"" << fill << "\" fill-opacity=\"" << fill_opacity << "\"/>\n";
-    };
-
-    // S: blue outline, no fill
-    draw_poly(S, "#1f77b4", "none", 2.0, 0.0);
-    // F: green outline, no fill
-    draw_poly(F, "#3f1398ff", "none", 2.0, 0.0);
-    // p: green point
-    os << "<circle cx=\"" << mapx(CGAL::to_double(p.x()))
-       << "\" cy=\"" << mapy(CGAL::to_double(p.y()))
-       << "\" r=\"3\" fill=\"#2ca02c\" stroke=\"none\"/>\n";
-
-    os << "</svg>\n";
 }
 
 // TO BE REMOVED: print simple/orientation/area
@@ -477,12 +346,10 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
     // assert(S.size() != 2); // wait why this check??
     if (S.size() == 1) {
         auto F = current_bbox();
-        write_F_svg(p, S, F);
         return F;
     }
     if (point_in_convex(p, S)) {
         auto F = current_bbox();
-        write_F_svg(p, S, F);
         return F;
     }
     std::vector<int> tangent = find_tangent_idx(p, S);
@@ -493,7 +360,6 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
     if (!hit1 || !hit2) {
         std::cerr << "Ray doesn't intersect with bounding box!\n";
         auto F = current_bbox();
-        write_F_svg(p, S, F);
         return F;
     }
     std::optional<Bbox_edge> e1 = which_edge(hit1.value());
@@ -525,10 +391,8 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
     if (!e1 || !e2) {
         std::cerr << "Cannot determine which Bbox edge the ray intersect with.\n";
         auto F = current_bbox();
-        write_F_svg(p, S, F);
         return F;
     }
-    write_F_svg(p, S, F);
     return F;
 }
 
