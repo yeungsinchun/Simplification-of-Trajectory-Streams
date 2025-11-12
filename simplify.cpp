@@ -38,15 +38,24 @@ extern const double BMIN = -10000;
 extern const double BMAX = 10000;
 // Bounding data points (convex hull should not exceed bounding box)
 const double DATAMIN = -8000;
-const double DATAMAX= 8000;
+const double DATAMAX = 8000;
 // TODO: DELTA should not be too high that convex hull goes out of bounding square, which may cause the program to crash
-constexpr double DELTA = 200;
-constexpr double EPSILON = 0.5;
-// Runtime-tunable parameters (overridable via -d and -e flags)
-static double G_EPSILON = EPSILON;
-static double G_DELTA = DELTA;
-static inline double GRID_val() { return G_EPSILON * G_DELTA / (2 * SQRT2); }
-constexpr double GRID = EPSILON * DELTA / (2 * SQRT2);
+double DELTA = 200;
+double EPSILON = 0.6;
+
+double GRID_val() { return EPSILON * DELTA / (2 * SQRT2); }
+
+static void print_help() {
+    std::cout << "Usage: simplify [options]\n"
+              << "  --in <id>        Read input from ../data/taxi/<id>.txt\n"
+              << "  --out            Write output to ../data/taxi_simplified/<id>/original.txt & simplified.txt (requires --in <id>)\n"
+              << "  --dist           After output, compute Frechet distance via ./frechet -n <id>\n"
+              << "  --gui            Show GUI viewer \n"
+              << "  -d <delta>       Override DELTA (default " << DELTA << ")\n"
+              << "  -e <epsilon>     Override EPSILON (default " << EPSILON << ")\n"
+              << "  -F/-G/-S         Debug polygon display modes\n"
+              << "  -h               Show this help and exit\n";
+}
 
 static void normalize_stream(std::vector<Point> &stream) {
     if (stream.empty()) return;
@@ -254,7 +263,7 @@ void append_rect_pts(std::vector<Point> &out, Bbox_edge from, Bbox_edge to,
 std::vector<Point> get_conv_from_grid(const Point &p) {
     const double px = CGAL::to_double(p.x());
     const double py = CGAL::to_double(p.y());
-    const double r = (1.0 + G_EPSILON / 2.0) * G_DELTA;
+    const double r = (1.0 + EPSILON / 2.0) * DELTA;
     const double GRID = GRID_val();
     const double r2 = r * r;
     // treat p as (0, 0), find the topmost index of grid point that is contained
@@ -265,12 +274,12 @@ std::vector<Point> get_conv_from_grid(const Point &p) {
     boundaries.reserve(2 * y_max + 1);
     for (int y = y_min; y <= y_max; y++) {
         const double y_actual = y * GRID;
-        const int x_min = sqrt(r2 - y_actual * y_actual) / GRID;
+        const int x_min = -sqrt(r2 - y_actual * y_actual) / GRID;
         boundaries.emplace_back(px + x_min * GRID, py + y_actual);
     }
     for (int y = y_min; y <= y_max; y++) {
         const double y_actual = y * GRID;
-        const int x_max = -(sqrt(r2 - y_actual * y_actual) / GRID);
+        const int x_max = (sqrt(r2 - y_actual * y_actual) / GRID);
         if (x_max != 0) // to avoid duplicates
             boundaries.emplace_back(px + x_max * GRID, py + y_actual);
     }
@@ -285,7 +294,7 @@ std::vector<Point> get_conv_from_grid(const Point &p) {
 std::vector<Point> get_points_from_grid(const Point &p) {
     const double px = CGAL::to_double(p.x());
     const double py = CGAL::to_double(p.y());
-    const double r = (1.0 + G_EPSILON / 2.0) * G_DELTA;
+    const double r = (1.0 + EPSILON / 2.0) * DELTA;
     const double GRID = GRID_val();
     const double r2 = r * r;
     // treat p as (0, 0), find the topmost index of grid point that is contained
@@ -296,7 +305,7 @@ std::vector<Point> get_points_from_grid(const Point &p) {
     points.reserve(2 * y_max + 1);
     for (int y = y_min; y <= y_max; y++) {
         const double y_actual = y * GRID;
-        const int x_min = sqrt(r2 - y_actual * y_actual) / GRID;
+        const int x_min = -sqrt(r2 - y_actual * y_actual) / GRID;
         const int x_max = -x_min;
         for (int x = x_min; x <= x_max; x++) {
             points.emplace_back(px + x * GRID, py + y_actual);
@@ -412,6 +421,7 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
     if (viewer) viewer->addOriginalPoint(p0);
     if (viewer) viewer->markP0(p0);
     std::vector<Point> P = get_points_from_grid(p0);
+    std::cerr << P.size() << std::endl;
     std::array<Point, 2> buffer = {p0};
     std::vector<std::vector<Point>> S(P.size(), std::vector<Point>{p0});
     int dead_cnt = 0;
@@ -430,12 +440,14 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
             Polygon Gi_poly(Gi.begin(), Gi.end());
             Polygon S_poly(S[i].begin(), S[i].end());
 
-            if (showF && viewer) 
-                viewer->addPolygon(F_poly);
-            else if (showG && viewer)
-                viewer->addPolygon(Gi_poly);
-            else if (showS && viewer)
-                viewer->addPolygon(S_poly);
+            // only show for one point to make it faster
+            if (i == 0) 
+                if (showF && viewer) 
+                    viewer->addPolygon(F_poly);
+                else if (showG && viewer)
+                    viewer->addPolygon(Gi_poly);
+                else if (showS && viewer)
+                    viewer->addPolygon(S_poly);
 
             CGAL::intersection(F_poly, Gi_poly, back_inserter(new_S[i]));
 
@@ -477,18 +489,6 @@ std::vector<Point> simplify(const std::vector<Point> &stream, MultiViewer* viewe
     return simplified;
 }
 
-static void print_help() {
-    std::cout << "Usage: simplify [options]\n"
-              << "  --in <id>        Read input from ../data/taxi/<id>.txt\n"
-              << "  --out            Write output to ../data/taxi_simplified/<id>/original.txt & simplified.txt (requires --in)\n"
-              << "  --dist           After output, compute Frechet distance via ./frechet -n <id>\n"
-              << "  --gui            Show GUI viewer (omit for headless run)\n"
-              << "  -d <delta>       Override DELTA (default " << DELTA << ")\n"
-              << "  -e <epsilon>     Override EPSILON (default " << EPSILON << ")\n"
-              << "  -F/-G/-S         Debug polygon display modes\n"
-              << "  -h               Show this help and exit\n";
-}
-
 int main(int argc, char** argv) {
     bool out_flag = false;      // write outputs if true
     bool gui_flag = false;      // show viewer if true
@@ -503,10 +503,10 @@ int main(int argc, char** argv) {
         else if (strcmp(argv[i],"--out") == 0) out_flag = true;
         else if (strcmp(argv[i],"--dist") == 0) dist_flag = true;
         else if (strcmp(argv[i],"-d") == 0 && i+1 < argc) {
-            try { G_DELTA = std::stod(argv[++i]); } catch(...) { std::cerr << "Invalid -d value\n"; return 1; }
+            try { DELTA = std::stod(argv[++i]); } catch(...) { std::cerr << "Invalid -d value\n"; return 1; }
         }
         else if (strcmp(argv[i],"-e") == 0 && i+1 < argc) {
-            try { G_EPSILON = std::stod(argv[++i]); } catch(...) { std::cerr << "Invalid -e value\n"; return 1; }
+            try { EPSILON = std::stod(argv[++i]); } catch(...) { std::cerr << "Invalid -e value\n"; return 1; }
         }
         else if (strcmp(argv[i],"-h") == 0) { print_help(); return 0; }
         else if (strcmp(argv[i],"--in") == 0 && i+1 < argc) {
@@ -544,7 +544,7 @@ int main(int argc, char** argv) {
     MultiViewer* vptr = nullptr;
     if (gui_flag) {
         vptr = &viewer;
-        viewer.setParameters(G_DELTA, G_EPSILON);
+        viewer.setParameters(DELTA, EPSILON);
         viewer.show();
     }
 
@@ -574,14 +574,16 @@ int main(int argc, char** argv) {
         std::cout << "Output Written\n";
     }
 
-    // Optional distance computation
+    int gui_result = 0;
+    if (gui_flag) {
+        gui_result = app.exec();
+    }
+
+    // Run distance computation only after GUI is closed (or immediately if no GUI)
     if (dist_flag && test_case_no != -1) {
-        // Assume running from build/; frechet script in project root
-        // Try ./frechet first, then python3 frechet, then python3 frechet.py
         std::string cmd1 = std::string("../frechet -id ") + std::to_string(test_case_no);
         int rc = std::system(cmd1.c_str());
     }
 
-    if (gui_flag) return app.exec();
-    return 0;
+    return gui_result;
 }
