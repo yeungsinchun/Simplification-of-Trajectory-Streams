@@ -22,6 +22,8 @@ print("Reading data for frechet distance calculation...")
 big_curve_1 = read_curve(f"../data/taxi_simplified/{test_case_id}/original.txt")
 big_curve_2 = read_curve(f"../data/taxi_simplified/{test_case_id}/simplified.txt")
 
+print("Finish reading data for frechet distance calculation...")
+
 print("Calculating frechet distance")
 res, morphing = frechet_c_approx(big_curve_1, big_curve_2, 1.01)
 
