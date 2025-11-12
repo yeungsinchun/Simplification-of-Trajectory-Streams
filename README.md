@@ -17,10 +17,11 @@ Tested primarily on macOS (arm64). Other platforms may work with the right depen
 	- NumPy
     - frechetlib
 
-On macOS with Homebrew you can install the basics with:
+On macOS with Homebrew you can install them with
 
 ```bash
 brew install cmake cgal qt@6
+pip install frechetlib
 ```
 
 ---
