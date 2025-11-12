@@ -1,24 +1,121 @@
-This is a draft implementation of the paper [Simplification of Trajectory Streams](https://arxiv.org/abs/2503.23025).
+## Simplification of Trajectory Streams (draft)
 
-To use the code, you should have CMake and CGAL installed on your system. Navigate to build/. Run `cmake ..`, then run `make` to produce the `./simplify` executable. Then run `./simplify < data/taxi_log_2008_by_id/1.txt` or any data of your choosing with the correct format.
+This repo implements ideas from the paper [Simplification of Trajectory Streams](https://arxiv.org/abs/2503.23025). It includes a Qt viewer and a CLI to simplify trajectories and optionally compute (approximate) Fréchet distance between original and simplified polylines.
 
-Disclaimer: only tested on MacOS (arm64).
+Tested primarily on macOS (arm64). Other platforms may work with the right dependencies.
 
-/build contains the main executable ./simplify
+---
 
-usage: ./simplify < ../data/taxi_log_2008_by_id
+## Prerequisites
 
-/script
-contains the script used to clean the taxi log data to the required format
+- C++ toolchain with C++23 support (Clang/LLVM or GCC)
+- CMake ≥ 3.16
+- CGAL
+- Qt 5/6 Widgets (QtCore, QtGui, QtWidgets) for the GUI viewer
+- Optional (for frechet distance computation(`--dist`)):
+	- Python 3
+	- NumPy
+    - frechetlib
 
-/data
-contains the taxi log data and some artificially created data
+On macOS with Homebrew you can install the basics with:
 
-Note to myself: fix 6.txt. Result is clearly wrong.
+```bash
+brew install cmake cgal qt@6
+```
 
-I am grateful that the following paper provides the dataset:
-[1] Jing Yuan, Yu Zheng, Xing Xie, and Guangzhong Sun. Driving with knowledge from the physical world.
-In The 17th ACM SIGKDD international conference on Knowledge Discovery and Data mining, KDD
-’11, New York, NY, USA, 2011. ACM.
-[2] Jing Yuan, Yu Zheng, Chengyang Zhang, Wenlei Xie, Xing Xie, Guangzhong Sun, and Yan Huang. Tdrive: driving directions based on taxi trajectories. In Proceedings of the 18th SIGSPATIAL International
-Conference on Advances in Geographic Information Systems, GIS ’10, pages 99–108, New York, NY, USA, 2010. ACM.
+---
+
+## Folder structure
+
+- `simplify.cpp` — main application (CLI + Qt viewer)
+- `data/`
+	- `taxi/` — raw inputs as text: `../data/taxi/<id>.txt` (see format below)
+	- `taxi_simplified/<id>/` — outputs written by `--out`: `original.txt`, `simplified.txt`
+- `script/`
+	- `clean` — shell script to pre-process taxi logs into the expected input format
+- `frechet` — helper to compute (approximate) Fréchet distance from outputs
+- `build/` — out-of-source build directory (create this yourself)
+- `README.md` — this file
+
+---
+
+## Build and install
+
+```bash
+mkdir build
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake --build .
+```
+
+This produces an executable named `simplify` in `build/`.
+
+---
+
+## Usage
+
+Run from the `build/` directory after a successful build.
+
+Basic headless run (read input by id and write outputs):
+
+```bash
+./simplify --in 1 --out
+```
+
+Show GUI viewer while simplifying:
+
+```bash
+./simplify --in 1 --gui
+```
+
+Full workflow (GUI + write outputs + run distance later when GUI closes):
+
+```bash
+./simplify --in 1 --gui --out --dist
+```
+
+Tuning parameters at runtime:
+
+```bash
+./simplify --in 1 -d 1500 -e 0.5 --gui
+```
+
+CLI flags summary:
+
+- `--in <id>` — read from `../data/taxi/<id>.txt`
+- `--out` — write outputs into `../data/taxi_simplified/<id>/`
+- `--dist` — compute Fréchet distance by running `../frechet -id <id>` after GUI closes
+- `--gui` — show the viewer
+- `-d <delta>` — override delta
+- `-e <epsilon>` — override epsilon
+- `-F`, `-G`, `-S` — show the intermediate structures in the viewer (refer to the paper for description of these structures)
+- `-h` — print help
+
+Notes:
+- With `--gui`, distance computation is deferred until you close the viewer.
+---
+
+## Cleaning and preparing data
+
+There is a helper script to format raw taxi logs to the expected input layout:
+
+```bash
+./script/clean --all
+```
+
+This enumerates input files numerically by basename (e.g., `1.txt`, `2.txt`, …), processes each one, and writes cleaned results. Check the script header/comments for more options.
+
+---
+
+## Acknowledgements
+
+We are grateful to the following papers for datasets/resources:
+
+1. Jing Yuan, Yu Zheng, Xing Xie, and Guangzhong Sun. Driving with knowledge from the physical world. In KDD ’11. ACM.
+2. Jing Yuan, Yu Zheng, Chengyang Zhang, Wenlei Xie, Xing Xie, Guangzhong Sun, and Yan Huang. T-Drive: driving directions based on taxi trajectories. In GIS ’10. ACM.
+
+---
+
+## TODO
+
+- Implementation improvements (e.g., `get_points_from_grid`)
