@@ -272,6 +272,7 @@ std::vector<Point> get_conv_from_grid(const Point &p) {
     int y_max = -y_min;
     std::vector<Point> boundaries;
     boundaries.reserve(2 * y_max + 1);
+    // TODO: improve this implementation
     for (int y = y_min; y <= y_max; y++) {
         const double y_actual = y * GRID;
         const int x_min = -sqrt(r2 - y_actual * y_actual) / GRID;
@@ -421,7 +422,6 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
     if (viewer) viewer->addOriginalPoint(p0);
     if (viewer) viewer->markP0(p0);
     std::vector<Point> P = get_points_from_grid(p0);
-    std::cerr << P.size() << std::endl;
     std::array<Point, 2> buffer = {p0};
     std::vector<std::vector<Point>> S(P.size(), std::vector<Point>{p0});
     int dead_cnt = 0;

@@ -11,7 +11,7 @@ Tested primarily on macOS (arm64). Other platforms may work with the right depen
 - C++ toolchain with C++23 support (Clang/LLVM or GCC)
 - CMake ≥ 3.16
 - CGAL
-- Qt 5/6 Widgets (QtCore, QtGui, QtWidgets) for the GUI viewer
+- Qt 6 Widgets (QtCore, QtGui, QtWidgets) for the GUI viewer
 - Optional (for frechet distance computation(`--dist`)):
 	- Python 3
 	- NumPy
@@ -21,7 +21,7 @@ On macOS with Homebrew you can install them with
 
 ```bash
 brew install cmake cgal qt@6
-pip install frechetlib
+pip3 install frechetlib
 ```
 
 ---
