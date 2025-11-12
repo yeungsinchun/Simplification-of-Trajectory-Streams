@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+import numpy as np
+import sys
+
+from frechetlib.continuous_frechet import frechet_c_approx
+
+def read_curve(filename):
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+        x = list(map(float, lines[0].split()))
+        y = list(map(float, lines[1].split()))
+        return np.array(list(zip(x, y)))
+
+if len(sys.argv) != 3 or sys.argv[1] != '-id':
+    print("Usage: ./frechet -id <id>")
+    sys.exit(1)
+
+test_case_id = sys.argv[2]
+
+big_curve_1 = read_curve(f"data/taxi_simplified/{test_case_id}/original.txt")
+big_curve_2 = read_curve(f"data/taxi_simplified/{test_case_id}/simplified.txt")
+
+res, morphing = frechet_c_approx(big_curve_1, big_curve_2, 1.01)
+
+print("Approximated Frechet distance: ", morphing.dist)
