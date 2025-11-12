@@ -17,9 +17,12 @@ if len(sys.argv) != 3 or sys.argv[1] != '-id':
 
 test_case_id = sys.argv[2]
 
-big_curve_1 = read_curve(f"data/taxi_simplified/{test_case_id}/original.txt")
-big_curve_2 = read_curve(f"data/taxi_simplified/{test_case_id}/simplified.txt")
+print("Reading data for frechet distance calculation...")
 
+big_curve_1 = read_curve(f"../data/taxi_simplified/{test_case_id}/original.txt")
+big_curve_2 = read_curve(f"../data/taxi_simplified/{test_case_id}/simplified.txt")
+
+print("Calculating frechet distance")
 res, morphing = frechet_c_approx(big_curve_1, big_curve_2, 1.01)
 
 print("Approximated Frechet distance: ", morphing.dist)

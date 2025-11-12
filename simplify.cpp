@@ -10,7 +10,9 @@
 #include <string>
 #include <limits>
 #include <fstream>
+#include <cstdlib>
 #include <filesystem>
+#include <cstring>
 #include <QApplication>
 #include "drawing.h"
 
@@ -40,6 +42,10 @@ const double DATAMAX= 8000;
 // TODO: DELTA should not be too high that convex hull goes out of bounding square, which may cause the program to crash
 constexpr double DELTA = 200;
 constexpr double EPSILON = 0.5;
+// Runtime-tunable parameters (overridable via -d and -e flags)
+static double G_EPSILON = EPSILON;
+static double G_DELTA = DELTA;
+static inline double GRID_val() { return G_EPSILON * G_DELTA / (2 * SQRT2); }
 constexpr double GRID = EPSILON * DELTA / (2 * SQRT2);
 
 static void normalize_stream(std::vector<Point> &stream) {
@@ -248,7 +254,8 @@ void append_rect_pts(std::vector<Point> &out, Bbox_edge from, Bbox_edge to,
 std::vector<Point> get_conv_from_grid(const Point &p) {
     const double px = CGAL::to_double(p.x());
     const double py = CGAL::to_double(p.y());
-    const double r = (1.0 + EPSILON / 2.0) * DELTA;
+    const double r = (1.0 + G_EPSILON / 2.0) * G_DELTA;
+    const double GRID = GRID_val();
     const double r2 = r * r;
     // treat p as (0, 0), find the topmost index of grid point that is contained
     // in the G_p
@@ -278,7 +285,8 @@ std::vector<Point> get_conv_from_grid(const Point &p) {
 std::vector<Point> get_points_from_grid(const Point &p) {
     const double px = CGAL::to_double(p.x());
     const double py = CGAL::to_double(p.y());
-    const double r = (1.0 + EPSILON / 2.0) * DELTA;
+    const double r = (1.0 + G_EPSILON / 2.0) * G_DELTA;
+    const double GRID = GRID_val();
     const double r2 = r * r;
     // treat p as (0, 0), find the topmost index of grid point that is contained
     // in the G_p
@@ -421,15 +429,6 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
             Polygon F_poly(F.begin(), F.end());
             Polygon Gi_poly(Gi.begin(), Gi.end());
             Polygon S_poly(S[i].begin(), S[i].end());
-            // std::cerr << "F\n";
-            // viewer.addPolygon(F_poly);
-            // print_polygon(F_poly);
-            // std::cerr << "Gi\n";
-            // viewer.addPolygon(Gi_poly);
-            // print_polygon(Gi_poly);
-            // std::cerr << "done\n";
-            // std::cerr.flush();
-            // Validate polygons before boolean ops
 
             if (showF && viewer) 
                 viewer->addPolygon(F_poly);
@@ -437,6 +436,7 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
                 viewer->addPolygon(Gi_poly);
             else if (showS && viewer)
                 viewer->addPolygon(S_poly);
+
             CGAL::intersection(F_poly, Gi_poly, back_inserter(new_S[i]));
 
             if (new_S[i].size() == 0) {
@@ -446,10 +446,6 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
             }
             assert(new_S[i].size() == 1);
             buffer[1] = *new_S[i].begin()->outer_boundary().vertices_begin();
-            /*
-            std::cout << "throw\n";
-            std::cout << new_S[i].size() << '\n';
-            */
         }
         if (dead_cnt == int(P.size())) {
             break;
@@ -461,15 +457,8 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
                       new_S.begin()->begin()->outer_boundary().vertices_end(),
                       std::back_inserter(S[i]));
         }
-
-        /*
-        Polygon S_poly(S[0].begin(), S[0].end());
-        std::cout << "S\n";
-        viewer.addPolygon(S_poly);
-        poly_test(S_poly);
-        */
         cur++;
-        viewer_process_events();
+        if (viewer) viewer_process_events();
     }
     simplified.emplace_back(buffer[0]);
     simplified.emplace_back(buffer[1]);
@@ -488,81 +477,111 @@ std::vector<Point> simplify(const std::vector<Point> &stream, MultiViewer* viewe
     return simplified;
 }
 
+static void print_help() {
+    std::cout << "Usage: simplify [options]\n"
+              << "  --in <id>        Read input from ../data/taxi/<id>.txt\n"
+              << "  --out            Write output to ../data/taxi_simplified/<id>/original.txt & simplified.txt (requires --in)\n"
+              << "  --dist           After output, compute Frechet distance via ./frechet -n <id>\n"
+              << "  --gui            Show GUI viewer (omit for headless run)\n"
+              << "  -d <delta>       Override DELTA (default " << DELTA << ")\n"
+              << "  -e <epsilon>     Override EPSILON (default " << EPSILON << ")\n"
+              << "  -F/-G/-S         Debug polygon display modes\n"
+              << "  -h               Show this help and exit\n";
+}
+
 int main(int argc, char** argv) {
-    bool out_flag = false;
-    int test_case_no = -1;
-    bool gui_flag = false;
+    bool out_flag = false;      // write outputs if true
+    bool gui_flag = false;      // show viewer if true
+    bool dist_flag = false;     // compute frechet if true
+    int test_case_no = -1;      // provided by --in <id>
+
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i],"-F") == 0) showF = true;
-        if (strcmp(argv[i],"-S") == 0) showS = true;
-        if (strcmp(argv[i],"-G") == 0) showG = true;
-        if (strcmp(argv[i],"--gui") == 0) gui_flag = true;
-        if (strcmp(argv[i],"--out") == 0 && i+1 < argc) {
-            out_flag = true;
-            try {
-                test_case_no = std::stoi(argv[++i]);
-            } catch(...) {
-                std::cerr << "Invalid --out argument\n";
-                return 1;
-            }
+        else if (strcmp(argv[i],"-S") == 0) showS = true;
+        else if (strcmp(argv[i],"-G") == 0) showG = true;
+        else if (strcmp(argv[i],"--gui") == 0) gui_flag = true;
+        else if (strcmp(argv[i],"--out") == 0) out_flag = true;
+        else if (strcmp(argv[i],"--dist") == 0) dist_flag = true;
+        else if (strcmp(argv[i],"-d") == 0 && i+1 < argc) {
+            try { G_DELTA = std::stod(argv[++i]); } catch(...) { std::cerr << "Invalid -d value\n"; return 1; }
+        }
+        else if (strcmp(argv[i],"-e") == 0 && i+1 < argc) {
+            try { G_EPSILON = std::stod(argv[++i]); } catch(...) { std::cerr << "Invalid -e value\n"; return 1; }
+        }
+        else if (strcmp(argv[i],"-h") == 0) { print_help(); return 0; }
+        else if (strcmp(argv[i],"--in") == 0 && i+1 < argc) {
+            try { test_case_no = std::stoi(argv[++i]); }
+            catch(...) { std::cerr << "Invalid --in argument\n"; return 1; }
         }
     }
-    int N;
+
+    if (dist_flag) out_flag = true;
+
+    // Load input stream
     std::vector<Point> stream;
-    if (out_flag) {
+    if (test_case_no != -1) {
         std::string input_file = std::string("../data/taxi/") + std::to_string(test_case_no) + ".txt";
         std::ifstream fin(input_file);
-        if (!fin) {
-            std::cerr << "Cannot open " << input_file << std::endl;
-            return 1;
-        }
-        fin >> N;
+        if (!fin) { std::cerr << "Cannot open " << input_file << "\n"; return 1; }
+        int N = 0;
+        if (!(fin >> N)) { std::cerr << "Empty or invalid input in " << input_file << "\n"; return 1; }
         stream.resize(N);
-        for (int i = 0; i < N; i++) {
-            fin >> stream[i];
+        for (int i = 0; i < N; ++i) {
+            if (!(fin >> stream[i])) { std::cerr << "Malformed point at index " << i << " in " << input_file << "\n"; return 1; }
         }
     } else {
-        std::cin >> N;
+        int N = 0;
+        if (!(std::cin >> N)) { std::cerr << "Expected N from stdin\n"; return 1; }
         stream.resize(N);
-        for (int i = 0; i < N; i++) {
-            std::cin >> stream[i];
-        }
+        for (int i = 0; i < N; ++i) { if (!(std::cin >> stream[i])) { std::cerr << "Malformed stdin point at " << i << "\n"; return 1; } }
     }
+
     normalize_stream(stream);
+
+    // Optional GUI
     QApplication app(argc, argv);
     MultiViewer viewer;
-    std::vector<Point> simplified;
+    MultiViewer* vptr = nullptr;
     if (gui_flag) {
-        viewer.setParameters(DELTA, EPSILON);
+        vptr = &viewer;
+        viewer.setParameters(G_DELTA, G_EPSILON);
         viewer.show();
-        simplified = simplify(stream, &viewer);
-    } else {
-        simplified = simplify(stream, nullptr);
     }
+
+    // Simplify
+    std::vector<Point> simplified = simplify(stream, vptr);
+
+    // Optional output
     if (out_flag) {
-        std::filesystem::path dir = std::filesystem::path("data/taxi_simplified") / std::to_string(test_case_no);
-        std::filesystem::create_directories(dir);
-        // write original
-        std::ofstream orig(dir / "original.txt");
-        for (const auto& p : stream) {
-            orig << CGAL::to_double(p.x()) << " ";
+        if (test_case_no == -1) {
+            std::cerr << "--out requires --in <id> to determine output location\n";
+        } else {
+            std::filesystem::path dir = std::filesystem::path("../data/taxi_simplified") / std::to_string(test_case_no);
+            std::filesystem::create_directories(dir);
+            // original
+            std::ofstream orig(dir / "original.txt");
+            for (const auto& p : stream) orig << CGAL::to_double(p.x()) << ' ';
+            orig << '\n';
+            for (const auto& p : stream) orig << CGAL::to_double(p.y()) << ' ';
+            orig << '\n';
+            // simplified
+            std::ofstream simp(dir / "simplified.txt");
+            for (const auto& p : simplified) simp << CGAL::to_double(p.x()) << ' ';
+            simp << '\n';
+            for (const auto& p : simplified) simp << CGAL::to_double(p.y()) << ' ';
+            simp << '\n';
         }
-        orig << "\n";
-        for (const auto& p : stream) {
-            orig << CGAL::to_double(p.y()) << " ";
-        }
-        orig << "\n";
-        // write simplified
-        std::ofstream simp(dir / "simplified.txt");
-        for (const auto& p : simplified) {
-            simp << CGAL::to_double(p.x()) << " ";
-        }
-        simp << "\n";
-        for (const auto& p : simplified) {
-            simp << CGAL::to_double(p.y()) << " ";
-        }
-        simp << "\n";
+        std::cout << "Output Written\n";
     }
-    std::cout << "Done\n";
-    return app.exec();
+
+    // Optional distance computation
+    if (dist_flag && test_case_no != -1) {
+        // Assume running from build/; frechet script in project root
+        // Try ./frechet first, then python3 frechet, then python3 frechet.py
+        std::string cmd1 = std::string("../frechet -id ") + std::to_string(test_case_no);
+        int rc = std::system(cmd1.c_str());
+    }
+
+    if (gui_flag) return app.exec();
+    return 0;
 }
