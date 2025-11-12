@@ -28,7 +28,6 @@ bool showG = false; // true if -G is passed
 bool showS = false; // true if -S is passed
 
 constexpr double TOL = 1e-6;
-constexpr double EPSILON = 0.5;
 constexpr double SQRT2 =
     1.41421356237; // sqrt in STL does not have constexpr version !?
 
@@ -39,7 +38,8 @@ extern const double BMAX = 10000;
 const double DATAMIN = -8000;
 const double DATAMAX= 8000;
 // TODO: DELTA should not be too high that convex hull goes out of bounding square, which may cause the program to crash
-constexpr double DELTA = 500;
+constexpr double DELTA = 200;
+constexpr double EPSILON = 0.5;
 constexpr double GRID = EPSILON * DELTA / (2 * SQRT2);
 
 static void normalize_stream(std::vector<Point> &stream) {
@@ -502,20 +502,10 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
     int n = int(S.size());
     assert(n >= 3);
     CGAL_precondition(Polygon(S.begin(), S.end()).is_counterclockwise_oriented());
-    // std::cerr << "tangent:" << ' ' << tangent[0] << ' ' << tangent[1] << std::endl;
-    // This is false
     assert(tangent[1] - tangent[0] - 1 >= 1 || tangent[0] + n - tangent[1] - 1 >= 1);
     std::vector<Point> F;
-    // auto avg = [](const Point& a, const Point& b) {
-    //     return Point{(a.x() + b.x())/2, (a.y() + b.y())/2};
-    // };
-    // if (CGAL::squared_distance(S[(tangent[0] + 1) % n], p) <
-    // CGAL::squared_distance(S[(tangent[1] + 1) % n], p)) {
-    // if (CGAL::squared_distance(S[(tangent[0] + 1) % n], p) <
-    //  CGAL::squared_distance(avg(S[tangent[1]], S[tangent[0]]), p)) {
     if (CGAL::right_turn(p, S[tangent[0]], S[tangent[1]]))  {
         // [i..j] (inclusive)
-        // std::cerr << "First\n";
         std::copy(S.begin() + tangent[0], S.begin() + tangent[1] + 1,
                   std::back_inserter(F));
         // walk from hit2 to hit1 ccw to close
@@ -523,8 +513,7 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
         append_rect_pts(F, e2.value(), e1.value(), true);
         F.push_back(hit1.value());
     } else {
-        // reverse([j..n-1] + [0..i]) (inclusive)
-        // std::cerr << "Second\n";
+        // [j..n-1] + [0..i] (inclusive)
         std::copy(S.begin() + tangent[1], S.end(),
                   std::back_inserter(F));
         std::copy(S.begin(), S.begin() + tangent[0] + 1,
@@ -540,25 +529,16 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
         return F;
     }
     write_F_svg(p, S, F);
-    /*
-    for (size_t i = 0; i < F.size(); i++) {
-        std::cerr << "(" << F[i].x() << ',' << F[i].y() << ") ";
-    }
-    std::cerr << '\n';
-    std::cerr << hit1.value().x() << ' ' << hit1.value().y() << '\n';
-    std::cerr << hit2.value().x() << ' ' << hit2.value().y() << '\n';
-    std::cerr << "Case " << 4 << std::endl;
-    */
     return F;
 }
 
 int get_longest_stab(const std::vector<Point> &stream, int cur,
-                     std::vector<Point> &simplified, MultiViewer& viewer) {
+                     std::vector<Point> &simplified, MultiViewer* viewer = nullptr) {
     const Point& p0 = stream[cur];
     int p0cur = cur;
     std::cerr << "[p0]: " << cur << std::endl;
-    viewer.addOriginalPoint(p0);
-    viewer.markP0(p0);
+    if (viewer) viewer->addOriginalPoint(p0);
+    if (viewer) viewer->markP0(p0);
     std::vector<Point> P = get_points_from_grid(p0);
     std::array<Point, 2> buffer = {p0};
     std::vector<std::vector<Point>> S(P.size(), std::vector<Point>{p0});
@@ -566,7 +546,7 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
     std::vector<int> dead(P.size());
     while (cur < int(stream.size())) {
         const Point& pi  = stream[cur];
-        viewer.addOriginalPoint(pi);
+        if (viewer) viewer->addOriginalPoint(pi);
         std::vector<std::vector<Polygon_with_holes>> new_S(P.size());
         for (int i = 0; i < int(P.size()); i++) {
             if (dead[i]) {
@@ -587,12 +567,12 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
             // std::cerr.flush();
             // Validate polygons before boolean ops
 
-            if (showF) 
-                viewer.addPolygon(F_poly);
-            else if (showG)
-                viewer.addPolygon(Gi_poly);
-            else if (showS)
-                viewer.addPolygon(S_poly);
+            if (showF && viewer) 
+                viewer->addPolygon(F_poly);
+            else if (showG && viewer)
+                viewer->addPolygon(Gi_poly);
+            else if (showS && viewer)
+                viewer->addPolygon(S_poly);
             CGAL::intersection(F_poly, Gi_poly, back_inserter(new_S[i]));
 
             if (new_S[i].size() == 0) {
@@ -629,13 +609,13 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
     }
     simplified.emplace_back(buffer[0]);
     simplified.emplace_back(buffer[1]);
-    viewer.addSimplifiedPoint(buffer[0]);
-    viewer.addSimplifiedPoint(buffer[1]);
-    viewer_process_events();
+    if (viewer) viewer->addSimplifiedPoint(buffer[0]);
+    if (viewer) viewer->addSimplifiedPoint(buffer[1]);
+    if (viewer) viewer_process_events();
     return cur;
 }
 
-std::vector<Point> simplify(const std::vector<Point> &stream, MultiViewer& viewer) {
+std::vector<Point> simplify(const std::vector<Point> &stream, MultiViewer* viewer = nullptr) {
     std::vector<Point> simplified;
     int cur = 0;
     while (cur != int(stream.size())) {
@@ -645,28 +625,80 @@ std::vector<Point> simplify(const std::vector<Point> &stream, MultiViewer& viewe
 }
 
 int main(int argc, char** argv) {
+    bool out_flag = false;
+    int test_case_no = -1;
+    bool gui_flag = false;
     for (int i = 1; i < argc; ++i) {
-        if (strcmp(argv[i],"-F") == 0) {
-            showF = true;
-        }
-        if (strcmp(argv[i],"-S") == 0) {
-            showS = true;
-        }
-        if (strcmp(argv[i],"-G") == 0) {
-            showG = true;
+        if (strcmp(argv[i],"-F") == 0) showF = true;
+        if (strcmp(argv[i],"-S") == 0) showS = true;
+        if (strcmp(argv[i],"-G") == 0) showG = true;
+        if (strcmp(argv[i],"--gui") == 0) gui_flag = true;
+        if (strcmp(argv[i],"--out") == 0 && i+1 < argc) {
+            out_flag = true;
+            try {
+                test_case_no = std::stoi(argv[++i]);
+            } catch(...) {
+                std::cerr << "Invalid --out argument\n";
+                return 1;
+            }
         }
     }
     int N;
-    std::cin >> N;
-    std::vector<Point> stream(N);
-    for (int i = 0; i < N; i++) {
-        std::cin >> stream[i];
+    std::vector<Point> stream;
+    if (out_flag) {
+        std::string input_file = std::string("../data/taxi/") + std::to_string(test_case_no) + ".txt";
+        std::ifstream fin(input_file);
+        if (!fin) {
+            std::cerr << "Cannot open " << input_file << std::endl;
+            return 1;
+        }
+        fin >> N;
+        stream.resize(N);
+        for (int i = 0; i < N; i++) {
+            fin >> stream[i];
+        }
+    } else {
+        std::cin >> N;
+        stream.resize(N);
+        for (int i = 0; i < N; i++) {
+            std::cin >> stream[i];
+        }
     }
     normalize_stream(stream);
     QApplication app(argc, argv);
     MultiViewer viewer;
-    viewer.setParameters(DELTA, EPSILON);
-    viewer.show();
-    simplify(stream, viewer);
+    std::vector<Point> simplified;
+    if (gui_flag) {
+        viewer.setParameters(DELTA, EPSILON);
+        viewer.show();
+        simplified = simplify(stream, &viewer);
+    } else {
+        simplified = simplify(stream, nullptr);
+    }
+    if (out_flag) {
+        std::filesystem::path dir = std::filesystem::path("data/taxi_simplified") / std::to_string(test_case_no);
+        std::filesystem::create_directories(dir);
+        // write original
+        std::ofstream orig(dir / "original.txt");
+        for (const auto& p : stream) {
+            orig << CGAL::to_double(p.x()) << " ";
+        }
+        orig << "\n";
+        for (const auto& p : stream) {
+            orig << CGAL::to_double(p.y()) << " ";
+        }
+        orig << "\n";
+        // write simplified
+        std::ofstream simp(dir / "simplified.txt");
+        for (const auto& p : simplified) {
+            simp << CGAL::to_double(p.x()) << " ";
+        }
+        simp << "\n";
+        for (const auto& p : simplified) {
+            simp << CGAL::to_double(p.y()) << " ";
+        }
+        simp << "\n";
+    }
+    std::cout << "Done\n";
     return app.exec();
 }
