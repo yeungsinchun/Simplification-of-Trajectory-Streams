@@ -62,7 +62,7 @@ process_file() {
         if (dy > maxabs) maxabs = dy;
       }
       scale = 1.0;
-      if (maxabs > 0) scale = 10000.0 / maxabs;
+      if (maxabs > 0) scale = 8000.0 / maxabs;
       print n;
       for (i = 1; i <= n; i++) printf("%.15g %.15g\n", (a[i]-mx)*scale, (b[i]-my)*scale);
     }' "$in" > "$tmp"
