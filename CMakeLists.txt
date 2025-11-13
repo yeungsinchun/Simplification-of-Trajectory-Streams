@@ -40,6 +40,15 @@ target_link_libraries(plot_curves
     Qt6::Core Qt6::Gui Qt6::Widgets
 )
 
+# Algorithms runner (single build tree)
+add_executable(main
+  algorithms/main.cpp
+)
+
+target_include_directories(main PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/algorithms/inc
+)
+
 #[===[
 create_single_source_cgal_program("generate.cpp")
 target_link_libraries(generate PRIVATE CGAL::CGAL_Qt6 Qt6::Core Qt6::Gui Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets)
