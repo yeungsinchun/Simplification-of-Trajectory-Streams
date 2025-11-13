@@ -515,9 +515,13 @@ int main(int argc, char** argv) {
         }
     }
 
+    if (argc == 1) {
+        print_help();
+        return 0;
+    }
+
     if (dist_flag) out_flag = true;
 
-    // Load input stream
     std::vector<Point> stream;
     if (test_case_no != -1) {
         std::string input_file = std::string("../data/taxi/") + std::to_string(test_case_no) + ".txt";
@@ -529,11 +533,6 @@ int main(int argc, char** argv) {
         for (int i = 0; i < N; ++i) {
             if (!(fin >> stream[i])) { std::cerr << "Malformed point at index " << i << " in " << input_file << "\n"; return 1; }
         }
-    } else {
-        int N = 0;
-        if (!(std::cin >> N)) { std::cerr << "Expected N from stdin\n"; return 1; }
-        stream.resize(N);
-        for (int i = 0; i < N; ++i) { if (!(std::cin >> stream[i])) { std::cerr << "Malformed stdin point at " << i << "\n"; return 1; } }
     }
 
     normalize_stream(stream);
