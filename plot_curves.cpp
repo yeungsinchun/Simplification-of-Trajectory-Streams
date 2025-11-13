@@ -205,11 +205,11 @@ int main(int argc, char** argv) {
 
     // Add curves with colors
     auto color_for = [&](const QString& label){
-        if (label == "Simplified") return QColor(0, 0, 0);        // black
-        if (label == "DP")         return QColor(220, 20, 60);    // crimson
-        if (label == "OPERB")      return QColor(25, 118, 210);   // blue
-        if (label == "OPERBA")     return QColor(56, 142, 60);    // green
-        if (label == "FBQS")       return QColor(156, 39, 176);   // purple
+        if (label == "Simplified") return QColor(255, 0, 0);        // red (match viewer simplified)
+        if (label == "DP")         return QColor(255, 127, 0);      // orange (distinct from Simplified)
+        if (label == "OPERB")      return QColor(55, 126, 184);     // blue   rgba(55, 126, 184, 1)
+        if (label == "OPERBA")     return QColor(77, 175, 74);      // green  rgba(77, 175, 74, 1)
+        if (label == "FBQS")       return QColor(152, 78, 163);     // purple #984ea3
         return QColor(120, 120, 120);                               // gray
     };
 
