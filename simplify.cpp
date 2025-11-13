@@ -464,10 +464,12 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
 
 std::vector<Point> simplify(const std::vector<Point> &stream, MultiViewer* viewer = nullptr) {
     std::vector<Point> simplified;
+    std::cout << "Simplifying...\n";
     int cur = 0;
     while (cur != int(stream.size())) {
         cur = get_longest_stab(stream, cur, simplified, viewer);
     }
+    std::cout << "Simplified!\n";
     return simplified;
 }
 
