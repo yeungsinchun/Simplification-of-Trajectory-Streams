@@ -60,61 +60,65 @@ int main(int argc, char *argv[]) {
     for (int j = 0; j < N; ++j) {
         if (!(fin >> tx >> ty)) {
             std::cerr << "Unexpected end of file while reading coordinates in " << file_name << "\n";
-            fin.close();
-
-            std::cout << "Running on trajectory id=" << id << " (points=" << traj->size() << ")\n";
-
-            // Run compression
-            Trajectory<Line>* result = pta ? pta->compress(traj) : nullptr;
-
-            // Build simplified vertex sequence from segments
-            std::vector<Point> simplified_pts;
-            if (result && result->size() > 0) {
-                simplified_pts.reserve(result->size() + 1);
-                // start point of first segment
-                auto first_seg = (*result)[0];
-                simplified_pts.push_back(first_seg.start_point());
-                for (std::size_t k = 0; k < result->size(); ++k) {
-                    auto seg = (*result)[k];
-                    simplified_pts.push_back(seg.end_point());
-                }
-            } else {
-                // Fallback: no segments produced; use the original points
-                simplified_pts.reserve(traj->size());
-                for (std::size_t k = 0; k < traj->size(); ++k) simplified_pts.push_back((*traj)[k]);
-            }
-
-            // Write to ../../data/taxi_simplified/<id>/<alg>_simplified.txt in two-line x/y format
-            try {
-                std::filesystem::path out_dir = std::filesystem::path("../../data/taxi_simplified") / std::to_string(id);
-                std::filesystem::create_directories(out_dir);
-                std::filesystem::path out_path = out_dir / (alg_name + std::string("_simplified.txt"));
-                std::ofstream fout(out_path);
-                if (!fout) {
-                    std::cerr << "Failed to open output file: " << out_path << "\n";
-                } else {
-                    for (std::size_t i = 0; i < simplified_pts.size(); ++i) {
-                        if (i) fout << ' ';
-                        fout << simplified_pts[i].x;
-                    }
-                    fout << "\n";
-                    for (std::size_t i = 0; i < simplified_pts.size(); ++i) {
-                        if (i) fout << ' ';
-                        fout << simplified_pts[i].y;
-                    }
-                    fout << "\n";
-                    std::cout << "Wrote simplified to " << out_path << " (points=" << simplified_pts.size() << ")\n";
-                }
-            } catch (const std::exception& e) {
-                std::cerr << "Error writing output: " << e.what() << "\n";
-            }
-
-            delete result;
-            delete traj;
-
-            double end_time = clock();
-            std::cout << "Elapsed: " << (double)(end_time - start_time) / CLOCKS_PER_SEC << "s\n";
-            return 0;
+            break;
         }
+        traj->push(Point{tx, ty});
     }
+    fin.close();
+
+    std::cout << "Running on trajectory id=" << id << " (points=" << traj->size() << ")\n";
+
+    // Run compression
+    Trajectory<Line>* result = pta ? pta->compress(traj) : nullptr;
+
+    // Build simplified vertex sequence from segments
+    std::vector<Point> simplified_pts;
+    if (result && result->size() > 0) {
+        simplified_pts.reserve(result->size() + 1);
+        // start point of first segment
+        auto first_seg = (*result)[0];
+        simplified_pts.push_back(first_seg.start_point());
+        for (std::size_t k = 0; k < result->size(); ++k) {
+            auto seg = (*result)[k];
+            simplified_pts.push_back(seg.end_point());
+        }
+    } else {
+        // Fallback: no segments produced; use the original points
+        simplified_pts.reserve(traj->size());
+        for (std::size_t k = 0; k < traj->size(); ++k) simplified_pts.push_back((*traj)[k]);
+    }
+
+    // Write to ../../data/taxi_simplified/<id>/<alg>_simplified.txt in two-line x/y format
+    try {
+        std::filesystem::path out_dir = std::filesystem::path("../../data/taxi_simplified") / std::to_string(id);
+        std::filesystem::create_directories(out_dir);
+        std::filesystem::path out_path = out_dir / (alg_name + std::string("_simplified.txt"));
+        std::ofstream fout(out_path);
+        if (!fout) {
+            std::cerr << "Failed to open output file: " << out_path << "\n";
+        } else {
+            // First line: x-values
+            for (std::size_t i = 0; i < simplified_pts.size(); ++i) {
+                if (i) fout << ' ';
+                fout << simplified_pts[i].x;
+            }
+            fout << "\n";
+            // Second line: y-values
+            for (std::size_t i = 0; i < simplified_pts.size(); ++i) {
+                if (i) fout << ' ';
+                fout << simplified_pts[i].y;
+            }
+            fout << "\n";
+            std::cout << "Wrote simplified to " << out_path << " (points=" << simplified_pts.size() << ")\n";
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Error writing output: " << e.what() << "\n";
+    }
+
+    delete result;
+    delete traj;
+
+    double end_time = clock();
+    std::cout << "Elapsed: " << (double)(end_time - start_time) / CLOCKS_PER_SEC << "s\n";
+    return 0;
 }
