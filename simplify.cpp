@@ -57,33 +57,6 @@ static void print_help() {
               << "  -h               Show this help and exit\n";
 }
 
-static void normalize_stream(std::vector<Point> &stream) {
-    if (stream.empty()) return;
-    double minx = std::numeric_limits<double>::infinity();
-    double miny = std::numeric_limits<double>::infinity();
-    double maxx = -std::numeric_limits<double>::infinity();
-    double maxy = -std::numeric_limits<double>::infinity();
-    for (const auto &p : stream) {
-        double x = CGAL::to_double(p.x());
-        double y = CGAL::to_double(p.y());
-        minx = std::min(minx, x);
-        miny = std::min(miny, y);
-        maxx = std::max(maxx, x);
-        maxy = std::max(maxy, y);
-    }
-    double data_min = std::min(minx, miny);
-    double data_max = std::max(maxx, maxy);
-    if (data_max <= data_min) return; // nothing to do
-    double scale = (DATAMAX - DATAMIN) / (data_max - data_min);
-    for (auto &p : stream) {
-        double x = CGAL::to_double(p.x());
-        double y = CGAL::to_double(p.y());
-        double nx = DATAMIN + (x - data_min) * scale;
-        double ny = DATAMIN + (y - data_min) * scale;
-        p = Point(nx, ny);
-    }
-}
-
 // Copied from examples/Boolean_set_operations/print_utils.cpp
 // Pretty-print a CGAL polygon.
 template<class Kernel, class Container>
@@ -419,8 +392,8 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
     const Point& p0 = stream[cur];
     int p0cur = cur;
     if (viewer) viewer->addOriginalPoint(p0);
-    if (viewer) viewer->markP0(p0);
     std::vector<Point> P = get_points_from_grid(p0);
+    if (viewer) viewer->markP0(p0);
     std::array<Point, 2> buffer = {p0};
     std::vector<std::vector<Point>> S(P.size(), std::vector<Point>{p0});
     int dead_cnt = 0;
@@ -428,6 +401,7 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
     while (cur < int(stream.size())) {
         const Point& pi  = stream[cur];
         if (viewer) viewer->addOriginalPoint(pi);
+        if (viewer) viewer->markPi(pi);
         std::vector<std::vector<Polygon_with_holes>> new_S(P.size());
         for (int i = 0; i < int(P.size()); i++) {
             if (dead[i]) {
@@ -443,9 +417,11 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
             if (i == 0) {
                 if (showF && viewer) {
                     viewer->addPolygon(F_poly);
-                } else if (showG && viewer) {
+                } 
+                if (showG && viewer) {
                     viewer->addPolygon(Gi_poly);
-                } else if (showS && viewer) {
+                }
+                if (showS && viewer) {
                     viewer->addPolygon(S_poly);
                 }
             }
@@ -479,6 +455,7 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
     if (viewer) viewer->addSimplifiedPoint(buffer[1]);
     if (viewer) viewer->clearPolygons();
     if (viewer) viewer->clearMarkedP0();
+    if (viewer) viewer->clearMarkedPi();
     if (viewer) viewer_process_events();
     return cur;
 }
@@ -538,9 +515,6 @@ int main(int argc, char** argv) {
         }
     }
 
-    normalize_stream(stream);
-
-    // Optional GUI
     QApplication app(argc, argv);
     MultiViewer viewer;
     MultiViewer* vptr = nullptr;
