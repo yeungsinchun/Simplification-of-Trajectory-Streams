@@ -12,12 +12,13 @@ def read_curve(filename):
         y = list(map(float, lines[1].split()))
         return np.array(list(zip(x, y)))
 
-if len(sys.argv) != 3 or sys.argv[1] != '-id':
-    print("Usage: ./frechet -id <id>")
+if len(sys.argv) == 2:
+    test_case_id = sys.argv[1]
+else:
+    print("Usage: ./frechet <id>")
     sys.exit(1)
-
-test_case_id = sys.argv[2]
-base = os.path.join('..', 'data', 'taxi_simplified', str(test_case_id))
+repo_root = os.path.dirname(os.path.abspath(__file__))
+base = os.path.join(repo_root, 'data', 'taxi_simplified', str(test_case_id))
 
 original_path = os.path.join(base, 'original.txt')
 targets = [
@@ -25,6 +26,7 @@ targets = [
     ('dp_simplified', os.path.join(base, 'dp_simplified.txt')),
     ('operb_simplified', os.path.join(base, 'operb_simplified.txt')),
     ('fbqs_simplified', os.path.join(base, 'fbqs_simplified.txt')),
+    ('operba_simplified', os.path.join(base, 'operba_simplified.txt')),
 ]
 
 if not os.path.exists(original_path):
@@ -34,7 +36,7 @@ if not os.path.exists(original_path):
 print("Reading curves...")
 orig = read_curve(original_path)
 
-print("Calculating Frechet distances (original vs X):")
+print("Calculating Frechet distances...")
 for name, p in targets:
     if not os.path.exists(p):
         print(f"  {name}: MISSING ({p})")
