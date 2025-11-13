@@ -67,21 +67,39 @@ static bool read_raw_xy(const fs::path& in, Points& pts) {
 static void normalize_minx_to_range(Points& pts, double targetMinX, double targetMaxX) {
     const size_t n = pts.xs.size();
     if (n == 0) return;
-    double minx = pts.xs[0], maxx = pts.xs[0];
+    double minx = pts.xs[0], maxx = pts.xs[0], miny = pts.ys[0], maxy = pts.ys[0];
     double sumy = 0.0;
     for (size_t i = 0; i < n; ++i) {
         minx = std::min(minx, pts.xs[i]);
         maxx = std::max(maxx, pts.xs[i]);
+        miny = std::min(miny, pts.ys[i]);
+        maxy = std::max(maxy, pts.ys[i]);
         sumy += pts.ys[i];
     }
     const double xrange = maxx - minx;
-    const double scale = (xrange > 0.0) ? ((targetMaxX - targetMinX) / xrange) : 1.0;
     const double ymean = sumy / static_cast<double>(n);
 
+    // Compute the maximum absolute deviation from the mean for Y
+    double maxAbsDevY = 0.0;
     for (size_t i = 0; i < n; ++i) {
-        // Map x linearly so that minx -> targetMinX, maxx -> targetMaxX
+        maxAbsDevY = std::max(maxAbsDevY, std::abs(pts.ys[i] - ymean));
+    }
+
+    // Scale for X to fit into [targetMinX, targetMaxX]
+    const double targetWidth = (targetMaxX - targetMinX);
+    const double sx = (xrange > 0.0) ? (targetWidth / xrange) : 1.0;
+
+    // Scale for Y so that centered-at-mean values stay within [-8000, 8000]
+    const double yLimit = 8000.0;
+    const double sy = (maxAbsDevY > 0.0) ? (yLimit / maxAbsDevY) : 1.0;
+
+    // Use the smaller scale so both axes remain within range
+    const double scale = std::min(sx, sy);
+
+    for (size_t i = 0; i < n; ++i) {
+        // Map x linearly so that minx -> targetMinX (range may be inset if scale < sx)
         pts.xs[i] = targetMinX + (pts.xs[i] - minx) * scale;
-        // Scale y by the same factor around its mean to preserve shape/aspect
+        // Scale y linearly around its mean to preserve shape/aspect and stay within bounds
         pts.ys[i] = (pts.ys[i] - ymean) * scale; // centered around 0
     }
 }
@@ -104,7 +122,7 @@ static void usage(const char* prog, const fs::path& src, const fs::path& out) {
     std::cerr << "Usage: " << prog << " [--all] | [-n ID]\n\n"
                  "Options:\n"
                  "  --all        Process all .txt files in " << src << "\n"
-                 "  -n ID        Process single file ID (e.g. -n 16 -> " << (src/"16.txt") << ")\n"
+                 "  --in ID        Process single file ID (e.g. --in 16 -> " << (src/"16.txt") << ")\n"
                  "  -h, --help   Show this message\n\n"
                  "This tool reads the last two comma-separated fields as (x,y),\n"
                  "maps min x -> -8000 and max x -> 8000, and scales y with the same\n"
@@ -135,7 +153,7 @@ int main(int argc, char** argv) {
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         if (a == "--all") do_all = true;
-        else if (a == "-n" && i + 1 < argc) {
+        else if (a == "--in" && i + 1 < argc) {
             single_id = std::stoi(argv[++i]);
         } else if (a == "-h" || a == "--help") {
             usage(argv[0], source_dir, out_dir);
