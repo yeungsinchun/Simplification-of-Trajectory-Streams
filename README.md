@@ -122,7 +122,7 @@ Behavior:
 
 ---
 
-The dataset used is [here](apc01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fwww.kaggle.com%2Fdatasets%2Farashnic%2Ftdriver&data=05%7C02%7Cscyeungaf%40connect.ust.hk%7Ca851043263f44a03421908de04be8c83%7C6c1d415239d044ca88d9b8d6ddca0708%7C1%7C0%7C638953413608899087%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=rHbf662%2BB4zP8HyBp6ZFJzSGKxrIMbdAuLFfjdzJmoY%3D&reserved=0). If you want the full dataset, you will need to download the dataset yourself as only part of the data (the first 102) are included in this repository.
+The dataset used is [here](https://www.kaggle.com/datasets/arashnic/tdriver). If you want the full dataset, you will need to download the dataset yourself as only part of the data (the first 102) are included in this repository.
 
 ---
 
