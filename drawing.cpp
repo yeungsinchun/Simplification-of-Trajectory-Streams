@@ -46,6 +46,12 @@ void MultiViewer::clearPolygons() {
     update();
 }
 
+void MultiViewer::clearSpecials() {
+    special_polys_.clear();
+    special_points_.clear();
+    update();
+}
+
 void MultiViewer::addOriginalPoint(const Point& p) {
     original_.push_back(p);
     update();
@@ -99,6 +105,16 @@ void MultiViewer::markP0(const Point& p) {
 
 void MultiViewer::clearMarkedP0() {
     marked_p0_.reset();
+    update();
+}
+
+void MultiViewer::markPi(const Point& p) {
+    marked_pi_ = p;
+    update();
+}
+
+void MultiViewer::clearMarkedPi() {
+    marked_pi_.reset();
     update();
 }
 
@@ -177,6 +193,22 @@ void MultiViewer::paintEvent(QPaintEvent*) {
         ++ci;
     }
 
+    // special debug polygons (distinct style: dashed orange with translucent fill)
+    if (!special_polys_.empty()) {
+        QColor edge(255, 140, 0);         // dark orange
+        QColor fill(255, 165, 0, 60);     // light orange, translucent
+        p.setBrush(fill);
+        p.setPen(QPen(edge, 2, Qt::DashLine));
+        for (auto& poly : special_polys_) {
+            QPolygonF qp;
+            for (auto v = poly.vertices_begin(); v != poly.vertices_end(); ++v)
+                qp << QPointF(mapX(CGAL::to_double(v->x())),
+                              mapY(CGAL::to_double(v->y())));
+            p.drawPolygon(qp);
+        }
+        p.setBrush(Qt::NoBrush);
+    }
+
     // original trajectory (polyline + points)
     if (!original_.empty()) {
         p.setPen(QPen(Qt::darkGray, 2, Qt::SolidLine));
@@ -226,7 +258,7 @@ void MultiViewer::paintEvent(QPaintEvent*) {
                                   mapY(CGAL::to_double(pt.y()))), 3.0, 3.0);
     }
 
-    // marked p0 (draw last so it appears on top)
+    // marked p0 (draw late so it appears on top)
     if (marked_p0_) {
         const auto& mp = *marked_p0_;
         double mx = mapX(CGAL::to_double(mp.x()));
@@ -235,6 +267,29 @@ void MultiViewer::paintEvent(QPaintEvent*) {
         p.setBrush(QColor(50, 200, 50)); // bright green
         p.drawEllipse(QPointF(mx, my), 3.5, 3.5);
         p.setPen(Qt::black);
+    }
+
+    // marked pi (current point) - use a different color from p0
+    if (marked_pi_) {
+        const auto& mp = *marked_pi_;
+        double mx = mapX(CGAL::to_double(mp.x()));
+        double my = mapY(CGAL::to_double(mp.y()));
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(240, 140, 0)); // orange
+        p.drawEllipse(QPointF(mx, my), 3.5, 3.5);
+        p.setPen(Qt::black);
+    }
+
+    // special debug points (distinct style: cyan circles with black outline)
+    if (!special_points_.empty()) {
+        p.setPen(QPen(Qt::black, 1));
+        p.setBrush(QColor(0, 200, 255)); // cyan
+        for (const auto& sp : special_points_) {
+            p.drawEllipse(QPointF(mapX(CGAL::to_double(sp.x())),
+                                  mapY(CGAL::to_double(sp.y()))), 4.0, 4.0);
+        }
+        p.setPen(Qt::black);
+        p.setBrush(Qt::NoBrush);
     }
 
     // Heads-up display (top-right): counts, ratio, and parameters
@@ -272,7 +327,7 @@ void MultiViewer::paintEvent(QPaintEvent*) {
         p.drawText(tx, ty, line2);
     }
 
-    // Legend (top-left): labels and colors for curves
+    // Legend (top-left): labels and colors for curves (with point counts)
     {
         const int marginTL = 50;
         const int swatch = 10;
@@ -280,12 +335,14 @@ void MultiViewer::paintEvent(QPaintEvent*) {
         int x0 = marginTL, y0 = marginTL;
 
         QFontMetrics fm(p.font());
-        // Compose legend entries: original, simplified, then added curves
-        struct Entry { QColor color; QString label; };
+    // Compose legend entries: original, simplified, then added curves, each with point count
+        struct Entry { QColor color; QString text; };
         std::vector<Entry> entries;
-        if (!original_.empty()) entries.push_back({Qt::darkGray, QString("original")});
-        if (!simplified_.empty()) entries.push_back({Qt::red, QString("simplified")});
-        for (const auto& c : curves_) entries.push_back({c.color, c.label});
+        if (!original_.empty()) entries.push_back({Qt::darkGray, QString("original (%1)").arg(qulonglong(original_.size()))});
+        if (!simplified_.empty()) entries.push_back({Qt::red, QString("simplified (%1)").arg(qulonglong(simplified_.size()))});
+        for (const auto& c : curves_) entries.push_back({c.color, QString("%1 (%2)").arg(c.label).arg(qulonglong(c.pts.size()))});
+    if (!special_polys_.empty()) entries.push_back({QColor(255, 140, 0), QString("special polys (%1)").arg(qulonglong(special_polys_.size()))});
+    if (!special_points_.empty()) entries.push_back({QColor(0, 200, 255), QString("special points (%1)").arg(qulonglong(special_points_.size()))});
 
         for (const auto& e : entries) {
             // draw color box
@@ -294,7 +351,7 @@ void MultiViewer::paintEvent(QPaintEvent*) {
             p.drawRect(x0, y0, swatch, swatch);
             // draw label
             p.setPen(Qt::black);
-            p.drawText(x0 + swatch + pad, y0 + fm.ascent(), e.label);
+            p.drawText(x0 + swatch + pad, y0 + fm.ascent(), e.text);
             y0 += std::max(swatch, fm.height()) + 4;
         }
     }

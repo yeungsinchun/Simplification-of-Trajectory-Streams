@@ -49,6 +49,9 @@ public:
     // mark a special reference point (p0) for debugging/visualization
     void markP0(const Point& p);
     void clearMarkedP0();
+    // mark the currently processed point (pi) distinctly from p0
+    void markPi(const Point& p);
+    void clearMarkedPi();
 
 protected:
     void paintEvent(QPaintEvent*) override;
@@ -67,6 +70,8 @@ private:
 
     // Optional marked p0 for debugging
     std::optional<Point> marked_p0_;
+    // Optional marked pi for debugging
+    std::optional<Point> marked_pi_;
     // Special debug objects
     std::vector<Polygon> special_polys_;
     std::vector<Point>   special_points_;
