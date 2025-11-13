@@ -416,7 +416,7 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
             Polygon S_poly(S[i].begin(), S[i].end());
 
             // only show for one point to make it faster
-            if (i == 0) {
+            if (i == 0 && cur != p0cur) {
                 if (showF && viewer) {
                     viewer->addPolygon(F_poly);
                 } 
