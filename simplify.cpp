@@ -418,7 +418,6 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
                      std::vector<Point> &simplified, MultiViewer* viewer = nullptr) {
     const Point& p0 = stream[cur];
     int p0cur = cur;
-    std::cerr << "[p0]: " << cur << std::endl;
     if (viewer) viewer->addOriginalPoint(p0);
     if (viewer) viewer->markP0(p0);
     std::vector<Point> P = get_points_from_grid(p0);
@@ -441,13 +440,15 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
             Polygon S_poly(S[i].begin(), S[i].end());
 
             // only show for one point to make it faster
-            if (i == 0) 
-                if (showF && viewer) 
+            if (i == 0) {
+                if (showF && viewer) {
                     viewer->addPolygon(F_poly);
-                else if (showG && viewer)
+                } else if (showG && viewer) {
                     viewer->addPolygon(Gi_poly);
-                else if (showS && viewer)
+                } else if (showS && viewer) {
                     viewer->addPolygon(S_poly);
+                }
+            }
 
             CGAL::intersection(F_poly, Gi_poly, back_inserter(new_S[i]));
 
@@ -476,6 +477,7 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
     simplified.emplace_back(buffer[1]);
     if (viewer) viewer->addSimplifiedPoint(buffer[0]);
     if (viewer) viewer->addSimplifiedPoint(buffer[1]);
+    if (viewer) viewer->clearPolygons();
     if (viewer) viewer_process_events();
     return cur;
 }
