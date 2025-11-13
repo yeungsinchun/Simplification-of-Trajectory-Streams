@@ -292,7 +292,7 @@ void MultiViewer::paintEvent(QPaintEvent*) {
         p.setBrush(Qt::NoBrush);
     }
 
-    // Heads-up display (top-right): counts, ratio, and parameters
+    // Heads-up display (top-right): single line: ratio, e, d
     {
         const int W = width();
         const int pad = 8;
@@ -300,19 +300,15 @@ void MultiViewer::paintEvent(QPaintEvent*) {
 
         const size_t n_orig = original_.size();
         const size_t n_simp = simplified_.size();
-        double ratio = (n_orig == 0) ? 0.0 : (100.0 * double(n_simp) / double(n_orig));
-
-        QString line1 = QString("orig: %1  simp: %2  ratio: %3%")
-                            .arg(qulonglong(n_orig))
-                            .arg(qulonglong(n_simp))
-                            .arg(ratio, 0, 'f', 1);
-        QString line2 = QString("delta=%1  epsilon=%2")
-                            .arg(std::isfinite(delta_) ? QString::number(delta_, 'g', 4) : QString("-"))
-                            .arg(std::isfinite(epsilon_) ? QString::number(epsilon_, 'g', 4) : QString("-"));
+        QString ratioStr = (n_orig == 0) ? QString("ratio=-")
+                                         : QString("ratio=%1% ").arg(100.0 * double(n_simp) / double(n_orig), 0, 'f', 1);
+        QString eStr = QString("e=%1 ").arg(std::isfinite(epsilon_) ? QString::number(epsilon_, 'g', 4) : QString("-"));
+        QString dStr = QString("d=%1").arg(std::isfinite(delta_) ? QString::number(delta_, 'g', 4) : QString("-"));
+        QString line = ratioStr + eStr + dStr;
 
         QFontMetrics fm(p.font());
-        int textW = std::max(fm.horizontalAdvance(line1), fm.horizontalAdvance(line2));
-        int textH = fm.height() * 2 + 4; // 2 lines + small spacing
+        int textW = fm.horizontalAdvance(line);
+        int textH = fm.height();
 
         QRect rectBg(W - marginTR - (textW + 2*pad), marginTR, textW + 2*pad, textH + 2*pad);
         p.setPen(Qt::NoPen);
@@ -322,12 +318,10 @@ void MultiViewer::paintEvent(QPaintEvent*) {
         p.setPen(Qt::black);
         int tx = rectBg.left() + pad;
         int ty = rectBg.top() + pad + fm.ascent();
-        p.drawText(tx, ty, line1);
-        ty += fm.height();
-        p.drawText(tx, ty, line2);
+        p.drawText(tx, ty, line);
     }
 
-    // Legend (top-left): labels and colors for curves (with point counts)
+    // Legend (top-left): show only number of points for each entry
     {
         const int marginTL = 50;
         const int swatch = 10;
@@ -335,14 +329,14 @@ void MultiViewer::paintEvent(QPaintEvent*) {
         int x0 = marginTL, y0 = marginTL;
 
         QFontMetrics fm(p.font());
-    // Compose legend entries: original, simplified, then added curves, each with point count
+    // Compose legend entries: original, simplified, then added curves, each with label and point count
         struct Entry { QColor color; QString text; };
         std::vector<Entry> entries;
         if (!original_.empty()) entries.push_back({Qt::darkGray, QString("original (%1)").arg(qulonglong(original_.size()))});
         if (!simplified_.empty()) entries.push_back({Qt::red, QString("simplified (%1)").arg(qulonglong(simplified_.size()))});
         for (const auto& c : curves_) entries.push_back({c.color, QString("%1 (%2)").arg(c.label).arg(qulonglong(c.pts.size()))});
-    if (!special_polys_.empty()) entries.push_back({QColor(255, 140, 0), QString("special polys (%1)").arg(qulonglong(special_polys_.size()))});
-    if (!special_points_.empty()) entries.push_back({QColor(0, 200, 255), QString("special points (%1)").arg(qulonglong(special_points_.size()))});
+        if (!special_polys_.empty()) entries.push_back({QColor(255, 140, 0), QString("special polys (%1)").arg(qulonglong(special_polys_.size()))});
+        if (!special_points_.empty()) entries.push_back({QColor(0, 200, 255), QString("special points (%1)").arg(qulonglong(special_points_.size()))});
 
         for (const auto& e : entries) {
             // draw color box
