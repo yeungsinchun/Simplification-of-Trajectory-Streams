@@ -54,7 +54,9 @@ static void print_help() {
               << "  -d <delta>       Override DELTA (default " << DELTA << ")\n"
               << "  -e <epsilon>     Override EPSILON (default " << EPSILON << ")\n"
               << "  -F/-G/-S         Debug polygon display modes\n"
-              << "  -h               Show this help and exit\n";
+              << "  -h               Show this help and exit\n"
+              << "\n"
+              << "Shorthand: simplify <id> is equivalent to '--in <id> --out'\n";
 }
 
 // Copied from examples/Boolean_set_operations/print_utils.cpp
@@ -492,6 +494,16 @@ int main(int argc, char** argv) {
         else if (strcmp(argv[i],"--in") == 0 && i+1 < argc) {
             try { test_case_no = std::stoi(argv[++i]); }
             catch(...) { std::cerr << "Invalid --in argument\n"; return 1; }
+        }
+    }
+
+    // Shorthand: a single numeric positional argument means '--in <id> --out'
+    if (test_case_no == -1 && argc == 2 && argv[1][0] != '-') {
+        try {
+            test_case_no = std::stoi(argv[1]);
+            out_flag = true;
+        } catch (...) {
+            // fall through to help if not parseable
         }
     }
 
