@@ -104,16 +104,19 @@ There is a helper script to format raw taxi logs to the expected input layout:
 ./script/clean --all
 ```
 
-This enumerates input files numerically by basename (e.g., `1.txt`, `2.txt`, …), processes each one, and writes cleaned results. Check the script header/comments for more options.
+This enumerates input files numerically by basename (e.g., `1.txt`, `2.txt`, …), processes each one, and writes cleaned results. Check the script header/comments for more options. The dataset used is [here](apc01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fwww.kaggle.com%2Fdatasets%2Farashnic%2Ftdriver&data=05%7C02%7Cscyeungaf%40connect.ust.hk%7Ca851043263f44a03421908de04be8c83%7C6c1d415239d044ca88d9b8d6ddca0708%7C1%7C0%7C638953413608899087%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=rHbf662%2BB4zP8HyBp6ZFJzSGKxrIMbdAuLFfjdzJmoY%3D&reserved=0). If you want to reproduce the result, you will need to download the dataset yourself as it's not included in this repository.
 
 ---
 
 ## Acknowledgements
 
-We are grateful to the following papers for datasets/resources:
+We are grateful to the following papers for datasets:
 
 1. Jing Yuan, Yu Zheng, Xing Xie, and Guangzhong Sun. Driving with knowledge from the physical world. In KDD ’11. ACM.
 2. Jing Yuan, Yu Zheng, Chengyang Zhang, Wenlei Xie, Xing Xie, Guangzhong Sun, and Yan Huang. T-Drive: driving directions based on taxi trajectories. In GIS ’10. ACM.
+
+The code within the `algorithms` folder that we benchmark our algorithm against is modified from
+https://github.com/MingjiHan99/Trajectory-Simplification-Algorithm
 
 ---
 
