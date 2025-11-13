@@ -8,7 +8,7 @@ Tested primarily on macOS (arm64). Other platforms may work with the right depen
 
 ## Prerequisites
 
-- C++ toolchain with C++23 support (Clang/LLVM or GCC)
+- C++ toolchain with C++23 support
 - CMake ≥ 3.16
 - CGAL
 - Qt 6 Widgets (QtCore, QtGui, QtWidgets) for the GUI viewer
