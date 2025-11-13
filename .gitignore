@@ -4,3 +4,4 @@ release/
 debug
 taxi_log_2008_by_id
 .cache
+.vscode
