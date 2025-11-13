@@ -29,14 +29,14 @@ pip3 install frechetlib
 ## Folder structure
 
 - `simplify.cpp` — main application (CLI + Qt viewer)
+- `algorithms/` — baseline algorithms we can run for comparison (DP, OPERB, OPERBA, FBQS)
+- `tools/normalize.cpp` — C++ tool to normalize raw CSV taxi logs into `data/taxi/<id>.txt`
+- `plot_curves.cpp` — Qt viewer to overlay original + multiple simplified curves with legend and counts
+- `frechet` — Python helper to compute (approximate) Fréchet distance from outputs
 - `data/`
-	- `taxi/` — raw inputs as text: `../data/taxi/<id>.txt` (see format below)
-	- `taxi_simplified/<id>/` — outputs written by `--out`: `original.txt`, `simplified.txt`
-- `script/`
-	- `clean` — shell script to pre-process taxi logs into the expected input format
-- `frechet` — helper to compute (approximate) Fréchet distance from outputs
+  - `taxi/` — normalized inputs as text: `../data/taxi/<id>.txt`
+  - `taxi_simplified/<id>/` — per-id outputs: `original.txt`, `simplified.txt`, and `<algo>_simplified.txt`
 - `build/` — out-of-source build directory (create this yourself)
-- `README.md` — this file
 
 ---
 
@@ -45,8 +45,15 @@ pip3 install frechetlib
 ```bash
 mkdir build
 cd build
-cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake -DCMAKE_BUILD_TYPE=release ..
 cmake --build .
+
+Targets you can build and run from `build/`:
+
+- `simplify` — main app and viewer
+- `plot_curves` — overlay viewer for all curves for a given id
+- `main` — algorithms runner (runs all selected algorithms on one id)
+- `normalize` — normalize raw CSV taxi logs into `data/taxi/<id>.txt`
 ```
 
 This produces an executable named `simplify` in `build/`.
@@ -81,7 +88,7 @@ Tuning parameters at runtime:
 ./simplify --in 1 -d 1500 -e 0.5 --gui
 ```
 
-CLI flags summary:
+CLI flags summary (simplify):
 
 - `--in <id>` — read from `../data/taxi/<id>.txt`
 - `--out` — write outputs into `../data/taxi_simplified/<id>/`
@@ -94,17 +101,93 @@ CLI flags summary:
 
 Notes:
 - With `--gui`, distance computation is deferred until you close the viewer.
+
 ---
 
-## Cleaning and preparing data
+## Data preparation (normalize)
 
-There is a helper script to format raw taxi logs to the expected input layout:
+Normalize raw taxi logs (CSV with many columns) into the expected format for this repo:
 
 ```bash
-./script/clean --all
+# Convert one file (e.g., taxi_log_2008_by_id/16.txt)
+./normalize -n 16
+
+# Convert all files under taxi_log_2008_by_id/
+./normalize --all
 ```
 
-This enumerates input files numerically by basename (e.g., `1.txt`, `2.txt`, …), processes each one, and writes cleaned results. Check the script header/comments for more options. The dataset used is [here](apc01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fwww.kaggle.com%2Fdatasets%2Farashnic%2Ftdriver&data=05%7C02%7Cscyeungaf%40connect.ust.hk%7Ca851043263f44a03421908de04be8c83%7C6c1d415239d044ca88d9b8d6ddca0708%7C1%7C0%7C638953413608899087%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=rHbf662%2BB4zP8HyBp6ZFJzSGKxrIMbdAuLFfjdzJmoY%3D&reserved=0). If you want the full dataset, you will need to download the dataset yourself as only part of the data (the first 102) are included in this repository.
+Output format at `data/taxi/<id>.txt`:
+
+- First line: integer N (number of points)
+- Next N lines: `x y`
+
+Normalization rule:
+
+- Map min x to -8000 and max x to 8000 (linear),
+- Apply the same uniform scale to y around its mean (preserves shape/aspect).
+---
+
+The dataset used is [here](apc01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fwww.kaggle.com%2Fdatasets%2Farashnic%2Ftdriver&data=05%7C02%7Cscyeungaf%40connect.ust.hk%7Ca851043263f44a03421908de04be8c83%7C6c1d415239d044ca88d9b8d6ddca0708%7C1%7C0%7C638953413608899087%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=rHbf662%2BB4zP8HyBp6ZFJzSGKxrIMbdAuLFfjdzJmoY%3D&reserved=0). If you want the full dataset, you will need to download the dataset yourself as only part of the data (the first 102) are included in this repository.
+
+---
+
+## Algorithms runner (main)
+
+Run the baseline algorithms on one id and write per-algorithm outputs:
+
+```bash
+cmake --build . --target main
+./main <id> <error_bound>
+# example
+./main 1 100
+```
+
+This reads `../data/taxi/<id>.txt`, runs all configured algorithms, and writes to `../data/taxi_simplified/<id>/`:
+
+- `dp_simplified.txt`
+- `operb_simplified.txt`
+- `operba_simplified.txt` (when available)
+- `fbqs_simplified.txt`
+
+Each file uses two-line format:
+
+- Line 1: space-separated x values
+- Line 2: space-separated y values
+
+Notes:
+
+- The set of algorithms compiled may vary (e.g., OPERBA optional). The tool runs all available ones.
+
+---
+
+## Overlay viewer (plot_curves)
+
+Display original plus selected simplified curves with legend and point counts:
+
+```bash
+cmake --build . --target plot_curves
+./plot_curves <id> [--all | -dp -operb -operba -fbqs -simplify]
+
+# examples
+./plot_curves 1 --all
+./plot_curves 1 -dp -operb
+./plot_curves 1 -simplify
+```
+
+It loads from `../data/taxi_simplified/<id>/*.txt` (and the original curve if available).
+Special debug overlays (polygons/points) use distinct styles and appear in the legend with counts.
+
+---
+
+## Fréchet (optional)
+
+The helper `frechet` computes (approximate) distances between the original and available simplified curves for an id:
+
+```bash
+./frechet <id>
+```
+
+This prints distances for `simplified.txt` and each `<algo>_simplified.txt` found under `../data/taxi_simplified/<id>/`.
 
 ---
 
