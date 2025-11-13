@@ -15,29 +15,31 @@
 std::string algorithm_type[4] = {"dp", "operb", "operba", "fbqs"};
 
 static void print_help(const char* prog) {
-    std::cerr << "Usage: " << prog << " <id> <error_bound>\n";
+    std::cerr << "Usage: " << prog << " <id> [error_bound]\n";
+    std::cerr << "  <id>           Required trajectory id (integer)\n";
+    std::cerr << "  [error_bound]  Optional error bound (default: 200)\n";
     std::cerr << "Example: " << prog << " 1 100\n";
     std::cerr << "Runs all algorithms (dp, operb, operba, fbqs) on taxi/<id>.txt and writes outputs to data/taxi_simplified/<id>/.\n";
 }
 
 int main(int argc, char *argv[]) {
-    // Expect: ./main <id> <error_bound>
+    // Expect: ./main <id> [error_bound]
     if (argc < 2 || (argc >= 2 && (std::string(argv[1]) == "-h" || std::string(argv[1]) == "--help"))) {
         print_help(argv[0]);
         return argc < 2 ? 1 : 0;
     }
-    if (argc < 3) {
-        print_help(argv[0]);
-        return 1;
-    }
 
     int id = 0;
-    double error_bound = 0.0;
+    double error_bound = 200.0; // default
     try {
         id = std::stoi(argv[1]);
-        error_bound = std::stod(argv[2]);
+        if (argc >= 3) {
+            error_bound = std::stod(argv[2]);
+        } else {
+            std::cout << "No error_bound provided. Using default error_bound=200\n";
+        }
     } catch (const std::exception&) {
-        std::cerr << "Invalid arguments. id must be integer; error_bound must be number.\n";
+        std::cerr << "Invalid arguments. id must be integer; error_bound must be a number (if provided).\n";
         print_help(argv[0]);
         return 1;
     }
