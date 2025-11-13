@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import numpy as np
 import sys
+import os
 
 from frechetlib.continuous_frechet import frechet_c_approx
 
@@ -16,15 +17,31 @@ if len(sys.argv) != 3 or sys.argv[1] != '-id':
     sys.exit(1)
 
 test_case_id = sys.argv[2]
+base = os.path.join('..', 'data', 'taxi_simplified', str(test_case_id))
 
-print("Reading data for frechet distance calculation...")
+original_path = os.path.join(base, 'original.txt')
+targets = [
+    ('simplified', os.path.join(base, 'simplified.txt')),
+    ('dp_simplified', os.path.join(base, 'dp_simplified.txt')),
+    ('operb_simplified', os.path.join(base, 'operb_simplified.txt')),
+    ('fbqs_simplified', os.path.join(base, 'fbqs_simplified.txt')),
+]
 
-big_curve_1 = read_curve(f"../data/taxi_simplified/{test_case_id}/original.txt")
-big_curve_2 = read_curve(f"../data/taxi_simplified/{test_case_id}/simplified.txt")
+if not os.path.exists(original_path):
+    print(f"Original file not found: {original_path}")
+    sys.exit(1)
 
-print("Finish reading data for frechet distance calculation...")
+print("Reading curves...")
+orig = read_curve(original_path)
 
-print("Calculating frechet distance")
-res, morphing = frechet_c_approx(big_curve_1, big_curve_2, 1.01)
-
-print("Approximated Frechet distance: ", morphing.dist)
+print("Calculating Frechet distances (original vs X):")
+for name, p in targets:
+    if not os.path.exists(p):
+        print(f"  {name}: MISSING ({p})")
+        continue
+    try:
+        cur = read_curve(p)
+        res, morphing = frechet_c_approx(orig, cur, 1.01)
+        print(f"  {name}: {morphing.dist}")
+    except Exception as e:
+        print(f"  {name}: ERROR ({e})")

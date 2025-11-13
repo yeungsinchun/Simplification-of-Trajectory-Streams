@@ -6,7 +6,10 @@
 #include <cstdio>
 #include <ctime>
 #include <iostream>
+#include <fstream>
 #include <string>
+#include <vector>
+#include <filesystem>
 
 #pragma comment(linker, "/STACK:1024000000,1024000000")
 
@@ -19,9 +22,8 @@ int main(int argc, char *argv[]) {
 
     double error_bound = std::stod(argv[1]);
     int size = std::stoi(argv[2]);
-    int total_point = 0;
     Algorithm *pta = nullptr;
-    double average_second = 0.0;
+    std::string alg_name = argv[3];
 
     if (argv[3] == algorithm_type[0]) {
         pta = new DP{error_bound};
@@ -33,60 +35,86 @@ int main(int argc, char *argv[]) {
         pta = new FBQS{error_bound};
     }
 
-    // int traj_size = std::stoi(argv[4]);
-
-    double tx, ty, tt;
-    double averge_rate, temp_rate;
+    double tx, ty;
 
     double start_time = clock();
 
-    for (int i = 0; i < size; i++) {
-        Trajectory<Point> *traj = new Trajectory<Point>;
+    // Read single trajectory id = <size>
+    Trajectory<Point> *traj = new Trajectory<Point>;
+    int id = size; // interpret argv[2] as the file id (e.g., 1)
+    std::string file_name = "../../data/taxi/" + std::to_string(id) + ".txt";
 
-        std::string file_name =
-            "../../data/taxi/" + std::to_string(i) + ".txt";
-        freopen(file_name.c_str(), "r", stdin);
-        int count = 0;
-        while (scanf("%lf %lf %lf", &tt, &ty, &tx) == 3) {
-            traj->push(Point{tx, ty, tt});
-            count += 1;
-        }
-        total_point += traj->size();
-
-        std::cout << "Running on No." << i << " trajectory..." << std::endl;
-        std::cout << "Trajectory size:" << traj->size() << std::endl;
-
-        double start_time = clock();
-        auto result = pta->compress(traj);
-        double end_time = clock();
-
-        average_second += (double)(end_time - start_time) / CLOCKS_PER_SEC;
-
-        temp_rate = (double)(traj->size() - result->size() - 1) / traj->size();
-        averge_rate += temp_rate;
-
-        std::cout << "Compressed trajectory size:" << result->size() + 1
-                  << std::endl;
-        std::cout << "Compression rate:" << temp_rate << std::endl;
-
+    // Use C++ streams to read: first an integer N, then N pairs (x y)
+    std::ifstream fin(file_name);
+    if (!fin) {
+        std::cerr << "Failed to open " << file_name << "\n";
         delete traj;
-        fclose(stdin);
+        return 1;
     }
+    int N = 0;
+    if (!(fin >> N)) {
+        std::cerr << "Invalid header in " << file_name << " (expected N)\n";
+        delete traj;
+        return 1;
+    }
+    for (int j = 0; j < N; ++j) {
+        if (!(fin >> tx >> ty)) {
+            std::cerr << "Unexpected end of file while reading coordinates in " << file_name << "\n";
+            fin.close();
 
-    double end_time = clock();
+            std::cout << "Running on trajectory id=" << id << " (points=" << traj->size() << ")\n";
 
-    averge_rate /= size;
-    freopen("result.txt", "w", stdout);
+            // Run compression
+            Trajectory<Line>* result = pta ? pta->compress(traj) : nullptr;
 
-    std::cout << "Error Bound: " << error_bound << "m" << std::endl;
-    std::cout << "Average Compression Ratio: " << 100.0 - averge_rate * 100
-              << "\%" << std::endl;
-    std::cout << "Running time "
-              << (double)(end_time - start_time) / CLOCKS_PER_SEC << "s"
-              << std::endl;
-    std::cout << "Average Second:" << average_second / (double)size
-              << std::endl;
-    fclose(stdout);
+            // Build simplified vertex sequence from segments
+            std::vector<Point> simplified_pts;
+            if (result && result->size() > 0) {
+                simplified_pts.reserve(result->size() + 1);
+                // start point of first segment
+                auto first_seg = (*result)[0];
+                simplified_pts.push_back(first_seg.start_point());
+                for (std::size_t k = 0; k < result->size(); ++k) {
+                    auto seg = (*result)[k];
+                    simplified_pts.push_back(seg.end_point());
+                }
+            } else {
+                // Fallback: no segments produced; use the original points
+                simplified_pts.reserve(traj->size());
+                for (std::size_t k = 0; k < traj->size(); ++k) simplified_pts.push_back((*traj)[k]);
+            }
 
-    return 0;
+            // Write to ../../data/taxi_simplified/<id>/<alg>_simplified.txt in two-line x/y format
+            try {
+                std::filesystem::path out_dir = std::filesystem::path("../../data/taxi_simplified") / std::to_string(id);
+                std::filesystem::create_directories(out_dir);
+                std::filesystem::path out_path = out_dir / (alg_name + std::string("_simplified.txt"));
+                std::ofstream fout(out_path);
+                if (!fout) {
+                    std::cerr << "Failed to open output file: " << out_path << "\n";
+                } else {
+                    for (std::size_t i = 0; i < simplified_pts.size(); ++i) {
+                        if (i) fout << ' ';
+                        fout << simplified_pts[i].x;
+                    }
+                    fout << "\n";
+                    for (std::size_t i = 0; i < simplified_pts.size(); ++i) {
+                        if (i) fout << ' ';
+                        fout << simplified_pts[i].y;
+                    }
+                    fout << "\n";
+                    std::cout << "Wrote simplified to " << out_path << " (points=" << simplified_pts.size() << ")\n";
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "Error writing output: " << e.what() << "\n";
+            }
+
+            delete result;
+            delete traj;
+
+            double end_time = clock();
+            std::cout << "Elapsed: " << (double)(end_time - start_time) / CLOCKS_PER_SEC << "s\n";
+            return 0;
+        }
+    }
 }
