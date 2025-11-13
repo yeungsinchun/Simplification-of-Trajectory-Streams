@@ -29,14 +29,14 @@ pip3 install frechetlib
 ## Folder structure
 
 - `simplify.cpp` — main application (CLI + Qt viewer)
-- `algorithms/` — baseline algorithms we can run for comparison (DP, OPERB, OPERBA, FBQS)
-- `tools/normalize.cpp` — C++ tool to normalize raw CSV taxi logs into `data/taxi/<id>.txt`
 - `plot_curves.cpp` — Qt viewer to overlay original + multiple simplified curves with legend and counts
 - `frechet` — Python helper to compute (approximate) Fréchet distance from outputs
+- `algorithms/` — baseline algorithms we can run for comparison (DP, OPERB, OPERBA, FBQS)
+- `tools/normalize.cpp` — C++ tool to normalize raw CSV taxi logs into `data/taxi/<id>.txt`.
 - `data/`
   - `taxi/` — normalized inputs as text: `../data/taxi/<id>.txt`
   - `taxi_simplified/<id>/` — per-id outputs: `original.txt`, `simplified.txt`, and `<algo>_simplified.txt`
-- `build/` — out-of-source build directory (create this yourself)
+- `build/` — build directory (create this yourself)
 
 ---
 
@@ -47,16 +47,14 @@ mkdir build
 cd build
 cmake -DCMAKE_BUILD_TYPE=release ..
 cmake --build .
+```
 
-Targets you can build and run from `build/`:
+Targets that will be built inside `build/`:
 
 - `simplify` — main app and viewer
 - `plot_curves` — overlay viewer for all curves for a given id
 - `main` — algorithms runner (runs all selected algorithms on one id)
 - `normalize` — normalize raw CSV taxi logs into `data/taxi/<id>.txt`
-```
-
-This produces an executable named `simplify` in `build/`.
 
 ---
 
@@ -104,27 +102,24 @@ Notes:
 
 ---
 
-## Data preparation (normalize)
+### Normalize raw taxi logs
 
-Normalize raw taxi logs (CSV with many columns) into the expected format for this repo:
+Convert raw CSV logs to normalized XY text files used by this repo:
 
 ```bash
-# Convert one file (e.g., taxi_log_2008_by_id/16.txt)
+cmake --build . --target normalize
+./normalize --all          # process all ids found under taxi_log_2008_by_id
+# or a single id
 ./normalize -n 16
-
-# Convert all files under taxi_log_2008_by_id/
-./normalize --all
 ```
 
-Output format at `data/taxi/<id>.txt`:
+Behavior:
 
-- First line: integer N (number of points)
-- Next N lines: `x y`
+- Reads the last two comma-separated fields from each CSV line as (x, y).
+- Maps X linearly so that min X -> -8000 and max X -> 8000.
+- Scales Y linearly around its mean using the same factor as X; if the resulting Y range exceeds [-8000, 8000], it is further linearly scaled (around 0) to fit within [-8000, 8000]. No clipping is performed.
+- Writes to `../data/taxi/<id>.txt` with first line N, followed by N lines `x y`.
 
-Normalization rule:
-
-- Map min x to -8000 and max x to 8000 (linear),
-- Apply the same uniform scale to y around its mean (preserves shape/aspect).
 ---
 
 The dataset used is [here](apc01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fwww.kaggle.com%2Fdatasets%2Farashnic%2Ftdriver&data=05%7C02%7Cscyeungaf%40connect.ust.hk%7Ca851043263f44a03421908de04be8c83%7C6c1d415239d044ca88d9b8d6ddca0708%7C1%7C0%7C638953413608899087%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=rHbf662%2BB4zP8HyBp6ZFJzSGKxrIMbdAuLFfjdzJmoY%3D&reserved=0). If you want the full dataset, you will need to download the dataset yourself as only part of the data (the first 102) are included in this repository.
