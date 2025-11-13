@@ -3,7 +3,7 @@
 // Douglas-Peucker algorithm
 #include "algorithm.hpp"
 #include "trajectory.hpp"
-#include <limits>
+
 class DP : public Algorithm {
   public:
     DP(double bound_) : Algorithm{bound_} {}
