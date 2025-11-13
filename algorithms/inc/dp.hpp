@@ -9,7 +9,7 @@ class DP : public Algorithm {
     DP(double bound_) : Algorithm{bound_} {}
 
     Trajectory<Line> *compress(const Trajectory<Point> *traj) {
-        return dp(traj, 0, (int)traj->size());
+        return dp(traj, 0, (int)traj->size()-1);
     }
 
     Trajectory<Line> *dp(const Trajectory<Point> *t, int left, int right) {
@@ -56,9 +56,9 @@ class DP : public Algorithm {
                 delete left_traj;
                 delete right_traj;
             }
-
             return traj;
         }
+        return traj;
     }
 };
 
