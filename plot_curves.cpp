@@ -6,6 +6,8 @@
 #include <vector>
 #include <iostream>
 #include <cctype>
+#include <filesystem>
+#include <algorithm>
 
 // Provide the global bounding square expected by drawing.cpp
 extern const double BMIN = -10000.0;
@@ -67,30 +69,158 @@ static bool load_curve(const std::string& path, std::vector<P>& out) {
     return false;
 }
 
+static std::string to_lower(std::string s) { std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return std::tolower(c); }); return s; }
+
+static QString label_from_filename(const std::string& filename) {
+    // filename like: dp_simplified.txt, operb_simplified.txt, simplified.txt, original.txt
+    std::string base = filename;
+    auto pos = base.rfind('/');
+    if (pos != std::string::npos) base = base.substr(pos+1);
+    pos = base.rfind('\\');
+    if (pos != std::string::npos) base = base.substr(pos+1);
+    base = to_lower(base);
+    if (base == "original.txt") return "Original";
+    if (base == "simplified.txt") return "Simplified";
+    if (base.find("dp_") == 0) return "DP";
+    // Accept both spellings: operba_* and operab_* map to OPERBA
+    if (base.find("operba_") == 0 || base.find("operab_") == 0) return "OPERBA";
+    if (base.find("operb_") == 0) return "OPERB";
+    if (base.find("fbqs_") == 0) return "FBQS";
+    // Fallback: strip extension
+    auto dot = base.rfind('.');
+    if (dot != std::string::npos) base = base.substr(0, dot);
+    return QString::fromStdString(base);
+}
+
 int main(int argc, char** argv) {
-    if (argc < 3) {
-        std::cerr << "Usage: " << argv[0] << " <original.txt> <simplified.txt>\n";
-        std::cerr << "Example: " << argv[0] << " ../data/taxi_simplified/10/original.txt ../data/taxi_simplified/10/simplified.txt\n";
+    // Expect: ./plot_curves <id>
+    if (argc < 2 || (argc >= 2 && (std::string(argv[1]) == "-h" || std::string(argv[1]) == "--help"))) {
+        std::cerr << "Usage: " << argv[0] << " <id> [--all | -dp -operb -operba -fbqs -simplify]\n";
+        std::cerr << "Examples:\n  " << argv[0] << " 1 --all\n  " << argv[0] << " 1 -dp -operb\n";
+        std::cerr << "Loads ../../data/taxi/<id>.txt as original (if needed) and curves from ../../data/taxi_simplified/<id>/*.txt.\n";
+        return argc < 2 ? 1 : 0;
+    }
+
+    int id = 0;
+    try { id = std::stoi(argv[1]); } catch (...) {
+        std::cerr << "Invalid id: " << argv[1] << "\n"; return 1;
+    }
+
+    // Parse selection flags (optional)
+    bool selAny = false, selAll = false;
+    bool selDP = false, selOPERB = false, selOPERBA = false, selFBQS = false, selSimplified = false;
+    for (int i = 2; i < argc; ++i) {
+        std::string a = argv[i];
+        if (a == "--all") { selAll = true; selAny = true; }
+        else if (a == "-dp") { selDP = true; selAny = true; }
+        else if (a == "-operb") { selOPERB = true; selAny = true; }
+        else if (a == "-operba" || a == "-operab") { selOPERBA = true; selAny = true; }
+        else if (a == "-fbqs") { selFBQS = true; selAny = true; }
+        else if (a == "-simplify" || a == "-simplified") { selSimplified = true; selAny = true; }
+        else {
+            std::cerr << "Warning: unknown flag '" << a << "' ignored.\n";
+        }
+    }
+
+    // Paths
+    std::filesystem::path simplified_dir = std::filesystem::path("../data/taxi_simplified") / std::to_string(id);
+    std::filesystem::path orig_data_path  = std::filesystem::path("../data/taxi") / (std::to_string(id) + ".txt");
+
+    // Gather curves
+    std::vector<P> orig;
+    std::vector<std::pair<QString, std::vector<P>>> curves; // label -> points
+
+    // Prefer original.txt in the simplified dir; else read from data/taxi/<id>.txt
+    std::vector<P> tmp;
+    bool have_original = false;
+    {
+        std::filesystem::path p = simplified_dir / "original.txt";
+        if (std::filesystem::exists(p) && load_curve(p.string(), tmp)) {
+            orig = tmp;
+            have_original = true;
+        } else if (std::filesystem::exists(orig_data_path) && parse_n_pairs(orig_data_path.string(), tmp)) {
+            orig = tmp;
+            have_original = true;
+        }
+    }
+
+    // Read simplified curves from directory
+    if (!std::filesystem::exists(simplified_dir) || !std::filesystem::is_directory(simplified_dir)) {
+        std::cerr << "Directory not found: " << simplified_dir << "\n";
         return 1;
     }
-    std::string origPath = argv[1];
-    std::string simpPath = argv[2];
 
-    std::vector<P> orig, simp;
-    if (!load_curve(origPath, orig)) {
-        std::cerr << "Failed to read curve from " << origPath << "\n";
-        return 2;
+    for (auto& entry : std::filesystem::directory_iterator(simplified_dir)) {
+        if (!entry.is_regular_file()) continue;
+        auto path = entry.path();
+        if (path.extension() != ".txt") continue;
+
+        auto name = path.filename().string();
+        // We'll treat original/simplified specially for consistent colors
+        if (to_lower(name) == "original.txt") continue; // already handled above
+
+        std::vector<P> pts;
+        if (!load_curve(path.string(), pts)) continue;
+        QString label = label_from_filename(name);
+        curves.emplace_back(label, std::move(pts));
     }
-    if (!load_curve(simpPath, simp)) {
-        std::cerr << "Failed to read curve from " << simpPath << "\n";
-        return 3;
+
+    if (!have_original) {
+        std::cerr << "Warning: original curve not found at " << (simplified_dir / "original.txt")
+                  << " or " << orig_data_path << ". Proceeding without original.\n";
+    }
+
+    // Sort curves for deterministic legend order: Original, Simplified, DP, OPERB, OPERBA, FBQS, then others
+    auto rank = [](const QString& s)->int{
+        if (s == "Simplified") return 1;
+        if (s == "DP") return 2;
+        if (s == "OPERB") return 3;
+        if (s == "OPERBA") return 4;
+        if (s == "FBQS") return 5;
+        return 100;
+    };
+    std::sort(curves.begin(), curves.end(), [&](auto& a, auto& b){ return rank(a.first) < rank(b.first); });
+
+    // Filter curves by selection if any flags were provided
+    if (selAny && !selAll) {
+        std::vector<std::pair<QString, std::vector<P>>> filtered;
+        auto wanted = [&](const QString& lbl){
+            if (lbl == "DP") return selDP;
+            if (lbl == "OPERB") return selOPERB;
+            if (lbl == "OPERBA") return selOPERBA;
+            if (lbl == "FBQS") return selFBQS;
+            if (lbl == "Simplified") return selSimplified;
+            return false; // unknown labels hidden when filtering
+        };
+        for (auto& it : curves) if (wanted(it.first)) filtered.push_back(std::move(it));
+        curves.swap(filtered);
     }
 
     QApplication app(argc, argv);
     MultiViewer viewer;
-    viewer.setWindowTitle("Curve Viewer: original (gray) vs simplified (red)");
-    viewer.addOriginalPoints(orig);
-    viewer.addSimplifiedPoints(simp);
+    viewer.setWindowTitle("Simplified curves with different algorithms");
+
+    // Add original if present
+    if (have_original) viewer.addOriginalPoints(orig);
+
+    // Add curves with colors
+    auto color_for = [&](const QString& label){
+        if (label == "Simplified") return QColor(0, 0, 0);        // black
+        if (label == "DP")         return QColor(220, 20, 60);    // crimson
+        if (label == "OPERB")      return QColor(25, 118, 210);   // blue
+        if (label == "OPERBA")     return QColor(56, 142, 60);    // green
+        if (label == "FBQS")       return QColor(156, 39, 176);   // purple
+        return QColor(120, 120, 120);                               // gray
+    };
+
+    for (auto& [label, pts] : curves) {
+        if (label == "Simplified") {
+            viewer.addSimplifiedPoints(pts);
+        } else {
+            viewer.addCurve(pts, color_for(label), label);
+        }
+    }
+
     viewer.resize(1000, 800);
     viewer.show();
     return app.exec();
