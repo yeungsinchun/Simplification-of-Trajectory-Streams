@@ -95,9 +95,10 @@ static QString label_from_filename(const std::string& filename) {
 int main(int argc, char** argv) {
     // Expect: ./plot_curves <id>
     if (argc < 2 || (argc >= 2 && (std::string(argv[1]) == "-h" || std::string(argv[1]) == "--help"))) {
-        std::cerr << "Usage: " << argv[0] << " <id> [--all | -dp -operb -operba -fbqs -simplify]\n";
-        std::cerr << "Examples:\n  " << argv[0] << " 1 --all\n  " << argv[0] << " 1 -dp -operb\n";
+        std::cerr << "Usage: " << argv[0] << " <id> [--orig] [--all | -dp -operb -operba -fbqs -simplify]\n";
+        std::cerr << "Examples:\n  " << argv[0] << " 1 --all\n  " << argv[0] << " 1 -dp -operb\n  " << argv[0] << " 47 --orig\n";
         std::cerr << "Loads ../../data/taxi/<id>.txt as original (if needed) and curves from ../../data/taxi_simplified/<id>/*.txt.\n";
+        std::cerr << "When --orig is provided, only the original curve is displayed.\n";
         return argc < 2 ? 1 : 0;
     }
 
@@ -109,9 +110,11 @@ int main(int argc, char** argv) {
     // Parse selection flags (optional)
     bool selAny = false, selAll = false;
     bool selDP = false, selOPERB = false, selOPERBA = false, selFBQS = false, selSimplified = false;
+    bool onlyOrig = false;
     for (int i = 2; i < argc; ++i) {
         std::string a = argv[i];
-        if (a == "--all") { selAll = true; selAny = true; }
+        if (a == "--orig") { onlyOrig = true; }
+        else if (a == "--all") { selAll = true; selAny = true; }
         else if (a == "-dp") { selDP = true; selAny = true; }
         else if (a == "-operb") { selOPERB = true; selAny = true; }
         else if (a == "-operba" || a == "-operab") { selOPERBA = true; selAny = true; }
@@ -144,25 +147,27 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Read simplified curves from directory
-    if (!std::filesystem::exists(simplified_dir) || !std::filesystem::is_directory(simplified_dir)) {
-        std::cerr << "Directory not found: " << simplified_dir << "\n";
-        return 1;
-    }
+    // Read simplified curves from directory unless only the original is requested
+    if (!onlyOrig) {
+        if (!std::filesystem::exists(simplified_dir) || !std::filesystem::is_directory(simplified_dir)) {
+            std::cerr << "Directory not found: " << simplified_dir << "\n";
+            return 1;
+        }
 
-    for (auto& entry : std::filesystem::directory_iterator(simplified_dir)) {
-        if (!entry.is_regular_file()) continue;
-        auto path = entry.path();
-        if (path.extension() != ".txt") continue;
+        for (auto& entry : std::filesystem::directory_iterator(simplified_dir)) {
+            if (!entry.is_regular_file()) continue;
+            auto path = entry.path();
+            if (path.extension() != ".txt") continue;
 
-        auto name = path.filename().string();
-        // We'll treat original/simplified specially for consistent colors
-        if (to_lower(name) == "original.txt") continue; // already handled above
+            auto name = path.filename().string();
+            // We'll treat original/simplified specially for consistent colors
+            if (to_lower(name) == "original.txt") continue; // already handled above
 
-        std::vector<P> pts;
-        if (!load_curve(path.string(), pts)) continue;
-        QString label = label_from_filename(name);
-        curves.emplace_back(label, std::move(pts));
+            std::vector<P> pts;
+            if (!load_curve(path.string(), pts)) continue;
+            QString label = label_from_filename(name);
+            curves.emplace_back(label, std::move(pts));
+        }
     }
 
     if (!have_original) {
@@ -171,18 +176,20 @@ int main(int argc, char** argv) {
     }
 
     // Sort curves for deterministic legend order: Original, Simplified, DP, OPERB, OPERBA, FBQS, then others
-    auto rank = [](const QString& s)->int{
-        if (s == "Simplified") return 1;
-        if (s == "DP") return 2;
-        if (s == "OPERB") return 3;
-        if (s == "OPERBA") return 4;
-        if (s == "FBQS") return 5;
-        return 100;
-    };
-    std::sort(curves.begin(), curves.end(), [&](auto& a, auto& b){ return rank(a.first) < rank(b.first); });
+    if (!onlyOrig) {
+        auto rank = [](const QString& s)->int{
+            if (s == "Simplified") return 1;
+            if (s == "DP") return 2;
+            if (s == "OPERB") return 3;
+            if (s == "OPERBA") return 4;
+            if (s == "FBQS") return 5;
+            return 100;
+        };
+        std::sort(curves.begin(), curves.end(), [&](auto& a, auto& b){ return rank(a.first) < rank(b.first); });
+    }
 
-    // Filter curves by selection if any flags were provided
-    if (selAny && !selAll) {
+    // Filter curves by selection if any flags were provided (ignored when --orig)
+    if (!onlyOrig && selAny && !selAll) {
         std::vector<std::pair<QString, std::vector<P>>> filtered;
         auto wanted = [&](const QString& lbl){
             if (lbl == "DP") return selDP;
@@ -203,21 +210,23 @@ int main(int argc, char** argv) {
     // Add original if present
     if (have_original) viewer.addOriginalPoints(orig);
 
-    // Add curves with colors
-    auto color_for = [&](const QString& label){
-        if (label == "Simplified") return QColor(255, 0, 0);        // red (match viewer simplified)
-        if (label == "DP")         return QColor(255, 127, 0);      // orange (distinct from Simplified)
-        if (label == "OPERB")      return QColor(55, 126, 184);     // blue   rgba(55, 126, 184, 1)
-        if (label == "OPERBA")     return QColor(77, 175, 74);      // green  rgba(77, 175, 74, 1)
-        if (label == "FBQS")       return QColor(152, 78, 163);     // purple #984ea3
-        return QColor(120, 120, 120);                               // gray
-    };
+    // Add curves with colors unless only original is requested
+    if (!onlyOrig) {
+        auto color_for = [&](const QString& label){
+            if (label == "Simplified") return QColor(255, 0, 0);        // red (match viewer simplified)
+            if (label == "DP")         return QColor(255, 127, 0);      // orange (distinct from Simplified)
+            if (label == "OPERB")      return QColor(55, 126, 184);     // blue   rgba(55, 126, 184, 1)
+            if (label == "OPERBA")     return QColor(77, 175, 74);      // green  rgba(77, 175, 74, 1)
+            if (label == "FBQS")       return QColor(152, 78, 163);     // purple #984ea3
+            return QColor(120, 120, 120);                               // gray
+        };
 
-    for (auto& [label, pts] : curves) {
-        if (label == "Simplified") {
-            viewer.addSimplifiedPoints(pts);
-        } else {
-            viewer.addCurve(pts, color_for(label), label);
+        for (auto& [label, pts] : curves) {
+            if (label == "Simplified") {
+                viewer.addSimplifiedPoints(pts);
+            } else {
+                viewer.addCurve(pts, color_for(label), label);
+            }
         }
     }
 
