@@ -24,6 +24,8 @@ public:
     void addSpecialPoint(const Point& p);
     void clearAll();
     void clearSpecials();
+    // Clear all overlaid polygons (F/G/S debug shapes)
+    void clearPolygons();
 
     void addOriginalPoint(const Point& p);
     void addSimplifiedPoint(const Point& p);

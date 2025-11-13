@@ -41,6 +41,11 @@ void MultiViewer::clearAll() {
     update();
 }
 
+void MultiViewer::clearPolygons() {
+    polys_.clear();
+    update();
+}
+
 void MultiViewer::addOriginalPoint(const Point& p) {
     original_.push_back(p);
     update();
