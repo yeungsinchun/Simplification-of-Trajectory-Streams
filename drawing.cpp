@@ -76,6 +76,16 @@ void MultiViewer::clearSimplified() {
     update();
 }
 
+void MultiViewer::addCurve(const std::vector<Point>& v, const QColor& color, const QString& label) {
+    curves_.push_back(Curve{v, color, label});
+    update();
+}
+
+void MultiViewer::clearCurves() {
+    curves_.clear();
+    update();
+}
+
 void MultiViewer::setParameters(double delta, double epsilon) {
     delta_ = delta;
     epsilon_ = epsilon;
@@ -199,6 +209,23 @@ void MultiViewer::paintEvent(QPaintEvent*) {
                                   mapY(CGAL::to_double(pt.y()))), 3.5, 3.5);
     }
 
+    // additional colored curves with labels
+    for (const auto& c : curves_) {
+        if (c.pts.empty()) continue;
+        p.setPen(QPen(c.color, 2, Qt::SolidLine));
+        for (size_t i = 1; i < c.pts.size(); ++i) {
+            p.drawLine(QPointF(mapX(CGAL::to_double(c.pts[i-1].x())),
+                               mapY(CGAL::to_double(c.pts[i-1].y()))),
+                       QPointF(mapX(CGAL::to_double(c.pts[i].x())),
+                               mapY(CGAL::to_double(c.pts[i].y()))));
+        }
+        p.setPen(Qt::NoPen);
+        p.setBrush(c.color);
+        for (auto& pt : c.pts)
+            p.drawEllipse(QPointF(mapX(CGAL::to_double(pt.x())),
+                                  mapY(CGAL::to_double(pt.y()))), 3.0, 3.0);
+    }
+
     // marked p0 (draw last so it appears on top)
     if (marked_p0_) {
         const auto& mp = *marked_p0_;
@@ -243,6 +270,33 @@ void MultiViewer::paintEvent(QPaintEvent*) {
         p.drawText(tx, ty, line1);
         ty += fm.height();
         p.drawText(tx, ty, line2);
+    }
+
+    // Legend (top-left): labels and colors for curves
+    {
+        const int marginTL = 50;
+        const int swatch = 10;
+        const int pad = 6;
+        int x0 = marginTL, y0 = marginTL;
+
+        QFontMetrics fm(p.font());
+        // Compose legend entries: original, simplified, then added curves
+        struct Entry { QColor color; QString label; };
+        std::vector<Entry> entries;
+        if (!original_.empty()) entries.push_back({Qt::darkGray, QString("original")});
+        if (!simplified_.empty()) entries.push_back({Qt::red, QString("simplified")});
+        for (const auto& c : curves_) entries.push_back({c.color, c.label});
+
+        for (const auto& e : entries) {
+            // draw color box
+            p.setPen(Qt::NoPen);
+            p.setBrush(e.color);
+            p.drawRect(x0, y0, swatch, swatch);
+            // draw label
+            p.setPen(Qt::black);
+            p.drawText(x0 + swatch + pad, y0 + fm.ascent(), e.label);
+            y0 += std::max(swatch, fm.height()) + 4;
+        }
     }
 }
 

@@ -478,6 +478,7 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
     if (viewer) viewer->addSimplifiedPoint(buffer[0]);
     if (viewer) viewer->addSimplifiedPoint(buffer[1]);
     if (viewer) viewer->clearPolygons();
+    if (viewer) viewer->clearMarkedP0();
     if (viewer) viewer_process_events();
     return cur;
 }

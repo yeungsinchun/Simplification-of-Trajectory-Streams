@@ -4,6 +4,8 @@
 #include <CGAL/Polygon_2.h>
 #include <vector>
 #include <QWidget>
+#include <QColor>
+#include <QString>
 #include <limits>
 #include <optional>
 
@@ -35,6 +37,10 @@ public:
     void clearOriginal();
     void clearSimplified();
 
+    // Generic colored curves with labels (for plotting multiple results)
+    void addCurve(const std::vector<Point>& pts, const QColor& color, const QString& label);
+    void clearCurves();
+
     const std::vector<Point>& original()   const { return original_; }
     const std::vector<Point>& simplified() const { return simplified_; }
 
@@ -64,6 +70,9 @@ private:
     // Special debug objects
     std::vector<Polygon> special_polys_;
     std::vector<Point>   special_points_;
+
+    struct Curve { std::vector<Point> pts; QColor color; QString label; };
+    std::vector<Curve> curves_;
 
     void compute_bbox(double& minx,double& miny,double& maxx,double& maxy) const;
 };
