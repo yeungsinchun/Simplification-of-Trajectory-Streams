@@ -185,34 +185,13 @@ int main(int argc, char** argv) {
             return;
         }
         normalize_minx_to_range(pts, -8000.0, 8000.0);
-        fs::path out = out_dir / (std::to_string(id) + ".txt");
         fs::path simp_dir = repo_root / "data" / "taxi_simplified" / std::to_string(id);
-        if (write_cleaned(out, pts)) {
-            std::cout << "Wrote: " << out << " (" << pts.xs.size() << " points)\n";
-            std::cout << "Wrote: " << simp_dir << " (" << pts.xs.size() << " points)\n";
-            // Also write two-line original.txt under data/taxi_simplified/<id>/
-            fs::create_directories(simp_dir);
-            std::ofstream orig(simp_dir / "original.txt");
-            if (orig) {
-                orig.setf(std::ios::fmtflags(0), std::ios::floatfield);
-                orig << std::setprecision(15);
-                // first line: xs
-                for (size_t i = 0; i < pts.xs.size(); ++i) {
-                    if (i) orig << ' ';
-                    orig << pts.xs[i];
-                }
-                orig << '\n';
-                // second line: ys
-                for (size_t i = 0; i < pts.ys.size(); ++i) {
-                    if (i) orig << ' ';
-                    orig << pts.ys[i];
-                }
-                orig << '\n';
-            } else {
-                std::cerr << "Failed to write: " << (simp_dir/"original.txt") << "\n";
-            }
+        fs::create_directories(simp_dir);
+        fs::path orig_path = simp_dir / "original.txt";
+        if (!write_cleaned(orig_path, pts)) {
+            std::cerr << "Failed to write: " << orig_path << "\n";
         } else {
-            std::cerr << "Failed to write: " << out << "\n";
+            std::cout << "Wrote: " << orig_path << " (" << pts.xs.size() << " points)\n";
         }
     };
 
