@@ -1,49 +1,102 @@
 #!/usr/bin/env python3
-import numpy as np
-import sys
+import argparse
 import os
+import sys
+import numpy as np
 
 from frechetlib.continuous_frechet import frechet_c_approx
 
-def read_curve(filename):
+def read_curve(filename: str) -> np.ndarray:
     with open(filename, 'r') as f:
         lines = f.readlines()
+        if len(lines) < 2:
+            raise ValueError(f"Expected two lines of x and y in {filename}")
         x = list(map(float, lines[0].split()))
         y = list(map(float, lines[1].split()))
-        return np.array(list(zip(x, y)))
+        if len(x) != len(y):
+            raise ValueError(f"Mismatched x/y lengths in {filename}: {len(x)} vs {len(y)}")
+        return np.array(list(zip(x, y)), dtype=float)
 
-if len(sys.argv) == 2:
-    test_case_id = sys.argv[1]
-else:
-    print("Usage: ./frechet <id>")
-    sys.exit(1)
-repo_root = os.path.dirname(os.path.abspath(__file__))
-base = os.path.join(repo_root, 'data', 'taxi_simplified', str(test_case_id))
 
-original_path = os.path.join(base, 'original.txt')
-targets = [
-    ('simplified', os.path.join(base, 'simplified.txt')),
-    ('dp_simplified', os.path.join(base, 'dp_simplified.txt')),
-    ('operb_simplified', os.path.join(base, 'operb_simplified.txt')),
-    ('fbqs_simplified', os.path.join(base, 'fbqs_simplified.txt')),
-    ('operba_simplified', os.path.join(base, 'operba_simplified.txt')),
-]
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(
+        prog=os.path.basename(sys.argv[0]),
+        description="Compute (approximate) continuous Fréchet distances between original and simplified curves."
+    )
+    parser.add_argument('id', type=int, nargs='?', help='trajectory id')
+    parser.add_argument('-i', '--in', dest='id_flag', type=int, help='trajectory id (alternative to positional)')
+    # method selection
+    parser.add_argument('--all', action='store_true', help='include all simplified outputs')
+    parser.add_argument('--simplified', action='store_true', help='include simplified.txt')
+    parser.add_argument('--dp', action='store_true', help='include dp_simplified.txt')
+    parser.add_argument('--operb', action='store_true', help='include operb_simplified.txt')
+    parser.add_argument('--operba', action='store_true', help='include operba_simplified.txt')
+    parser.add_argument('--fbqs', action='store_true', help='include fbqs_simplified.txt')
+    parser.add_argument('--raw', action='store_true', help='raw output or not')
 
-if not os.path.exists(original_path):
-    print(f"Original file not found: {original_path}")
-    sys.exit(1)
+    args = parser.parse_args(argv)
+    test_case_id = args.id if args.id is not None else args.id_flag
+    if test_case_id is None:
+        parser.error("missing trajectory id (provide positional <id> or -i/--id)")
 
-print("Reading curves...")
-orig = read_curve(original_path)
+    repo_root = os.path.dirname(os.path.abspath(__file__))
+    base = os.path.join(repo_root, 'data', 'taxi_simplified', str(test_case_id))
 
-print("Calculating Frechet distances...")
-for name, p in targets:
-    if not os.path.exists(p):
-        print(f"  {name}: MISSING ({p})")
-        continue
+    original_path = os.path.join(base, 'original.txt')
+    if not os.path.exists(original_path):
+        not args.raw and print(f"Original file not found: {original_path}")
+        return 1
+
+    # Determine which targets to process
+    sel_flags = any([args.all, args.simplified, args.dp, args.operb, args.operba, args.fbqs])
+    if args.all or not sel_flags:
+        targets = [
+            ('simplified', os.path.join(base, 'simplified.txt')),
+            ('dp', os.path.join(base, 'dp_simplified.txt')),
+            ('operb', os.path.join(base, 'operb_simplified.txt')),
+            ('operba', os.path.join(base, 'operba_simplified.txt')),
+            ('fbqs', os.path.join(base, 'fbqs_simplified.txt')),
+        ]
+    else:
+        targets = []
+        if args.simplified:
+            targets.append(('simplified', os.path.join(base, 'simplified.txt')))
+        if args.dp:
+            targets.append(('dp', os.path.join(base, 'dp_simplified.txt')))
+        if args.operb:
+            targets.append(('operb', os.path.join(base, 'operb_simplified.txt')))
+        if args.operba:
+            targets.append(('operba', os.path.join(base, 'operba_simplified.txt')))
+        if args.fbqs:
+            targets.append(('fbqs', os.path.join(base, 'fbqs_simplified.txt')))
+
+    not args.raw and print(f"Reading curves from {base}...")
     try:
-        cur = read_curve(p)
-        res, morphing = frechet_c_approx(orig, cur, 1.01)
-        print(f"  {name}: {morphing.dist}")
+        orig = read_curve(original_path)
     except Exception as e:
-        print(f"  {name}: ERROR ({e})")
+        not args.raw and print(f"Failed to read original: {e}")
+        return 1
+
+    not args.raw and print("Calculating Frechet distances...")
+    for name, p in targets:
+        if not os.path.exists(p):
+            print(f"  {name}: MISSING ({p})")
+            continue
+        try:
+            cur = read_curve(p)
+            res, morphing = frechet_c_approx(orig, cur, 1.01)
+            dist = getattr(morphing, 'dist', res if isinstance(res, (int, float)) else None)
+            if dist is None:
+                print(f"  {name}: OK (distance unavailable in return object)")
+            else:
+                if args.raw:
+                    print(f"{dist}")
+                else:
+                    print(f"{name}: {dist}")
+        except Exception as e:
+            print(f"  {name}: ERROR ({e})")
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
