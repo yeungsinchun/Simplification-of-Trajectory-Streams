@@ -4,9 +4,7 @@ This repo implements the delta-simplification from the paper [Simplification of 
 
 Tested primarily on macOS (arm64). Other platforms may work with the right dependencies.
 
-<!-- Demo video -->
-<video src="demo.mov" controls playsinline muted loop width="800"></video>
----
+https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/blob/main/demo.mov
 
 ## Prerequisites
 
