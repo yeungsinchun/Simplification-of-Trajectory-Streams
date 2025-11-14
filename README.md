@@ -4,7 +4,7 @@ This repo implements the delta-simplification from the paper [Simplification of 
 
 Tested primarily on macOS (arm64). Other platforms may work with the right dependencies.
 
-https://raw.githubusercontent.com/yeungsinchun/Simplification-of-Trajectory-Streams/main/.github/video/demo.mov
+https://github.com/user-attachments/assets/79b65d33-c2bc-4ad3-b061-3848fb5a2d00
 
 ## Prerequisites
 
