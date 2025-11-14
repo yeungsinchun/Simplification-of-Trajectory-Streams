@@ -7,7 +7,8 @@ Tested primarily on macOS (arm64). Other platforms may work with the right depen
 Demo video of this algorithm:
 https://github.com/user-attachments/assets/7593b5d8-ca68-4b7b-af6f-de76cd1c7689
 
-Visual comparison between different algorithms:
+Visual comparison between different algorithms (simplified in red being this algorithm):
+
 <img width="824" height="780" alt="Screenshot 2025-11-15 at 2 55 41 AM" src="https://github.com/user-attachments/assets/b7b91c2c-b48f-4880-b80f-87e62af42bc2" />
 
 
