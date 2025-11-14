@@ -97,7 +97,7 @@ int main(int argc, char** argv) {
     if (argc < 2 || (argc >= 2 && (std::string(argv[1]) == "-h" || std::string(argv[1]) == "--help"))) {
         std::cerr << "Usage: " << argv[0] << " <id> [--orig] [--all | -dp -operb -operba -fbqs -simplify]\n";
         std::cerr << "Examples:\n  " << argv[0] << " 1 --all\n  " << argv[0] << " 1 -dp -operb\n  " << argv[0] << " 47 --orig\n";
-        std::cerr << "Loads ../../data/taxi/<id>.txt as original (if needed) and curves from ../../data/taxi_simplified/<id>/*.txt.\n";
+        std::cerr << "Loads data/taxi/<id>.txt as original (if needed) and curves from data/taxi_simplified/<id>/*.txt (paths resolved from executable or cwd).\n";
         std::cerr << "When --orig is provided, only the original curve is displayed.\n";
         return argc < 2 ? 1 : 0;
     }
@@ -125,9 +125,24 @@ int main(int argc, char** argv) {
         }
     }
 
+    // Resolve repo root by searching from executable directory upwards for a folder containing `data`
+    std::filesystem::path repo_root;
+    try {
+        auto exe = std::filesystem::canonical(argv[0]);
+        auto dir = exe.parent_path();
+        for (int i = 0; i < 5 && !dir.empty(); ++i) {
+            if (std::filesystem::exists(dir / "data")) { repo_root = dir; break; }
+            dir = dir.parent_path();
+        }
+    } catch (...) {}
+    if (repo_root.empty()) {
+        auto cwd = std::filesystem::current_path();
+        if (std::filesystem::exists(cwd / "data")) repo_root = cwd; else repo_root = cwd;
+    }
+
     // Paths
-    std::filesystem::path simplified_dir = std::filesystem::path("../data/taxi_simplified") / std::to_string(id);
-    std::filesystem::path orig_data_path  = std::filesystem::path("../data/taxi") / (std::to_string(id) + ".txt");
+    std::filesystem::path simplified_dir = repo_root / "data" / "taxi_simplified" / std::to_string(id);
+    std::filesystem::path orig_data_path  = repo_root / "data" / "taxi" / (std::to_string(id) + ".txt");
 
     // Gather curves
     std::vector<P> orig;
