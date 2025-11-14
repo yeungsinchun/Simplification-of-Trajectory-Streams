@@ -14,6 +14,23 @@
 
 std::string algorithm_type[4] = {"dp", "operb", "operba", "fbqs"};
 
+static std::filesystem::path resolve_repo_root(const char* argv0) {
+    try {
+        auto exe = std::filesystem::canonical(argv0);
+        auto dir = exe.parent_path();
+        // Walk up a few levels to find a directory containing `data`
+        for (int i = 0; i < 4 && !dir.empty(); ++i) {
+            if (std::filesystem::exists(dir / "data")) return dir;
+            dir = dir.parent_path();
+        }
+    } catch (...) {
+        // fall through to cwd
+    }
+    auto cwd = std::filesystem::current_path();
+    if (std::filesystem::exists(cwd / "data")) return cwd;
+    return cwd; // fallback
+}
+
 static void print_help(const char* prog) {
     std::cerr << "Usage: " << prog << " <id> [error_bound]\n";
     std::cerr << "  <id>           Required trajectory id (integer)\n";
@@ -48,9 +65,11 @@ int main(int argc, char *argv[]) {
 
     double start_time = clock();
 
-    // Read single trajectory id = <id>
+    // Resolve repository root and build absolute paths
+    auto repo_root = resolve_repo_root(argv[0]);
     Trajectory<Point> *traj = new Trajectory<Point>;
-    std::string file_name = "../data/taxi/" + std::to_string(id) + ".txt";
+    std::filesystem::path file_path = repo_root / "data" / "taxi" / (std::to_string(id) + ".txt");
+    std::string file_name = file_path.string();
 
     // Use C++ streams to read: first an integer N, then N pairs (x y)
     std::ifstream fin(file_name);
@@ -77,7 +96,7 @@ int main(int argc, char *argv[]) {
     std::cout << "Running on trajectory id=" << id << " (points=" << traj->size() << ") with error_bound=" << error_bound << "\n";
 
     // Ensure output directory exists once
-    std::filesystem::path out_dir = std::filesystem::path("../data/taxi_simplified") / std::to_string(id);
+    std::filesystem::path out_dir = repo_root / "data" / "taxi_simplified" / std::to_string(id);
     try {
         std::filesystem::create_directories(out_dir);
     } catch (const std::exception& e) {

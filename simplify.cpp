@@ -47,8 +47,8 @@ double GRID_val() { return EPSILON * DELTA / (2 * SQRT2); }
 
 static void print_help() {
     std::cout << "Usage: simplify [options]\n"
-              << "  --in <id>        Read input from ../data/taxi/<id>.txt\n"
-              << "  --out            Write output to ../data/taxi_simplified/<id>/original.txt & simplified.txt (requires --in <id>)\n"
+              << "  --in <id>        Read input from data/taxi/<id>.txt (resolved absolutely)\n"
+              << "  --out            Write output to data/taxi_simplified/<id>/original.txt & simplified.txt (resolved absolutely; requires --in <id>)\n"
               << "  --dist           After output, compute Frechet distance via ./frechet -n <id>\n"
               << "  --gui            Show GUI viewer \n"
               << "  -d <delta>       Override DELTA (default " << DELTA << ")\n"
@@ -517,15 +517,29 @@ int main(int argc, char** argv) {
     if (dist_flag) out_flag = true;
 
     std::vector<Point> stream;
+    // Determine repo_root once (used for input/output/frechet). Try executable directory upward.
+    std::filesystem::path repo_root;
+    try {
+        auto exe = std::filesystem::canonical(argv[0]);
+        auto dir = exe.parent_path();
+        for (int i = 0; i < 5 && !dir.empty(); ++i) {
+            if (std::filesystem::exists(dir / "data")) { repo_root = dir; break; }
+            dir = dir.parent_path();
+        }
+    } catch (...) {}
+    if (repo_root.empty()) {
+        auto cwd = std::filesystem::current_path();
+        if (std::filesystem::exists(cwd / "data")) repo_root = cwd; else repo_root = cwd; // fallback cwd
+    }
     if (test_case_no != -1) {
-        std::string input_file = std::string("../data/taxi/") + std::to_string(test_case_no) + ".txt";
-        std::ifstream fin(input_file);
-        if (!fin) { std::cerr << "Cannot open " << input_file << "\n"; return 1; }
+        auto input_path = repo_root / "data" / "taxi" / (std::to_string(test_case_no) + ".txt");
+        std::ifstream fin(input_path.string());
+        if (!fin) { std::cerr << "Cannot open " << input_path.string() << "\n"; return 1; }
         int N = 0;
-        if (!(fin >> N)) { std::cerr << "Empty or invalid input in " << input_file << "\n"; return 1; }
+        if (!(fin >> N)) { std::cerr << "Empty or invalid input in " << input_path.string() << "\n"; return 1; }
         stream.resize(N);
         for (int i = 0; i < N; ++i) {
-            if (!(fin >> stream[i])) { std::cerr << "Malformed point at index " << i << " in " << input_file << "\n"; return 1; }
+            if (!(fin >> stream[i])) { std::cerr << "Malformed point at index " << i << " in " << input_path.string() << "\n"; return 1; }
         }
     }
 
@@ -546,7 +560,7 @@ int main(int argc, char** argv) {
         if (test_case_no == -1) {
             std::cerr << "--out requires --in <id> to determine output location\n";
         } else {
-            std::filesystem::path dir = std::filesystem::path("../data/taxi_simplified") / std::to_string(test_case_no);
+            std::filesystem::path dir = repo_root / "data" / "taxi_simplified" / std::to_string(test_case_no);
             std::filesystem::create_directories(dir);
             // original
             std::ofstream orig(dir / "original.txt");
@@ -571,8 +585,10 @@ int main(int argc, char** argv) {
 
     // Run distance computation only after GUI is closed (or immediately if no GUI)
     if (dist_flag && test_case_no != -1) {
-        std::string cmd1 = std::string("../frechet -id ") + std::to_string(test_case_no);
+        std::filesystem::path frechet_path = repo_root / "frechet";
+        std::string cmd1 = std::string("\"") + frechet_path.string() + std::string("\" -id ") + std::to_string(test_case_no);
         int rc = std::system(cmd1.c_str());
+        (void)rc;
     }
 
     return gui_result;
