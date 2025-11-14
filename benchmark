@@ -56,7 +56,7 @@ def main():
     parser = argparse.ArgumentParser(description="Benchmark simplify against DP over a range of IDs.")
     parser.add_argument('--a', type=int, help='start id (inclusive)')
     parser.add_argument('--b', type=int, help='end id (inclusive)')
-    parser.add_argument('--all', action='store_true', help='run across all ids detected in data/taxi/*.txt (ignores --a/--b)')
+    parser.add_argument('--all', action='store_true', help='run across all ids under data/taxi_simplified/* with original.txt (ignores --a/--b)')
     parser.add_argument('--err', type=float, required=True, help='error bound for ./main (e.g., 200)')
     parser.add_argument('--eps', type=float, nargs='*', default=[0.25, 0.5, 0.75], help='epsilon values to test')
     parser.add_argument('--out', type=str, default='minimize_points.csv', help='baseline output CSV file (points optimization baseline)')
@@ -85,18 +85,16 @@ def main():
 
     # Build list of ids to process
     if args.all:
-        taxi_dir = repo_root / 'data' / 'taxi'
+        simp_root = repo_root / 'data' / 'taxi_simplified'
         ids = []
-        if taxi_dir.exists() and taxi_dir.is_dir():
-            for p in taxi_dir.iterdir():
-                if p.is_file() and p.suffix == '.txt':
-                    try:
-                        ids.append(int(p.stem))
-                    except Exception:
-                        pass
+        if simp_root.exists() and simp_root.is_dir():
+            for p in simp_root.iterdir():
+                if p.is_dir() and p.name.isdigit():
+                    if (p / 'original.txt').exists():
+                        ids.append(int(p.name))
             ids.sort()
         else:
-            print(f"Missing directory: {taxi_dir}", file=sys.stderr)
+            print(f"Missing directory: {simp_root}", file=sys.stderr)
             return 2
     else:
         if args.a is None or args.b is None:
