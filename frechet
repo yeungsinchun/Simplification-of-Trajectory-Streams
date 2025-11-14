@@ -23,7 +23,7 @@ def main(argv=None) -> int:
         prog=os.path.basename(sys.argv[0]),
         description="Compute (approximate) continuous Fréchet distances between original and simplified curves."
     )
-    parser.add_argument('id', type=int, nargs='?', help='trajectory id')
+    parser.add_argument('id', type=int, nargs='?', help='trajectory id (required)')
     parser.add_argument('-i', '--in', dest='id_flag', type=int, help='trajectory id (alternative to positional)')
     # method selection
     parser.add_argument('--all', action='store_true', help='include all simplified outputs')
@@ -37,7 +37,8 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     test_case_id = args.id if args.id is not None else args.id_flag
     if test_case_id is None:
-        parser.error("missing trajectory id (provide positional <id> or -i/--id)")
+        parser.print_help()
+        return 1
 
     repo_root = os.path.dirname(os.path.abspath(__file__))
     base = os.path.join(repo_root, 'data', 'taxi_simplified', str(test_case_id))
