@@ -111,14 +111,6 @@ cmake --build . --target normalize
 # or a single id
 ./normalize -n 16
 ```
-
-Behavior:
-
-- Reads the last two comma-separated fields from each CSV line as (x, y).
-- Maps X linearly so that min X -> -8000 and max X -> 8000.
-- Scales Y linearly around its mean using the same factor as X; if the resulting Y range exceeds [-8000, 8000], it is further linearly scaled (around 0) to fit within [-8000, 8000]. No clipping is performed.
-- Writes to `../data/taxi/<id>.txt` with first line N, followed by N lines `x y`.
-
 ---
 
 The dataset used is [here](https://www.kaggle.com/datasets/arashnic/tdriver). If you want the full dataset, you will need to download the dataset yourself as only part of the data (the first 102) are included in this repository.
