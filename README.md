@@ -132,17 +132,8 @@ This reads `../data/taxi/<id>.txt`, runs all configured algorithms, and writes t
 
 - `dp_simplified.txt`
 - `operb_simplified.txt`
-- `operba_simplified.txt` (when available)
+- `operba_simplified.txt`
 - `fbqs_simplified.txt`
-
-Each file uses two-line format:
-
-- Line 1: space-separated x values
-- Line 2: space-separated y values
-
-Notes:
-
-- The set of algorithms compiled may vary (e.g., OPERBA optional). The tool runs all available ones.
 
 ---
 
@@ -191,4 +182,4 @@ https://github.com/MingjiHan99/Trajectory-Simplification-Algorithm
 
 ## TODO
 
-- Implementation improvements (e.g., `get_points_from_grid`, reduce the `std::vector<Point>` to `Polygon_2` conversion maybe)
+- Implementation improvements (e.g., `get_points_from_grid`, reduce the number of `std::vector<Point>` to `Polygon_2` conversion maybe)
