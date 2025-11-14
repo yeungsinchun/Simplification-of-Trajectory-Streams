@@ -52,6 +52,19 @@ def count_points_n_pairs(path: Path) -> int | None:
         return None
 
 
+def needs_header(path: Path, expected_header: list[str]) -> bool:
+    try:
+        if not path.exists():
+            return True
+        with path.open('r', newline='') as f:
+            first = f.readline()
+            if not first:
+                return True
+            return first.strip() != ','.join(expected_header)
+    except Exception:
+        return True
+
+
 def main():
     parser = argparse.ArgumentParser(description="Benchmark simplify against DP over a range of IDs.")
     parser.add_argument('--a', type=int, help='start id (inclusive)')
@@ -107,15 +120,17 @@ def main():
 
     baseline_csv = Path(args.out)
     frechet_csv = Path(args.out_frechet)
-    baseline_header = not baseline_csv.exists()
-    frechet_header = not frechet_csv.exists()
+    baseline_cols = ['id', 'epsilon', 'dp_dist', 'simp_dist', 'dp_points', 'best_simp_points', 'delta']
+    frechet_cols = ['id', 'epsilon', 'dp_dist', 'best_simp_dist', 'dp_points', 'simp_points', 'best_delta']
+    baseline_header = needs_header(baseline_csv, baseline_cols)
+    frechet_header = needs_header(frechet_csv, frechet_cols)
     with baseline_csv.open('a', newline='') as base_file, frechet_csv.open('a', newline='') as fr_file:
         base_writer = csv.writer(base_file)
         fr_writer = csv.writer(fr_file)
         if baseline_header:
-            base_writer.writerow(['id', 'epsilon', 'dp_dist', 'simp_dist', 'dp_points', 'best_points', 'delta'])
+            base_writer.writerow(baseline_cols)
         if frechet_header:
-            fr_writer.writerow(['id', 'epsilon', 'dp_dist', 'best_frechet', 'dp_points', 'best_simp_points', 'best_delta'])
+            fr_writer.writerow(frechet_cols)
 
         for idv in ids:
             print(f"== ID {idv} ==")
@@ -147,6 +162,7 @@ def main():
             dp_points = count_points_n_pairs(dp_path)
 
             for eps in args.eps:
+                print(f"-- ID {idv}, eps = {eps} --")
                 # 3. Run simplify for each epsilon with delta = dp/(1+eps)
                 delta = dp_dist / (1.0 + eps)
                 print(f"3. Running simplify with eps={eps} delta={delta}...")
@@ -156,6 +172,7 @@ def main():
                     continue
 
                 # 4. Frechet distance of our simplified
+                print(f"4. Calculating frechet distance for id={idv} err={args.err}...")
                 simp_dist_str = run([str(frechet_script), '--in', str(idv), '--raw', '--simplified'], capture=True)
                 if simp_dist_str is None or simp_dist_str == '':
                     print(f"    No simplified distance for id={idv}, eps={eps}", file=sys.stderr)
@@ -168,6 +185,7 @@ def main():
                     continue
                 simp_points = count_points_n_pairs(simp_path)
                 # 5. Write baseline CSV row (points baseline)
+                print(f"5. Writing to minimize_points id={idv} err={args.err}...")
                 base_writer.writerow([idv, eps, dp_dist, simp_dist, dp_points, simp_points, delta])
                 base_file.flush()
 
@@ -178,6 +196,7 @@ def main():
                 cur_delta = delta * args.reduction
                 iters = 0
                 while iters < args.max_iters:
+                    print(f"6. Running simplify with eps={eps} delta={cur_delta}...")
                     iters += 1
                     rc3 = run([str(simplify_bin), '--in', str(idv), '--out', '-d', f"{cur_delta}", '-e', f"{eps}"])
                     if rc3 is None:
@@ -202,6 +221,7 @@ def main():
                         best_delta = cur_delta
                     cur_delta *= args.reduction
 
+                print(f"7. Writing to minimize_frechet id={idv} err={args.err}...")
                 fr_writer.writerow([idv, eps, dp_dist, best_dist, dp_points, best_points, best_delta])
                 fr_file.flush()
 
