@@ -122,7 +122,8 @@ static void usage(const char* prog, const fs::path& src, const fs::path& out) {
     std::cerr << "Usage: " << prog << " [--all] | [--in ID]\n\n"
                  "Options:\n"
                  "  --all        Process all .txt files in " << src << "\n"
-                 "  --in ID        Process single file ID (e.g. --in 16 -> " << (src/"16.txt") << ")\n"
+                 "  --in ID      Process single file ID (e.g. --in 16 -> " << (src/"16.txt") << ")\n"
+                 "  ID           Shorthand positional (e.g. '" << prog << " 16')\n"
                  "  -h, --help   Show this message\n\n"
                  "This tool reads the last two comma-separated fields as (x,y),\n"
                  "maps min x -> -8000 and max x -> 8000, and scales y with the same\n"
@@ -152,12 +153,19 @@ int main(int argc, char** argv) {
     bool do_all = false; int single_id = -1;
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
-        if (a == "--all") do_all = true;
+        if (a == "--all") { do_all = true; }
         else if (a == "--in" && i + 1 < argc) {
             single_id = std::stoi(argv[++i]);
         } else if (a == "-h" || a == "--help") {
             usage(argv[0], source_dir, out_dir);
             return 0;
+        } else if (!a.empty() && a[0] != '-' && single_id == -1) {
+            // Shorthand positional ID: normalize <id>
+            try { single_id = std::stoi(a); }
+            catch (...) {
+                std::cerr << "Invalid ID: " << a << "\n";
+                return 1;
+            }
         } else {
             std::cerr << "Unknown argument: " << a << "\n";
             usage(argv[0], source_dir, out_dir);
@@ -178,8 +186,31 @@ int main(int argc, char** argv) {
         }
         normalize_minx_to_range(pts, -8000.0, 8000.0);
         fs::path out = out_dir / (std::to_string(id) + ".txt");
+        fs::path simp_dir = repo_root / "data" / "taxi_simplified" / std::to_string(id);
         if (write_cleaned(out, pts)) {
             std::cout << "Wrote: " << out << " (" << pts.xs.size() << " points)\n";
+            std::cout << "Wrote: " << simp_dir << " (" << pts.xs.size() << " points)\n";
+            // Also write two-line original.txt under data/taxi_simplified/<id>/
+            fs::create_directories(simp_dir);
+            std::ofstream orig(simp_dir / "original.txt");
+            if (orig) {
+                orig.setf(std::ios::fmtflags(0), std::ios::floatfield);
+                orig << std::setprecision(15);
+                // first line: xs
+                for (size_t i = 0; i < pts.xs.size(); ++i) {
+                    if (i) orig << ' ';
+                    orig << pts.xs[i];
+                }
+                orig << '\n';
+                // second line: ys
+                for (size_t i = 0; i < pts.ys.size(); ++i) {
+                    if (i) orig << ' ';
+                    orig << pts.ys[i];
+                }
+                orig << '\n';
+            } else {
+                std::cerr << "Failed to write: " << (simp_dir/"original.txt") << "\n";
+            }
         } else {
             std::cerr << "Failed to write: " << out << "\n";
         }
