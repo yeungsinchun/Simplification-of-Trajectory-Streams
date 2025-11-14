@@ -1,10 +1,13 @@
 ## Simplification of Trajectory Streams (draft)
 
-This repo implements the delta-simplification from the paper [Simplification of Trajectory Streams](https://arxiv.org/abs/2503.23025). It includes a Qt viewer and a CLI to simplify trajectories and optionally compute (approximate) Fréchet distance between original and simplified polylines.
+This repo implements the delta-simplification from the paper [Simplification of Trajectory Streams](https://arxiv.org/abs/2503.23025). It includes a Qt viewer and a CLI to simplify trajectories and optionally compute (approximate) Fréchet distance between original and simplified polylines. It also includes the benchmark of this streaming algorithm against other algorithms (possibly not streaming, like dp). 
 
 Tested primarily on macOS (arm64). Other platforms may work with the right dependencies.
 
 https://github.com/user-attachments/assets/7593b5d8-ca68-4b7b-af6f-de76cd1c7689
+
+<img width="824" height="780" alt="Screenshot 2025-11-15 at 2 55 41 AM" src="https://github.com/user-attachments/assets/b7b91c2c-b48f-4880-b80f-87e62af42bc2" />
+
 
 ## Prerequisites
 
