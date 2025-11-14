@@ -119,7 +119,7 @@ static bool write_cleaned(const fs::path& out, const Points& pts) {
 }
 
 static void usage(const char* prog, const fs::path& src, const fs::path& out) {
-    std::cerr << "Usage: " << prog << " [--all] | [-n ID]\n\n"
+    std::cerr << "Usage: " << prog << " [--all] | [--in ID]\n\n"
                  "Options:\n"
                  "  --all        Process all .txt files in " << src << "\n"
                  "  --in ID        Process single file ID (e.g. --in 16 -> " << (src/"16.txt") << ")\n"
