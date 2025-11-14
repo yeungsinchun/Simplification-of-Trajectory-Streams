@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 
-def run(cmd, cwd=None, capture=False):
+def run(cmd, cwd=None, capture=False, timeout=None):
     try:
         if capture:
             res = subprocess.run(
@@ -17,6 +17,7 @@ def run(cmd, cwd=None, capture=False):
                 text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                timeout=timeout,
             )
             return res.stdout.strip()
         else:
@@ -26,6 +27,7 @@ def run(cmd, cwd=None, capture=False):
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                timeout=timeout,
             )
             return ""
     except subprocess.CalledProcessError as e:
@@ -33,6 +35,9 @@ def run(cmd, cwd=None, capture=False):
             sys.stderr.write(f"Command failed: {' '.join(cmd)}\n{e.stderr}\n")
         else:
             sys.stderr.write(f"Command failed: {' '.join(cmd)}\n")
+        return None
+    except subprocess.TimeoutExpired:
+        sys.stderr.write(f"Command timed out: {' '.join(cmd)}\n")
         return None
 
 
@@ -77,6 +82,7 @@ def main():
     parser.add_argument('--reduction', type=float, default=0.9, help='delta reduction multiplicative factor (default 0.9)')
     parser.add_argument('--max-iters', type=int, default=50, help='max iterations of delta reduction per epsilon')
     parser.add_argument('--release-dir', type=str, default='release', help='path to build/release directory containing binaries')
+    parser.add_argument('--frechet-timeout', type=float, default=20.0, help='timeout (s) for frechet computations only')
 
     args = parser.parse_args()
     repo_root = Path(__file__).resolve().parent
@@ -149,7 +155,7 @@ def main():
 
             # 2. DP Frechet distance
             print(f"2. Calculating frechet distance for id={idv} err={args.err}...")
-            dp_dist_str = run([str(frechet_script), '--in', str(idv), '--raw', '--dp'], capture=True)
+            dp_dist_str = run([str(frechet_script), '--in', str(idv), '--raw', '--dp'], capture=True, timeout=args.frechet_timeout)
             if dp_dist_str is None or dp_dist_str == '':
                 print(f"    No DP distance for id={idv}", file=sys.stderr)
                 continue
@@ -173,7 +179,7 @@ def main():
 
                 # 4. Frechet distance of our simplified
                 print(f"4. Calculating frechet distance for id={idv} err={args.err}...")
-                simp_dist_str = run([str(frechet_script), '--in', str(idv), '--raw', '--simplified'], capture=True)
+                simp_dist_str = run([str(frechet_script), '--in', str(idv), '--raw', '--simplified'], capture=True, timeout=args.frechet_timeout)
                 if simp_dist_str is None or simp_dist_str == '':
                     print(f"    No simplified distance for id={idv}, eps={eps}", file=sys.stderr)
                     continue
@@ -201,8 +207,9 @@ def main():
                     rc3 = run([str(simplify_bin), '--in', str(idv), '--out', '-d', f"{cur_delta}", '-e', f"{eps}"])
                     if rc3 is None:
                         break
-                    simp_dist2_str = run([str(frechet_script), '--in', str(idv), '--raw', '--simplified'], capture=True)
+                    simp_dist2_str = run([str(frechet_script), '--in', str(idv), '--raw', '--simplified'], capture=True, timeout=args.frechet_timeout)
                     if not simp_dist2_str:
+                        print("    Frechet timed out; keeping best-so-far and continuing.")
                         break
                     try:
                         simp_dist2 = float(simp_dist2_str.strip())
