@@ -115,11 +115,11 @@ int main(int argc, char** argv) {
         std::string a = argv[i];
         if (a == "--orig") { onlyOrig = true; }
         else if (a == "--all") { selAll = true; selAny = true; }
-        else if (a == "-dp") { selDP = true; selAny = true; }
-        else if (a == "-operb") { selOPERB = true; selAny = true; }
-        else if (a == "-operba" || a == "-operab") { selOPERBA = true; selAny = true; }
-        else if (a == "-fbqs") { selFBQS = true; selAny = true; }
-        else if (a == "-simplify" || a == "-simplified") { selSimplified = true; selAny = true; }
+        else if (a == "--dp") { selDP = true; selAny = true; }
+        else if (a == "--operb") { selOPERB = true; selAny = true; }
+        else if (a == "--operba" || a == "--operab") { selOPERBA = true; selAny = true; }
+        else if (a == "--fbqs") { selFBQS = true; selAny = true; }
+        else if (a == "--simplify" || a == "--simplified") { selSimplified = true; selAny = true; }
         else {
             std::cerr << "Warning: unknown flag '" << a << "' ignored.\n";
         }
