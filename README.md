@@ -183,3 +183,5 @@ https://github.com/MingjiHan99/Trajectory-Simplification-Algorithm
 ## TODO
 
 - Implementation improvements (e.g., `get_points_from_grid`, reduce the number of `std::vector<Point>` to `Polygon_2` conversion maybe)
+
+- Refactor: duplicated representations of points in taxi/<id>/original.txt and taxi/1/.txt. It's better to use the <N> <x1> <y1> <x2> <y2> representation cuz it's easier to read.
