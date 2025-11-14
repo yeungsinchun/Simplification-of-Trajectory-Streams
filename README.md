@@ -33,8 +33,8 @@ pip3 install frechetlib
 - `algorithms/` — baseline algorithms we can run for comparison (DP, OPERB, OPERBA, FBQS)
 - `tools/normalize.cpp` — C++ tool to normalize raw CSV taxi logs into `data/taxi/<id>.txt`.
 - `data/`
-  - `taxi/` — normalized inputs as text: `../data/taxi/<id>.txt`
-  - `taxi_simplified/<id>/` — per-id outputs: `original.txt`, `simplified.txt`, and `<algo>_simplified.txt`
+  - `taxi/<id>/` — normalized inputs
+  - `taxi_simplified/<id>/` — outputs per id: `original.txt`, `simplified.txt`, and `<algo>_simplified.txt`
 - `build/` — build directory (create this yourself)
 
 ---
