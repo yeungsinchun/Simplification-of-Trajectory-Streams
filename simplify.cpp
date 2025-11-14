@@ -45,6 +45,8 @@ double EPSILON = 0.6;
 
 double GRID_val() { return EPSILON * DELTA / (2 * SQRT2); }
 
+double R_val() { return (1.0 + EPSILON / 2.0) * DELTA; }
+
 static void print_help() {
     std::cout << "Usage: simplify [options]\n"
               << "  --in <id>        Read input from data/taxi/<id>.txt (resolved absolutely)\n"
@@ -238,24 +240,24 @@ void append_rect_pts(std::vector<Point> &out, Bbox_edge from, Bbox_edge to,
 std::vector<Point> get_conv_from_grid(const Point &p) {
     const double px = CGAL::to_double(p.x());
     const double py = CGAL::to_double(p.y());
-    const double r = (1.0 + EPSILON / 2.0) * DELTA;
+    const double r = R_val();
     const double GRID = GRID_val();
     const double r2 = r * r;
     // treat p as (0, 0), find the topmost index of grid point that is contained
     // in the G_p
-    int y_min = -(r / GRID);
+    int y_min = -(r / GRID) - 1;
     int y_max = -y_min;
     std::vector<Point> boundaries;
     boundaries.reserve(2 * y_max + 1);
     // TODO: improve this implementation
     for (int y = y_min; y <= y_max; y++) {
         const double y_actual = y * GRID;
-        const int x_min = -sqrt(r2 - y_actual * y_actual) / GRID;
+        const int x_min = -sqrt(r2 - y_actual * y_actual) / GRID - 1;
         boundaries.emplace_back(px + x_min * GRID, py + y_actual);
     }
     for (int y = y_min; y <= y_max; y++) {
         const double y_actual = y * GRID;
-        const int x_max = (sqrt(r2 - y_actual * y_actual) / GRID);
+        const int x_max = (sqrt(r2 - y_actual * y_actual) / GRID) + 1;
         if (x_max != 0) // to avoid duplicates
             boundaries.emplace_back(px + x_max * GRID, py + y_actual);
     }
@@ -267,21 +269,22 @@ std::vector<Point> get_conv_from_grid(const Point &p) {
     return conv;
 }
 
+// refactor this function, too much duplication with above
 std::vector<Point> get_points_from_grid(const Point &p) {
     const double px = CGAL::to_double(p.x());
     const double py = CGAL::to_double(p.y());
-    const double r = (1.0 + EPSILON / 2.0) * DELTA;
+    const double r = R_val();
     const double GRID = GRID_val();
     const double r2 = r * r;
     // treat p as (0, 0), find the topmost index of grid point that is contained
     // in the G_p
-    int y_min = -(r / GRID);
+    int y_min = -(r / GRID) - 1;
     int y_max = -y_min;
     std::vector<Point> points;
     points.reserve(2 * y_max + 1);
     for (int y = y_min; y <= y_max; y++) {
         const double y_actual = y * GRID;
-        const int x_min = -sqrt(r2 - y_actual * y_actual) / GRID;
+        const int x_min = -sqrt(r2 - y_actual * y_actual) / GRID - 1;
         const int x_max = -x_min;
         for (int x = x_min; x <= x_max; x++) {
             points.emplace_back(px + x * GRID, py + y_actual);
@@ -582,7 +585,7 @@ int main(int argc, char** argv) {
     // Run distance computation only after GUI is closed (or immediately if no GUI)
     if (dist_flag && test_case_no != -1) {
         std::filesystem::path frechet_path = repo_root / "frechet";
-        std::string cmd1 = std::string("\"") + frechet_path.string() + std::string("\" -id ") + std::to_string(test_case_no);
+        std::string cmd1 = std::string("\"") + frechet_path.string() + std::to_string(test_case_no);
         int rc = std::system(cmd1.c_str());
         (void)rc;
     }
