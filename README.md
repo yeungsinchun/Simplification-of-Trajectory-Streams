@@ -4,7 +4,7 @@ This repo implements the delta-simplification from the paper [Simplification of 
 
 Tested primarily on macOS (arm64). Other platforms may work with the right dependencies.
 
-https://raw.githubusercontent.com/yeungsinchun/Simplification-of-Trajectory-Streams/main/.github/video/demo.mov
+/Users/sinchunyeung/Library/Mobile Documents/com~apple~CloudDocs/Documents/UST/UROP1100Q/demo.mov
 
 ## Prerequisites
 
@@ -23,6 +23,10 @@ On macOS with Homebrew you can install them with
 brew install cmake cgal qt@6
 pip3 install frechetlib
 ```
+
+
+https://github.com/user-attachments/assets/7593b5d8-ca68-4b7b-af6f-de76cd1c7689
+
 
 ---
 
