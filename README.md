@@ -4,7 +4,7 @@ This repo implements the delta-simplification from the paper [Simplification of 
 
 Tested primarily on macOS (arm64). Other platforms may work with the right dependencies.
 
-https://github.com/user-attachments/assets/79b65d33-c2bc-4ad3-b061-3848fb5a2d00
+https://raw.githubusercontent.com/yeungsinchun/Simplification-of-Trajectory-Streams/main/.github/video/demo.mov
 
 ## Prerequisites
 
@@ -53,7 +53,7 @@ Targets that will be built inside `build/`:
 
 - `simplify` — main app and viewer
 - `plot_curves` — overlay viewer for all curves for a given id
-- `main` — algorithms runner (runs all selected algorithms on one id)
+- `main` — baseline algorithms runner (runs all selected algorithms on one id)
 - `normalize` — normalize raw CSV taxi logs into `data/taxi/<id>.txt`
 
 ---
