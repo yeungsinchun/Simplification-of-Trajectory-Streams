@@ -562,7 +562,6 @@ int main(int argc, char** argv) {
         } else {
             std::filesystem::path dir = repo_root / "data" / "taxi_simplified" / std::to_string(test_case_no);
             std::filesystem::create_directories(dir);
-            // simplified
             std::ofstream simp(dir / "simplified.txt");
             for (const auto& p : simplified) simp << CGAL::to_double(p.x()) << ' ';
             simp << '\n';
