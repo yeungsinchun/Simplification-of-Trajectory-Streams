@@ -58,7 +58,8 @@ def main(argv=None) -> int:
 
     original_path = os.path.join(base, 'original.txt')
     if not os.path.exists(original_path):
-        not args.raw and print(f"Original file not found: {original_path}")
+        if not args.raw:
+            print(f"Original file not found: {original_path}")
         return 1
 
     # Determine which targets to process
@@ -84,14 +85,17 @@ def main(argv=None) -> int:
         if args.fbqs:
             targets.append(('fbqs', os.path.join(base, 'fbqs_simplified.txt')))
 
-    not args.raw and print(f"Reading curves from {base}...")
+    if not args.raw:
+        print(f"Reading curves from {base}...")
     try:
         orig = read_curve(original_path)
     except Exception as e:
-        not args.raw and print(f"Failed to read original: {e}")
+        if not args.raw:
+            print(f"Failed to read original: {e}")
         return 1
 
-    not args.raw and print("Calculating Frechet distances...")
+    if not args.raw:
+        print("Calculating Frechet distances...")
     for name, p in targets:
         if not os.path.exists(p):
             print(f"  {name}: MISSING ({p})")
