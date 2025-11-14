@@ -1,7 +1,5 @@
 #include "drawing.h"
 #include <QApplication>
-#include <fstream>
-#include <sstream>
 #include <string>
 #include <vector>
 #include <iostream>
@@ -15,58 +13,17 @@ extern const double BMAX =  10000.0;
 
 using P = Point; // CGAL kernel point
 
-static bool parse_two_line_xy(const std::string& path, std::vector<P>& out) {
-    std::ifstream in(path);
-    if (!in) return false;
-    std::string line1, line2;
-    if (!std::getline(in, line1)) return false;
-    // Skip possible empty/comment lines
-    while (line1.size() && std::all_of(line1.begin(), line1.end(), [](unsigned char c){return std::isspace(c);} )) {
-        if (!std::getline(in, line1)) return false;
-    }
-    if (!std::getline(in, line2)) return false;
-    std::istringstream xs(line1), ys(line2);
-    std::vector<double> vx, vy;
-    for (double v; xs >> v; ) vx.push_back(v);
-    for (double v; ys >> v; ) vy.push_back(v);
-    if (vx.empty() || vx.size() != vy.size()) return false;
-    out.clear(); out.reserve(vx.size());
-    for (size_t i = 0; i < vx.size(); ++i) out.emplace_back(vx[i], vy[i]);
-    return true;
-}
-
 static bool parse_n_pairs(const std::string& path, std::vector<P>& out) {
     std::ifstream in(path);
     if (!in) return false;
-    std::string line;
-    // Attempt to detect an optional leading N
-    size_t expected = 0;
-    if (std::getline(in, line)) {
-        std::istringstream ss(line);
-        size_t ntmp; double tx, ty;
-        if ((ss >> ntmp) && !(ss >> tx)) {
-            expected = ntmp;
-        } else {
-            // The first line already contains coordinates; process it below
-            in.clear();
-            in.seekg(0);
-        }
+    // Strict N + pairs: first line N, then N lines of x y
+    size_t N = 0;
+    if (!(in >> N)) return false;
+    out.clear(); out.reserve(N);
+    for (size_t i = 0; i < N; ++i) {
+        double x, y; if (!(in >> x >> y)) return false; out.emplace_back(x, y);
     }
-    out.clear();
-    double x, y;
-    while (in >> x >> y) out.emplace_back(x, y);
-    if (expected && out.size() != expected) {
-        // Not a hard error; accept what was parsed
-    }
-    return !out.empty();
-}
-
-static bool load_curve(const std::string& path, std::vector<P>& out) {
-    // Try two-line format first, then fallback
-    if (parse_two_line_xy(path, out)) return true;
-    out.clear();
-    if (parse_n_pairs(path, out)) return true;
-    return false;
+    return true;
 }
 
 static std::string to_lower(std::string s) { std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return std::tolower(c); }); return s; }
@@ -153,7 +110,7 @@ int main(int argc, char** argv) {
     bool have_original = false;
     {
         std::filesystem::path p = simplified_dir / "original.txt";
-        if (std::filesystem::exists(p) && load_curve(p.string(), tmp)) {
+        if (std::filesystem::exists(p) && parse_n_pairs(p.string(), tmp)) {
             orig = tmp;
             have_original = true;
         } else if (std::filesystem::exists(orig_data_path) && parse_n_pairs(orig_data_path.string(), tmp)) {
@@ -179,7 +136,7 @@ int main(int argc, char** argv) {
             if (to_lower(name) == "original.txt") continue; // already handled above
 
             std::vector<P> pts;
-            if (!load_curve(path.string(), pts)) continue;
+            if (!parse_n_pairs(path.string(), pts)) continue;
             QString label = label_from_filename(name);
             curves.emplace_back(label, std::move(pts));
         }

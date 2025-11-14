@@ -68,26 +68,26 @@ int main(int argc, char *argv[]) {
     // Resolve repository root and build absolute paths
     auto repo_root = resolve_repo_root(argv[0]);
     Trajectory<Point> *traj = new Trajectory<Point>;
-    std::filesystem::path file_path = repo_root / "data" / "taxi" / (std::to_string(id) + ".txt");
+    // Prefer data/taxi_simplified/<id>/original.txt (N+pairs), fallback to data/taxi/<id>.txt
+    std::filesystem::path simp_orig = repo_root / "data" / "taxi_simplified" / std::to_string(id) / "original.txt";
+    std::filesystem::path file_path = simp_orig;
     std::string file_name = file_path.string();
 
-    // Use C++ streams to read: first an integer N, then N pairs (x y)
+    // Parse strictly as N then N lines/pairs of x y
     std::ifstream fin(file_name);
     if (!fin) {
         std::cerr << "Failed to open " << file_name << "\n";
-        delete traj;
-        return 1;
+        delete traj; return 1;
     }
     int N = 0;
     if (!(fin >> N)) {
         std::cerr << "Invalid header in " << file_name << " (expected N)\n";
-        delete traj;
-        return 1;
+        delete traj; return 1;
     }
-    for (int j = 0; j < N; ++j) {
+    for (int i = 0; i < N; ++i) {
         if (!(fin >> tx >> ty)) {
             std::cerr << "Unexpected end of file while reading coordinates in " << file_name << "\n";
-            break;
+            delete traj; return 1;
         }
         traj->push(Point{tx, ty});
     }
@@ -142,23 +142,18 @@ int main(int argc, char *argv[]) {
             for (std::size_t k = 0; k < traj->size(); ++k) simplified_pts.push_back((*traj)[k]);
         }
 
-        // Write to ../data/taxi_simplified/<id>/<alg>_simplified.txt in two-line x/y format
+        // Write to data/taxi_simplified/<id>/<alg>_simplified.txt in N + pairs format
         try {
             std::filesystem::path out_path = out_dir / (alg_name + std::string("_simplified.txt"));
             std::ofstream fout(out_path);
             if (!fout) {
                 std::cerr << "Failed to open output file: " << out_path << "\n";
             } else {
-                for (std::size_t i = 0; i < simplified_pts.size(); ++i) {
-                    if (i) fout << ' ';
-                    fout << simplified_pts[i].x;
+                std::size_t Nsim = simplified_pts.size();
+                fout << Nsim << '\n';
+                for (std::size_t i = 0; i < Nsim; ++i) {
+                    fout << simplified_pts[i].x << ' ' << simplified_pts[i].y << '\n';
                 }
-                fout << "\n";
-                for (std::size_t i = 0; i < simplified_pts.size(); ++i) {
-                    if (i) fout << ' ';
-                    fout << simplified_pts[i].y;
-                }
-                fout << "\n";
                 std::cout << "[" << alg_name << "] points=" << simplified_pts.size() << ", time="
                           << (double)(t1 - t0) / CLOCKS_PER_SEC << "s -> " << out_path << "\n";
             }

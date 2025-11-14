@@ -532,14 +532,16 @@ int main(int argc, char** argv) {
         if (std::filesystem::exists(cwd / "data")) repo_root = cwd; else repo_root = cwd; // fallback cwd
     }
     if (test_case_no != -1) {
-        auto input_path = repo_root / "data" / "taxi" / (std::to_string(test_case_no) + ".txt");
-        std::ifstream fin(input_path.string());
-        if (!fin) { std::cerr << "Cannot open " << input_path.string() << "\n"; return 1; }
+        // Prefer original in data/taxi_simplified/<id>/original.txt; fallback to data/taxi/<id>.txt
+        auto simp_orig = repo_root / "data" / "taxi_simplified" / std::to_string(test_case_no) / "original.txt";
+        std::ifstream fin(simp_orig.string());
+        if (!fin) { std::cerr << "Cannot open " << simp_orig.string() << "\n"; return 1; }
         int N = 0;
-        if (!(fin >> N)) { std::cerr << "Empty or invalid input in " << input_path.string() << "\n"; return 1; }
-        stream.resize(N);
+        if (!(fin >> N)) { std::cerr << "Empty or invalid input in " << simp_orig.string() << "\n"; return 1; }
+        stream.clear(); stream.reserve(N);
         for (int i = 0; i < N; ++i) {
-            if (!(fin >> stream[i])) { std::cerr << "Malformed point at index " << i << " in " << input_path.string() << "\n"; return 1; }
+            double x,y; if (!(fin >> x >> y)) { std::cerr << "Malformed pair at index " << i << " in " << simp_orig.string() << "\n"; return 1; }
+            stream.emplace_back(x, y);
         }
     }
 
@@ -563,10 +565,11 @@ int main(int argc, char** argv) {
             std::filesystem::path dir = repo_root / "data" / "taxi_simplified" / std::to_string(test_case_no);
             std::filesystem::create_directories(dir);
             std::ofstream simp(dir / "simplified.txt");
-            for (const auto& p : simplified) simp << CGAL::to_double(p.x()) << ' ';
-            simp << '\n';
-            for (const auto& p : simplified) simp << CGAL::to_double(p.y()) << ' ';
-            simp << '\n';
+            std::size_t N = simplified.size();
+            simp << N << '\n';
+            for (const auto& p : simplified) {
+                simp << CGAL::to_double(p.x()) << ' ' << CGAL::to_double(p.y()) << '\n';
+            }
         }
         std::cout << "Output Written\n";
     }
