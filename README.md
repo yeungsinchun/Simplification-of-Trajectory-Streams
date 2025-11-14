@@ -8,9 +8,7 @@ Demo video of this algorithm:
 https://github.com/user-attachments/assets/7593b5d8-ca68-4b7b-af6f-de76cd1c7689
 
 Visual comparison between different algorithms (simplified in red being this algorithm):
-
-<img width="824" height="780" alt="Screenshot 2025-11-15 at 2 55 41 AM" src="https://github.com/user-attachments/assets/b7b91c2c-b48f-4880-b80f-87e62af42bc2" />
-
+<img width="724" height="725" alt="Screenshot 2025-11-15 at 2 59 30 AM" src="https://github.com/user-attachments/assets/d5bc2041-b0b6-47a6-a261-7ef5a7eac757" />
 
 ## Prerequisites
 
