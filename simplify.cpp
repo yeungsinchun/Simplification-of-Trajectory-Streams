@@ -58,7 +58,7 @@ static void print_help() {
               << "  -F/-G/-S         Debug polygon display modes\n"
               << "  -h               Show this help and exit\n"
               << "\n"
-              << "Shorthand: simplify <id> is equivalent to '--in <id> --out'\n";
+              << "Shorthand: simplify <id> [flags] is equivalent to '--in <id> --out [flags]'\n";
 }
 
 // Copied from examples/Boolean_set_operations/print_utils.cpp
@@ -502,8 +502,8 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Shorthand: a single numeric positional argument means '--in <id> --out'
-    if (test_case_no == -1 && argc == 2 && argv[1][0] != '-') {
+    // Shorthand: first positional numeric argument means '--in <id> --out'; allows extra flags (e.g., '--gui')
+    if (test_case_no == -1 && argc >= 2 && argv[1][0] != '-') {
         try {
             test_case_no = std::stoi(argv[1]);
             out_flag = true;
@@ -585,7 +585,8 @@ int main(int argc, char** argv) {
     // Run distance computation only after GUI is closed (or immediately if no GUI)
     if (dist_flag && test_case_no != -1) {
         std::filesystem::path frechet_path = repo_root / "frechet";
-        std::string cmd1 = std::string("\"") + frechet_path.string() + std::to_string(test_case_no);
+        // Quote the path to handle spaces (e.g., "Mobile Documents") and pass explicit args
+        std::string cmd1 = std::string("\"") + frechet_path.string() + "\" --in " + std::to_string(test_case_no) + " --simplified";
         int rc = std::system(cmd1.c_str());
         (void)rc;
     }
