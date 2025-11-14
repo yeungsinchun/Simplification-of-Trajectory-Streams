@@ -36,28 +36,33 @@ def run(cmd, cwd=None, capture=False):
         return None
 
 
-def count_points_two_line(path: Path) -> int | None:
+def count_points_n_pairs(path: Path) -> int | None:
     try:
         with path.open('r') as f:
-            lines = f.readlines()
-            if len(lines) < 2:
+            header = f.readline()
+            if not header:
                 return None
-            xs = lines[0].split()
-            ys = lines[1].split()
-            if len(xs) != len(ys):
+            try:
+                n = int(header.strip())
+            except Exception:
                 return None
-            return len(xs)
+            # We could validate number of remaining lines, but for speed just return n.
+            return n
     except Exception:
         return None
 
 
 def main():
     parser = argparse.ArgumentParser(description="Benchmark simplify against DP over a range of IDs.")
-    parser.add_argument('--a', type=int, required=True, help='start id (inclusive)')
-    parser.add_argument('--b', type=int, required=True, help='end id (inclusive)')
+    parser.add_argument('--a', type=int, help='start id (inclusive)')
+    parser.add_argument('--b', type=int, help='end id (inclusive)')
+    parser.add_argument('--all', action='store_true', help='run across all ids detected in data/taxi/*.txt (ignores --a/--b)')
     parser.add_argument('--err', type=float, required=True, help='error bound for ./main (e.g., 200)')
     parser.add_argument('--eps', type=float, nargs='*', default=[0.25, 0.5, 0.75], help='epsilon values to test')
-    parser.add_argument('--out', type=str, default='result.csv', help='output CSV file')
+    parser.add_argument('--out', type=str, default='minimize_points.csv', help='baseline output CSV file (points optimization baseline)')
+    parser.add_argument('--out-frechet', type=str, default='minimize_frechet.csv', help='output CSV capturing minimized Frechet distances at <= dp_points')
+    parser.add_argument('--reduction', type=float, default=0.9, help='delta reduction multiplicative factor (default 0.9)')
+    parser.add_argument('--max-iters', type=int, default=50, help='max iterations of delta reduction per epsilon')
     parser.add_argument('--release-dir', type=str, default='release', help='path to build/release directory containing binaries')
 
     args = parser.parse_args()
@@ -78,14 +83,43 @@ def main():
         print(f"Missing script: {frechet_script}", file=sys.stderr)
         return 2
 
-    out_csv = Path(args.out)
-    write_header = not out_csv.exists()
-    with out_csv.open('a', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        if write_header:
-            writer.writerow(['id', 'epsilon', 'dp_dist', 'simp_dist', 'dp_points', 'simp_points'])
+    # Build list of ids to process
+    if args.all:
+        taxi_dir = repo_root / 'data' / 'taxi'
+        ids = []
+        if taxi_dir.exists() and taxi_dir.is_dir():
+            for p in taxi_dir.iterdir():
+                if p.is_file() and p.suffix == '.txt':
+                    try:
+                        ids.append(int(p.stem))
+                    except Exception:
+                        pass
+            ids.sort()
+        else:
+            print(f"Missing directory: {taxi_dir}", file=sys.stderr)
+            return 2
+    else:
+        if args.a is None or args.b is None:
+            print("Provide --a and --b, or use --all", file=sys.stderr)
+            return 2
+        if args.a > args.b:
+            print("Invalid range: --a must be <= --b", file=sys.stderr)
+            return 2
+        ids = list(range(args.a, args.b + 1))
 
-        for idv in range(args.a, args.b + 1):
+    baseline_csv = Path(args.out)
+    frechet_csv = Path(args.out_frechet)
+    baseline_header = not baseline_csv.exists()
+    frechet_header = not frechet_csv.exists()
+    with baseline_csv.open('a', newline='') as base_file, frechet_csv.open('a', newline='') as fr_file:
+        base_writer = csv.writer(base_file)
+        fr_writer = csv.writer(fr_file)
+        if baseline_header:
+            base_writer.writerow(['id', 'epsilon', 'dp_dist', 'simp_dist', 'dp_points', 'best_points', 'delta'])
+        if frechet_header:
+            fr_writer.writerow(['id', 'epsilon', 'dp_dist', 'best_frechet', 'dp_points', 'best_simp_points', 'best_delta'])
+
+        for idv in ids:
             print(f"== ID {idv} ==")
             # 1. Run algorithms to generate dp_simplified.txt (and others)
             print(f"1. Running main for id={idv} err={args.err}...")
@@ -112,10 +146,10 @@ def main():
             except Exception:
                 print(f"    Invalid DP raw output for id={idv}: {dp_dist_str}", file=sys.stderr)
                 continue
-            dp_points = count_points_two_line(dp_path)
+            dp_points = count_points_n_pairs(dp_path)
 
-            # 3. Run simplify for each epsilon with delta = dp/(1+eps)
             for eps in args.eps:
+                # 3. Run simplify for each epsilon with delta = dp/(1+eps)
                 delta = dp_dist / (1.0 + eps)
                 print(f"3. Running simplify with eps={eps} delta={delta}...")
                 rc2 = run([str(simplify_bin), '--in', str(idv), '--out', '-d', f"{delta}", '-e', f"{eps}"])
@@ -134,13 +168,46 @@ def main():
                 except Exception:
                     print(f"    Invalid simplified raw output for id={idv}, eps={eps}: {simp_dist_str}", file=sys.stderr)
                     continue
-                simp_points = count_points_two_line(simp_path)
+                simp_points = count_points_n_pairs(simp_path)
+                # 5. Write baseline CSV row (points baseline)
+                base_writer.writerow([idv, eps, dp_dist, simp_dist, dp_points, simp_points, delta])
+                base_file.flush()
 
-                # 5. Write CSV row
-                writer.writerow([idv, eps, dp_dist, simp_dist, dp_points, simp_points])
-                csvfile.flush()
+                # 6. Minimize Frechet distance while keeping points <= dp_points by shrinking delta
+                best_dist = simp_dist
+                best_points = simp_points
+                best_delta = delta
+                cur_delta = delta * args.reduction
+                iters = 0
+                while iters < args.max_iters:
+                    iters += 1
+                    rc3 = run([str(simplify_bin), '--in', str(idv), '--out', '-d', f"{cur_delta}", '-e', f"{eps}"])
+                    if rc3 is None:
+                        break
+                    simp_dist2_str = run([str(frechet_script), '--in', str(idv), '--raw', '--simplified'], capture=True)
+                    if not simp_dist2_str:
+                        break
+                    try:
+                        simp_dist2 = float(simp_dist2_str.strip())
+                    except Exception:
+                        break
+                    simp_points2 = count_points_n_pairs(simp_path)
+                    if simp_points2 is None:
+                        break
+                    # Stop if we exceed dp_points
+                    if dp_points is not None and simp_points2 > dp_points:
+                        break
+                    # Update best if distance improves
+                    if simp_dist2 < best_dist:
+                        best_dist = simp_dist2
+                        best_points = simp_points2
+                        best_delta = cur_delta
+                    cur_delta *= args.reduction
 
-    print(f"Done. Results written to {out_csv}")
+                fr_writer.writerow([idv, eps, dp_dist, best_dist, dp_points, best_points, best_delta])
+                fr_file.flush()
+
+    print(f"Done. Baseline results: {baseline_csv} | Min Frechet results: {frechet_csv}")
     return 0
 
 
