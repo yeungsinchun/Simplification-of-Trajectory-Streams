@@ -1,0 +1,134 @@
+#!/usr/bin/env python3
+import argparse
+import csv
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+
+def run(cmd, cwd=None, capture=False):
+    try:
+        if capture:
+            res = subprocess.run(cmd, cwd=cwd, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            return res.stdout.strip()
+        else:
+            subprocess.run(cmd, cwd=cwd, check=True)
+            return ""
+    except subprocess.CalledProcessError as e:
+        if capture:
+            sys.stderr.write(f"Command failed: {' '.join(cmd)}\n{e.stderr}\n")
+        else:
+            sys.stderr.write(f"Command failed: {' '.join(cmd)}\n")
+        return None
+
+
+def count_points_two_line(path: Path) -> int | None:
+    try:
+        with path.open('r') as f:
+            lines = f.readlines()
+            if len(lines) < 2:
+                return None
+            xs = lines[0].split()
+            ys = lines[1].split()
+            if len(xs) != len(ys):
+                return None
+            return len(xs)
+    except Exception:
+        return None
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Benchmark simplify against DP over a range of IDs.")
+    parser.add_argument('--a', type=int, required=True, help='start id (inclusive)')
+    parser.add_argument('--b', type=int, required=True, help='end id (inclusive)')
+    parser.add_argument('--err', type=float, required=True, help='error bound for ./main (e.g., 200)')
+    parser.add_argument('--eps', type=float, nargs='*', default=[0.25, 0.5, 0.75], help='epsilon values to test')
+    parser.add_argument('--out', type=str, default='result.csv', help='output CSV file')
+    parser.add_argument('--release-dir', type=str, default='release', help='path to build/release directory containing binaries')
+
+    args = parser.parse_args()
+    repo_root = Path(__file__).resolve().parent
+    release_dir = (repo_root / args.release_dir).resolve()
+
+    main_bin = release_dir / 'main'
+    simplify_bin = release_dir / 'simplify'
+    frechet_script = repo_root / 'frechet'
+
+    if not main_bin.exists():
+        print(f"Missing binary: {main_bin}", file=sys.stderr)
+        return 2
+    if not simplify_bin.exists():
+        print(f"Missing binary: {simplify_bin}", file=sys.stderr)
+        return 2
+    if not frechet_script.exists():
+        print(f"Missing script: {frechet_script}", file=sys.stderr)
+        return 2
+
+    out_csv = Path(args.out)
+    write_header = not out_csv.exists()
+    with out_csv.open('a', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        if write_header:
+            writer.writerow(['id', 'epsilon', 'dp_dist', 'simp_dist', 'dp_points', 'simp_points'])
+
+        for idv in range(args.a, args.b + 1):
+            print(f"== ID {idv} ==")
+            # 1. Run algorithms to generate dp_simplified.txt (and others)
+            print(f"1. Running main for id={idv} err={args.err}...")
+            rc = run([str(main_bin), str(idv), str(args.err)])
+            if rc is None:
+                print(f"Skipping id={idv} due to main failure", file=sys.stderr)
+                continue
+
+            # Paths
+            simp_dir = repo_root / 'data' / 'taxi_simplified' / str(idv)
+            dp_path = simp_dir / 'dp_simplified.txt'
+            simp_path = simp_dir / 'simplified.txt'
+
+            # 2. DP Frechet distance
+            print(f"2. Calculating frechet distance for id={idv} err={args.err}...")
+            dp_dist_str = run([str(frechet_script), '--in', str(idv), '--raw', '--dp'], capture=True)
+            if dp_dist_str is None or dp_dist_str == '':
+                print(f"No DP distance for id={idv}", file=sys.stderr)
+                continue
+            try:
+                dp_dist = float(dp_dist_str.strip())
+                print(f"    Frechet distance for dp is {dp_dist}...")
+            except Exception:
+                print(f"Invalid DP raw output for id={idv}: {dp_dist_str}", file=sys.stderr)
+                continue
+            dp_points = count_points_two_line(dp_path)
+
+            # 3. Run simplify for each epsilon with delta = dp/(1+eps)
+            for eps in args.eps:
+                delta = dp_dist / (1.0 + eps)
+                print(f"3. Running simplify with eps={eps} delta={delta}...")
+                rc2 = run([str(simplify_bin), '--in', str(idv), '--out', '-d', f"{delta}", '-e', f"{eps}"])
+                if rc2 is None:
+                    print(f"simplify failed for id={idv}, eps={eps}", file=sys.stderr)
+                    continue
+
+                # 4. Frechet distance of our simplified
+                simp_dist_str = run([str(frechet_script), '--in', str(idv), '--raw', '--simplified'], capture=True)
+                if simp_dist_str is None or simp_dist_str == '':
+                    print(f"  No simplified distance for id={idv}, eps={eps}", file=sys.stderr)
+                    continue
+                try:
+                    simp_dist = float(simp_dist_str.strip())
+                    print(f"    Frechet distance for simplified is {simp_dist}...")
+                except Exception:
+                    print(f"  Invalid simplified raw output for id={idv}, eps={eps}: {simp_dist_str}", file=sys.stderr)
+                    continue
+                simp_points = count_points_two_line(simp_path)
+
+                # 5. Write CSV row
+                writer.writerow([idv, eps, dp_dist, simp_dist, dp_points, simp_points])
+                csvfile.flush()
+
+    print(f"Done. Results written to {out_csv}")
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
