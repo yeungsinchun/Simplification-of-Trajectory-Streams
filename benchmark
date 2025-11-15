@@ -4,6 +4,7 @@ import csv
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 
@@ -81,6 +82,7 @@ def main():
     parser.add_argument('--out-frechet', type=str, default='minimize_frechet.csv', help='output CSV capturing minimized Frechet distances at <= dp_points')
     parser.add_argument('--reduction', type=float, default=0.9, help='delta reduction multiplicative factor (default 0.9)')
     parser.add_argument('--max-iters', type=int, default=50, help='max iterations of delta reduction per epsilon')
+    parser.add_argument('--derr', type=float, default=0.01, help='delta error to stop')
     parser.add_argument('--release-dir', type=str, default='release', help='path to build/release directory containing binaries')
     parser.add_argument('--frechet-timeout', type=float, default=60.0, help='timeout (s) for frechet computations only')
 
@@ -126,17 +128,35 @@ def main():
 
     baseline_csv = Path(args.out)
     frechet_csv = Path(args.out_frechet)
+    # New timing CSVs (do not change existing CSV schemas)
+    baseline_times_csv = Path('minimize_points_times.csv')
+    frechet_times_csv = Path('minimize_frechet_times.csv')
     baseline_cols = ['id', 'epsilon', 'dp_dist', 'simp_dist', 'dp_points', 'best_simp_points', 'delta']
     frechet_cols = ['id', 'epsilon', 'dp_dist', 'best_simp_dist', 'dp_points', 'simp_points', 'best_delta']
     baseline_header = needs_header(baseline_csv, baseline_cols)
     frechet_header = needs_header(frechet_csv, frechet_cols)
-    with baseline_csv.open('a', newline='') as base_file, frechet_csv.open('a', newline='') as fr_file:
+    # Timing CSV headers
+    baseline_times_cols = ['id', 'epsilon', 'dp_frechet_time_s', 'simplify_time_s', 'simplified_frechet_time_s']
+    frechet_times_cols = ['id', 'epsilon', 'iter', 'delta', 'simplify_time_s', 'frechet_time_s', 'dist', 'points', 'note']
+    baseline_times_header = needs_header(baseline_times_csv, baseline_times_cols)
+    frechet_times_header = needs_header(frechet_times_csv, frechet_times_cols)
+
+    with baseline_csv.open('a', newline='') as base_file, \
+         frechet_csv.open('a', newline='') as fr_file, \
+         baseline_times_csv.open('a', newline='') as base_t_file, \
+         frechet_times_csv.open('a', newline='') as fr_t_file:
         base_writer = csv.writer(base_file)
         fr_writer = csv.writer(fr_file)
+        base_t_writer = csv.writer(base_t_file)
+        fr_t_writer = csv.writer(fr_t_file)
         if baseline_header:
             base_writer.writerow(baseline_cols)
         if frechet_header:
             fr_writer.writerow(frechet_cols)
+        if baseline_times_header:
+            base_t_writer.writerow(baseline_times_cols)
+        if frechet_times_header:
+            fr_t_writer.writerow(frechet_times_cols)
 
         for idv in ids:
             print(f"== ID {idv} ==")
@@ -155,13 +175,15 @@ def main():
 
             # 2. DP Frechet distance
             print(f"2. Calculating frechet distance for id={idv} err={args.err}...")
+            t_dp0 = time.monotonic()
             dp_dist_str = run([str(frechet_script), '--in', str(idv), '--raw', '--dp'], capture=True, timeout=args.frechet_timeout)
+            t_dp1 = time.monotonic()
             if dp_dist_str is None or dp_dist_str == '':
                 print(f"    No DP distance for id={idv}", file=sys.stderr)
                 continue
             try:
                 dp_dist = float(dp_dist_str.strip())
-                print(f"    Frechet distance for dp is {dp_dist}...")
+                print(f"    Frechet distance for dp is {dp_dist} (time={t_dp1 - t_dp0:.6f}s)...")
             except Exception:
                 print(f"    Invalid DP raw output for id={idv}: {dp_dist_str}", file=sys.stderr)
                 continue
@@ -172,61 +194,85 @@ def main():
                 # 3. Run simplify for each epsilon with delta = dp/(1+eps)
                 delta = dp_dist / (1.0 + eps)
                 print(f"3. Running simplify with eps={eps} delta={delta}...")
+                t_s0 = time.monotonic()
                 rc2 = run([str(simplify_bin), '--in', str(idv), '--out', '-d', f"{delta}", '-e', f"{eps}"])
+                t_s1 = time.monotonic()
                 if rc2 is None:
                     print(f"    simplify failed for id={idv}, eps={eps}", file=sys.stderr)
                     continue
 
-                # 4. Frechet distance of our simplified
-                print(f"4. Calculating frechet distance for id={idv} err={args.err}...")
+                print(f"    Calculating frechet distance for id={idv}...")
+                t_f0 = time.monotonic()
                 simp_dist_str = run([str(frechet_script), '--in', str(idv), '--raw', '--simplified'], capture=True, timeout=args.frechet_timeout)
+                t_f1 = time.monotonic()
                 if simp_dist_str is None or simp_dist_str == '':
                     print(f"    No simplified distance for id={idv}, eps={eps}", file=sys.stderr)
                     continue
                 try:
                     simp_dist = float(simp_dist_str.strip())
-                    print(f"    Frechet distance for simplified is {simp_dist}...")
+                    print(f"    Frechet distance for simplified is {simp_dist} (simplify_time={t_s1 - t_s0:.6f}s, frechet_time={t_f1 - t_f0:.6f}s)...")
                 except Exception:
                     print(f"    Invalid simplified raw output for id={idv}, eps={eps}: {simp_dist_str}", file=sys.stderr)
                     continue
                 simp_points = count_points_n_pairs(simp_path)
-                # 5. Write baseline CSV row (points baseline)
-                print(f"5. Writing to minimize_points id={idv} err={args.err}...")
+                # 4. Write baseline CSV row (points baseline)
+                print(f"4. Writing to minimize_points id={idv} err={args.err}...")
                 base_writer.writerow([idv, eps, dp_dist, simp_dist, dp_points, simp_points, delta])
                 base_file.flush()
+                # Write timing row for baseline
+                base_t_writer.writerow([idv, eps, f"{t_dp1 - t_dp0:.6f}", f"{t_s1 - t_s0:.6f}", f"{t_f1 - t_f0:.6f}"])
+                base_t_file.flush()
 
-                # 6. Minimize Frechet distance while keeping points <= dp_points by shrinking delta
+                # 5. Minimize Frechet distance while keeping points <= dp_points by shrinking delta
                 best_dist = simp_dist
                 best_points = simp_points
                 best_delta = delta
                 cur_delta = delta * args.reduction
                 iters = 0
-                while iters < args.max_iters:
-                    print(f"6. Running simplify with eps={eps} delta={cur_delta}...")
+                while iters < args.max_iters and best_delta > args.derr:
+                    print(f"5. Running simplify with eps={eps} delta={cur_delta}...")
                     iters += 1
+                    t_s2 = time.monotonic()
                     rc3 = run([str(simplify_bin), '--in', str(idv), '--out', '-d', f"{cur_delta}", '-e', f"{eps}"])
+                    t_s3 = time.monotonic()
                     if rc3 is None:
+                        fr_t_writer.writerow([idv, eps, iters, cur_delta, f"{t_s3 - t_s2:.6f}", '', '', '', 'simplify_failed'])
+                        fr_t_file.flush()
                         break
+                    print(f"    Calculating frechet distance for id={idv}...")
+                    t_f2 = time.monotonic()
                     simp_dist2_str = run([str(frechet_script), '--in', str(idv), '--raw', '--simplified'], capture=True, timeout=args.frechet_timeout)
+                    t_f3 = time.monotonic()
                     if not simp_dist2_str:
                         print("    Frechet timed out; keeping best-so-far and continuing.")
+                        fr_t_writer.writerow([idv, eps, iters, cur_delta, f"{t_s3 - t_s2:.6f}", f"{t_f3 - t_f2:.6f}", '', '', 'frechet_timeout'])
+                        fr_t_file.flush()
                         break
                     try:
                         simp_dist2 = float(simp_dist2_str.strip())
-                        print(f"    Frechet distance for simplified is {simp_dist}...")
+                        print(f"    Frechet distance for simplified is {simp_dist2} (simplify_time={t_s3 - t_s2:.6f}s, frechet_time={t_f3 - t_f2:.6f}s)...")
                     except Exception:
+                        fr_t_writer.writerow([idv, eps, iters, cur_delta, f"{t_s3 - t_s2:.6f}", f"{t_f3 - t_f2:.6f}", '', '', 'frechet_parse_error'])
+                        fr_t_file.flush()
                         break
                     simp_points2 = count_points_n_pairs(simp_path)
                     if simp_points2 is None:
+                        fr_t_writer.writerow([idv, eps, iters, cur_delta, f"{t_s3 - t_s2:.6f}", f"{t_f3 - t_f2:.6f}", simp_dist2, '', 'no_points'])
+                        fr_t_file.flush()
                         break
                     # Stop if we exceed dp_points
                     if dp_points is not None and simp_points2 > dp_points:
+                        fr_t_writer.writerow([idv, eps, iters, cur_delta, f"{t_s3 - t_s2:.6f}", f"{t_f3 - t_f2:.6f}", simp_dist2, simp_points2, 'exceed_dp_points'])
+                        fr_t_file.flush()
                         break
                     # Update best if distance improves
                     if simp_dist2 < best_dist:
                         best_dist = simp_dist2
                         best_points = simp_points2
                         best_delta = cur_delta
+                    # Record timing for this iteration
+                    fr_t_writer.writerow([idv, eps, iters, cur_delta, f"{t_s3 - t_s2:.6f}", f"{t_f3 - t_f2:.6f}", simp_dist2, simp_points2, ''])
+                    fr_t_file.flush()
                     cur_delta *= args.reduction
 
                 print(f"7. Writing to minimize_frechet id={idv} err={args.err}...")
