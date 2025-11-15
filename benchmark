@@ -7,6 +7,7 @@ import sys
 import time
 from pathlib import Path
 
+from frechetlib.continuous_frechet import frechet_c_approx  # type: ignore
 
 def run(cmd, cwd=None, capture=False, timeout=None):
     try:
@@ -71,6 +72,46 @@ def needs_header(path: Path, expected_header: list[str]) -> bool:
         return True
 
 
+def _read_curve(path: Path):
+    """Read N + N lines of x y into numpy array; return None on failure or if lib unavailable."""
+    try:
+        # Import locally to avoid static analysis complaints when globals are None
+        import numpy as _np  # type: ignore
+        with path.open('r') as f:
+            header = f.readline()
+            if not header:
+                return None
+            n = int(header.strip())
+            pts = _np.empty((n, 2), dtype=float)
+            for i in range(n):
+                line = f.readline()
+                if not line:
+                    return None
+                parts = line.strip().split()
+                if len(parts) < 2:
+                    return None
+                pts[i, 0] = float(parts[0])
+                pts[i, 1] = float(parts[1])
+            return pts
+    except Exception:
+        return None
+
+def _frechet_distance(orig_path: Path, other_path: Path):
+    """Compute Frechet distance and timing; returns (dist_or_None, elapsed_seconds)."""
+    t0 = time.monotonic()
+    orig = _read_curve(orig_path)
+    other = _read_curve(other_path)
+    if orig is None or other is None:
+        return (None, time.monotonic() - t0)
+    try:
+        # Import locally to avoid static analysis complaints
+        from frechetlib.continuous_frechet import frechet_c_approx as _frechet_c_approx  # type: ignore
+        res, morphing = _frechet_c_approx(orig, other, 1.01)
+        dist = getattr(morphing, 'dist', res if isinstance(res, (int, float)) else None)
+        return (float(dist) if dist is not None else None, time.monotonic() - t0)
+    except Exception:
+        return (None, time.monotonic() - t0)
+
 def main():
     parser = argparse.ArgumentParser(description="Benchmark simplify against DP over a range of IDs.")
     parser.add_argument('--a', type=int, help='start id (inclusive)')
@@ -99,9 +140,6 @@ def main():
         return 2
     if not simplify_bin.exists():
         print(f"Missing binary: {simplify_bin}", file=sys.stderr)
-        return 2
-    if not frechet_script.exists():
-        print(f"Missing script: {frechet_script}", file=sys.stderr)
         return 2
 
     # Build list of ids to process
@@ -173,20 +211,19 @@ def main():
             dp_path = simp_dir / 'dp_simplified.txt'
             simp_path = simp_dir / 'simplified.txt'
 
-            # 2. DP Frechet distance
+            # 2. DP Frechet distance (in-process if possible)
             print(f"2. Calculating frechet distance for id={idv} err={args.err}...")
-            t_dp0 = time.monotonic()
-            dp_dist_str = run([str(frechet_script), '--in', str(idv), '--raw', '--dp'], capture=True, timeout=args.frechet_timeout)
-            t_dp1 = time.monotonic()
-            if dp_dist_str is None or dp_dist_str == '':
+            original_path = simp_dir / 'original.txt'
+            if not original_path.exists():
+                print(f"    Missing original.txt for id={idv}", file=sys.stderr)
+                continue
+            dp_dist, dp_time = _frechet_distance(original_path, dp_path)
+            if dp_dist is None:
                 print(f"    No DP distance for id={idv}", file=sys.stderr)
                 continue
-            try:
-                dp_dist = float(dp_dist_str.strip())
-                print(f"    Frechet distance for dp is {dp_dist} (time={t_dp1 - t_dp0:.6f}s)...")
-            except Exception:
-                print(f"    Invalid DP raw output for id={idv}: {dp_dist_str}", file=sys.stderr)
-                continue
+            print(f"    Frechet distance for dp is {dp_dist} (time={dp_time:.6f}s)...")
+            t_dp0 = 0.0  # maintain variables for CSV compatibility
+            t_dp1 = dp_time
             dp_points = count_points_n_pairs(dp_path)
 
             for eps in args.eps:
@@ -202,18 +239,13 @@ def main():
                     continue
 
                 print(f"    Calculating frechet distance for id={idv}...")
-                t_f0 = time.monotonic()
-                simp_dist_str = run([str(frechet_script), '--in', str(idv), '--raw', '--simplified'], capture=True, timeout=args.frechet_timeout)
-                t_f1 = time.monotonic()
-                if simp_dist_str is None or simp_dist_str == '':
+                simp_dist, simp_f_time = _frechet_distance(original_path, simp_path)
+                if simp_dist is None:
                     print(f"    No simplified distance for id={idv}, eps={eps}", file=sys.stderr)
                     continue
-                try:
-                    simp_dist = float(simp_dist_str.strip())
-                    print(f"    Frechet distance for simplified is {simp_dist} (simplify_time={t_s1 - t_s0:.6f}s, frechet_time={t_f1 - t_f0:.6f}s)...")
-                except Exception:
-                    print(f"    Invalid simplified raw output for id={idv}, eps={eps}: {simp_dist_str}", file=sys.stderr)
-                    continue
+                print(f"    Frechet distance for simplified is {simp_dist} (simplify_time={t_s1 - t_s0:.6f}s, frechet_time={simp_f_time:.6f}s)...")
+                t_f0 = 0.0
+                t_f1 = simp_f_time
                 simp_points = count_points_n_pairs(simp_path)
                 # 4. Write baseline CSV row (points baseline)
                 print(f"4. Writing to minimize_points id={idv} err={args.err}...")
@@ -240,21 +272,14 @@ def main():
                         fr_t_file.flush()
                         break
                     print(f"    Calculating frechet distance for id={idv}...")
-                    t_f2 = time.monotonic()
-                    simp_dist2_str = run([str(frechet_script), '--in', str(idv), '--raw', '--simplified'], capture=True, timeout=args.frechet_timeout)
-                    t_f3 = time.monotonic()
-                    if not simp_dist2_str:
-                        print("    Frechet timed out; keeping best-so-far and continuing.")
-                        fr_t_writer.writerow([idv, eps, iters, cur_delta, f"{t_s3 - t_s2:.6f}", f"{t_f3 - t_f2:.6f}", '', '', 'frechet_timeout'])
+                    simp_dist2, simp_iter_f_time = _frechet_distance(original_path, simp_path)
+                    if simp_dist2 is None:
+                        fr_t_writer.writerow([idv, eps, iters, cur_delta, f"{t_s3 - t_s2:.6f}", f"{simp_iter_f_time:.6f}", '', '', 'frechet_failed'])
                         fr_t_file.flush()
                         break
-                    try:
-                        simp_dist2 = float(simp_dist2_str.strip())
-                        print(f"    Frechet distance for simplified is {simp_dist2} (simplify_time={t_s3 - t_s2:.6f}s, frechet_time={t_f3 - t_f2:.6f}s)...")
-                    except Exception:
-                        fr_t_writer.writerow([idv, eps, iters, cur_delta, f"{t_s3 - t_s2:.6f}", f"{t_f3 - t_f2:.6f}", '', '', 'frechet_parse_error'])
-                        fr_t_file.flush()
-                        break
+                    print(f"    Frechet distance for simplified is {simp_dist2} (simplify_time={t_s3 - t_s2:.6f}s, frechet_time={simp_iter_f_time:.6f}s)...")
+                    t_f2 = 0.0
+                    t_f3 = simp_iter_f_time
                     simp_points2 = count_points_n_pairs(simp_path)
                     if simp_points2 is None:
                         fr_t_writer.writerow([idv, eps, iters, cur_delta, f"{t_s3 - t_s2:.6f}", f"{t_f3 - t_f2:.6f}", simp_dist2, '', 'no_points'])
@@ -271,7 +296,7 @@ def main():
                         best_points = simp_points2
                         best_delta = cur_delta
                     # Record timing for this iteration
-                    fr_t_writer.writerow([idv, eps, iters, cur_delta, f"{t_s3 - t_s2:.6f}", f"{t_f3 - t_f2:.6f}", simp_dist2, simp_points2, ''])
+                    fr_t_writer.writerow([idv, eps, iters, cur_delta, f"{t_s3 - t_s2:.6f}", f"{simp_iter_f_time:.6f}", simp_dist2, simp_points2, ''])
                     fr_t_file.flush()
                     cur_delta *= args.reduction
 
