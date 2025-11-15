@@ -82,7 +82,7 @@ def main():
     parser.add_argument('--reduction', type=float, default=0.9, help='delta reduction multiplicative factor (default 0.9)')
     parser.add_argument('--max-iters', type=int, default=50, help='max iterations of delta reduction per epsilon')
     parser.add_argument('--release-dir', type=str, default='release', help='path to build/release directory containing binaries')
-    parser.add_argument('--frechet-timeout', type=float, default=20.0, help='timeout (s) for frechet computations only')
+    parser.add_argument('--frechet-timeout', type=float, default=60.0, help='timeout (s) for frechet computations only')
 
     args = parser.parse_args()
     repo_root = Path(__file__).resolve().parent
@@ -213,6 +213,7 @@ def main():
                         break
                     try:
                         simp_dist2 = float(simp_dist2_str.strip())
+                        print(f"    Frechet distance for simplified is {simp_dist}...")
                     except Exception:
                         break
                     simp_points2 = count_points_n_pairs(simp_path)
