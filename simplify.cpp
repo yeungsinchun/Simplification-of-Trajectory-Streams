@@ -82,7 +82,7 @@ void print_polygon (const CGAL::Polygon_2<Kernel, Container>& P)
   return;
 }
 
-// TO BE REMOVED: print simple/orientation/area
+// Print simple/orientation/area
 static void print_poly_info(const Polygon& P, const char* name = "poly") {
     std::cerr << name << ": size=" << P.size();
     bool simple = false;
@@ -299,6 +299,7 @@ std::vector<Point> get_points_from_grid(const Point &p) {
     return points;
 }
 
+// TODO: binary search
 std::vector<int> find_tangent_idx(const Point &p,
                                  const std::vector<Point> &S) {
     int n = S.size();
@@ -495,6 +496,7 @@ std::vector<Point> simplify(const std::vector<Point> &stream, MultiViewer* viewe
     return simplified;
 }
 
+// TODO: clean up this mess of flags
 int main(int argc, char** argv) {
     bool out_flag = false;      // write outputs if true
     bool gui_flag = false;      // show viewer if true
