@@ -1,0 +1,7 @@
+--- Size Reduction ---
+Cases with Reduced Size: 37/66 (56.1%)
+Average Size Reduction: 30.27%
+
+--- Error Reduction ---
+Cases with Reduced Error: 63/66 (95.5%)
+Average Error Reduction: 27.89%
