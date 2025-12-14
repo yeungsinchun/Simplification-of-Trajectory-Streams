@@ -82,8 +82,4 @@ private:
     struct Curve { std::vector<Point> pts; QColor color; QString label; };
     std::vector<Curve> curves_;
 
-    void compute_bbox(double& minx,double& miny,double& maxx,double& maxy) const;
-};
-
-// process pending GUI events (call after adding points for incremental display)
-void viewer_process_events();
+    void compute_bbox(double& minx,dou

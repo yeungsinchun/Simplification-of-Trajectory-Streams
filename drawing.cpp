@@ -353,12 +353,4 @@ void MultiViewer::paintEvent(QPaintEvent*) {
             p.drawRect(x0, y0, swatch, swatch);
             // draw label
             p.setPen(Qt::black);
-            p.drawText(x0 + swatch + pad, y0 + fm.ascent(), e.text);
-            y0 += std::max(swatch, fm.height()) + 4;
-        }
-    }
-}
-
-void viewer_process_events() {
-    if (qApp) qApp->processEvents();
-}
+            p.drawText(x0 + swatch + pad, y0
