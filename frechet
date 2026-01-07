@@ -40,11 +40,8 @@ def main(argv=None) -> int:
     parser.add_argument('-i', '--in', dest='id_flag', type=int, help='trajectory id (alternative to positional)')
     # method selection
     parser.add_argument('--all', action='store_true', help='include all simplified outputs')
-    parser.add_argument('--simplified', action='store_true', help='include simplified.txt')
+    parser.add_argument('--simplified', action='store_true', help='include our_simplified.txt')
     parser.add_argument('--dp', action='store_true', help='include dp_simplified.txt')
-    parser.add_argument('--operb', action='store_true', help='include operb_simplified.txt')
-    parser.add_argument('--operba', action='store_true', help='include operba_simplified.txt')
-    parser.add_argument('--fbqs', action='store_true', help='include fbqs_simplified.txt')
     parser.add_argument('--raw', action='store_true', help='raw output or not')
 
     args = parser.parse_args(argv)
@@ -63,27 +60,19 @@ def main(argv=None) -> int:
         return 1
 
     # Determine which targets to process
-    sel_flags = any([args.all, args.simplified, args.dp, args.operb, args.operba, args.fbqs])
+    sel_flags = any([args.all, args.simplified, args.dp])
     if args.all or not sel_flags:
         targets = [
-            ('simplified', os.path.join(base, 'simplified.txt')),
+            ('simplified', os.path.join(base, 'our_simplified.txt')),
             ('dp', os.path.join(base, 'dp_simplified.txt')),
-            ('operb', os.path.join(base, 'operb_simplified.txt')),
-            ('operba', os.path.join(base, 'operba_simplified.txt')),
-            ('fbqs', os.path.join(base, 'fbqs_simplified.txt')),
         ]
     else:
         targets = []
         if args.simplified:
-            targets.append(('simplified', os.path.join(base, 'simplified.txt')))
+            targets.append(('simplified', os.path.join(base, 'our_simplified.txt')))
         if args.dp:
             targets.append(('dp', os.path.join(base, 'dp_simplified.txt')))
-        if args.operb:
-            targets.append(('operb', os.path.join(base, 'operb_simplified.txt')))
-        if args.operba:
-            targets.append(('operba', os.path.join(base, 'operba_simplified.txt')))
-        if args.fbqs:
-            targets.append(('fbqs', os.path.join(base, 'fbqs_simplified.txt')))
+
 
     if not args.raw:
         print(f"Reading curves from {base}...")
