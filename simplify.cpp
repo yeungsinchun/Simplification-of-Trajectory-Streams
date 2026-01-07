@@ -592,12 +592,24 @@ int main(int argc, char** argv) {
         } else {
             std::filesystem::path dir = repo_root / "data" / "taxi_simplified" / std::to_string(test_case_no);
             std::filesystem::create_directories(dir);
-            std::ofstream simp(dir / "simplified.txt");
+            
+            // 1. our_simplified.txt
+            std::ofstream simp(dir / "our_simplified.txt");
             std::size_t N = simplified.size();
             simp << N << '\n';
             for (const auto& p : simplified) {
                 simp << CGAL::to_double(p.x()) << ' ' << CGAL::to_double(p.y()) << '\n';
             }
+            simp.close();
+
+            // 2. <eps>_<delta>_our_simplified.txt
+            std::string param_name = std::to_string(EPSILON) + "_" + std::to_string(DELTA) + "_our_simplified.txt";
+            std::ofstream sad(dir / param_name);
+            sad << N << '\n';
+            for (const auto& p : simplified) {
+                sad << CGAL::to_double(p.x()) << ' ' << CGAL::to_double(p.y()) << '\n';
+            }
+            sad.close();
         }
         std::cout << "Output Written\n";
     }

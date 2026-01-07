@@ -114,27 +114,37 @@ def _calc_frechet_safe_task(orig, other, timeout_val):
     except Exception:
         return None
 
-def _frechet_distance(orig_path: Path, other_path: Path, pool, timeout=60.0):
-    """Compute Frechet distance utilizing persistent process pool."""
+def _frechet_distance(orig_path: Path, other_path: Path, timeout=60.0):
+    """Compute Frechet distance using a fresh process to avoid pool corruption."""
     t0 = time.monotonic()
     orig = _read_curve(orig_path)
     other = _read_curve(other_path)
     if orig is None or other is None:
         return (None, time.monotonic() - t0)
     
+    pool = None
     try:
-        # Submit to pool
+        # Use a fresh pool for isolation
+        # We manually manage the pool to ensure we can force terminate it
+        pool = multiprocessing.Pool(1)
         async_res = pool.apply_async(_calc_frechet_safe_task, (orig, other, timeout))
-        # Wait for result with a small buffer. If task complies with timeout, it returns.
-        # If it hangs (signal blocked), this get() will timeout.
+        
+        # Wait for result
         val = async_res.get(timeout=timeout + 5.0)
+        
+        # Close politeley if successful
+        pool.close()
+        pool.join()
         return (val, time.monotonic() - t0)
     except Exception:
-        # Timeout or other error
+        # If timeout or any error occurs, FORCE KILL the pool immediately
+        if pool:
+            pool.terminate()
+            pool.join()
         return (None, time.monotonic() - t0)
 
 
-def process_id(idv, args, repo_root, binaries, csv_ctx, frechet_pool):
+def process_id(idv, args, repo_root, binaries, csv_ctx):
     main_bin, simplify_bin, dots_bin = binaries
     writers, files, locks = csv_ctx
     base_writer, fr_writer, base_t_writer, fr_t_writer = writers
@@ -181,7 +191,7 @@ def process_id(idv, args, repo_root, binaries, csv_ctx, frechet_pool):
 
     # Paths
     baseline_path = simp_dir / baseline_filename
-    simp_path = simp_dir / 'simplified.txt'
+    simp_path = simp_dir / 'our_simplified.txt'
 
     # 2. Baseline Frechet distance (in-process if possible)
     log(f"2. Calculating frechet distance for id={idv}...")
@@ -199,7 +209,7 @@ def process_id(idv, args, repo_root, binaries, csv_ctx, frechet_pool):
                  base_t_writer.writerow([idv, eps, -1, -1, -1])
                  base_t_file.flush()
         return
-    baseline_dist, baseline_time = _frechet_distance(original_path, baseline_path, frechet_pool, timeout=args.frechet_timeout)
+    baseline_dist, baseline_time = _frechet_distance(original_path, baseline_path, timeout=args.frechet_timeout)
     baseline_points = count_points_n_pairs(baseline_path)
     orig_points = count_points_n_pairs(original_path)
     
@@ -247,7 +257,7 @@ def process_id(idv, args, repo_root, binaries, csv_ctx, frechet_pool):
             continue
 
         log(f"    Calculating frechet distance for id={idv}...")
-        simp_dist, simp_f_time = _frechet_distance(original_path, simp_path, frechet_pool, timeout=args.frechet_timeout)
+        simp_dist, simp_f_time = _frechet_distance(original_path, simp_path, timeout=args.frechet_timeout)
         simp_points = count_points_n_pairs(simp_path)
         if simp_dist is None:
             log(f"    No simplified distance for id={idv}, eps={eps} (or timed out)", file=sys.stderr)
@@ -308,7 +318,7 @@ def process_id(idv, args, repo_root, binaries, csv_ctx, frechet_pool):
                     fr_t_file.flush()
                 break
             log(f"    Calculating frechet distance for id={idv}...")
-            simp_dist2, simp_iter_f_time = _frechet_distance(original_path, simp_path, frechet_pool, timeout=args.frechet_timeout)
+            simp_dist2, simp_iter_f_time = _frechet_distance(original_path, simp_path, timeout=args.frechet_timeout)
             if simp_dist2 is None:
                 with frechet_times_lock:
                     fr_t_writer.writerow([idv, eps, iters, cur_delta, f"{t_s3 - t_s2:.6f}", f"{simp_iter_f_time:.6f}", '', '', 'frechet_failed_or_timeout'])
@@ -455,19 +465,17 @@ def main():
         # Use ThreadPoolExecutor for concurrency
         print(f"Starting benchmark with {len(ids)} IDs using {args.workers} workers...")
         
-        # Initialize persistent pool for Frechet calculations to avoid library reload overhead
-        # and support timeouts via func_timeout in worker processes.
-        with multiprocessing.Pool(processes=args.workers) as frechet_pool:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as executor:
-                futures = [
-                    executor.submit(process_id, idv, args, repo_root, binaries, csv_ctx, frechet_pool)
-                    for idv in ids
-                ]
-                for future in concurrent.futures.as_completed(futures):
-                    try:
-                        future.result()
-                    except Exception as e:
-                        print(f"Worker exception: {e}", file=sys.stderr)
+        # We spawn frechet worker pools on demand inside the worker function now for isolation
+        with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as executor:
+            futures = [
+                executor.submit(process_id, idv, args, repo_root, binaries, csv_ctx)
+                for idv in ids
+            ]
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    print(f"Worker exception: {e}", file=sys.stderr)
 
     print(f"Done. Baseline results: {baseline_csv} | Min Frechet results: {frechet_csv}")
     return 0

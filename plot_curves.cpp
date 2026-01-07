@@ -37,7 +37,7 @@ static QString label_from_filename(const std::string& filename) {
     if (pos != std::string::npos) base = base.substr(pos+1);
     base = to_lower(base);
     if (base == "original.txt") return "Original";
-    if (base == "simplified.txt") return "Simplified";
+    if (base == "simplified.txt" || base == "our_simplified.txt") return "Simplified";
 
     // General handling for any *_simplified.txt
     std::string suffix = "_simplified.txt";
