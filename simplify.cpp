@@ -405,10 +405,11 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
     int p0cur = cur;
     std::vector<Point> P = get_points_from_grid(p0);
     if (viewer) viewer->markP0(p0);
-    std::array<Point, 2> buffer = {p0};
+    std::array<Point, 2> buffer = {p0, p0};
     std::vector<std::vector<Point>> S(P.size(), std::vector<Point>{p0});
     int dead_cnt = 0;
     std::vector<int> dead(P.size());
+    cur++;
     while (cur < int(stream.size())) {
         const Point& pi  = stream[cur];
         bool shown_debug = false;
@@ -417,18 +418,16 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
             if (dead[i]) {
                 continue;
             }
-            buffer[0] = P[i];
-            std::vector<Point> F = find_F(p0, S[i]);
+            std::vector<Point> F = find_F(P[i], S[i]);
             std::vector<Point> Gi = get_conv_from_grid(pi);
             Polygon F_poly(F.begin(), F.end());
             Polygon Gi_poly(Gi.begin(), Gi.end());
             Polygon S_poly(S[i].begin(), S[i].end());
 
-            // only show for one point to make it faster
             if (!shown_debug) {
                 const QColor stepColors[] = { 
                     Qt::red, 
-                    QColor(255, 140, 0), // Dark Orange
+                    QColor(255, 140, 0), // orange
                     Qt::blue, 
                     Qt::green, 
                     Qt::magenta, 
@@ -456,6 +455,7 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
                 continue;
             }
             assert(new_S[i].size() == 1);
+            buffer[0] = P[i];
             buffer[1] = *new_S[i].begin()->outer_boundary().vertices_begin();
         }
         if (dead_cnt == int(P.size())) {
@@ -466,8 +466,8 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
         for (int i = 0; i < int(P.size()); i++) {
             if (dead[i]) continue;
             S[i].clear();
-            std::copy(new_S.begin()->begin()->outer_boundary().vertices_begin(),
-                      new_S.begin()->begin()->outer_boundary().vertices_end(),
+            std::copy(new_S[i].begin()->outer_boundary().vertices_begin(),
+                      new_S[i].begin()->outer_boundary().vertices_end(),
                       std::back_inserter(S[i]));
         }
         cur++;
