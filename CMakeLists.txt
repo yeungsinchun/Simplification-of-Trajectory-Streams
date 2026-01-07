@@ -2,12 +2,12 @@ cmake_minimum_required(VERSION 3.16)
 project(simplification_of_trajectory_stream CXX)
 
 set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_BUILD_TYPE Release)
 
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Debug CACHE STRING "BUILD TYPE" FORCE)
-endif()
+# if(NOT CMAKE_BUILD_TYPE)
+#   set(CMAKE_BUILD_TYPE Debug CACHE STRING "BUILD TYPE" FORCE)
+# endif()
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -23,9 +23,7 @@ add_executable(simplify
 )
 
 target_link_libraries(simplify
-  PRIVATE
-    CGAL::CGAL_Qt6
-    Qt6::Core Qt6::Gui Qt6::Widgets
+  CGAL::CGAL_Qt6
 )
 
 # Viewer for plotting two curves from files
@@ -35,9 +33,7 @@ add_executable(plot_curves
 )
 
 target_link_libraries(plot_curves
-  PRIVATE
-    CGAL::CGAL_Qt6
-    Qt6::Core Qt6::Gui Qt6::Widgets
+  CGAL::CGAL_Qt6
 )
 
 # Algorithms runner (single build tree)

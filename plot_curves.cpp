@@ -38,11 +38,21 @@ static QString label_from_filename(const std::string& filename) {
     base = to_lower(base);
     if (base == "original.txt") return "Original";
     if (base == "simplified.txt") return "Simplified";
-    if (base.find("dp_") == 0) return "DP";
-    // Accept both spellings: operba_* and operab_* map to OPERBA
-    if (base.find("operba_") == 0 || base.find("operab_") == 0) return "OPERBA";
-    if (base.find("operb_") == 0) return "OPERB";
-    if (base.find("fbqs_") == 0) return "FBQS";
+
+    // General handling for any *_simplified.txt
+    std::string suffix = "_simplified.txt";
+    if (base.size() > suffix.size() && base.substr(base.size() - suffix.size()) == suffix) {
+        std::string algo = base.substr(0, base.size() - suffix.size());
+
+        // Handle specific spellings
+        if (algo == "operab") return "OPERBA";
+
+        // Convert to uppercase for label
+        std::string label = "";
+        for (char c : algo) label += std::toupper(c);
+        return QString::fromStdString(label);
+    }
+
     // Fallback: strip extension
     auto dot = base.rfind('.');
     if (dot != std::string::npos) base = base.substr(0, dot);
@@ -190,6 +200,7 @@ int main(int argc, char** argv) {
             if (label == "OPERB")      return QColor(55, 126, 184);     // blue   rgba(55, 126, 184, 1)
             if (label == "OPERBA")     return QColor(77, 175, 74);      // green  rgba(77, 175, 74, 1)
             if (label == "FBQS")       return QColor(152, 78, 163);     // purple #984ea3
+            if (label == "DOTS")       return QColor(166, 86, 40);      // brown
             return QColor(120, 120, 120);                               // gray
         };
 
