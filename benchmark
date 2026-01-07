@@ -283,7 +283,7 @@ def process_id(idv, args, repo_root, binaries, csv_ctx, frechet_pool):
             base_t_writer.writerow([idv, eps, f"{t_dp1 - t_dp0:.6f}", f"{t_s1 - t_s0:.6f}", f"{t_f1 - t_f0:.6f}"])
             base_t_file.flush()
             
-        if baseline_points is not None and simp_points > baseline_points:
+        if baseline_points is not None and simp_points is not None and simp_points > baseline_points:
              log(f"    Initial simp_points ({simp_points}) > baseline_points ({baseline_points}), skipping id={idv}...", file=sys.stderr)
              with frechet_lock:
                  fr_writer.writerow([idv, delta, eps, baseline_dist, simp_dist, orig_points, baseline_points, simp_points, 'exceed_baseline_points'])
