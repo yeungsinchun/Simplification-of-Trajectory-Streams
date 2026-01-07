@@ -142,10 +142,16 @@ def process_id(idv, args, repo_root, binaries, csv_ctx, frechet_pool):
     points_lock, frechet_lock, base_times_lock, frechet_times_lock, print_lock = locks
 
     def log(msg, file=None):
+        t_name = threading.current_thread().name
+        if t_name.startswith('ThreadPoolExecutor-'):
+            parts = t_name.split('_')
+            if len(parts) > 1:
+                t_name = f"W-{parts[-1]}"
+        prefix = f"[{t_name} | ID:{idv}]"
         with print_lock:
-            print(msg, file=file or sys.stdout)
+            print(f"{prefix:<18} {msg}", file=file or sys.stdout)
 
-    log(f"== ID {idv} ==")
+    log("Starting...")
     # 1. Run algorithms to generate simplified file
     simp_dir = repo_root / 'data' / 'taxi_simplified' / str(idv)
     
@@ -161,6 +167,16 @@ def process_id(idv, args, repo_root, binaries, csv_ctx, frechet_pool):
     log(f"    done")
     if rc is None:
         log(f"Skipping id={idv} due to algo failure", file=sys.stderr)
+        for eps in args.eps:
+             with points_lock:
+                 base_writer.writerow([idv, -1, eps, -1, -1, -1, -1, -1])
+                 base_file.flush()
+             with frechet_lock:
+                 fr_writer.writerow([idv, -1, eps, -1, -1, -1, -1, -1])
+                 fr_file.flush()
+             with base_times_lock:
+                 base_t_writer.writerow([idv, eps, -1, -1, -1])
+                 base_t_file.flush()
         return
 
     # Paths
@@ -172,16 +188,40 @@ def process_id(idv, args, repo_root, binaries, csv_ctx, frechet_pool):
     original_path = simp_dir / 'original.txt'
     if not original_path.exists():
         log(f"    Missing original.txt for id={idv}", file=sys.stderr)
+        for eps in args.eps:
+             with points_lock:
+                 base_writer.writerow([idv, -1, eps, -1, -1, -1, -1, -1])
+                 base_file.flush()
+             with frechet_lock:
+                 fr_writer.writerow([idv, -1, eps, -1, -1, -1, -1, -1, 'missing_file'])
+                 fr_file.flush()
+             with base_times_lock:
+                 base_t_writer.writerow([idv, eps, -1, -1, -1])
+                 base_t_file.flush()
         return
     baseline_dist, baseline_time = _frechet_distance(original_path, baseline_path, frechet_pool, timeout=args.frechet_timeout)
+    baseline_points = count_points_n_pairs(baseline_path)
+    orig_points = count_points_n_pairs(original_path)
+    
     if baseline_dist is None:
         log(f"    No baseline distance for id={idv} (or timed out)", file=sys.stderr)
+        # Try to at least get points if possible
+        bp_val = baseline_points if baseline_points is not None else -1
+        op_val = orig_points if orig_points is not None else -1
+        for eps in args.eps:
+             with points_lock:
+                 base_writer.writerow([idv, -1, eps, -1, -1, op_val, bp_val, -1])
+                 base_file.flush()
+             with frechet_lock:
+                 fr_writer.writerow([idv, -1, eps, -1, -1, op_val, bp_val, -1, 'baseline_frechet_failed'])
+                 fr_file.flush()
+             with base_times_lock:
+                 base_t_writer.writerow([idv, eps, -1, -1, -1])
+                 base_t_file.flush()
         return
     log(f"    Frechet distance for baseline is {baseline_dist} (time={baseline_time:.6f}s)...")
     t_dp0 = 0.0  # maintain variables for CSV compatibility
     t_dp1 = baseline_time
-    baseline_points = count_points_n_pairs(baseline_path)
-    orig_points = count_points_n_pairs(original_path)
 
     for eps in args.eps:
         log(f"-- ID {idv}, eps = {eps} --")
@@ -193,17 +233,45 @@ def process_id(idv, args, repo_root, binaries, csv_ctx, frechet_pool):
         t_s1 = time.monotonic()
         if rc2 is None:
             log(f"    simplify failed for id={idv}, eps={eps}", file=sys.stderr)
+            op = orig_points if orig_points is not None else -1
+            bp = baseline_points if baseline_points is not None else -1
+            with points_lock:
+                base_writer.writerow([idv, delta, eps, baseline_dist, -1.0, op, bp, -1])
+                base_file.flush()
+            with frechet_lock:
+                fr_writer.writerow([idv, delta, eps, baseline_dist, -1.0, op, bp, -1, 'simplify_failed'])
+                fr_file.flush()
+            with base_times_lock:
+                 base_t_writer.writerow([idv, eps, f"{t_dp1 - t_dp0:.6f}", f"{t_s1 - t_s0:.6f}", -1])
+                 base_t_file.flush()
             continue
 
         log(f"    Calculating frechet distance for id={idv}...")
         simp_dist, simp_f_time = _frechet_distance(original_path, simp_path, frechet_pool, timeout=args.frechet_timeout)
+        simp_points = count_points_n_pairs(simp_path)
         if simp_dist is None:
             log(f"    No simplified distance for id={idv}, eps={eps} (or timed out)", file=sys.stderr)
+            with points_lock:
+                # Use actual points counts if available, otherwise -1
+                sp = simp_points if simp_points is not None else -1
+                op = orig_points if orig_points is not None else -1
+                bp = baseline_points if baseline_points is not None else -1
+                base_writer.writerow([idv, delta, eps, baseline_dist, -1.0, op, bp, sp])
+                base_file.flush()
+            with frechet_lock:
+                sp = simp_points if simp_points is not None else -1
+                op = orig_points if orig_points is not None else -1
+                bp = baseline_points if baseline_points is not None else -1
+                fr_writer.writerow([idv, delta, eps, baseline_dist, -1.0, op, bp, sp, 'frechet_failed_or_timeout'])
+                fr_file.flush()
+            with base_times_lock:
+                 base_t_writer.writerow([idv, eps, f"{t_dp1 - t_dp0:.6f}", f"{t_s1 - t_s0:.6f}", f"{simp_f_time:.6f}"])
+                 base_t_file.flush()
             continue
         log(f"    Frechet distance for simplified is {simp_dist} (simplify_time={t_s1 - t_s0:.6f}s, frechet_time={simp_f_time:.6f}s)...")
         t_f0 = 0.0
         t_f1 = simp_f_time
-        simp_points = count_points_n_pairs(simp_path)
+        # simp_points already calculated above
         # 4. Write baseline CSV row (points baseline)
         log(f"4. Writing to minimize_points id={idv}...")
         with points_lock:
@@ -214,6 +282,13 @@ def process_id(idv, args, repo_root, binaries, csv_ctx, frechet_pool):
             # Write timing row for baseline
             base_t_writer.writerow([idv, eps, f"{t_dp1 - t_dp0:.6f}", f"{t_s1 - t_s0:.6f}", f"{t_f1 - t_f0:.6f}"])
             base_t_file.flush()
+            
+        if baseline_points is not None and simp_points > baseline_points:
+             log(f"    Initial simp_points ({simp_points}) > baseline_points ({baseline_points}), skipping id={idv}...", file=sys.stderr)
+             with frechet_lock:
+                 fr_writer.writerow([idv, delta, eps, baseline_dist, simp_dist, orig_points, baseline_points, simp_points, 'exceed_baseline_points'])
+                 fr_file.flush()
+             continue
 
         # 5. Minimize Frechet distance while keeping points <= baseline_points by shrinking delta
         best_dist = simp_dist
@@ -251,7 +326,7 @@ def process_id(idv, args, repo_root, binaries, csv_ctx, frechet_pool):
             # Stop if we exceed baseline_points
             if baseline_points is not None and simp_points2 > baseline_points:
                 with frechet_times_lock:
-                    fr_t_writer.writerow([idv, eps, iters, cur_delta, f"{t_s3 - t_s2:.6f}", f"{t_f3 - t_f2:.6f}", simp_dist2, simp_points2, 'exceed_baseline_points'])
+                    fr_t_writer.writerow([idv, eps, iters, cur_delta, f"{t_s3 - t_s2:.6f}", f"{t_f3 - t_f2:.6f}", simp_dist2, simp_points2, ''])
                     fr_t_file.flush()
                 break
             # Update best if distance improves
@@ -267,7 +342,7 @@ def process_id(idv, args, repo_root, binaries, csv_ctx, frechet_pool):
 
         log(f"7. Writing to minimize_frechet id={idv}...")
         with frechet_lock:
-            fr_writer.writerow([idv, best_delta, eps, baseline_dist, best_dist, orig_points, baseline_points, best_points])
+            fr_writer.writerow([idv, best_delta, eps, baseline_dist, best_dist, orig_points, baseline_points, best_points, ''])
             fr_file.flush()
 
 
@@ -337,7 +412,7 @@ def main():
     baseline_times_csv = Path(baseline_times_csv_name)
     frechet_times_csv = Path(frechet_times_csv_name)
     baseline_cols = ['id', 'delta', 'epsilon', 'baseline_dist', 'simp_dist', 'orig_points', 'baseline_points', 'simp_points']
-    frechet_cols = ['id', 'best_delta', 'epsilon', 'baseline_dist', 'best_simp_dist', 'orig_points', 'baseline_points', 'best_points']
+    frechet_cols = ['id', 'best_delta', 'epsilon', 'baseline_dist', 'best_simp_dist', 'orig_points', 'baseline_points', 'best_points', 'note']
     baseline_header = needs_header(baseline_csv, baseline_cols)
     frechet_header = needs_header(frechet_csv, frechet_cols)
     # Timing CSV headers
