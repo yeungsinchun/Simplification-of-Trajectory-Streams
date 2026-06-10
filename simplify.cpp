@@ -1,9 +1,7 @@
-#include <CGAL/Exact_predicates_exact_constructions_kernel.h>
 #include <CGAL/Polygon_2.h>
-#include <cgal/simple_cartesian.h>
 #include <CGAL/convex_hull_2.h>
 #include <CGAL/Iso_rectangle_2.h>
-#include <CGAL/Boolean_set_operations_2.h>
+#include <CGAL/intersections.h>
 #include <cmath>
 #include <iostream>
 #include <vector>
@@ -13,17 +11,24 @@
 #include <cstdlib>
 #include <filesystem>
 #include <cstring>
+#include <chrono>
+#include <array>
+#include <iomanip>
+#include <algorithm>
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/point_xy.hpp>
+#include <boost/geometry/geometries/polygon.hpp>
 #include <QApplication>
 #include "drawing.h"
+#include "geometry_kernel.h"
 
-using Kernel = CGAL::Exact_predicates_exact_constructions_kernel;
-using Point = Kernel::Point_2;
 using Segment = Kernel::Segment_2;
 using Ray = Kernel::Ray_2;
 using Bbox = CGAL::Bbox_2;
 using Rect = CGAL::Iso_rectangle_2<Kernel>;
 using Polygon = CGAL::Polygon_2<Kernel>;
-using Polygon_with_holes =  CGAL::Polygon_with_holes_2<Kernel>;
+using BgPoint = boost::geometry::model::d2::point_xy<double>;
+using BgPolygon = boost::geometry::model::polygon<BgPoint, true, true>;
 
 bool showF = false; // true if -F is passed
 bool showG = false; // true if -G is passed
@@ -49,6 +54,247 @@ double EPSILON = 0.6;
 double GRID_val() { return EPSILON * DELTA / (2 * SQRT2); }
 
 double R_val() { return (1.0 + EPSILON / 2.0) * DELTA; }
+
+struct TimingStat {
+    const char* name;
+    long long total_ns = 0;
+    long long calls = 0;
+};
+
+enum class TimedOp : std::size_t {
+    GetPointsFromGrid = 0,
+    FindF,
+    PointInConvex,
+    FindTangentIdx,
+    CgalIntersection,
+    WhichEdge,
+    AppendRectPts,
+    GetConvFromGrid,
+    BoostPolygonIntersection,
+    Count
+};
+
+static std::array<TimingStat, static_cast<std::size_t>(TimedOp::Count)> g_timing_stats{{
+    {"get_points_from_grid"},
+    {"find_F"},
+    {"point_in_convex"},
+    {"find_tangent_idx"},
+    {"CGAL::intersection"},
+    {"which_edge"},
+    {"append_rect_pts"},
+    {"get_conv_from_grid"},
+    {"boost::geometry::intersection"},
+}};
+
+struct ScopedTimer {
+    TimedOp op;
+    std::chrono::steady_clock::time_point start;
+
+    explicit ScopedTimer(TimedOp timed_op)
+        : op(timed_op), start(std::chrono::steady_clock::now()) {}
+
+    ~ScopedTimer() {
+        const auto end = std::chrono::steady_clock::now();
+        auto& stat = g_timing_stats[static_cast<std::size_t>(op)];
+        stat.total_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+        stat.calls += 1;
+    }
+};
+
+static void print_timing_report() {
+    long long grand_total_ns = 0;
+    for (const auto& stat : g_timing_stats) {
+        grand_total_ns += stat.total_ns;
+    }
+
+    std::cout << "Timing report:\n";
+    std::cout << std::fixed << std::setprecision(3);
+    std::cout << std::left << std::setw(28) << "Operation"
+              << std::right << std::setw(14) << "Total (ms)"
+              << std::setw(10) << "% Time"
+              << std::setw(12) << "Calls"
+              << std::setw(14) << "Avg (ms)"
+              << '\n';
+    std::cout << std::string(78, '-') << '\n';
+
+    for (const auto& stat : g_timing_stats) {
+        const double total_ms = static_cast<double>(stat.total_ns) / 1'000'000.0;
+        const double avg_ms = stat.calls == 0 ? 0.0 : total_ms / static_cast<double>(stat.calls);
+        const double pct = grand_total_ns == 0 ? 0.0 : (100.0 * static_cast<double>(stat.total_ns) / static_cast<double>(grand_total_ns));
+
+        std::cout << std::left << std::setw(28) << stat.name
+                  << std::right << std::setw(14) << total_ms
+                  << std::setw(10) << pct
+                  << std::setw(12) << stat.calls
+                  << std::setw(14) << avg_ms
+                  << '\n';
+    }
+
+    std::cout << std::string(78, '-') << '\n';
+    std::cout << std::left << std::setw(28) << "Total"
+              << std::right << std::setw(14) << (static_cast<double>(grand_total_ns) / 1'000'000.0)
+              << std::setw(10) << 100.0
+              << std::setw(12) << "-"
+              << std::setw(14) << "-"
+              << '\n';
+}
+
+static void reset_timing_stats() {
+    for (auto& stat : g_timing_stats) {
+        stat.total_ns = 0;
+        stat.calls = 0;
+    }
+}
+
+static BgPolygon to_bg_polygon(const std::vector<Point>& points) {
+    BgPolygon polygon;
+    auto& outer = polygon.outer();
+    outer.reserve(points.size() + 1);
+    for (const auto& point : points) {
+        outer.emplace_back(CGAL::to_double(point.x()), CGAL::to_double(point.y()));
+    }
+    if (!points.empty()) {
+        outer.emplace_back(CGAL::to_double(points.front().x()), CGAL::to_double(points.front().y()));
+    }
+    boost::geometry::correct(polygon);
+    return polygon;
+}
+
+static std::vector<Point> from_bg_polygon(const BgPolygon& polygon) {
+    std::vector<Point> points;
+    const auto& outer = polygon.outer();
+    if (outer.size() <= 1) {
+        return points;
+    }
+
+    points.reserve(outer.size() - 1);
+    for (std::size_t i = 0; i + 1 < outer.size(); ++i) {
+        points.emplace_back(outer[i].x(), outer[i].y());
+    }
+
+    return points;
+}
+
+static bool points_equal_eps(const Point& lhs, const Point& rhs) {
+    return CGAL::to_double(CGAL::squared_distance(lhs, rhs)) < TOL * TOL;
+}
+
+static double cross2d(const Point& a, const Point& b, const Point& c) {
+    const double abx = CGAL::to_double(b.x()) - CGAL::to_double(a.x());
+    const double aby = CGAL::to_double(b.y()) - CGAL::to_double(a.y());
+    const double bcx = CGAL::to_double(c.x()) - CGAL::to_double(b.x());
+    const double bcy = CGAL::to_double(c.y()) - CGAL::to_double(b.y());
+    return abx * bcy - aby * bcx;
+}
+
+static std::vector<Point> normalize_convex_polygon(std::vector<Point> points) {
+    if (points.empty()) {
+        return {};
+    }
+
+    std::vector<Point> normalized;
+    normalized.reserve(points.size());
+    for (const auto& point : points) {
+        if (normalized.empty() || !points_equal_eps(normalized.back(), point)) {
+            normalized.push_back(point);
+        }
+    }
+
+    if (normalized.size() >= 2 && points_equal_eps(normalized.front(), normalized.back())) {
+        normalized.pop_back();
+    }
+
+    if (normalized.size() < 3) {
+        return {};
+    }
+
+    BgPolygon polygon = to_bg_polygon(normalized);
+    boost::geometry::unique(polygon);
+    boost::geometry::correct(polygon);
+
+    std::vector<Point> cleaned = from_bg_polygon(polygon);
+    if (cleaned.size() < 3) {
+        return {};
+    }
+
+    std::vector<Point> result;
+    result.reserve(cleaned.size());
+    for (const auto& point : cleaned) {
+        while (result.size() >= 2) {
+            const Point& a = result[result.size() - 2];
+            const Point& b = result[result.size() - 1];
+            if (std::abs(cross2d(a, b, point)) < TOL) {
+                result.pop_back();
+                continue;
+            }
+            break;
+        }
+        if (result.empty() || !points_equal_eps(result.back(), point)) {
+            result.push_back(point);
+        }
+    }
+
+    while (result.size() >= 2 && points_equal_eps(result.front(), result.back())) {
+        result.pop_back();
+    }
+    while (result.size() >= 3) {
+        const Point& a = result[result.size() - 2];
+        const Point& b = result[result.size() - 1];
+        const Point& c = result.front();
+        if (std::abs(cross2d(a, b, c)) < TOL) {
+            result.pop_back();
+            continue;
+        }
+        break;
+    }
+    while (result.size() >= 3) {
+        const Point& a = result.back();
+        const Point& b = result.front();
+        const Point& c = result[1];
+        if (std::abs(cross2d(a, b, c)) < TOL) {
+            result.erase(result.begin());
+            continue;
+        }
+        break;
+    }
+
+    if (result.size() < 3) {
+        return {};
+    }
+
+    Polygon polygon_check(result.begin(), result.end());
+    if (!polygon_check.is_simple()) {
+        return {};
+    }
+    if (polygon_check.orientation() == CGAL::CLOCKWISE) {
+        std::reverse(result.begin(), result.end());
+        polygon_check = Polygon(result.begin(), result.end());
+    }
+    if (polygon_check.orientation() != CGAL::COUNTERCLOCKWISE) {
+        return {};
+    }
+
+    return result;
+}
+
+static std::vector<Point> intersect_convex_polygons(const std::vector<Point>& lhs,
+                                                    const std::vector<Point>& rhs) {
+    ScopedTimer timer(TimedOp::BoostPolygonIntersection);
+    BgPolygon lhs_polygon = to_bg_polygon(lhs);
+    BgPolygon rhs_polygon = to_bg_polygon(rhs);
+    std::vector<BgPolygon> output;
+    boost::geometry::intersection(lhs_polygon, rhs_polygon, output);
+
+    if (output.empty()) {
+        return {};
+    }
+
+    auto best = std::max_element(output.begin(), output.end(), [](const BgPolygon& a, const BgPolygon& b) {
+        return boost::geometry::area(a) < boost::geometry::area(b);
+    });
+
+    return normalize_convex_polygon(from_bg_polygon(*best));
+}
 
 static void print_help() {
     std::cout << "Usage: simplify [options]\n"
@@ -110,36 +356,8 @@ static void print_poly_info(const Polygon& P, const char* name = "poly") {
     }
 }
 
-// Pretty-print a polygon with holes.
-template<class Kernel, class Container>
-void print_polygon_with_holes
-    (const CGAL::Polygon_with_holes_2<Kernel, Container>& pwh)
-{
-  if (! pwh.is_unbounded())
-  {
-    std::cout << "{ Outer boundary = ";
-    print_polygon (pwh.outer_boundary());
-  }
-  else
-    std::cout << "{ Unbounded polygon." << std::endl;
-
-  typename CGAL::Polygon_with_holes_2<Kernel,Container>::
-                                             Hole_const_iterator  hit;
-  unsigned int                                                     k = 1;
-
-  std::cout << "  " << pwh.number_of_holes() << " holes:" << std::endl;
-  for (hit = pwh.holes_begin(); hit != pwh.holes_end(); ++hit, ++k)
-  {
-    std::cout << "    Hole #" << k << " = ";
-    print_polygon (*hit);
-  }
-  std::cout << " }" << std::endl;
-
-  return;
-}
-
-
 bool point_in_convex(const Point &p, const std::vector<Point> &poly, bool ccw = true) {
+    ScopedTimer timer(TimedOp::PointInConvex);
     for (size_t i = 0, n = poly.size(); i < n; ++i) {
         const auto &a = poly[i];
         const auto &b = poly[(i + 1) % n];
@@ -204,6 +422,7 @@ static std::vector<Point> current_bbox() {
 }
 
 std::optional<Bbox_edge> which_edge(const Point &s) {
+    ScopedTimer timer(TimedOp::WhichEdge);
     double x = CGAL::to_double(s.x()), y = CGAL::to_double(s.y());
     bool on_left   = std::abs(x - BMIN) < TOL;
     bool on_right  = std::abs(x - BMAX) < TOL;
@@ -226,6 +445,7 @@ std::optional<Bbox_edge> which_edge(const Point &s) {
 
 void append_rect_pts(std::vector<Point> &out, Bbox_edge from, Bbox_edge to,
                      bool ccw) {
+    ScopedTimer timer(TimedOp::AppendRectPts);
     auto corners = current_bbox_corner(); // order: BL(0), BR(1), TR(2), TL(3)
 
     auto next = [&](int idx) {
@@ -244,6 +464,7 @@ void append_rect_pts(std::vector<Point> &out, Bbox_edge from, Bbox_edge to,
 }
 
 std::vector<Point> get_conv_from_grid(const Point &p) {
+    ScopedTimer timer(TimedOp::GetConvFromGrid);
     const double px = CGAL::to_double(p.x());
     const double py = CGAL::to_double(p.y());
     const double r = R_val();
@@ -277,6 +498,7 @@ std::vector<Point> get_conv_from_grid(const Point &p) {
 
 // refactor this function, too much duplication with above
 std::vector<Point> get_points_from_grid(const Point &p) {
+    ScopedTimer timer(TimedOp::GetPointsFromGrid);
     const double px = CGAL::to_double(p.x());
     const double py = CGAL::to_double(p.y());
     const double r = R_val();
@@ -302,6 +524,7 @@ std::vector<Point> get_points_from_grid(const Point &p) {
 // TODO: binary search
 std::vector<int> find_tangent_idx(const Point &p,
                                  const std::vector<Point> &S) {
+    ScopedTimer timer(TimedOp::FindTangentIdx);
     int n = S.size();
     std::vector<int> tangent;
     for (int i = 0; i < n; i++) {
@@ -325,27 +548,31 @@ std::optional<Point> intersect_ray_with_rect(const Point& p, const Point& direct
     Ray ray(p, direction);
     Bbox box(BMIN, BMIN, BMAX, BMAX);
 
-    if (auto obj = CGAL::intersection(Rect(box), ray)) {
-        if (const Point* ip = std::get_if<Point>(&*obj)) {
-            // ignore self-hit at the origin of the ray
-            if (CGAL::to_double(CGAL::squared_distance(*ip, p)) < TOL*TOL) return std::nullopt;
-            return *ip;
-        }
-        if (const Segment* seg = std::get_if<Segment>(&*obj)) {
-            // Ray overlaps an edge of the rectangle: pick the correct endpoint
-            const Point& a = seg->source();
-            const Point& b = seg->target();
-            double da = CGAL::to_double(CGAL::squared_distance(a, p));
-            double db = CGAL::to_double(CGAL::squared_distance(b, p));
-            if (da < TOL*TOL) return b;           // p is at a -> take the far endpoint
-            if (db < TOL*TOL) return a;           // p is at b -> take the far endpoint
-            return (da < db) ? a : b;             // otherwise take the nearer endpoint
+    {
+        ScopedTimer timer(TimedOp::CgalIntersection);
+        if (auto obj = CGAL::intersection(Rect(box), ray)) {
+            if (const Point* ip = std::get_if<Point>(&*obj)) {
+                // ignore self-hit at the origin of the ray
+                if (CGAL::to_double(CGAL::squared_distance(*ip, p)) < TOL*TOL) return std::nullopt;
+                return *ip;
+            }
+            if (const Segment* seg = std::get_if<Segment>(&*obj)) {
+                // Ray overlaps an edge of the rectangle: pick the correct endpoint
+                const Point& a = seg->source();
+                const Point& b = seg->target();
+                double da = CGAL::to_double(CGAL::squared_distance(a, p));
+                double db = CGAL::to_double(CGAL::squared_distance(b, p));
+                if (da < TOL*TOL) return b;           // p is at a -> take the far endpoint
+                if (db < TOL*TOL) return a;           // p is at b -> take the far endpoint
+                return (da < db) ? a : b;             // otherwise take the nearer endpoint
+            }
         }
     }
     return std::nullopt;
 }
 
 std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
+    ScopedTimer timer(TimedOp::FindF);
     // assert(S.size() != 2); // wait why this check??
     if (S.size() == 1) {
         auto F = current_bbox();
@@ -356,7 +583,11 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
         return F;
     }
     std::vector<int> tangent = find_tangent_idx(p, S);
-    assert(tangent.size() == 2);
+    if (tangent.size() != 2) {
+        std::cerr << "Unexpected tangent count: " << tangent.size() << "\n";
+        auto F = current_bbox();
+        return F;
+    }
 
     std::optional<Point> hit1 = intersect_ray_with_rect(p, S[tangent[0]]);
     std::optional<Point> hit2 = intersect_ray_with_rect(p, S[tangent[1]]);
@@ -370,7 +601,9 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
 
     int n = int(S.size());
     assert(n >= 3);
-    CGAL_precondition(Polygon(S.begin(), S.end()).is_counterclockwise_oriented());
+    Polygon polygon(S.begin(), S.end());
+    CGAL_precondition(polygon.is_simple());
+    CGAL_precondition(polygon.orientation() == CGAL::COUNTERCLOCKWISE);
     assert(tangent[1] - tangent[0] - 1 >= 1 || tangent[0] + n - tangent[1] - 1 >= 1);
     std::vector<Point> F;
     if (CGAL::right_turn(p, S[tangent[0]], S[tangent[1]]))  {
@@ -413,7 +646,7 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
     while (cur < int(stream.size())) {
         const Point& pi  = stream[cur];
         bool shown_debug = false;
-        std::vector<std::vector<Polygon_with_holes>> new_S(P.size());
+        std::vector<std::vector<Point>> new_S(P.size());
         for (int i = 0; i < int(P.size()); i++) {
             if (dead[i]) {
                 continue;
@@ -447,16 +680,15 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
                 shown_debug = true;
             }
 
-            CGAL::intersection(F_poly, Gi_poly, back_inserter(new_S[i]));
+            new_S[i] = intersect_convex_polygons(F, Gi);
 
-            if (new_S[i].size() == 0) {
+            if (new_S[i].empty()) {
                 dead[i] = true;
                 dead_cnt++;
                 continue;
             }
-            assert(new_S[i].size() == 1);
             buffer[0] = P[i];
-            buffer[1] = *new_S[i].begin()->outer_boundary().vertices_begin();
+            buffer[1] = new_S[i].front();
         }
         if (dead_cnt == int(P.size())) {
             break;
@@ -465,10 +697,7 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
         if (viewer) viewer->markPi(pi);
         for (int i = 0; i < int(P.size()); i++) {
             if (dead[i]) continue;
-            S[i].clear();
-            std::copy(new_S[i].begin()->outer_boundary().vertices_begin(),
-                      new_S[i].begin()->outer_boundary().vertices_end(),
-                      std::back_inserter(S[i]));
+            S[i] = new_S[i];
         }
         cur++;
         if (viewer) viewer_process_events();
@@ -485,6 +714,7 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
 }
 
 std::vector<Point> simplify(const std::vector<Point> &stream, MultiViewer* viewer = nullptr) {
+    reset_timing_stats();
     std::vector<Point> simplified;
     std::cout << "Simplifying...\n";
     int cur = 0;
@@ -493,6 +723,7 @@ std::vector<Point> simplify(const std::vector<Point> &stream, MultiViewer* viewe
         cur = get_longest_stab(stream, cur, simplified, viewer);
     }
     std::cout << "Simplified!\n";
+    print_timing_report();
     return simplified;
 }
 
@@ -544,30 +775,70 @@ int main(int argc, char** argv) {
     if (dist_flag) out_flag = true;
 
     std::vector<Point> stream;
-    // Determine repo_root once (used for input/output/frechet). Try executable directory upward.
+    auto looks_like_repo_root = [](const std::filesystem::path& dir) {
+        return std::filesystem::exists(dir / "CMakeLists.txt")
+            && (std::filesystem::exists(dir / "simplify.cpp")
+                || std::filesystem::exists(dir / "plot_curves.cpp")
+                || std::filesystem::exists(dir / "algorithms"));
+    };
+
+    auto find_repo_root = [&](std::filesystem::path start) {
+        std::error_code ec;
+        if (start.empty()) return std::filesystem::path{};
+        start = std::filesystem::weakly_canonical(start, ec);
+        if (ec) start = start.lexically_normal();
+
+        auto dir = std::filesystem::is_regular_file(start, ec) ? start.parent_path() : start;
+        while (!dir.empty()) {
+            if (looks_like_repo_root(dir)) return dir;
+            auto parent = dir.parent_path();
+            if (parent == dir) break;
+            dir = parent;
+        }
+        return std::filesystem::path{};
+    };
+
+    // Determine repo_root once (used for input/output/frechet).
     std::filesystem::path repo_root;
     try {
-        auto exe = std::filesystem::canonical(argv[0]);
-        auto dir = exe.parent_path();
-        for (int i = 0; i < 5 && !dir.empty(); ++i) {
-            if (std::filesystem::exists(dir / "data")) { repo_root = dir; break; }
-            dir = dir.parent_path();
-        }
+        repo_root = find_repo_root(argv[0]);
     } catch (...) {}
     if (repo_root.empty()) {
-        auto cwd = std::filesystem::current_path();
-        if (std::filesystem::exists(cwd / "data")) repo_root = cwd; else repo_root = cwd; // fallback cwd
+        try {
+            repo_root = find_repo_root(std::filesystem::current_path());
+        } catch (...) {}
+    }
+    if (repo_root.empty()) {
+        repo_root = std::filesystem::current_path();
     }
     if (test_case_no != -1) {
         // Prefer original in data/taxi_simplified/<id>/original.txt; fallback to data/taxi/<id>.txt
         auto simp_orig = repo_root / "data" / "taxi_simplified" / std::to_string(test_case_no) / "original.txt";
-        std::ifstream fin(simp_orig.string());
-        if (!fin) { std::cerr << "Cannot open " << simp_orig.string() << "\n"; return 1; }
+        auto raw_input = repo_root / "data" / "taxi" / (std::to_string(test_case_no) + ".txt");
+
+        std::filesystem::path input_path;
+        if (std::filesystem::exists(simp_orig)) {
+            input_path = simp_orig;
+        } else if (std::filesystem::exists(raw_input)) {
+            input_path = raw_input;
+        } else {
+            std::cerr << "Cannot open " << simp_orig.string()
+                      << " or " << raw_input.string()
+                      << ".\nResolved repo root: " << repo_root.string()
+                      << ".\nIf the dataset is not checked out yet, place inputs under data/taxi/<id>.txt.\n";
+            return 1;
+        }
+
+        std::ifstream fin(input_path.string());
+        if (!fin) {
+            std::cerr << "Cannot open " << input_path.string() << "\n";
+            return 1;
+        }
         int N = 0;
-        if (!(fin >> N)) { std::cerr << "Empty or invalid input in " << simp_orig.string() << "\n"; return 1; }
+        if (!(fin >> N)) { std::cerr << "Empty or invalid input in " << input_path.string() << "\n"; return 1; }
         stream.clear(); stream.reserve(N);
         for (int i = 0; i < N; ++i) {
-            double x,y; if (!(fin >> x >> y)) { std::cerr << "Malformed pair at index " << i << " in " << simp_orig.string() << "\n"; return 1; }
+            double x,y; if (!(fin >> x >> y)) { std::cerr << "Malformed pair at index " << i << " in " << input_path.string() << "\n"; return 1; }
             stream.emplace_back(x, y);
         }
     }
@@ -583,7 +854,11 @@ int main(int argc, char** argv) {
     }
 
     // Simplify
+    const auto simplify_start = std::chrono::steady_clock::now();
     std::vector<Point> simplified = simplify(stream, vptr);
+    const auto simplify_end = std::chrono::steady_clock::now();
+    const auto simplify_ms = std::chrono::duration_cast<std::chrono::milliseconds>(simplify_end - simplify_start);
+    std::cout << "Total elapsed: " << (static_cast<double>(simplify_ms.count()) / 1000.0) << "s\n";
 
     // Optional output
     if (out_flag) {

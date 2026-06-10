@@ -53,6 +53,15 @@ add_executable(normalize
   tools/normalize.cpp
 )
 
+add_executable(boostvscgal
+  boostvscgal.cpp
+)
+
+target_link_libraries(boostvscgal
+  PRIVATE
+    CGAL::CGAL
+)
+
 #[===[
 create_single_source_cgal_program("generate.cpp")
 target_link_libraries(generate PRIVATE CGAL::CGAL_Qt6 Qt6::Core Qt6::Gui Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets)

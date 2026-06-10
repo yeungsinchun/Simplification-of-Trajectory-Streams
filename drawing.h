@@ -1,6 +1,5 @@
 #pragma once
 
-#include <CGAL/Exact_predicates_exact_constructions_kernel.h>
 #include <CGAL/Polygon_2.h>
 #include <vector>
 #include <QWidget>
@@ -9,8 +8,8 @@
 #include <limits>
 #include <optional>
 
-using Kernel  = CGAL::Exact_predicates_exact_constructions_kernel;
-using Point   = Kernel::Point_2;
+#include "geometry_kernel.h"
+
 using Polygon = CGAL::Polygon_2<Kernel>;
 
 class MultiViewer : public QWidget {
