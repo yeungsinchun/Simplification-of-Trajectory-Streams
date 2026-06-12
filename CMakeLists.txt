@@ -18,6 +18,9 @@ set(CMAKE_AUTOUIC OFF)
 
 find_package(CGAL REQUIRED COMPONENTS Qt6)
 
+find_package(OpenCV COMPONENTS core imgproc PATHS /opt/homebrew NO_DEFAULT_PATH)
+find_package(Boost REQUIRED)
+
 add_definitions(-DCGAL_USE_BASIC_VIEWER)
 
 add_executable(simplify
@@ -25,7 +28,48 @@ add_executable(simplify
   drawing.cpp
 )
 
+add_executable(simplify_old
+  simplify_old.cpp
+  drawing_old.cpp
+)
+
+add_executable(simplify_opencv
+  simplify_opencv.cpp
+  drawing.cpp
+)
+
+add_executable(simplify_boost
+  simplify_boost.cpp
+  drawing.cpp
+)
+
+add_executable(simplify_SH
+  simplify_SH.cpp
+  drawing_old.cpp
+)
+
+target_include_directories(simplify_boost PRIVATE ${OpenCV_INCLUDE_DIRS})
+target_include_directories(simplify_opencv PRIVATE ${OpenCV_INCLUDE_DIRS})
+
 target_link_libraries(simplify
+  CGAL::CGAL_Qt6
+)
+
+target_link_libraries(simplify_old
+  CGAL::CGAL_Qt6
+)
+
+target_link_libraries(simplify_opencv
+  CGAL::CGAL_Qt6
+  ${OpenCV_LIBS}
+)
+
+target_link_libraries(simplify_boost
+  CGAL::CGAL_Qt6
+  Boost::boost
+)
+
+target_link_libraries(simplify_SH
   CGAL::CGAL_Qt6
 )
 
@@ -52,42 +96,3 @@ target_include_directories(main PRIVATE
 add_executable(normalize
   tools/normalize.cpp
 )
-
-add_executable(boostvscgal
-  boostvscgal.cpp
-)
-
-target_link_libraries(boostvscgal
-  PRIVATE
-    CGAL::CGAL
-)
-
-#[===[
-create_single_source_cgal_program("generate.cpp")
-target_link_libraries(generate PRIVATE CGAL::CGAL_Qt6 Qt6::Core Qt6::Gui Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets)
-
-#[===[
-add_executable(test
-
-#[===[ pp
-  drawing.cpp
-)
-
-target_link_libraries(test
-  PRIVATE
-    CGAL::CGAL_Qt6           # brings CGAL core + viewer
-    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets
-)
-
-add_executable(pikachu
-  pi
-achu.cpp
-  drawing.cpp
-)
-
-target_link_libraries(pikachu
-  PRIVATE
-    CGAL::CGAL_Qt6           # brings CGAL core + viewer
-    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets
-)
-#]===]
