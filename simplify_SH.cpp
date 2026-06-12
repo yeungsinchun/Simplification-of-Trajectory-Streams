@@ -1,6 +1,6 @@
 #include <CGAL/Exact_predicates_exact_constructions_kernel.h>
 #include <CGAL/Polygon_2.h>
-#include <cgal/simple_cartesian.h>
+#include <CGAL/Simple_cartesian.h>
 #include <CGAL/convex_hull_2.h>
 #include <CGAL/Iso_rectangle_2.h>
 #include <CGAL/Boolean_set_operations_2.h>
@@ -25,9 +25,25 @@ using Rect = CGAL::Iso_rectangle_2<Kernel>;
 using Polygon = CGAL::Polygon_2<Kernel>;
 using Polygon_with_holes =  CGAL::Polygon_with_holes_2<Kernel>;
 
+// Filtered kernel for intersection: exact predicates with double arithmetic
+// Faster than Epeck for intersection computation, more robust than plain Simple_cartesian
+using IntersectKernel = CGAL::Filtered_kernel<CGAL::Simple_cartesian<double>>;
+using IntersectPoint = IntersectKernel::Point_2;
+using IntersectSegment = IntersectKernel::Segment_2;
+using IntersectPolygon = CGAL::Polygon_2<IntersectKernel>;
+
+// Helper to convert from Kernel::Point_2 to IntersectPoint using double as intermediate
+static IntersectPoint to_intersect(const Point& p) {
+    return IntersectPoint(CGAL::to_double(p.x()), CGAL::to_double(p.y()));
+}
+
+// Helper to convert from IntersectPoint back to Point using double as intermediate
+static Point from_intersect(const IntersectPoint& p) {
+    return Point(static_cast<double>(p.x()), static_cast<double>(p.y()));
+}
+
 // Convex polygon intersection using boundary point collection + convex hull
-// Collects all vertices of both polygons that lie inside the other,
-// and all edge intersections, then takes the convex hull.
+// Uses Simple_cartesian<long double> for faster intersection computations
 static std::vector<Point> get_vertices(const Polygon& poly) {
     std::vector<Point> verts;
     for (auto it = poly.vertices_begin(); it != poly.vertices_end(); ++it) {
@@ -36,11 +52,11 @@ static std::vector<Point> get_vertices(const Polygon& poly) {
     return verts;
 }
 
-static bool point_in_polygon(const Point& p, const std::vector<Point>& poly) {
+static bool point_in_polygon(const IntersectPoint& p, const std::vector<IntersectPoint>& poly) {
     int n = poly.size();
     for (int i = 0; i < n; i++) {
-        const Point& a = poly[i];
-        const Point& b = poly[(i + 1) % n];
+        const IntersectPoint& a = poly[i];
+        const IntersectPoint& b = poly[(i + 1) % n];
         if (!CGAL::left_turn(a, b, p)) {
             return false;
         }
@@ -48,30 +64,38 @@ static bool point_in_polygon(const Point& p, const std::vector<Point>& poly) {
     return true;
 }
 
-static std::optional<Point> segment_intersection(const Point& p1, const Point& p2,
-                                                const Point& q1, const Point& q2) {
-    auto inter = CGAL::intersection(Segment(p1, p2), Segment(q1, q2));
-    if (inter && std::holds_alternative<Point>(*inter)) {
-        return std::get<Point>(*inter);
+static std::optional<IntersectPoint> segment_intersection(const IntersectPoint& p1, const IntersectPoint& p2,
+                                                         const IntersectPoint& q1, const IntersectPoint& q2) {
+    auto inter = CGAL::intersection(IntersectSegment(p1, p2), IntersectSegment(q1, q2));
+    if (inter && std::holds_alternative<IntersectPoint>(*inter)) {
+        return std::get<IntersectPoint>(*inter);
     }
     return std::nullopt;
 }
 
 static void convex_polygon_intersection(const Polygon& P, const Polygon& Q,
                                        std::vector<Polygon_with_holes>& result) {
-    std::vector<Point> P_verts = get_vertices(P);
-    std::vector<Point> Q_verts = get_vertices(Q);
+    // Convert polygons to the simpler intersection kernel
+    std::vector<IntersectPoint> P_verts, Q_verts;
+    P_verts.reserve(P.size());
+    Q_verts.reserve(Q.size());
+    for (auto it = P.vertices_begin(); it != P.vertices_end(); ++it) {
+        P_verts.push_back(to_intersect(*it));
+    }
+    for (auto it = Q.vertices_begin(); it != Q.vertices_end(); ++it) {
+        Q_verts.push_back(to_intersect(*it));
+    }
 
     if (P_verts.size() < 3 || Q_verts.size() < 3) return;
 
     int n = P_verts.size();
     int m = Q_verts.size();
 
-    std::vector<Point> candidates;
-    std::set<std::pair<double, double>> seen;
-    auto add_unique = [&](const Point& p) {
-        double x = CGAL::to_double(p.x());
-        double y = CGAL::to_double(p.y());
+    std::vector<IntersectPoint> candidates;
+    std::set<std::pair<long double, long double>> seen;
+    auto add_unique = [&](const IntersectPoint& p) {
+        long double x = p.x();
+        long double y = p.y();
         auto key = std::make_pair(x, y);
         if (seen.insert(key).second) {
             candidates.push_back(p);
@@ -90,11 +114,11 @@ static void convex_polygon_intersection(const Polygon& P, const Polygon& Q,
     }
 
     for (int i = 0; i < n; i++) {
-        const Point& p1 = P_verts[i];
-        const Point& p2 = P_verts[(i + 1) % n];
+        const IntersectPoint& p1 = P_verts[i];
+        const IntersectPoint& p2 = P_verts[(i + 1) % n];
         for (int j = 0; j < m; j++) {
-            const Point& q1 = Q_verts[j];
-            const Point& q2 = Q_verts[(j + 1) % m];
+            const IntersectPoint& q1 = Q_verts[j];
+            const IntersectPoint& q2 = Q_verts[(j + 1) % m];
             auto inter = segment_intersection(p1, p2, q1, q2);
             if (inter) {
                 add_unique(*inter);
@@ -104,12 +128,19 @@ static void convex_polygon_intersection(const Polygon& P, const Polygon& Q,
 
     if (candidates.size() < 3) return;
 
-    std::vector<Point> hull;
+    std::vector<IntersectPoint> hull;
     CGAL::convex_hull_2(candidates.begin(), candidates.end(), std::back_inserter(hull));
 
     if (hull.size() < 3) return;
 
-    Polygon inter_poly(hull.begin(), hull.end());
+    // Convert back to original Kernel for the result polygon
+    std::vector<Point> result_verts;
+    result_verts.reserve(hull.size());
+    for (const auto& hp : hull) {
+        result_verts.push_back(from_intersect(hp));
+    }
+
+    Polygon inter_poly(result_verts.begin(), result_verts.end());
 
     if (!inter_poly.is_simple()) return;
 
