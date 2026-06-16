@@ -1,191 +1,383 @@
-## Simplification of Trajectory Streams (draft)
+# Simplification of Trajectory Streams
 
-This repo implements the delta-simplification from the paper [Simplification of Trajectory Streams](https://arxiv.org/abs/2503.23025). It includes a Qt viewer and a CLI to simplify trajectories and optionally compute (approximate) Fréchet distance between original and simplified polylines. It also includes the benchmark of this streaming algorithm against other algorithms (possibly not streaming, like dp). 
+This repo implements the delta-simplification from the paper
+[Simplification of Trajectory Streams](https://arxiv.org/abs/2503.23025). It
+includes a Qt viewer and a CLI to simplify trajectories and optionally
+compute (approximate) Fréchet distance between the original and simplified
+polylines. It also benchmarks this streaming algorithm against several
+classical baselines (DP, DOTS, SQUISH).
 
-Tested primarily on macOS (arm64). Other platforms may work with the right dependencies.
+Tested primarily on macOS (arm64). Other platforms may work with the right
+dependencies.
 
 Demo video of this algorithm:
-https://github.com/user-attachments/assets/7593b5d8-ca68-4b7b-af6f-de76cd1c7689
+<https://github.com/user-attachments/assets/7593b5d8-ca68-4b7b-af6f-de76cd1c7689>
 
-Visual comparison between different algorithms (simplified in red being this algorithm):
-<img width="724" height="725" alt="Screenshot 2025-11-15 at 2 59 30 AM" src="https://github.com/user-attachments/assets/d5bc2041-b0b6-47a6-a261-7ef5a7eac757" />
+Visual comparison between different algorithms (the algorithm implmenete is in red):
+<img width="724" height="725" alt="Comparison screenshot" src="https://github.com/user-attachments/assets/d5bc2041-b0b6-47a6-a261-7ef5a7eac757" />
+
+---
 
 ## Prerequisites
 
-- C++ toolchain with C++23 support
+- C++ toolchain with **C++23** support (Clang 16+ or Apple Clang 15+)
 - CMake ≥ 3.16
-- CGAL
-- Qt 6 Widgets (QtCore, QtGui, QtWidgets) for the GUI viewer
-- Optional (for frechet distance computation(`--dist`)):
-	- Python 3
-	- NumPy
-    - frechetlib
+- **CGAL** (with Qt6 support, for the viewer)
+- **Qt 6 Widgets** (QtCore, QtGui, QtWidgets)
+- **Julia** with the `FrechetDist` package installed (required for the
+  `./frechet` wrapper used by `--dist` and the benchmark)
 
-On macOS with Homebrew you can install them with
+On macOS with Homebrew:
 
 ```bash
-brew install cmake cgal qt@6
-pip3 install frechetlib
+brew install cmake cgal qt@6 julia
 ```
----
 
-## Folder structure
+For Julia:
 
-- `simplify.cpp` — main application (CLI + Qt viewer)
-- `plot_curves.cpp` — Qt viewer to overlay original + multiple simplified curves with legend and counts
-- `frechet` — Python helper to compute (approximate) Fréchet distance from outputs
-- `algorithms/` — baseline algorithms we can run for comparison (DP, OPERB, OPERBA, FBQS)
-- `tools/normalize.cpp` — C++ tool to normalize raw CSV taxi logs into `data/taxi/<id>.txt`.
-- `data/`
-  - `taxi/<id>/` — normalized inputs
-  - `taxi_simplified/<id>/` — outputs per id: `original.txt`, `simplified.txt`, and `<algo>_simplified.txt`
-- `build/` — build directory (create this yourself)
+```bash
+julia -e 'using Pkg; Pkg.add("FrechetDist")'
+```
 
 ---
 
-## Build and install
+## What's in the repo
 
-```bash
-mkdir build
-cd build
-cmake -DCMAKE_BUILD_TYPE=release ..
-cmake --build .
 ```
-
-Targets that will be built inside `build/`:
-
-- `simplify` — main app and viewer
-- `plot_curves` — overlay viewer for all curves for a given id
-- `main` — baseline algorithms runner (runs all selected algorithms on one id)
-- `normalize` — normalize raw CSV taxi logs into `data/taxi/<id>.txt`
+.
+├── CMakeLists.txt
+├── README.md
+│
+├── simplify.cpp               # Main algorithm (this paper) + Qt viewer
+├── simplify_old.cpp           # Older snapshot (kept for reference)
+├── drawing.cpp / drawing.h    # Shared Qt viewer widget
+│
+├── tools/
+│   ├── normalize.cpp          # Convert raw taxi CSVs to data/<id>/original.txt
+│   └── plot_curve.cpp         # Multi-curve overlay viewer for data/<id>/
+│
+├── normalize                  # Symlink → release/normalize (after build)
+├── plot_curve                 # Symlink → release/plot_curve (after build)
+├── simplify                   # Symlink → release/simplify (after build)
+│
+├── frechet                    # Julia wrapper around FrechetDist.jl (used by
+│                              #   the C++ --dist flag and run_benchmark.py)
+├── run_benchmark.py           # Overnight benchmark of simplify vs DP/DOTS/SQUISH
+├── download_dataset.py        # Helper to fetch the T-Drive dataset from Kaggle
+├── clean_data.sh              # Strip non-original.txt files from data/<id>/
+│
+├── algorithms/                # Subtree with OPERB/OPERBA/FBQS sources (vendored from
+│   └── ...                    #   Trajectory-Simplification-Algorithm, used by algorithms/main)
+│
+├── traj-compression/          # Subtree of black-box algorithm binaries
+│   ├── batch/DP/              #   - DP_adapted (Douglas–Peucker)
+│   ├── online/DOTS/           #   - DOTS_adapted
+│   └── online/SQUISH/         #   - SQUISH_adapted
+│
+├── data/                      # Sample trajectories (102 ids committed; rest is generated)
+│   ├── <id>/                  # Per-id input + outputs:
+│   │   ├── original.txt       #   - N points "x y" each, after normalization
+│   │   ├── simplify.txt      #   - the streaming algorithm's output
+│   │   ├── DOTS.txt           #   - DOTS output (if benchmarked)
+│   │   ├── DP.txt             #   - DP output
+│   │   ├── SQUISH.txt         #   - SQUISH output
+│   │   └── simplify_against_<baseline>_<e>_<d>.txt   # simplify tuned per baseline
+│   ├── taxi/                  # Normalized raw inputs (one .txt per id)
+│   └── taxi_simplified/       # Where the legacy algorithms/main wrote its outputs
+│
+├── report/                    # UROP progress report and figures
+└── icons/, resources/         # Qt resources used by the viewer
+```
 
 ---
 
-## Usage
-
-Run from the `build/` directory after a successful build.
-
-Basic headless run (read input by id and write outputs):
+## Build
 
 ```bash
-./simplify --in 1 --out
+mkdir -p release
+cd release
+cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake --build . -j
 ```
 
-Show GUI viewer while simplifying:
+Targets produced inside `release/`:
 
-```bash
-./simplify --in 1 --gui
+| Target | Purpose |
+|---|---|
+| `simplify` | Main algorithm + Qt viewer (this paper). Use this. |
+| `plot_curve` | Overlay viewer for every curve in `data/<id>/`. |
+| `normalize` | Convert raw T-Drive CSVs to normalized `data/<id>/original.txt`. |
+
+The `algorithms/` subdirectory is a standalone C++ project (its own
+`Makefile`); build it separately if you want OPERB/OPERBA/FBQS as baselines
+(see [Baseline algorithms](#baseline-algorithms)).
+
+`traj-compression/` is a separate C++ subtree; build each baseline binary
+individually there. The benchmark script expects these paths to exist:
+
+```
+traj-compression/batch/DP/DP_adapted
+traj-compression/online/DOTS/DOTS_adapted
+traj-compression/online/SQUISH/SQUISH_adapted
 ```
 
-Full workflow (GUI + write outputs + run distance later when GUI closes):
-
-```bash
-./simplify --in 1 --gui --out --dist
-```
-
-Tuning parameters at runtime:
-
-```bash
-./simplify --in 1 -d 1500 -e 0.5 --gui
-```
-
-CLI flags summary (simplify):
-
-- `--in <id>` — read from `../data/taxi/<id>.txt`
-- `--out` — write outputs into `../data/taxi_simplified/<id>/`
-- `--dist` — compute Fréchet distance by running `../frechet -id <id>` after GUI closes
-- `--gui` — show the viewer
-- `-d <delta>` — override delta
-- `-e <epsilon>` — override epsilon
-- `-F`, `-G`, `-S` — show the intermediate structures in the viewer (refer to the paper for description of these structures)
-- `-h` — print help
-
-Notes:
-- With `--gui`, distance computation is deferred until you close the viewer.
+The standard `cmake --build .` only builds the top-level `CMakeLists.txt`
+targets. The `traj-compression/` and `algorithms/` binaries are **not**
+produced by it.
 
 ---
 
-### Normalize raw taxi logs
+## Complete workflow: from a fresh clone to a working program
 
-Convert raw CSV logs to normalized XY text files used by this repo:
+These steps reproduce everything end-to-end. Steps 1–3 are required; the
+rest is the "full" benchmark path.
 
-```bash
-cmake --build . --target normalize
-./normalize --all          # process all ids found under taxi_log_2008_by_id
-# or a single id
-./normalize -n 16
-```
----
-
-The dataset used is [here](https://www.kaggle.com/datasets/arashnic/tdriver). If you want the full dataset, you will need to download the dataset yourself as only part of the data (the first 102) are included in this repository.
-
----
-
-## Algorithms runner (main)
-
-Run the baseline algorithms on one id and write per-algorithm outputs:
+### 1. Install system and language dependencies
 
 ```bash
-cmake --build . --target main
-./main <id> <error_bound>
-# example
-./main 1 100
+# macOS
+brew install cmake cgal qt@6 julia
+julia -e 'using Pkg; Pkg.add("FrechetDist")'
 ```
 
-This reads `../data/taxi/<id>.txt`, runs all configured algorithms, and writes to `../data/taxi_simplified/<id>/`:
-
-- `dp_simplified.txt`
-- `operb_simplified.txt`
-- `operba_simplified.txt`
-- `fbqs_simplified.txt`
-
----
-
-## Overlay viewer (plot_curves)
-
-Display original plus selected simplified curves with legend and point counts:
+### 2. Clone and build the C++ tools
 
 ```bash
-cmake --build . --target plot_curves
-./plot_curves <id> [--all | -dp -operb -operba -fbqs -simplify]
-
-# examples
-./plot_curves 1 --all
-./plot_curves 1 -dp -operb
-./plot_curves 1 -simplify
+git clone <this-repo>
+cd Simplification-of-Trajectory-Streams
+mkdir -p release
+cd release
+cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake --build . -j
+cd ..
 ```
 
-It loads from `../data/taxi_simplified/<id>/*.txt` (and the original curve if available).
-Special debug overlays (polygons/points) use distinct styles and appear in the legend with counts.
+This produces `release/simplify`, `release/plot_curve`, `release/normalize`, etc.
 
----
+### 3. Make sure the `data/` directory is ready
 
-## Fréchet (optional)
+A partial set of 102 trajectories is already committed under `data/`. Each
+`<id>/` directory contains an `original.txt` (the input) and zero or more
+`*.txt` files (the outputs). You can use these directly.
 
-The helper `frechet` computes (approximate) distances between the original and available simplified curves for an id:
+If you want the **full** T-Drive dataset, fetch it with the helper script:
 
 ```bash
+pip3 install kagglehub
+python3 download_dataset.py      # downloads to ~/.cache/kagglehub/...
+```
+
+Then run the normalizer to produce `data/<id>/original.txt` for each
+trajectory:
+
+```bash
+./release/normalize --all
+# or a single id:
+./release/normalize 16
+```
+
+The normalizer reads the last two comma-separated fields of each line in
+`taxi_log_2008_by_id/<id>.txt`, scales the trajectory to roughly
+`[-10000, 10000]` (preserving aspect ratio), and writes
+`data/<id>/original.txt` in the format `N\nx y\nx y\n...`.
+
+### 4. Run a single simplification
+
+```bash
+# Headless: read original.txt, write data/<id>/simplify.txt
+./release/simplify --in 1 --out
+
+# With the Qt viewer
+./release/simplify --in 1 --gui
+
+# GUI + write output + compute Fréchet distance after the viewer closes
+./release/simplify --in 1 --gui --out --dist
+
+# Override delta/epsilon
+./release/simplify --in 1 -d 1500 -e 0.5 --gui
+```
+
+Shorthand: `simplify <id> [flags]` is equivalent to
+`--in <id> --out [flags]`.
+
+**Path resolution.** The `simplify_*` binaries locate the repository root by
+walking up from `argv[0]` until they find a `data/` directory (up to 5
+levels), then fall back to the current working directory. So you can run
+them from anywhere — no need to `cd release` first.
+
+**Output layout** for `data/<id>/`:
+
+```
+data/<id>/
+  original.txt          # input (created by tools/normalize)
+  simplify.txt          # streaming algorithm output (after --out)
+```
+
+### 5. Visualize a result
+
+```bash
+./release/plot_curve 1           # shows original + every *.txt in data/1/
+```
+
+Click legend entries to toggle curves. The viewer auto-loads anything that
+matches the canonical `N x y` format.
+
+### 6. Compute Fréchet distance
+
+The `--dist` flag on `simplify` shells out to the Julia wrapper `frechet`
+(path: `frechet` at the repo root). You can also call it directly:
+
+```bash
+# Default: original vs data/<id>/our_simplified.txt and dp_simplified.txt
 ./frechet <id>
+
+# Or with an explicit simplified path:
+./frechet --in 1 --path data/1/simplify.txt
 ```
 
-This prints distances for `simplified.txt` and each `<algo>_simplified.txt` found under `../data/taxi_simplified/<id>/`.
+### 7. Run the full benchmark
+
+`run_benchmark.py` is the long-running comparison. It runs DP, DOTS, and
+SQUISH on each id, then sweeps `simplify` over a few
+`(epsilon, delta)` values tuned per baseline, and records point counts and
+Fréchet distances into `compare_points.csv`.
+
+```bash
+# Build the traj-compression baselines first (each has its own Makefile)
+( cd traj-compression/batch/DP      && make DP_adapted )
+( cd traj-compression/online/DOTS   && make DOTS_adapted )
+( cd traj-compression/online/SQUISH && make SQUISH_adapted )
+
+# Then run the benchmark
+python3 run_benchmark.py            # all ids
+python3 run_benchmark.py --ids 1 2 3 --resume   # pick ids, resume from CSV
+```
+
+The benchmark has built-in safety nets: a 1.5 GB RSS cap per invocation
+and per-stage timeouts. A run that exceeds either is recorded as `-1` in
+the CSV and the loop continues.
+
+### 8. Clean up output files (optional)
+
+`clean_data.sh` keeps only `original.txt` in each `data/<id>/`, removing
+all generated `simplify_*.txt`, `DP.txt`, `DOTS.txt`, etc. Useful before
+re-running a benchmark.
+
+```bash
+./clean_data.sh            # interactive prompt
+./clean_data.sh --force    # delete immediately
+./clean_data.sh --dry-run  # show what would be deleted
+```
+
+---
+
+## CLI reference: `simplify`
+
+```
+simplify [options] [<id>]
+
+Options:
+  --in <id>        Read input from data/<id>/original.txt
+  --out            Write output to data/<id>/simplify.txt
+  --dist           After output (or after the viewer closes), run frechet
+                   to print Fréchet distance between original and simplified
+  --gui            Show the Qt viewer while simplifying
+  --labels         Show vertex index labels in the viewer
+  -d <delta>       Override DELTA (default 200)
+  -e <epsilon>     Override EPSILON (default 0.6)
+  -F / -G / -S     Debug polygon overlays in the viewer
+                   (F, G, S refer to the structures in the paper)
+  -h, --help       Print this help and exit
+
+Shorthand:
+  simplify <id> [flags]   ==  --in <id> --out [flags]
+```
+
+---
+
+## CLI reference: `frechet`
+
+```
+frechet [<id>] [--in <id>] [--path <file>] [--raw]
+
+  <id>             Trajectory id (uses data/<id>/original.txt vs
+                   data/<id>/our_simplified.txt and dp_simplified.txt)
+  --in <id>        Same as positional id
+  --path <file>    Override the simplified curve to compare against
+  --raw            Print only the raw distance number
+```
+
+The wrapper is a Julia script that calls `frechet_c_compute` from
+`FrechetDist.jl` internally.
+
+---
+
+## Baseline algorithms
+
+The streaming algorithm is benchmarked against three groups of baselines:
+
+| Group | Where | How to build | Used by |
+|---|---|---|---|
+| DP, DOTS, SQUISH | `traj-compression/` | per-subdir `make <binary>` | `run_benchmark.py` |
+| OPERB, OPERBA, FBQS | `algorithms/` | `cd algorithms && g++ -O2 -std=c++17 -Iinc main.cpp -o main && ./main` | manual / `plot_curve` |
+
+The `algorithms/` subtree is vendored from
+[Trajectory-Simplification-Algorithm](https://github.com/MingjiHan99/Trajectory-Simplification-Algorithm)
+and modified for our I/O format. The legacy runner is invoked as:
+
+```bash
+g++ -O2 -std=c++17 -Iinc algorithms/main.cpp -o algorithms/main
+./algorithms/main <id> [error_bound]
+# Example: ./algorithms/main 1 100
+```
+
+This reads `data/<id>/original.txt`, runs all four algorithms, and writes
+`data/<id>/dp_simplified.txt`, `operb_simplified.txt`, `operba_simplified.txt`,
+`fbqs_simplified.txt`.
+
+The `traj-compression/` binaries used by `run_benchmark.py` are direct
+adaptations of publicly-available code; consult each subdirectory's own
+README for the original attribution.
+
+---
+
+## Dataset
+
+The original dataset is the T-Drive taxi trajectory dataset:
+
+> Jing Yuan, Yu Zheng, Xing Xie, and Guangzhong Sun. *Driving with knowledge
+> from the physical world.* In KDD '11. ACM.
+>
+> Jing Yuan, Yu Zheng, Chengyang Zhang, Wenlei Xie, Xing Xie, Guangzhong
+> Sun, and Yan Huang. *T-Drive: driving directions based on taxi
+> trajectories.* In GIS '10. ACM.
+
+Source on Kaggle: <https://www.kaggle.com/datasets/arashnic/tdriver>
+
+`download_dataset.py` fetches it via `kagglehub`. Only the first 102
+trajectories are committed to the repository as `data/<id>/original.txt`;
+download the full set yourself if you need more.
 
 ---
 
 ## Acknowledgements
 
-We are grateful to the following papers for datasets:
-
-1. Jing Yuan, Yu Zheng, Xing Xie, and Guangzhong Sun. Driving with knowledge from the physical world. In KDD ’11. ACM.
-2. Jing Yuan, Yu Zheng, Chengyang Zhang, Wenlei Xie, Xing Xie, Guangzhong Sun, and Yan Huang. T-Drive: driving directions based on taxi trajectories. In GIS ’10. ACM.
-
-The code within the `algorithms` folder that we benchmark our algorithm against is modified from
-https://github.com/MingjiHan99/Trajectory-Simplification-Algorithm
+- The baseline code in `algorithms/` is modified from
+  <https://github.com/MingjiHan99/Trajectory-Simplification-Algorithm>.
+- The `traj-compression/` baselines (DP, DOTS, SQUISH) are adapted from
+  publicly-available implementations of those algorithms.
+- The Fréchet distance computation uses
+  [FrechetDist.jl](https://github.com/ingomueller-net/FrechetDist.jl).
 
 ---
 
 ## TODO
 
-- Implementation improvements (e.g., `get_points_from_grid`, reduce the number of `std::vector<Point>` to `Polygon_2` conversion maybe)
-
-- Refactor: duplicated representations of points in taxi/<id>/original.txt and taxi/1/.txt. It's better to use the <N> <x1> <y1> <x2> <y2> representation cuz it's easier to read.
+- Implementation improvements: reduce the number of `std::vector<Point>` ↔
+  `Polygon_2` conversions in `get_points_from_grid`; trim the F/G polygon
+  collectors in the streaming loop (currently they grow unbounded and
+  cause the multi-GB RSS runaways that the benchmark's memcap exists to
+  catch).
+- Refactor: collapse the two parallel representations of a point list
+  (`data/<id>/original.txt` and `data/taxi/<id>.txt`) into a single
+  `N x y` format everywhere.

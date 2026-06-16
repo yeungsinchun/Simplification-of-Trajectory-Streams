@@ -1,6 +1,0 @@
-.vscode/*
-dataset/*
-!dataset/README.md
-src/*
-!src/*.cpp
-!src/makefile

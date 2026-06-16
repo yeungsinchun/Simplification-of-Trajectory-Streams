@@ -89,8 +89,8 @@ static void normalize_minx_to_range(Points& pts, double targetMinX, double targe
     const double targetWidth = (targetMaxX - targetMinX);
     const double sx = (xrange > 0.0) ? (targetWidth / xrange) : 1.0;
 
-    // Scale for Y so that centered-at-mean values stay within [-8000, 8000]
-    const double yLimit = 8000.0;
+    // Scale for Y so that centered-at-mean values stay within [-10000, 10000]
+    const double yLimit = 10000.0;
     const double sy = (maxAbsDevY > 0.0) ? (yLimit / maxAbsDevY) : 1.0;
 
     // Use the smaller scale so both axes remain within range
@@ -142,8 +142,8 @@ int main(int argc, char** argv) {
     }
     if (!found_root.empty()) repo_root = found_root;
 
-    const fs::path source_dir = repo_root / "taxi_log_2008_by_id";
-    const fs::path out_dir    = repo_root / "data" / "taxi";
+    const fs::path source_dir = fs::path("/Users/sinchunyeung/.cache/kagglehub/datasets/arashnic/tdriver/versions/1/release/taxi_log_2008_by_id");
+    const fs::path out_dir    = fs::path("/Users/sinchunyeung/Simplification-of-Trajectory-Streams/data/taxi");
 
     if (argc < 2) {
         usage(argv[0], source_dir, out_dir);
@@ -184,8 +184,8 @@ int main(int argc, char** argv) {
             std::cerr << "No points parsed from: " << in << "\n";
             return;
         }
-        normalize_minx_to_range(pts, -8000.0, 8000.0);
-        fs::path simp_dir = repo_root / "data" / "taxi_simplified" / std::to_string(id);
+        normalize_minx_to_range(pts, -10000.0, 10000.0);
+        fs::path simp_dir = fs::path("/Users/sinchunyeung/Simplification-of-Trajectory-Streams/data") / std::to_string(id);
         fs::create_directories(simp_dir);
         fs::path orig_path = simp_dir / "original.txt";
         if (!write_cleaned(orig_path, pts)) {

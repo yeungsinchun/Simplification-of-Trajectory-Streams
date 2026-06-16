@@ -1,109 +1,129 @@
-#!/usr/bin/env python3
-import argparse
-import os
-import sys
-import numpy as np
+#!/usr/bin/env julia
+"""
+Fréchet distance wrapper.
 
-from frechetlib.continuous_frechet import frechet_c_approx
+Reads a trajectory and a simplified curve (both in the "N\nx y\n..." text
+format produced by simplify_*) and computes the continuous Fréchet distance
+between them using FrechetDist.jl.
 
-def read_curve(filename: str) -> np.ndarray:
-    with open(filename, 'r') as f:
-        header = f.readline()
-        if not header:
-            raise ValueError(f"Empty file: {filename}")
-        try:
-            n = int(header.strip())
-        except Exception:
-            raise ValueError(f"Expected first line to be an integer N in {filename}")
-        pts = np.empty((n, 2), dtype=float)
-        for i in range(n):
-            line = f.readline()
-            if not line:
-                raise ValueError(f"Unexpected EOF at line {i+2} in {filename}")
-            parts = line.strip().split()
-            if len(parts) < 2:
-                raise ValueError(f"Malformed pair at line {i+2} in {filename}")
-            try:
-                pts[i, 0] = float(parts[0])
-                pts[i, 1] = float(parts[1])
-            except Exception:
-                raise ValueError(f"Non-numeric value at line {i+2} in {filename}")
-        return pts
+Usage:
+  frechet <id>                       Compare data/<id>/original.txt with
+                                     data/taxi_simplified/<id>/our_simplified.txt
+                                     and dp_simplified.txt (legacy layout).
+  frechet --in <id>                  Same as positional <id>.
+  frechet --in <id> --path <file>    Compare original against an explicit
+                                     simplified-curve file. (This is the
+                                     mode the C++ --dist flag and the
+                                     benchmark use, so it points at the
+                                     new data/<id>/ output layout.)
+  frechet --raw                      Print only the raw distance number.
+"""
 
+using FrechetDist
+using FrechetDist.cg
+using FrechetDist.cg.point
+using FrechetDist.cg.polygon
+using ArgParse
 
-def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(
-        prog=os.path.basename(sys.argv[0]),
-        description="Compute (approximate) continuous Fréchet distances between original and simplified curves."
-    )
-    parser.add_argument('id', type=int, nargs='?', help='trajectory id (required)')
-    parser.add_argument('-i', '--in', dest='id_flag', type=int, help='trajectory id (alternative to positional)')
-    # method selection
-    parser.add_argument('--all', action='store_true', help='include all simplified outputs')
-    parser.add_argument('--simplified', action='store_true', help='include our_simplified.txt')
-    parser.add_argument('--dp', action='store_true', help='include dp_simplified.txt')
-    parser.add_argument('--raw', action='store_true', help='raw output or not')
+function run()
+    function read_curve(filename)
+        lines = readlines(filename)
+        isempty(lines) && error("Empty file: $filename")
+        
+        n = try
+            parse(Int, strip(lines[1]))
+        catch
+            error("Expected first line to be integer N in $filename")
+        end
+        
+        if length(lines) < n + 1
+            error("Expected $n points but only $(length(lines) - 1) lines")
+        end
+        
+        poly = Polygon2F()
+        for i in 1:n
+            parts = split(strip(lines[i + 1]))
+            if length(parts) < 2
+                error("Malformed point at line $(i+1)")
+            end
+            x = parse(Float64, parts[1])
+            y = parse(Float64, parts[2])
+            push!(poly, npoint(x, y))
+        end
+        
+        return poly
+    end
 
-    args = parser.parse_args(argv)
-    test_case_id = args.id if args.id is not None else args.id_flag
-    if test_case_id is None:
-        parser.print_help()
+    s = ArgParseSettings()
+    s.description = "Compute continuous Fréchet distances."
+
+    @add_arg_table s begin
+        "id"
+            help = "trajectory id"
+            arg_type = Int
+            required = false
+        "--in"
+            help = "trajectory id (alternative to positional)"
+            arg_type = Int
+        "--path", "-p"
+            help = "path to simplified curve file"
+            arg_type = String
+            default = ""
+        "--raw"
+            help = "raw output only"
+            action = :store_true
+    end
+
+    parsed = parse_args(s)
+    
+    # Check if id was provided via either method
+    id = parsed["id"] !== nothing ? parsed["id"] : parsed["in"]
+    if id === nothing
+        println(stderr, "Error: trajectory id is required (use positional arg or --in)")
         return 1
+    end
 
-    repo_root = os.path.dirname(os.path.abspath(__file__))
-    base = os.path.join(repo_root, 'data', 'taxi_simplified', str(test_case_id))
+    repo_root = dirname(@__FILE__)
+    base = joinpath(repo_root, "data", "taxi_simplified", string(id))
+    original_path = joinpath(base, "original.txt")
 
-    original_path = os.path.join(base, 'original.txt')
-    if not os.path.exists(original_path):
-        if not args.raw:
-            print(f"Original file not found: {original_path}")
+    if !isfile(original_path)
+        println(stderr, "Original file not found: $original_path")
         return 1
+    end
 
-    # Determine which targets to process
-    sel_flags = any([args.all, args.simplified, args.dp])
-    if args.all or not sel_flags:
-        targets = [
-            ('simplified', os.path.join(base, 'our_simplified.txt')),
-            ('dp', os.path.join(base, 'dp_simplified.txt')),
-        ]
-    else:
-        targets = []
-        if args.simplified:
-            targets.append(('simplified', os.path.join(base, 'our_simplified.txt')))
-        if args.dp:
-            targets.append(('dp', os.path.join(base, 'dp_simplified.txt')))
+    targets = if !isempty(parsed["path"])
+        [parsed["path"]]
+    else
+        [joinpath(base, "our_simplified.txt"), joinpath(base, "dp_simplified.txt")]
+    end
 
+    P = read_curve(original_path)
 
-    if not args.raw:
-        print(f"Reading curves from {base}...")
-    try:
-        orig = read_curve(original_path)
-    except Exception as e:
-        if not args.raw:
-            print(f"Failed to read original: {e}")
-        return 1
+    if !parsed["raw"]
+        println("Computing...")
+    end
 
-    if not args.raw:
-        print("Calculating Frechet distances...")
-    for name, p in targets:
-        if not os.path.exists(p):
-            print(f"  {name}: MISSING ({p})")
+    for p in targets
+        if !isfile(p)
+            println("  MISSING: $p")
             continue
-        try:
-            cur = read_curve(p)
-            res, morphing = frechet_c_approx(orig, cur, 1.01)
-            dist = getattr(morphing, 'dist', res if isinstance(res, (int, float)) else None)
-            if dist is None:
-                print(f"  {name}: OK (distance unavailable in return object)")
-            else:
-                if args.raw:
-                    print(f"{dist}")
-                else:
-                    print(f"{name}: {dist}")
-        except Exception as e:
-            print(f"  {name}: ERROR ({e})")
+        end
+        try
+            Q = read_curve(p)
+            mw = frechet_c_compute(P, Q)
+            dist = mw.leash
+            if parsed["raw"]
+                println(dist)
+            else
+                println("  $(basename(p)): $dist")
+            end
+        catch e
+            println(stderr, "  ERROR ($p): $e")
+        end
+    end
+
     return 0
+end
 
-
-if __name__ == '__main__':
-    raise SystemExit(main())
+exit(run())

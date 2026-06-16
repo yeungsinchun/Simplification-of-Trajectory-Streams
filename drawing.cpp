@@ -103,6 +103,22 @@ void MultiViewer::setShowLabels(bool show) {
     update();
 }
 
+void MultiViewer::setDataBBox(double minx, double miny, double maxx, double maxy) {
+    // NaN coordinates mean "unfreeze" (revert to dynamic per-paint view).
+    if (!std::isfinite(minx) || !std::isfinite(miny) ||
+        !std::isfinite(maxx) || !std::isfinite(maxy)) {
+        view_frozen_ = false;
+        update();
+        return;
+    }
+    frozen_minx_ = minx;
+    frozen_miny_ = miny;
+    frozen_maxx_ = maxx;
+    frozen_maxy_ = maxy;
+    view_frozen_ = true;
+    update();
+}
+
 void MultiViewer::markP0(const Point& p) {
     marked_p0_ = p;
     update();
@@ -146,32 +162,87 @@ void MultiViewer::paintEvent(QPaintEvent*) {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
 
-    // Map using the global bounding square [BMIN, BMAX]^2 so the
-    // bounding box is always visible and drawn at the beginning.
-    double minx = BMIN, miny = BMIN, maxx = BMAX, maxy = BMAX;
+    // Effective viewport: anchored on the data bounding box with a small
+    // world-space padding. The algorithmic grid [BMIN, BMAX]^2 is just a
+    // reference frame drawn on top; it should not constrain the view.
+    //
+    // If the view was frozen via setDataBBox(), use that bbox and don't
+    // re-fit on every paint (so the canvas doesn't re-zoom as more points
+    // stream in). Otherwise compute the bbox from the current data.
+    double dminx, dminy, dmaxx, dmaxy;
+    if (view_frozen_) {
+        dminx = frozen_minx_; dminy = frozen_miny_;
+        dmaxx = frozen_maxx_; dmaxy = frozen_maxy_;
+    } else {
+        compute_bbox(dminx, dminy, dmaxx, dmaxy);
+    }
+    double dx_data = std::max(dmaxx - dminx, 1.0);
+    double dy_data = std::max(dmaxy - dminy, 1.0);
+    // The BBOX rectangle drawn on screen is the *unpadded* data extent
+    // [dminx, dmaxx] x [dminy, dmaxy] (so its edges sit on the actual
+    // extreme data points). The world view we project to the canvas is
+    // a square that contains this data extent plus 8% padding on every
+    // side, so the display is always a square regardless of the data
+    // aspect ratio.
+    double pad = std::max(dx_data, dy_data) * pad_frac_;
+    double side = std::max(dx_data, dy_data) + 2.0 * pad;
+    double cx = 0.5 * (dminx + dmaxx);
+    double cy = 0.5 * (dminy + dmaxy);
+    double minx = cx - 0.5 * side;
+    double maxx = cx + 0.5 * side;
+    double miny = cy - 0.5 * side;
+    double maxy = cy + 0.5 * side;
     double dx = maxx - minx; if (dx == 0) dx = 1;
     double dy = maxy - miny; if (dy == 0) dy = 1;
     double margin = 30;
     int W = width(), H = height();
-    double scale = std::min((W - 2*margin)/dx, (H - 2*margin)/dy);
-    auto mapX = [&](double x){ return margin + (x - minx)*scale; };
-    auto mapY = [&](double y){ return H - (margin + (y - miny)*scale); };
+    double availW = W - 2*margin;
+    double availH = H - 2*margin;
+    double scale  = std::min(availW/dx, availH/dy);
+    // Center the data within the canvas: any slack on the looser axis is
+    // split equally so the data is centered both horizontally and vertically.
+    // vshift_ (pixels) shifts the data upward on screen — positive vshift_
+    // moves the canvas up, giving more room at the bottom. Clamp vshift_
+    // so the data extent can never be pushed off the top of the window:
+    // we need mapY(dminy) >= 0, i.e. y_off <= H, i.e. vshift_ <= (H+margin)/2 - dy*scale/2.
+    double vshift_eff = vshift_;
+    {
+        double y_off_no_shift = margin + (availH - dy * scale) * 0.5;
+        double max_vshift = H - y_off_no_shift; // mapY(dminy) = H - y_off = H - y_off_no_shift - vshift; require >= 0
+        if (vshift_eff > max_vshift) vshift_eff = max_vshift;
+        if (vshift_eff < -y_off_no_shift) vshift_eff = -y_off_no_shift; // mapY(dmaxy) = H - y_off - dy*scale; require <= H
+    }
+    double x_off = margin + (availW - dx * scale) * 0.5;
+    double y_off = margin + (availH - dy * scale) * 0.5 + vshift_eff;
+    auto mapX = [&](double x){ return x_off + (x - minx) * scale; };
+    auto mapY = [&](double y){ return H - (y_off + (y - miny) * scale); };
 
     p.fillRect(rect(), Qt::white);
 
-    // Draw the global bounding square outline first (no fill)
+    // Draw the data bounding box (no fill) first. The box outlines the
+    // *unpadded* data extent [dminx, dmaxx] x [dminy, dmaxy], with a
+    // tiny visual inset (1% of the data side) so points and the index
+    // labels we draw on top of them don't sit directly on the box
+    // stroke. The world view used for projection is a slightly larger
+    // square (centered on the data center, side = max(dx,dy) + 2*pad),
+    // which keeps the display square and gives labels room to render
+    // just outside the box.
+    double box_left, box_right, box_top, box_bot;
     {
-        double x0 = mapX(BMIN);
-        double x1 = mapX(BMAX);
-        double y0 = mapY(BMIN);
-        double y1 = mapY(BMAX);
-        double left = std::min(x0, x1);
-        double top  = std::min(y0, y1);
-        double w    = std::abs(x1 - x0);
-        double h    = std::abs(y1 - y0);
+        double inset = std::max(dx_data, dy_data) * 0.01;
+        double bx0 = dminx - inset, bx1 = dmaxx + inset;
+        double by0 = dminy - inset, by1 = dmaxy + inset;
+        double x_lo = mapX(bx0);
+        double x_hi = mapX(bx1);
+        double y_lo = mapY(by0);
+        double y_hi = mapY(by1);
+        box_left = std::min(x_lo, x_hi);
+        box_right = std::max(x_lo, x_hi);
+        box_top  = std::min(y_lo, y_hi);
+        box_bot  = std::max(y_lo, y_hi);
         p.setBrush(Qt::NoBrush);
         p.setPen(QPen(QColor(80,80,80), 2, Qt::SolidLine));
-        p.drawRect(QRectF(left, top, w, h));
+        p.drawRect(QRectF(box_left, box_top, box_right - box_left, box_bot - box_top));
     }
 
     // arbitrary point sets
@@ -211,7 +282,7 @@ void MultiViewer::paintEvent(QPaintEvent*) {
     }
 
     // original trajectory (polyline + points)
-    if (!original_.empty()) {
+    if (!original_.empty() && original_visible_) {
         p.setPen(QPen(Qt::darkGray, 2, Qt::SolidLine));
         for (size_t i = 1; i < original_.size(); ++i) {
             p.drawLine(QPointF(mapX(CGAL::to_double(original_[i-1].x())),
@@ -227,14 +298,33 @@ void MultiViewer::paintEvent(QPaintEvent*) {
             p.drawEllipse(pf, 2.5, 2.5);
             if (showLabels_) {
                 p.setPen(Qt::black);
-                p.drawText(pf + QPointF(5, -5), QString::number(i));
+                QString txt = QString::number(i);
+                QFontMetrics fm(p.font());
+                int tw = fm.horizontalAdvance(txt);
+                int th = fm.height();
+                // Default offset: 5px right and 5px above the point.
+                double lx = pf.x() + 5;
+                double ly = pf.y() - 5;
+                // If the label would cross the top edge of the bbox, push
+                // it below the point instead.
+                if (ly - th < box_top) ly = pf.y() + 5 + th;
+                // If the label would cross the right edge, push it left of
+                // the point instead.
+                if (lx + tw > box_right) lx = pf.x() - 5 - tw;
+                // If the label would cross the left edge, push it right
+                // beyond the point (with a little extra room).
+                if (lx < box_left) lx = pf.x() + 5;
+                // If the label would cross the bottom edge, push it above
+                // the point (with a little extra room).
+                if (ly > box_bot) ly = pf.y() - 5 - th;
+                p.drawText(QPointF(lx, ly), txt);
                 p.setPen(Qt::NoPen);
             }
         }
     }
 
     // simplified trajectory (overlay, highlight)
-    if (!simplified_.empty()) {
+    if (!simplified_.empty() && simplified_visible_) {
         p.setPen(QPen(Qt::red, 3, Qt::SolidLine));
         for (size_t i = 1; i < simplified_.size(); ++i) {
             p.drawLine(QPointF(mapX(CGAL::to_double(simplified_[i-1].x())),
@@ -251,7 +341,7 @@ void MultiViewer::paintEvent(QPaintEvent*) {
 
     // additional colored curves with labels
     for (const auto& c : curves_) {
-        if (c.pts.empty()) continue;
+        if (!c.visible || c.pts.empty()) continue;
         p.setPen(QPen(c.color, 2, Qt::SolidLine));
         for (size_t i = 1; i < c.pts.size(); ++i) {
             p.drawLine(QPointF(mapX(CGAL::to_double(c.pts[i-1].x())),
@@ -329,7 +419,11 @@ void MultiViewer::paintEvent(QPaintEvent*) {
         p.drawText(tx, ty, line);
     }
 
-    // Legend (top-left): show only number of points for each entry
+    // Legend (top-left): show only number of points for each entry.
+    // Each entry records a hit-test rectangle used by mousePressEvent to
+    // toggle visibility on click. The first two slots (indices 0 and 1)
+    // refer to the original and simplified trajectories respectively;
+    // the rest (2..N+1) index into curves_.
     {
         const int marginTL = 50;
         const int swatch = 10;
@@ -338,24 +432,91 @@ void MultiViewer::paintEvent(QPaintEvent*) {
 
         QFontMetrics fm(p.font());
     // Compose legend entries: original, simplified, then added curves, each with label and point count
-        struct Entry { QColor color; QString text; };
+        struct Entry { QColor color; QString text; bool hidden = false; };
         std::vector<Entry> entries;
-        if (!original_.empty()) entries.push_back({Qt::darkGray, QString("original (%1)").arg(qulonglong(original_.size()))});
-        if (!simplified_.empty()) entries.push_back({Qt::red, QString("simplified (%1)").arg(qulonglong(simplified_.size()))});
-        for (const auto& c : curves_) entries.push_back({c.color, QString("%1 (%2)").arg(c.label).arg(qulonglong(c.pts.size()))});
+        if (!original_.empty()) {
+            entries.push_back({Qt::darkGray, QString("original (%1)").arg(qulonglong(original_.size())), !original_visible_});
+        }
+        if (!simplified_.empty()) {
+            entries.push_back({Qt::red, QString("simplified (%1)").arg(qulonglong(simplified_.size())), !simplified_visible_});
+        }
+        for (const auto& c : curves_) {
+            entries.push_back({c.color, QString("%1 (%2)").arg(c.label).arg(qulonglong(c.pts.size())), !c.visible});
+        }
         if (!special_polys_.empty()) entries.push_back({QColor(255, 140, 0), QString("special polys (%1)").arg(qulonglong(special_polys_.size()))});
         if (!special_points_.empty()) entries.push_back({QColor(0, 200, 255), QString("special points (%1)").arg(qulonglong(special_points_.size()))});
 
+        legend_rects_.clear();
+        legend_rects_.reserve(entries.size());
+
         for (const auto& e : entries) {
+            int rowH = std::max(swatch, fm.height());
+            int textX = x0 + swatch + pad;
+            int textW = fm.horizontalAdvance(e.text);
+            QRect rowRect(x0, y0, (textX - x0) + textW, rowH);
+            legend_rects_.push_back(rowRect);
+
+            // dim the entry when its underlying series is hidden
+            QColor swatchColor = e.color;
+            QColor textColor   = Qt::black;
+            if (e.hidden) {
+                swatchColor.setAlpha(90);
+                textColor = QColor(150, 150, 150);
+            }
+
             // draw color box
             p.setPen(Qt::NoPen);
-            p.setBrush(e.color);
+            p.setBrush(swatchColor);
             p.drawRect(x0, y0, swatch, swatch);
             // draw label
-            p.setPen(Qt::black);
-            p.drawText(x0 + swatch + pad, y0 + fm.ascent(), e.text);
-            y0 += std::max(swatch, fm.height()) + 4;
+            p.setPen(textColor);
+            p.drawText(textX, y0 + fm.ascent(), e.text);
+            y0 += rowH + 4;
         }
+    }
+}
+
+void MultiViewer::mousePressEvent(QMouseEvent* ev) {
+    if (ev->button() != Qt::LeftButton) {
+        QWidget::mousePressEvent(ev);
+        return;
+    }
+    const QPoint pos = ev->pos();
+    if (legend_rects_.empty()) return;
+    // Walk entries in reverse (top-of-stack first) so overlapping rows resolve to the topmost.
+    for (int i = static_cast<int>(legend_rects_.size()) - 1; i >= 0; --i) {
+        if (!legend_rects_[i].contains(pos)) continue;
+        // Map legend index back to underlying object.
+        // First two slots are original/simplified (toggle visibility).
+        size_t idx = 0;
+        if (!original_.empty()) {
+            if (i == static_cast<int>(idx)) {
+                original_visible_ = !original_visible_;
+                update();
+                return;
+            }
+            ++idx;
+        }
+        if (!simplified_.empty()) {
+            if (i == static_cast<int>(idx)) {
+                simplified_visible_ = !simplified_visible_;
+                update();
+                return;
+            }
+            ++idx;
+        }
+        if (idx < curves_.size() &&
+            i >= static_cast<int>(idx) &&
+            (i - static_cast<int>(idx)) < static_cast<int>(curves_.size())) {
+            size_t ci = static_cast<size_t>(i) - idx;
+            if (ci < curves_.size()) {
+                curves_[ci].visible = !curves_[ci].visible;
+                update();
+            }
+            return;
+        }
+        // special polys / points entries are non-toggleable
+        return;
     }
 }
 

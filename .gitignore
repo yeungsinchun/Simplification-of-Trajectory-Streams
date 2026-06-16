@@ -6,5 +6,49 @@ taxi_log_2008_by_id
 .cache
 .vscode
 .DS_Store
-data/taxi_simplified
 .metals
+
+# Per-intersection-pair dumps produced by `simplify --dump-intersect <id>`.
+# These are intermediate artifacts for the test_convex_intersect benchmark
+# and can be very large (case 10's dump is 270 MB).
+data/**/*
+
+# CMake in-source build pollution
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+cmake.check_cache
+CMakeConfigureLog.yaml
+CMakeDirectoryInformation.cmake
+CMakeRuleHashes.txt
+CMakeScratch/
+CMakeUserPresets.json
+CTestTestfile.cmake
+Makefile
+compile_commands.json
+libCGAL_*.a
+.qt/
+
+# AUTOGEN(BUILD) output
+*_autogen/
+*_autogen_timestamp_deps.dir/
+
+# Resources generated from .qrc files
+qrc_*.cpp
+ui_*.h
+
+# Top-level build directory symlinks (mirrored from release/ or build/)
+# If you do NOT use these convenience links, you can remove this rule.
+/plot_curve
+/simplify_cgal
+/simplify_boost
+/simplify_opencv
+/simplify_SH
+/normalize
+
+__pycache__/
+*.pyc
+
+*.log
+
+/data
