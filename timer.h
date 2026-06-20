@@ -2,6 +2,7 @@
 #define TIMER_H
 
 #include <chrono>
+#include <functional>
 #include <map>
 #include <set>
 #include <vector>

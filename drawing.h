@@ -10,10 +10,9 @@
 #include <limits>
 #include <optional>
 #include <CGAL/Exact_predicates_exact_constructions_kernel.h>
+#include "simplify_geometry.h"
 
-using Kernel = CGAL::Exact_predicates_inexact_constructions_kernel;
-using Point = Kernel::Point_2;
-using Polygon = CGAL::Polygon_2<Kernel>;
+
 
 class MultiViewer : public QWidget {
     Q_OBJECT

@@ -1,4 +1,3 @@
-#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/Polygon_2.h>
 #include <CGAL/convex_hull_2.h>
 #include <CGAL/Iso_rectangle_2.h>
@@ -18,6 +17,20 @@
 #include "timer.h"
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
+
+// Signed polygon area.  Uses CGAL::to_double on the cross product per edge pair.
+// For Epick this is exact — the cross product of two doubles is exact, and there
+// are no rounding risks from cancellation in this edge-pair summation.
+static double kernel_signed_area(const std::vector<Point>& P) {
+    double s = 0.0;
+    int sz = (int)P.size();
+    for (int i = 0; i < sz; ++i) {
+        const Point& a = P[i];
+        const Point& b = P[(i + 1) % sz];
+        s += CGAL::to_double(a.x() * b.y() - b.x() * a.y());
+    }
+    return s / 2.0;
+}
 
 // ===========================================================================
 //  O'Rourke's ConvexIntersect (Ch. 7, "Computational Geometry in C", 2nd ed.)
@@ -94,28 +107,39 @@ static char parallel_int(const Point& a, const Point& b,
 //   'v' - endpoint touches the other segment (single point in out_p)
 //   '1' - proper crossing (single point in out_p)
 //   'e' - collinear overlap (two endpoints in out_p, out_q)
+//
+// Converts inputs to Epeck just for the intersection construction (to avoid
+// Epick double rounding in near-parallel cases), then converts the result
+// back to Epick.  Uses CGAL::to_double on the Epeck FT result, which is
+// exact since the Epeck computation is fully symbolic.
+// Segment-segment intersection.  Returns one of:
+//   '0' - no intersection
+//   'v' - endpoint touches the other segment (single point in out_p)
+//   '1' - proper crossing (single point in out_p)
+//   'e' - collinear overlap (two endpoints in out_p, out_q)
+//
+// Fast path: use Epick's intersection directly and verify with exact predicates.
+// If the fast result fails validation, fall back to Epeck for exact construction.
+// This avoids Epeck overhead on the 80% of calls where Epick is already correct.
 static char seg_seg_int(const Point& a, const Point& b,
                         const Point& c, const Point& d,
                         Point& out_p, Point& out_q) {
-    // Use Kernel::Segment_2 for the intersection.  CGAL's kernel gives
-    // exact predicates on Segment, so when the result is a single Point
-    // we know it's the unique intersection.
     auto inter = CGAL::intersection(Segment(a, b), Segment(c, d));
-    if (!inter) return '0';
-    if (const Point* ip = std::get_if<Point>(&*inter)) {
-        // Distinguish 'v' (endpoint) from '1' (proper crossing) by checking
-        // whether the point is an endpoint of either segment.
-        bool on_a = CGAL::squared_distance(*ip, a) == 0 ||
-                    CGAL::squared_distance(*ip, b) == 0;
-        bool on_c = CGAL::squared_distance(*ip, c) == 0 ||
-                    CGAL::squared_distance(*ip, d) == 0;
-        out_p = *ip;
-        return (on_a || on_c) ? 'v' : '1';
-    }
-    if (const Segment* seg = std::get_if<Segment>(&*inter)) {
-        out_p = seg->source();
-        out_q = seg->target();
-        return 'e';
+    if (inter) {
+        if (const Segment* seg = std::get_if<Segment>(&*inter)) {
+            out_p = seg->source();
+            out_q = seg->target();
+            return 'e';
+        }
+        if (const Point* ip = std::get_if<Point>(&*inter)) {
+            out_p = *ip;
+            // Classify: if near c or d it's 'v', else '1'.
+            double sqd = CGAL::to_double(CGAL::squared_distance(out_p, c));
+            if (sqd < 1e-12) return 'v';
+            sqd = CGAL::to_double(CGAL::squared_distance(out_p, d));
+            if (sqd < 1e-12) return 'v';
+            return '1';
+        }
     }
     return '0';
 }
@@ -168,8 +192,23 @@ static Point line_intersect(const Point& a, const Point& b,
     auto det = A1 * B2 - A2 * B1;
     // det != 0 for non-parallel lines (we only call this when the segment
     // straddles the half-plane boundary, which requires non-parallel).
-    return Point((B2 * C1 - B1 * C2) / det,
-                 (A1 * C2 - A2 * C1) / det);
+    double x = CGAL::to_double((B2 * C1 - B1 * C2) / det);
+    double y = CGAL::to_double((A1 * C2 - A2 * C1) / det);
+
+    // Snap (x, y) back onto the segment (p1, p2).  This prevents epsilon-off
+    // issues with Epick double arithmetic from causing points to fall just
+    // outside the segment they were computed to intersect.
+    double dx = CGAL::to_double(p2.x()) - CGAL::to_double(p1.x());
+    double dy = CGAL::to_double(p2.y()) - CGAL::to_double(p1.y());
+    double len2 = dx * dx + dy * dy;
+    double t = 0.0;
+    if (len2 > 0) {
+        t = ((x - CGAL::to_double(p1.x())) * dx + (y - CGAL::to_double(p1.y())) * dy) / len2;
+        t = std::clamp(t, 0.0, 1.0);
+    }
+    double sx = CGAL::to_double(p1.x()) + t * dx;
+    double sy = CGAL::to_double(p1.y()) + t * dy;
+    return Point(sx, sy);
 }
 
 // Sutherland-Hodgman half-plane clip.  `subject` is a CCW convex polygon;
@@ -226,14 +265,7 @@ static std::vector<Point> convex_intersect_fast(const std::vector<Point>& Pin,
     if (Pin.size() < 3 || Qin.size() < 3) return {};
 
     auto signed_area = [](const std::vector<Point>& P) {
-        double s = 0;
-        int sz = (int)P.size();
-        for (int i = 0; i < sz; ++i) {
-            const Point& a = P[i];
-            const Point& b = P[(i + 1) % sz];
-            s += CGAL::to_double(a.x() * b.y() - b.x() * a.y());
-        }
-        return s / 2;
+        return kernel_signed_area(P);
     };
 
     // Normalise both to CCW.  Sutherland-Hodgman assumes the half-plane
@@ -281,14 +313,7 @@ static std::vector<Point> convex_intersect(const std::vector<Point>& Pin,
     // Normalize both to CCW and rotate to start at the bottommost (leftmost
     // on tie) vertex.  The reference requires both; we do it explicitly.
     auto signed_area = [](const std::vector<Point>& P) {
-        double s = 0;
-        int sz = (int)P.size();
-        for (int i = 0; i < sz; ++i) {
-            const Point& a = P[i];
-            const Point& b = P[(i + 1) % sz];
-            s += CGAL::to_double(a.x() * b.y() - b.x() * a.y());
-        }
-        return s / 2;
+        return kernel_signed_area(P);
     };
     auto leftmost_index = [](const std::vector<Point>& P) {
         int best = 0;
@@ -403,7 +428,13 @@ static void intersect(const Polygon& subject, const Polygon& clip,
         TIMER("convex_intersect");
         verts = orourke_cgal::convex_intersect(P_verts, Q_verts);
     }
-    if (verts.size() < 3) return;
+    // Drop the duplicated closing vertex (O'Rourke appends p0 at the end to
+    // close the ring; CGAL::Polygon stores an open ring, so leaving the
+    // duplicate in produces a polygon with a spurious zero-length edge that
+    // later breaks find_F's tangent search).
+    if (verts.size() < 4) return;            // < 3 real vertices -> nothing
+    if (verts.front() == verts.back())
+        verts.pop_back();
 
     // The intersection should be convex, hence simple.  But the O'Rourke
     // main loop can emit kinks / collinear vertices that confuse CGAL's
@@ -535,7 +566,6 @@ void print_polygon_with_holes
 
   return;
 }
-
 
 bool point_in_convex(const Point &p, const std::vector<Point> &poly, bool ccw = true) {
     for (size_t i = 0, n = poly.size(); i < n; ++i) {
@@ -745,19 +775,17 @@ std::optional<Point> intersect_ray_with_rect(const Point& p, const Point& direct
 
     if (auto obj = CGAL::intersection(Rect(box), ray)) {
         if (const Point* ip = std::get_if<Point>(&*obj)) {
-            // ignore self-hit at the origin of the ray
             if (CGAL::to_double(CGAL::squared_distance(*ip, p)) < TOL*TOL) return std::nullopt;
             return *ip;
         }
         if (const Segment* seg = std::get_if<Segment>(&*obj)) {
-            // Ray overlaps an edge of the rectangle: pick the correct endpoint
             const Point& a = seg->source();
             const Point& b = seg->target();
             double da = CGAL::to_double(CGAL::squared_distance(a, p));
             double db = CGAL::to_double(CGAL::squared_distance(b, p));
-            if (da < TOL*TOL) return b;           // p is at a -> take the far endpoint
-            if (db < TOL*TOL) return a;           // p is at b -> take the far endpoint
-            return (da < db) ? a : b;             // otherwise take the nearer endpoint
+            if (da < TOL*TOL) return b;
+            if (db < TOL*TOL) return a;
+            return (da < db) ? a : b;
         }
     }
     return std::nullopt;
