@@ -29,27 +29,23 @@ target_link_libraries(simplify
   ${OpenCV_LIBS}
 )
 
+target_compile_definitions(simplify PRIVATE CGAL_USE_BASIC_VIEWER)
+
 # Normalize raw taxi data
 add_executable(normalize
-  tools/normalize.cpp
+  scripts/normalize.cpp
 )
 
 # Plot all curves in data/<id>/ in one window, clickable to toggle.
 add_executable(plot_curve
-  tools/plot_curve.cpp
+  scripts/plot_curve.cpp
   drawing.cpp
 )
 
 target_include_directories(plot_curve PRIVATE ${CMAKE_SOURCE_DIR})
 
-target_compile_definitions(simplify PRIVATE CGAL_USE_BASIC_VIEWER)
 target_compile_definitions(plot_curve PRIVATE CGAL_USE_BASIC_VIEWER)
 
 target_link_libraries(plot_curve
   CGAL::CGAL_Qt6
 )
-
-# Compare O'Rourke's convex-convex intersection with the CGAL implementation
-# used in simplify.cpp.  Headless; no Qt, no OpenCV.
-add_executable(test_convex_intersect test.cpp)
-target_link_libraries(test_convex_intersect CGAL::CGAL)

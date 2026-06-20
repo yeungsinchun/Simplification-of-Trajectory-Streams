@@ -11,7 +11,7 @@
 #include <optional>
 #include <CGAL/Exact_predicates_exact_constructions_kernel.h>
 
-using Kernel = CGAL::Exact_predicates_exact_constructions_kernel;
+using Kernel = CGAL::Exact_predicates_inexact_constructions_kernel;
 using Point = Kernel::Point_2;
 using Polygon = CGAL::Polygon_2<Kernel>;
 

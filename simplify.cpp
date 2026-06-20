@@ -1,6 +1,5 @@
-#include <CGAL/Exact_predicates_exact_constructions_kernel.h>
+#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/Polygon_2.h>
-#include <CGAL/Simple_cartesian.h>
 #include <CGAL/convex_hull_2.h>
 #include <CGAL/Iso_rectangle_2.h>
 #include <CGAL/Boolean_set_operations_2.h>
@@ -13,377 +12,407 @@
 #include <cstdlib>
 #include <filesystem>
 #include <cstring>
-#include <chrono>
-#include <iomanip>
-#include <memory>
 #include <QApplication>
 #include "drawing.h"
+#include "simplify_geometry.h"
+#include "timer.h"
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 
+// ===========================================================================
+//  O'Rourke's ConvexIntersect (Ch. 7, "Computational Geometry in C", 2nd ed.)
+// ===========================================================================
+namespace orourke_cgal {
 
-// Timing instrumentation
-static std::map<std::string, double> g_timing;
-static std::map<std::string, long long> g_counters;
-static std::map<std::string, double> g_child_time;
-static std::vector<const char*> g_timer_stack;
+enum class InFlag { Pin, Qin, Unknown };
 
-
-struct Timer {
-    std::chrono::high_resolution_clock::time_point start;
-    const char* name;
-    Timer(const char* n) : name(n) { 
-        start = std::chrono::high_resolution_clock::now();
-        g_timer_stack.push_back(name);
+// Exact orientation sign (-1, 0, +1) of (a, b, c).  Uses Kernel's
+// exact-predicate orientation, so the sign is correct even for nearly-
+// collinear input.
+static int area_sign(const Point& a, const Point& b, const Point& c) {
+    switch (CGAL::orientation(a, b, c)) {
+        case CGAL::LEFT_TURN:  return  1;
+        case CGAL::RIGHT_TURN: return -1;
+        case CGAL::COLLINEAR:  return  0;
     }
-    ~Timer() {
-        auto end = std::chrono::high_resolution_clock::now();
-        auto dur = std::chrono::duration<double, std::milli>(end - start).count();
-        
-        // Add to this timer's total (wall time)
-        g_timing[name] += dur;
-        g_counters[name]++;
-        
-        // Add this duration to parent's child_time accumulator
-        if (g_timer_stack.size() >= 2) {
-            const char* parent = g_timer_stack[g_timer_stack.size() - 2];
-            g_child_time[parent] += dur;
-        }
-        
-        g_timer_stack.pop_back();
-    }
-};
-
-#define TIMER(name) Timer _timer(name)
-
-void print_timing_summary() {
-    if (g_timing.empty()) return;
-    
-    // Calculate overhead for each timer: wall_time - sum_of_children_time
-    std::map<std::string, double> overhead;
-    for (const auto& kv : g_timing) {
-        overhead[kv.first] = kv.second - g_child_time[kv.first];
-    }
-    
-    // Define parent-child relationships
-    std::map<std::string, std::vector<std::string>> children_of;
-    children_of["total"] = {"simplify"};
-    children_of["simplify"] = {"get_longest_stab"};
-    children_of["get_longest_stab"] = {"intersect", "get_conv_from_grid", "find_F", "update_S", "polygon_construction", "get_points_from_grid", "gui_update"};
-    children_of["intersect"] = {"intersection_total"};
-    children_of["intersection_total"] = {"intersection_convert"};
-    children_of["intersection_convert"] = {"intersection_convex_hull", "intersection_segment_intersect", "intersection_point_in_polygon_P", "intersection_point_in_polygon_Q"};
-    children_of["find_F"] = {};  // find_F has no named children in our instrumentation
-    
-    // Build sorted list by wall time
-    std::vector<std::pair<std::string, double>> sorted;
-    for (const auto& kv : g_timing) {
-        if (kv.second > 0.1) {
-            sorted.emplace_back(kv.first, kv.second);
-        }
-    }
-    std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) {
-        return a.second > b.second;
-    });
-    
-    // Map timer to its wall time for quick lookup
-    std::map<std::string, double> wall_time;
-    for (const auto& kv : sorted) wall_time[kv.first] = kv.second;
-    
-    // Find root timers (those that are never children)
-    std::set<std::string> is_child;
-    for (const auto& kv : children_of) {
-        for (const auto& child : kv.second) {
-            is_child.insert(child);
-        }
-    }
-    std::vector<std::string> roots;
-    for (const auto& kv : wall_time) {
-        if (is_child.find(kv.first) == is_child.end()) {
-            roots.push_back(kv.first);
-        }
-    }
-    std::sort(roots.begin(), roots.end(), [&](const std::string& a, const std::string& b) {
-        return wall_time[a] > wall_time[b];
-    });
-    
-    double total_wall = 0;
-    // Sum all root-level timers (those that have no parent in our tree)
-    std::set<std::string> parent_of;
-    for (const auto& kv : children_of) {
-        for (const auto& child : kv.second) {
-            parent_of.insert(child);
-        }
-    }
-    for (const auto& kv : wall_time) {
-        if (parent_of.find(kv.first) == parent_of.end()) {
-            total_wall += kv.second;
-        }
-    }
-    
-    auto visual_cols = [](const std::string& s) {
-        int cols = 0;
-        for (size_t i = 0; i < s.size(); ++i) {
-            unsigned char c = s[i];
-            if ((c & 0x80) == 0) {
-                cols += 1; // ASCII
-            } else if ((c & 0xF0) == 0xE0) {
-                cols += 1; i += 2; // 3-byte UTF-8 (CJK, box drawing, etc.)
-            } else if ((c & 0xE0) == 0xC0) {
-                cols += 1; i += 1; // 2-byte UTF-8
-            } else if ((c & 0xF8) == 0xF0) {
-                cols += 2; i += 3; // 4-byte (emoji)
-            } else {
-                cols += 1; // continuation or unknown
-            }
-        }
-        return cols;
-    };
-    
-    std::cout << "\n========== TIMING SUMMARY ==========\n";
-    std::cout << std::left << std::setw(50) << "Operation" 
-              << std::right << std::setw(10) << "Wall (ms)"
-              << std::setw(10) << "Self (ms)"
-              << std::setw(10) << "Calls" 
-              << std::setw(8) << "% Total" << "\n";
-    std::cout << std::string(88, '-') << "\n";
-    
-    std::function<void(const std::string&, const std::string&, bool)> print_tree;
-    print_tree = [&](const std::string& name, const std::string& prefix, bool is_last) {
-        double wall = wall_time[name];
-        double self = overhead[name];
-        long long c = g_counters[name];
-        double pct = 100.0 * wall / total_wall;
-        
-        std::string connector = is_last ? "└─ " : "├─ ";
-        
-        // Calculate visual columns so numbers always align at fixed position
-        int prefix_visual = visual_cols(prefix);
-        int name_visual = visual_cols(name);
-        int connector_visual = 3; // └─ or ├─ are each 3 visual columns
-        int total_visual = prefix_visual + connector_visual + name_visual;
-        int padding = std::max(0, 48 - total_visual);
-        
-        std::cout << prefix << connector << name 
-                  << std::string(padding, ' ')
-                  << std::right << std::fixed << std::setprecision(2) << std::setw(10) << wall
-                  << std::setw(10) << self
-                  << std::setw(10) << c
-                  << std::setw(7) << std::fixed << std::setprecision(1) << pct << "%\n";
-        
-        if (children_of.count(name)) {
-            auto& kids = children_of[name];
-            std::sort(kids.begin(), kids.end(), [&](const std::string& a, const std::string& b) {
-                return wall_time[a] > wall_time[b];
-            });
-            for (size_t i = 0; i < kids.size(); i++) {
-                bool last = (i == kids.size() - 1);
-                std::string child_prefix = prefix + (is_last ? "  " : "│ ");
-                print_tree(kids[i], child_prefix, last);
-            }
-        }
-    };
-    
-    for (size_t i = 0; i < roots.size(); i++) {
-        print_tree(roots[i], "", i == roots.size() - 1);
-    }
-    
-    std::cout << std::string(88, '-') << "\n";
-    std::cout << std::left << std::setw(50) << "TOTAL (wall time)" 
-              << std::right << std::setw(10) << std::fixed << std::setprecision(2) << total_wall << "\n";
-    std::cout << "====================================\n";
+    return 0;
 }
 
-using Kernel = CGAL::Exact_predicates_exact_constructions_kernel;
-using Point = Kernel::Point_2;
-using Segment = Kernel::Segment_2;
-using Ray = Kernel::Ray_2;
-using Bbox = CGAL::Bbox_2;
-using Rect = CGAL::Iso_rectangle_2<Kernel>;
-using Polygon = CGAL::Polygon_2<Kernel>;
-using Polygon_with_holes =  CGAL::Polygon_with_holes_2<Kernel>;
-
-// Filtered kernel for intersection: exact predicates with double arithmetic
-// Faster than Epeck for intersection computation, more robust than plain Simple_cartesian
-using IntersectKernel = CGAL::Filtered_kernel<CGAL::Simple_cartesian<double>>;
-using IntersectPoint = IntersectKernel::Point_2;
-using IntersectSegment = IntersectKernel::Segment_2;
-using IntersectPolygon = CGAL::Polygon_2<IntersectKernel>;
-
-// Helper to convert from Kernel::Point_2 to IntersectPoint using double as intermediate
-static IntersectPoint to_intersect(const Point& p) {
-    return IntersectPoint(CGAL::to_double(p.x()), CGAL::to_double(p.y()));
+// Same as area_sign but for vector triples.  Used inside the main loop
+// where A and B are the *edge vectors* of the two polygons, not points.
+// Kernel provides Vector_2 for point - point.
+static int area_sign_vec(const Vector& a, const Vector& b) {
+    auto c = CGAL::determinant(a, b);
+    if (c > 0) return  1;
+    if (c < 0) return -1;
+    return 0;
 }
 
-// Helper to convert from IntersectPoint back to Point using double as intermediate
-static Point from_intersect(const IntersectPoint& p) {
-    return Point(static_cast<double>(p.x()), static_cast<double>(p.y()));
-}
-
-// Convex polygon intersection using boundary point collection + convex hull
-// Uses Simple_cartesian<long double> for faster intersection computations
-static std::vector<Point> get_vertices(const Polygon& poly) {
-    std::vector<Point> verts;
-    for (auto it = poly.vertices_begin(); it != poly.vertices_end(); ++it) {
-        verts.push_back(*it);
+// Is c on the closed segment ab?  Exact collinearity test, then exact
+// dominance test on whichever coordinate has the larger dynamic range.
+static bool between(const Point& a, const Point& b, const Point& c) {
+    if (CGAL::orientation(a, b, c) != CGAL::COLLINEAR) return false;
+    if (CGAL::abs(b.x() - a.x()) >= CGAL::abs(b.y() - a.y())) {
+        return (a.x() <= c.x() && c.x() <= b.x()) ||
+               (a.x() >= c.x() && c.x() >= b.x());
     }
-    return verts;
+    return (a.y() <= c.y() && c.y() <= b.y()) ||
+           (a.y() >= c.y() && c.y() >= b.y());
 }
 
-static bool point_in_polygon(const IntersectPoint& p, const std::vector<IntersectPoint>& poly) {
-    int n = poly.size();
-    for (int i = 0; i < n; i++) {
-        const IntersectPoint& a = poly[i];
-        const IntersectPoint& b = poly[(i + 1) % n];
-        if (!CGAL::left_turn(a, b, p)) {
-            return false;
-        }
+// Sign of the inner product (b - a) . (d - c).  Used by the shared-edge
+// special case to detect "edges overlap with opposite orientation".
+static int dot_sign(const Point& a, const Point& b,
+                    const Point& c, const Point& d) {
+    auto ux = b.x() - a.x(), uy = b.y() - a.y();
+    auto vx = d.x() - c.x(), vy = d.y() - c.y();
+    auto s  = ux * vx + uy * vy;
+    if (s > 0) return  1;
+    if (s < 0) return -1;
+    return 0;
+}
+
+// Handle parallel/collinear segments ab and cd.  Returns one of:
+//   '0' - no intersection
+//   'e' - collinear overlap; out_p, out_q are the two overlap endpoints
+static char parallel_int(const Point& a, const Point& b,
+                         const Point& c, const Point& d,
+                         Point& out_p, Point& out_q) {
+    if (CGAL::orientation(a, b, c) != CGAL::COLLINEAR) return '0';
+
+    if (between(a, b, c) && between(a, b, d)) { out_p = c; out_q = d; return 'e'; }
+    if (between(c, d, a) && between(c, d, b)) { out_p = a; out_q = b; return 'e'; }
+    if (between(a, b, c) && between(c, d, b)) { out_p = c; out_q = b; return 'e'; }
+    if (between(a, b, c) && between(c, d, a)) { out_p = c; out_q = a; return 'e'; }
+    if (between(a, b, d) && between(c, d, b)) { out_p = d; out_q = b; return 'e'; }
+    if (between(a, b, d) && between(c, d, a)) { out_p = d; out_q = a; return 'e'; }
+    return '0';
+}
+
+// Segment-segment intersection.  Returns one of:
+//   '0' - no intersection
+//   'v' - endpoint touches the other segment (single point in out_p)
+//   '1' - proper crossing (single point in out_p)
+//   'e' - collinear overlap (two endpoints in out_p, out_q)
+static char seg_seg_int(const Point& a, const Point& b,
+                        const Point& c, const Point& d,
+                        Point& out_p, Point& out_q) {
+    // Use Kernel::Segment_2 for the intersection.  CGAL's kernel gives
+    // exact predicates on Segment, so when the result is a single Point
+    // we know it's the unique intersection.
+    auto inter = CGAL::intersection(Segment(a, b), Segment(c, d));
+    if (!inter) return '0';
+    if (const Point* ip = std::get_if<Point>(&*inter)) {
+        // Distinguish 'v' (endpoint) from '1' (proper crossing) by checking
+        // whether the point is an endpoint of either segment.
+        bool on_a = CGAL::squared_distance(*ip, a) == 0 ||
+                    CGAL::squared_distance(*ip, b) == 0;
+        bool on_c = CGAL::squared_distance(*ip, c) == 0 ||
+                    CGAL::squared_distance(*ip, d) == 0;
+        out_p = *ip;
+        return (on_a || on_c) ? 'v' : '1';
+    }
+    if (const Segment* seg = std::get_if<Segment>(&*inter)) {
+        out_p = seg->source();
+        out_q = seg->target();
+        return 'e';
+    }
+    return '0';
+}
+
+// Advance the index for polygon P or Q depending on `inside`, and append
+// the appropriate vertex to `out` if `inside` is true.  Returns the new index.
+static int advance(int a, int& aa, int n, bool inside,
+                   const Point& v, std::vector<Point>& out) {
+    if (inside) out.push_back(v);
+    aa++;
+    return (a + 1) % n;
+}
+
+// O'Rourke's InOut: state transition for the intersection boundary.
+// Reference: lines of InOut() in O'Rourke's C code.
+//   aHB > 0  ->  Pin
+//   bHA > 0  ->  Qin
+//   otherwise keep current inflag (status quo)
+static InFlag in_out(const Point& /*p*/, InFlag inflag, int aHB, int bHA) {
+    if      (aHB > 0) return InFlag::Pin;
+    else if (bHA > 0) return InFlag::Qin;
+    return inflag;
+}
+
+// Point-in-convex-polygon test, used only for the "boundaries don't cross"
+// closure (one polygon entirely inside the other, or single touching point).
+static bool point_in_convex_poly(const Point& p, const std::vector<Point>& poly) {
+    int n = (int)poly.size();
+    for (int i = 0; i < n; ++i) {
+        const Point& a = poly[i];
+        const Point& b = poly[(i + 1) % n];
+        if (CGAL::orientation(a, b, p) == CGAL::RIGHT_TURN) return false;
     }
     return true;
 }
 
-static std::optional<IntersectPoint> segment_intersection(const IntersectPoint& p1, const IntersectPoint& p2,
-                                                         const IntersectPoint& q1, const IntersectPoint& q2) {
-    auto inter = CGAL::intersection(IntersectSegment(p1, p2), IntersectSegment(q1, q2));
-    if (inter && std::holds_alternative<IntersectPoint>(*inter)) {
-        return std::get<IntersectPoint>(*inter);
-    }
-    return std::nullopt;
+// Line-line intersection for the half-plane clipper.  Given a directed edge
+// (a, b) defining the "inside" half-plane (a point q is inside iff
+// orientation(a, b, q) != RIGHT_TURN) and a directed input segment (p1, p2),
+// return the intersection point of the two lines.
+static Point line_intersect(const Point& a, const Point& b,
+                            const Point& p1, const Point& p2) {
+    // Both segments are guaranteed non-degenerate at call sites.
+    auto A1 = b.y() - a.y();
+    auto B1 = a.x() - b.x();
+    auto C1 = A1 * a.x() + B1 * a.y();
+    auto A2 = p2.y() - p1.y();
+    auto B2 = p1.x() - p2.x();
+    auto C2 = A2 * p1.x() + B2 * p1.y();
+    auto det = A1 * B2 - A2 * B1;
+    // det != 0 for non-parallel lines (we only call this when the segment
+    // straddles the half-plane boundary, which requires non-parallel).
+    return Point((B2 * C1 - B1 * C2) / det,
+                 (A1 * C2 - A2 * C1) / det);
 }
 
-// Original: Epeck kernel + filtered intersection kernel + convex hull
-static void convex_polygon_intersection(const Polygon& P, const Polygon& Q,
-                                       std::vector<Polygon_with_holes>& result) {
-    TIMER("intersection_total");
-    {
-        TIMER("intersection_convert");
-        std::vector<IntersectPoint> P_verts, Q_verts;
-        P_verts.reserve(P.size());
-        Q_verts.reserve(Q.size());
-        for (auto it = P.vertices_begin(); it != P.vertices_end(); ++it) {
-            P_verts.push_back(to_intersect(*it));
-        }
-        for (auto it = Q.vertices_begin(); it != Q.vertices_end(); ++it) {
-            Q_verts.push_back(to_intersect(*it));
-        }
+// Sutherland-Hodgman half-plane clip.  `subject` is a CCW convex polygon;
+// the half-plane is defined by directed edge (a, b) with the inside being
+// the LEFT side (i.e. the half-plane orientation(a, b, p) != RIGHT_TURN).
+// Returns the clipped polygon, also CCW.
+//
+// Used by convex_intersect_fast: for each edge of the `clip` polygon we
+// clip the running subject against that half-plane.  After |clip| edges
+// the running subject is exactly `subject ∩ clip`.
+static std::vector<Point> clip_halfplane(const std::vector<Point>& subject,
+                                          const Point& a, const Point& b) {
+    int n = (int)subject.size();
+    if (n == 0) return {};
 
-        if (P_verts.size() < 3 || Q_verts.size() < 3) return;
+    std::vector<Point> out;
+    out.reserve(n + 1);
 
-        int n = P_verts.size();
-        int m = Q_verts.size();
+    for (int i = 0; i < n; ++i) {
+        const Point& cur  = subject[i];
+        const Point& prev = subject[(i + n - 1) % n];
+        auto o_cur  = CGAL::orientation(a, b, cur);
+        auto o_prev = CGAL::orientation(a, b, prev);
+        bool cur_in  = (o_cur  != CGAL::RIGHT_TURN);
+        bool prev_in = (o_prev != CGAL::RIGHT_TURN);
 
-        std::vector<IntersectPoint> candidates;
-        std::set<std::pair<long double, long double>> seen;
-        auto add_unique = [&](const IntersectPoint& p) {
-            long double x = p.x();
-            long double y = p.y();
-            auto key = std::make_pair(x, y);
-            if (seen.insert(key).second) {
-                candidates.push_back(p);
+        if (cur_in) {
+            if (!prev_in) {
+                // crossing INTO the half-plane: emit intersection
+                out.push_back(line_intersect(a, b, prev, cur));
             }
-        };
-
-        for (int i = 0; i < n; i++) {
-            if (point_in_polygon(P_verts[i], Q_verts)) {
-                add_unique(P_verts[i]);
-            }
+            out.push_back(cur);
+        } else if (prev_in) {
+            // crossing OUT of the half-plane: emit intersection
+            out.push_back(line_intersect(a, b, prev, cur));
         }
-        for (int j = 0; j < m; j++) {
-            if (point_in_polygon(Q_verts[j], P_verts)) {
-                add_unique(Q_verts[j]);
-            }
-        }
-
-        for (int i = 0; i < n; i++) {
-            const IntersectPoint& p1 = P_verts[i];
-            const IntersectPoint& p2 = P_verts[(i + 1) % n];
-            for (int j = 0; j < m; j++) {
-                const IntersectPoint& q1 = Q_verts[j];
-                const IntersectPoint& q2 = Q_verts[(j + 1) % m];
-                auto inter = segment_intersection(p1, p2, q1, q2);
-                if (inter) {
-                    add_unique(*inter);
-                }
-            }
-        }
-
-        if (candidates.size() < 3) return;
-
-        std::vector<IntersectPoint> hull;
-        CGAL::convex_hull_2(candidates.begin(), candidates.end(), std::back_inserter(hull));
-
-        if (hull.size() < 3) return;
-
-        std::vector<Point> result_verts;
-        result_verts.reserve(hull.size());
-        for (const auto& hp : hull) {
-            result_verts.push_back(from_intersect(hp));
-        }
-
-        Polygon inter_poly(result_verts.begin(), result_verts.end());
-
-        if (!inter_poly.is_simple()) return;
-
-        if (inter_poly.is_clockwise_oriented()) {
-            inter_poly.reverse_orientation();
-        }
-
-        result.push_back(Polygon_with_holes(inter_poly));
     }
+    return out;
 }
+
+// Specialised convex-convex intersection using Sutherland-Hodgman clipping.
+// Assumes both inputs are CCW convex polygons.
+//
+// Faster than O'Rourke for small inputs (typical here: |P|~12, |Q|~19).
+// Total work is O(|P| * |Q|) where each unit is one `orientation` test.
+// This compares to O'Rourke's O((|P|+|Q|) * K) iterations where K is the
+// number of crossings — but K is typically ~5-10, so the per-iteration
+// cost (4 exact predicates + bookkeeping) outweighs the per-orientation cost
+// of the clipper when |P|+|Q| is small.
+//
+// Returns the intersection polygon in CCW order, or {} if empty.
+static std::vector<Point> convex_intersect_fast(const std::vector<Point>& Pin,
+                                                 const std::vector<Point>& Qin) {
+    if (Pin.size() < 3 || Qin.size() < 3) return {};
+
+    auto signed_area = [](const std::vector<Point>& P) {
+        double s = 0;
+        int sz = (int)P.size();
+        for (int i = 0; i < sz; ++i) {
+            const Point& a = P[i];
+            const Point& b = P[(i + 1) % sz];
+            s += CGAL::to_double(a.x() * b.y() - b.x() * a.y());
+        }
+        return s / 2;
+    };
+
+    // Normalise both to CCW.  Sutherland-Hodgman assumes the half-plane
+    // is the LEFT of each directed edge; reversing a CW polygon flips
+    // which side is "inside" and silently produces the wrong answer.
+    std::vector<Point> P, Q;
+    P.reserve(Pin.size());
+    Q.reserve(Qin.size());
+    if (signed_area(Pin) < 0) { P.assign(Pin.rbegin(), Pin.rend()); }
+    else                       { P = Pin; }
+    if (signed_area(Qin) < 0) { Q.assign(Qin.rbegin(), Qin.rend()); }
+    else                       { Q = Qin; }
+
+    // Cheap containment shortcuts: if one polygon is entirely inside the
+    // other, return the inner one (these are the common cases for tiny F
+    // and slightly larger Gi, or vice versa).
+    if (point_in_convex_poly(P[0], Q)) return P;  // P ⊂ Q
+    if (point_in_convex_poly(Q[0], P)) return Q;  // Q ⊂ P
+
+    // Otherwise clip P against each edge of Q.
+    std::vector<Point> running = P;
+    int m = (int)Q.size();
+    for (int i = 0; i < m; ++i) {
+        const Point& a = Q[i];
+        const Point& b = Q[(i + 1) % m];
+        running = clip_halfplane(running, a, b);
+        if (running.size() < 3) return {};
+    }
+    return running;
+}
+
+// O'Rourke's ConvexIntersect, faithful transcription of the reference in
+// "Computational Geometry in C" (2nd ed.), Chapter 7.  The reference
+// requires:
+//   * Both polygons are CCW
+//   * The first vertex of each polygon is the bottom-most (leftmost on tie)
+// Returns the intersection polygon as a CCW point list.  If P is inside Q
+// (or vice versa) and they don't cross, the inner polygon is returned.
+static std::vector<Point> convex_intersect(const std::vector<Point>& Pin,
+                                           const std::vector<Point>& Qin) {
+    int n = (int)Pin.size();
+    int m = (int)Qin.size();
+    if (n < 3 || m < 3) return {};
+
+    // Normalize both to CCW and rotate to start at the bottommost (leftmost
+    // on tie) vertex.  The reference requires both; we do it explicitly.
+    auto signed_area = [](const std::vector<Point>& P) {
+        double s = 0;
+        int sz = (int)P.size();
+        for (int i = 0; i < sz; ++i) {
+            const Point& a = P[i];
+            const Point& b = P[(i + 1) % sz];
+            s += CGAL::to_double(a.x() * b.y() - b.x() * a.y());
+        }
+        return s / 2;
+    };
+    auto leftmost_index = [](const std::vector<Point>& P) {
+        int best = 0;
+        for (int i = 1; i < (int)P.size(); ++i) {
+            if (CGAL::compare_y(P[i], P[best]) == CGAL::SMALLER ||
+                (CGAL::compare_y(P[i], P[best]) == CGAL::EQUAL &&
+                 CGAL::compare_x(P[i], P[best]) == CGAL::SMALLER)) {
+                best = i;
+            }
+        }
+        return best;
+    };
+    std::vector<Point> Pr = Pin, Qr = Qin;
+    if (signed_area(Pr) < 0) std::reverse(Pr.begin(), Pr.end());
+    if (signed_area(Qr) < 0) std::reverse(Qr.begin(), Qr.end());
+    int a = leftmost_index(Pr);
+    int b = leftmost_index(Qr);
+
+    int aa = 0, ba = 0;
+    InFlag inflag = InFlag::Unknown;
+    bool first_point = true;
+    Point p0;
+
+    std::vector<Point> out;
+
+    do {
+        int a1 = (a + n - 1) % n;
+        int b1 = (b + m - 1) % m;
+
+        Vector A = Pr[a] - Pr[a1];
+        Vector B = Qr[b] - Qr[b1];
+
+        int cross  = area_sign_vec(A, B);
+        int aHB    = area_sign(Qr[b1], Qr[b], Pr[a]);
+        int bHA    = area_sign(Pr[a1], Pr[a], Qr[b]);
+        Point p, q;
+        char code = seg_seg_int(Pr[a1], Pr[a], Qr[b1], Qr[b], p, q);
+
+        // If A & B intersect, update inflag and emit p.
+        if (code == '1' || code == 'v') {
+            if (inflag == InFlag::Unknown && first_point) {
+                aa = ba = 0;
+                first_point = false;
+                p0 = p;
+            }
+            out.push_back(p);
+            inflag = in_out(p, inflag, aHB, bHA);
+        }
+
+        // Special case: A & B overlap and oppositely oriented -> shared edge.
+        if ((code == 'e') && (dot_sign(Pr[a1], Pr[a], Qr[b1], Qr[b]) < 0)) {
+            out.push_back(p);
+            out.push_back(q);
+            return out;
+        }
+
+        // Special case: A & B parallel and separated -> disjoint.
+        if ((cross == 0) && (aHB < 0) && (bHA < 0)) {
+            return {};
+        }
+
+        // Special case: A & B collinear.
+        if ((cross == 0) && (aHB == 0) && (bHA == 0)) {
+            if (inflag == InFlag::Pin)
+                b = advance(b, ba, m, inflag == InFlag::Qin, Qr[b], out);
+            else
+                a = advance(a, aa, n, inflag == InFlag::Pin, Pr[a], out);
+        } else if (cross >= 0) {
+            if (bHA > 0)
+                a = advance(a, aa, n, inflag == InFlag::Pin, Pr[a], out);
+            else
+                b = advance(b, ba, m, inflag == InFlag::Qin, Qr[b], out);
+        } else {  // cross < 0
+            if (aHB > 0)
+                b = advance(b, ba, m, inflag == InFlag::Qin, Qr[b], out);
+            else
+                a = advance(a, aa, n, inflag == InFlag::Pin, Pr[a], out);
+        }
+    } while (((aa < n) || (ba < m)) && (aa < 2 * n) && (ba < 2 * m));
+
+    if (first_point) {
+        // No intersection found: one polygon inside the other, or single touch.
+        if (point_in_convex_poly(Pr[0], Qr)) return Pr;
+        if (point_in_convex_poly(Qr[0], Pr)) return Qr;
+        return {};
+    }
+
+    // Close the polygon.
+    out.push_back(p0);
+    return out;
+}
+
+}  // namespace orourke_cgal
 
 static void intersect(const Polygon& subject, const Polygon& clip,
                         std::back_insert_iterator<std::vector<Polygon_with_holes>> result) {
-    std::vector<Polygon_with_holes> temp;
-    convex_polygon_intersection(subject, clip, temp);
-    for (auto& pwh : temp) {
-        *result++ = std::move(pwh);
-    }
-}
-
-// Convert CGAL Polygon to OpenCV Points
-static std::vector<cv::Point2f> to_cv_points(const Polygon& poly) {
-    std::vector<cv::Point2f> pts;
-    pts.reserve(poly.size());
-    for (auto it = poly.vertices_begin(); it != poly.vertices_end(); ++it) {
-        pts.emplace_back(static_cast<float>(CGAL::to_double(it->x())),
-                        static_cast<float>(CGAL::to_double(it->y())));
-    }
-    return pts;
-}
-
-// Convert OpenCV Points back to CGAL Polygon
-static Polygon from_cv_points(const std::vector<cv::Point2f>& pts) {
-    std::vector<Point> cg_pts;
-    cg_pts.reserve(pts.size());
-    for (const auto& p : pts) {
-        cg_pts.emplace_back(p.x, p.y);
-    }
-    return Polygon(cg_pts.begin(), cg_pts.end());
-}
-
-// OpenCV-based polygon intersection using cv::intersectConvexConvex
-static void intersect_opencv(const Polygon& A, const Polygon& B,
-                            std::back_insert_iterator<std::vector<Polygon_with_holes>> result) {
-    auto cvA = to_cv_points(A);
-    auto cvB = to_cv_points(B);
-
-    if (cvA.size() < 3 || cvB.size() < 3) {
-        return;
+    std::vector<Point> P_verts, Q_verts;
+    {
+        TIMER("copy_verts");
+        P_verts.reserve(subject.size());
+        Q_verts.reserve(clip.size());
+        for (auto it = subject.vertices_begin(); it != subject.vertices_end(); ++it) {
+            P_verts.push_back(*it);
+        }
+        for (auto it = clip.vertices_begin(); it != clip.vertices_end(); ++it) {
+            Q_verts.push_back(*it);
+        }
     }
 
-    std::vector<cv::Point2f> intersection;
-    cv::intersectConvexConvex(cvA, cvB, intersection, true);
-
-    if (intersection.empty() || intersection.size() < 3) {
-        return;
+    std::vector<Point> verts;
+    {
+        TIMER("convex_intersect");
+        verts = orourke_cgal::convex_intersect(P_verts, Q_verts);
     }
+    if (verts.size() < 3) return;
 
-    // Convert back to CGAL
-    Polygon inter_poly = from_cv_points(intersection);
-    if (inter_poly.is_simple() && !inter_poly.is_clockwise_oriented()) {
-        *result++ = Polygon_with_holes(inter_poly);
-    }
+    // The intersection should be convex, hence simple.  But the O'Rourke
+    // main loop can emit kinks / collinear vertices that confuse CGAL's
+    // is_simple_2 check; ensure the output is well-formed before constructing
+    // a Polygon (whose constructor asserts is_simple_2).
+    Polygon inter_poly(verts.begin(), verts.end());
+    if (!inter_poly.is_simple()) return;
+    if (inter_poly.is_clockwise_oriented()) inter_poly.reverse_orientation();
+    *result++ = Polygon_with_holes(inter_poly);
 }
 
 bool showF = false; // true if -F is passed
@@ -393,31 +422,6 @@ bool showLabels = false; // true if --labels is passed
 bool out_flag = false;      // write outputs if true
 bool gui_flag = false;      // show viewer if true
 bool dist_flag = false;     // compute frechet if true
-bool dump_intersect_flag = false; // dump (F_poly, Gi_poly) pairs to disk
-
-// Set by main() when --dump-intersect is passed.  Non-owning pointer to
-// the open log file; nullptr disables dumping.  The dump helper at the
-// intersect() call site reads this without changing any function signatures.
-static std::ofstream* g_dump_intersect_stream = nullptr;
-
-// Forward-declared: writes the (F_poly, Gi_poly) pair that is about to be
-// passed to intersect() to the per-run log file (g_dump_intersect_stream).
-// Each pair is appended; one record = "P <nv>\n<x y>\n... Q <nv>\n<x y>\n..."
-// followed by a blank line.
-static void dump_intersect_pair(const Polygon& F, const Polygon& G) {
-    if (!g_dump_intersect_stream || !g_dump_intersect_stream->is_open()) return;
-    auto& out = *g_dump_intersect_stream;
-    auto write_one = [&](const char* tag, const Polygon& p) {
-        out << tag << ' ' << p.size() << '\n';
-        for (auto it = p.vertices_begin(); it != p.vertices_end(); ++it) {
-            out << CGAL::to_double(it->x()) << ' '
-                << CGAL::to_double(it->y()) << '\n';
-        }
-    };
-    write_one("P", F);
-    write_one("Q", G);
-    out << '\n';
-}
 
 constexpr double TOL = 1e-6;
 constexpr double SQRT2 =
@@ -453,6 +457,9 @@ static void print_help() {
               << "  -F/-G/-S         Debug polygon display modes\n"
               << "  --dump-intersect Dump every (F_poly, Gi_poly) pair fed to "
                  "intersect() to data/<id>/intersect_pairs.txt\n"
+              << "  --intersect {cgal|orourke}  Select intersection algorithm "
+                 "(default cgal).  'orourke' = O'Rourke's ConvexIntersect with "
+                 "O'Rourke's ConvexIntersect.\n"
               << "  -h               Show this help and exit\n"
               << "\n"
               << "Shorthand: simplify <id> [flags] is equivalent to '--in <id> --out [flags]'\n";
@@ -679,6 +686,9 @@ std::vector<Point> get_points_from_grid(const Point &p) {
     const double px = CGAL::to_double(p.x());
     const double py = CGAL::to_double(p.y());
     const double GRID = GRID_val();
+    if (DELTA == 0) {
+        return std::vector<Point>{p};
+    }
     std::vector<Point> points;
     for_each_grid_row(px, py, [&](double px_, double py_,
                                   double y_actual, int x_min, int x_max) {
@@ -690,20 +700,37 @@ std::vector<Point> get_points_from_grid(const Point &p) {
     return points;
 }
 
-// TODO: binary search
+// Find the two tangent indices of p with respect to convex polygon S.
+// A vertex S[i] is a "tangent" iff orientation(p, S[i-1], S[i]) !=
+// orientation(p, S[i], S[i+1]) and the trailing edge is non-collinear.
+//
+// We walk the polygon once.  The original O(n) code recomputed both
+// orientations every iteration, even though orientation(p, S[i], S[i+1])
+// at iteration i is the same value as orientation(p, S[i-1], S[i]) at
+// iteration i+1.  We cache that value across iterations, halving the
+// number of exact predicates per call.  We also break out of the loop
+// once both tangents are found — for a convex polygon there are at most
+// two, so we never need to scan all the way around.
 std::vector<int> find_tangent_idx(const Point &p,
                                  const std::vector<Point> &S) {
     int n = S.size();
     std::vector<int> tangent;
-    for (int i = 0; i < n; i++) {
-        Point pred = S[(i - 1 + n) % n];
-        Point now = S[i];
-        Point succ = S[(i + 1 + n) % n];
-        if (CGAL::orientation(p, pred, now) // be careful of the collinear case
-                != CGAL::orientation(p, now, succ) &&
-            CGAL::orientation(p, now, succ) != CGAL::COLLINEAR) {
-            // std::cerr << "[find tangent idx]: " << to_string(CGAL::orientation(p, pred, now)) << ' ' << to_string(CGAL::orientation(p, now, succ)) << std::endl;
-            tangent.push_back(i);
+    {
+        TIMER("find_tangent_idx");
+        tangent.reserve(2);
+
+        auto orient_at = [&](int i) {
+            return CGAL::orientation(p, S[i], S[(i + 1) % n]);
+        };
+
+        int prev = orient_at(n - 1);  // orientation(p, S[n-1], S[0])
+        for (int i = 0; i < n; ++i) {
+            int cur = orient_at(i);
+            if (cur != prev && cur != CGAL::COLLINEAR) {
+                tangent.push_back(i);
+                if (tangent.size() == 2) break;
+            }
+            prev = cur;
         }
     }
     return tangent;
@@ -749,8 +776,12 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
     std::vector<int> tangent = find_tangent_idx(p, S);
     assert(tangent.size() == 2);
 
-    std::optional<Point> hit1 = intersect_ray_with_rect(p, S[tangent[0]]);
-    std::optional<Point> hit2 = intersect_ray_with_rect(p, S[tangent[1]]);
+    std::optional<Point> hit1, hit2;
+    {
+        TIMER("ray_hits");
+        hit1 = intersect_ray_with_rect(p, S[tangent[0]]);
+        hit2 = intersect_ray_with_rect(p, S[tangent[1]]);
+    }
     if (!hit1 || !hit2) {
         std::cerr << "Ray doesn't intersect with bounding box!\n";
         auto F = current_bbox();
@@ -764,23 +795,26 @@ std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
     CGAL_precondition(Polygon(S.begin(), S.end()).is_counterclockwise_oriented());
     assert(tangent[1] - tangent[0] - 1 >= 1 || tangent[0] + n - tangent[1] - 1 >= 1);
     std::vector<Point> F;
-    if (CGAL::right_turn(p, S[tangent[0]], S[tangent[1]]))  {
-        // [i..j] (inclusive)
-        std::copy(S.begin() + tangent[0], S.begin() + tangent[1] + 1,
-                  std::back_inserter(F));
-        // walk from hit2 to hit1 ccw to close
-        F.push_back(hit2.value());
-        append_rect_pts(F, e2.value(), e1.value(), true);
-        F.push_back(hit1.value());
-    } else {
-        // [j..n-1] + [0..i] (inclusive)
-        std::copy(S.begin() + tangent[1], S.end(),
-                  std::back_inserter(F));
-        std::copy(S.begin(), S.begin() + tangent[0] + 1,
-                  std::back_inserter(F));
-        F.push_back(hit1.value());
-        append_rect_pts(F, e1.value(), e2.value(), true);
-        F.push_back(hit2.value());
+    {
+        TIMER("build_F_poly");
+        if (CGAL::right_turn(p, S[tangent[0]], S[tangent[1]]))  {
+            // [i..j] (inclusive)
+            std::copy(S.begin() + tangent[0], S.begin() + tangent[1] + 1,
+                      std::back_inserter(F));
+            // walk from hit2 to hit1 ccw to close
+            F.push_back(hit2.value());
+            append_rect_pts(F, e2.value(), e1.value(), true);
+            F.push_back(hit1.value());
+        } else {
+            // [j..n-1] + [0..i] (inclusive)
+            std::copy(S.begin() + tangent[1], S.end(),
+                      std::back_inserter(F));
+            std::copy(S.begin(), S.begin() + tangent[0] + 1,
+                      std::back_inserter(F));
+            F.push_back(hit1.value());
+            append_rect_pts(F, e1.value(), e2.value(), true);
+            F.push_back(hit2.value());
+        }
     }
     if (!e1 || !e2) {
         std::cerr << "Cannot determine which Bbox edge the ray intersect with.\n";
@@ -799,7 +833,6 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
     {
         TIMER("get_points_from_grid");
         P = get_points_from_grid(p0);
-        // P = std::vector<Point>{p0};
         // std::cerr << "P.size() = " << P.size() << '\n';
     }
     if (viewer) {
@@ -863,7 +896,6 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
 
             {
                 TIMER("intersect");
-                if (dump_intersect_flag) dump_intersect_pair(F_poly, Gi_poly);
                 intersect(F_poly, Gi_poly, back_inserter(new_S[i]));
                 // intersect_opencv(F_poly, Gi_poly, back_inserter(new_S[i]));
             }
@@ -943,7 +975,6 @@ int main(int argc, char** argv) {
         else if (strcmp(argv[i],"--labels") == 0) showLabels = true;
         else if (strcmp(argv[i],"--out") == 0) out_flag = true;
         else if (strcmp(argv[i],"--dist") == 0) dist_flag = true;
-        else if (strcmp(argv[i],"--dump-intersect") == 0) dump_intersect_flag = true;
         else if (strcmp(argv[i],"-d") == 0 && i+1 < argc) {
             try { DELTA = std::stod(argv[++i]); } catch(...) { std::cerr << "Invalid -d value\n"; return 1; }
         }
@@ -1046,28 +1077,6 @@ int main(int argc, char** argv) {
         viewer.show();
     }
 
-    // Optionally dump every (F_poly, Gi_poly) pair fed to intersect() to
-    // data/<id>/intersect_pairs.txt.  This produces a stream of
-    // real convex-convex intersection problems that can be replayed
-    // against alternative intersection implementations.
-    std::unique_ptr<std::ofstream> dump_stream;
-    if (dump_intersect_flag) {
-        if (test_case_no == -1) {
-            std::cerr << "--dump-intersect requires --in <id> to determine "
-                         "output location\n";
-            return 1;
-        }
-        std::filesystem::path dir = repo_root / "data" / std::to_string(test_case_no);
-        std::filesystem::create_directories(dir);
-        std::filesystem::path dump_path = dir / "intersect_pairs.txt";
-        dump_stream = std::make_unique<std::ofstream>(dump_path);
-        if (!dump_stream->is_open()) {
-            std::cerr << "Cannot open " << dump_path << " for writing\n";
-            return 1;
-        }
-        g_dump_intersect_stream = dump_stream.get();
-        std::cout << "Dumping (F_poly, Gi_poly) pairs to " << dump_path << '\n';
-    }
 
     // Simplify
     std::vector<Point> simplified;
@@ -1075,11 +1084,6 @@ int main(int argc, char** argv) {
         TIMER("total");
         simplified = simplify(stream, vptr);
         stream = std::move(simplified);
-    }
-    g_dump_intersect_stream = nullptr;
-    if (dump_stream) {
-        dump_stream->close();
-        std::cout << "Intersection-pair dump complete\n";
     }
     print_timing_summary();
 
@@ -1110,7 +1114,7 @@ int main(int argc, char** argv) {
 
     // Run distance computation only after GUI is closed (or immediately if no GUI)
     if (dist_flag && test_case_no != -1) {
-        std::filesystem::path frechet_path = repo_root / "frechet";
+        std::filesystem::path frechet_path = repo_root / "scripts" / "frechet";
         // Quote the path to handle spaces (e.g., "Mobile Documents") and pass explicit args
         std::string cmd1 = std::string("\"") + frechet_path.string() + "\" --in " + std::to_string(test_case_no) + " --path \"" + (repo_root / "data" / std::to_string(test_case_no) / "simplify.txt").string() + "\"";
         int rc = std::system(cmd1.c_str());

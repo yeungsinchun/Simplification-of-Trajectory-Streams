@@ -25,7 +25,7 @@ Visual comparison between different algorithms (the algorithm implmenete is in r
 - **CGAL** (with Qt6 support, for the viewer)
 - **Qt 6 Widgets** (QtCore, QtGui, QtWidgets)
 - **Julia** with the `FrechetDist` package installed (required for the
-  `./frechet` wrapper used by `--dist` and the benchmark)
+  `./scripts/frechet` wrapper used by `--dist` and the benchmark)
 
 On macOS with Homebrew:
 
@@ -52,24 +52,19 @@ julia -e 'using Pkg; Pkg.add("FrechetDist")'
 ├── simplify_old.cpp           # Older snapshot (kept for reference)
 ├── drawing.cpp / drawing.h    # Shared Qt viewer widget
 │
-├── tools/
+├── scripts/
 │   ├── normalize.cpp          # Convert raw taxi CSVs to data/<id>/original.txt
-│   └── plot_curve.cpp         # Multi-curve overlay viewer for data/<id>/
-│
-├── normalize                  # Symlink → release/normalize (after build)
-├── plot_curve                 # Symlink → release/plot_curve (after build)
-├── simplify                   # Symlink → release/simplify (after build)
-│
-├── frechet                    # Julia wrapper around FrechetDist.jl (used by
-│                              #   the C++ --dist flag and run_benchmark.py)
-├── run_benchmark.py           # Overnight benchmark of simplify vs DP/DOTS/SQUISH
-├── download_dataset.py        # Helper to fetch the T-Drive dataset from Kaggle
-├── clean_data.sh              # Strip non-original.txt files from data/<id>/
+│   ├── plot_curve.cpp         # Multi-curve overlay viewer for data/<id>/
+│   ├── benchmark.py           # Overnight benchmark of simplify vs DP/DOTS/SQUISH
+│   ├── download_dataset.py    # Helper to fetch the T-Drive dataset from Kaggle
+│   ├── clean_data.sh          # Strip non-original.txt files from data/<id>/
+│   └── frechet                # Julia wrapper around FrechetDist.jl (used by
+│                              #   the C++ --dist flag and benchmark.py)
 │
 ├── algorithms/                # Subtree with OPERB/OPERBA/FBQS sources (vendored from
 │   └── ...                    #   Trajectory-Simplification-Algorithm, used by algorithms/main)
 │
-├── traj-compression/          # Subtree of black-box algorithm binaries
+├── traj-compression/          # Subtree of baseline algorithm sources
 │   ├── batch/DP/              #   - DP_adapted (Douglas–Peucker)
 │   ├── online/DOTS/           #   - DOTS_adapted
 │   └── online/SQUISH/         #   - SQUISH_adapted
@@ -107,23 +102,18 @@ Targets produced inside `release/`:
 | `simplify` | Main algorithm + Qt viewer (this paper). Use this. |
 | `plot_curve` | Overlay viewer for every curve in `data/<id>/`. |
 | `normalize` | Convert raw T-Drive CSVs to normalized `data/<id>/original.txt`. |
+| `DP_adapted` | Douglas-Peucker baseline (vendored from `traj-compression/batch/DP/`). |
+| `DOTS_adapted` | DOTS baseline (vendored from `traj-compression/online/DOTS/`). |
+| `SQUISH_adapted` | SQUISH baseline (vendored from `traj-compression/online/SQUISH/`). |
+
+The baseline binaries used by `benchmark.py` (`DP_adapted`, `DOTS_adapted`,
+`SQUISH_adapted`) are built by the same `cmake --build .` invocation — no
+extra per-subdir `make` step is needed. They live next to `simplify` so
+the benchmark can find them in one place.
 
 The `algorithms/` subdirectory is a standalone C++ project (its own
 `Makefile`); build it separately if you want OPERB/OPERBA/FBQS as baselines
 (see [Baseline algorithms](#baseline-algorithms)).
-
-`traj-compression/` is a separate C++ subtree; build each baseline binary
-individually there. The benchmark script expects these paths to exist:
-
-```
-traj-compression/batch/DP/DP_adapted
-traj-compression/online/DOTS/DOTS_adapted
-traj-compression/online/SQUISH/SQUISH_adapted
-```
-
-The standard `cmake --build .` only builds the top-level `CMakeLists.txt`
-targets. The `traj-compression/` and `algorithms/` binaries are **not**
-produced by it.
 
 ---
 
@@ -140,7 +130,7 @@ brew install cmake cgal qt@6 julia
 julia -e 'using Pkg; Pkg.add("FrechetDist")'
 ```
 
-### 2. Clone and build the C++ tools
+### 2. Clone and build the C++ scripts
 
 ```bash
 git clone <this-repo>
@@ -209,7 +199,7 @@ them from anywhere — no need to `cd release` first.
 
 ```
 data/<id>/
-  original.txt          # input (created by tools/normalize)
+  original.txt          # input (created by scripts/normalize)
   simplify.txt          # streaming algorithm output (after --out)
 ```
 
@@ -225,32 +215,29 @@ matches the canonical `N x y` format.
 ### 6. Compute Fréchet distance
 
 The `--dist` flag on `simplify` shells out to the Julia wrapper `frechet`
-(path: `frechet` at the repo root). You can also call it directly:
+(path: `scripts/frechet`). You can also call it directly:
 
 ```bash
-# Default: original vs data/<id>/our_simplified.txt and dp_simplified.txt
-./frechet <id>
+./scripts/frechet <id>
 
 # Or with an explicit simplified path:
-./frechet --in 1 --path data/1/simplify.txt
+./scripts/frechet --in 1 --path data/1/simplify.txt
 ```
 
 ### 7. Run the full benchmark
 
-`run_benchmark.py` is the long-running comparison. It runs DP, DOTS, and
+`scripts/benchmark.py` is the long-running comparison. It runs DP, DOTS, and
 SQUISH on each id, then sweeps `simplify` over a few
 `(epsilon, delta)` values tuned per baseline, and records point counts and
 Fréchet distances into `compare_points.csv`.
 
-```bash
-# Build the traj-compression baselines first (each has its own Makefile)
-( cd traj-compression/batch/DP      && make DP_adapted )
-( cd traj-compression/online/DOTS   && make DOTS_adapted )
-( cd traj-compression/online/SQUISH && make SQUISH_adapted )
+The baseline binaries (`DP_adapted`, `DOTS_adapted`, `SQUISH_adapted`) are
+built into `release/` by the top-level CMake build above, so the benchmark
+script does not need any extra build step.
 
-# Then run the benchmark
-python3 run_benchmark.py            # all ids
-python3 run_benchmark.py --ids 1 2 3 --resume   # pick ids, resume from CSV
+```bash
+python3 scripts/benchmark.py            # all ids
+python3 scripts/benchmark.py --a 1 --b 3 --resume   # pick ids, resume from CSV
 ```
 
 The benchmark has built-in safety nets: a 1.5 GB RSS cap per invocation
@@ -295,13 +282,13 @@ Shorthand:
 
 ---
 
-## CLI reference: `frechet`
+## CLI reference: `scripts/frechet`
 
 ```
-frechet [<id>] [--in <id>] [--path <file>] [--raw]
+scripts/frechet [<id>] [--in <id>] [--path <file>] [--raw]
 
   <id>             Trajectory id (uses data/<id>/original.txt vs
-                   data/<id>/our_simplified.txt and dp_simplified.txt)
+                   data/<id>/simplify.txt)
   --in <id>        Same as positional id
   --path <file>    Override the simplified curve to compare against
   --raw            Print only the raw distance number
@@ -318,7 +305,7 @@ The streaming algorithm is benchmarked against three groups of baselines:
 
 | Group | Where | How to build | Used by |
 |---|---|---|---|
-| DP, DOTS, SQUISH | `traj-compression/` | per-subdir `make <binary>` | `run_benchmark.py` |
+| DP, DOTS, SQUISH | `traj-compression/` sources, `release/` binaries | `cmake --build release/` | `benchmark.py` |
 | OPERB, OPERBA, FBQS | `algorithms/` | `cd algorithms && g++ -O2 -std=c++17 -Iinc main.cpp -o main && ./main` | manual / `plot_curve` |
 
 The `algorithms/` subtree is vendored from
@@ -335,7 +322,7 @@ This reads `data/<id>/original.txt`, runs all four algorithms, and writes
 `data/<id>/dp_simplified.txt`, `operb_simplified.txt`, `operba_simplified.txt`,
 `fbqs_simplified.txt`.
 
-The `traj-compression/` binaries used by `run_benchmark.py` are direct
+The `traj-compression/` sources used by `benchmark.py` are direct
 adaptations of publicly-available code; consult each subdirectory's own
 README for the original attribution.
 
