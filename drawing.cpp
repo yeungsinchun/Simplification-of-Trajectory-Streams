@@ -4,10 +4,6 @@
 #include <QFontMetrics>
 #include <QString>
 
-// Bounding box declared/defined in simplify.cpp
-extern const double BMIN;
-extern const double BMAX;
-
 MultiViewer::MultiViewer(QWidget* parent) : QWidget(parent) {
     setWindowTitle("Incremental Viewer");
     resize(1000, 800);
@@ -103,22 +99,6 @@ void MultiViewer::setShowLabels(bool show) {
     update();
 }
 
-void MultiViewer::setDataBBox(double minx, double miny, double maxx, double maxy) {
-    // NaN coordinates mean "unfreeze" (revert to dynamic per-paint view).
-    if (!std::isfinite(minx) || !std::isfinite(miny) ||
-        !std::isfinite(maxx) || !std::isfinite(maxy)) {
-        view_frozen_ = false;
-        update();
-        return;
-    }
-    frozen_minx_ = minx;
-    frozen_miny_ = miny;
-    frozen_maxx_ = maxx;
-    frozen_maxy_ = maxy;
-    view_frozen_ = true;
-    update();
-}
-
 void MultiViewer::markP0(const Point& p) {
     marked_p0_ = p;
     update();
@@ -139,107 +119,46 @@ void MultiViewer::clearMarkedPi() {
     update();
 }
 
-void MultiViewer::compute_bbox(double& minx,double& miny,double& maxx,double& maxy) const {
-    minx =  1e300; miny =  1e300;
-    maxx = -1e300; maxy = -1e300;
-    auto acc = [&](const Point& p){
-        double x = CGAL::to_double(p.x());
-        double y = CGAL::to_double(p.y());
-        minx = std::min(minx,x); miny = std::min(miny,y);
-        maxx = std::max(maxx,x); maxy = std::max(maxy,y);
-    };
-    for (auto& cp : polys_)
-        for (auto v = cp.poly.vertices_begin(); v != cp.poly.vertices_end(); ++v)
-            acc(*v);
-    for (auto& set : pointSets_)
-        for (auto& p : set) acc(p);
-    for (auto& p : original_)   acc(p);
-    for (auto& p : simplified_) acc(p);
-    if (!(minx <= maxx)) { minx = -1; maxx = 1; miny = -1; maxy = 1; }
-}
-
 void MultiViewer::paintEvent(QPaintEvent*) {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
 
-    // Effective viewport: anchored on the data bounding box with a small
-    // world-space padding. The algorithmic grid [BMIN, BMAX]^2 is just a
-    // reference frame drawn on top; it should not constrain the view.
-    //
-    // If the view was frozen via setDataBBox(), use that bbox and don't
-    // re-fit on every paint (so the canvas doesn't re-zoom as more points
-    // stream in). Otherwise compute the bbox from the current data.
-    double dminx, dminy, dmaxx, dmaxy;
-    if (view_frozen_) {
-        dminx = frozen_minx_; dminy = frozen_miny_;
-        dmaxx = frozen_maxx_; dmaxy = frozen_maxy_;
-    } else {
-        compute_bbox(dminx, dminy, dmaxx, dmaxy);
-    }
-    double dx_data = std::max(dmaxx - dminx, 1.0);
-    double dy_data = std::max(dmaxy - dminy, 1.0);
-    // The BBOX rectangle drawn on screen is the *unpadded* data extent
-    // [dminx, dmaxx] x [dminy, dmaxy] (so its edges sit on the actual
-    // extreme data points). The world view we project to the canvas is
-    // a square that contains this data extent plus 8% padding on every
-    // side, so the display is always a square regardless of the data
-    // aspect ratio.
-    double pad = std::max(dx_data, dy_data) * pad_frac_;
-    double side = std::max(dx_data, dy_data) + 2.0 * pad;
-    double cx = 0.5 * (dminx + dmaxx);
-    double cy = 0.5 * (dminy + dmaxy);
-    double minx = cx - 0.5 * side;
-    double maxx = cx + 0.5 * side;
-    double miny = cy - 0.5 * side;
-    double maxy = cy + 0.5 * side;
-    double dx = maxx - minx; if (dx == 0) dx = 1;
-    double dy = maxy - miny; if (dy == 0) dy = 1;
-    double margin = 30;
+    // Fixed world-space: always [-10000, 10000]^2
+    const double WORLD_MIN = -10000.0;
+    const double WORLD_MAX =  10000.0;
+    const double WORLD_SIDE = WORLD_MAX - WORLD_MIN; // 20000
+    const double margin = 30.0;
+
     int W = width(), H = height();
-    double availW = W - 2*margin;
-    double availH = H - 2*margin;
-    double scale  = std::min(availW/dx, availH/dy);
-    // Center the data within the canvas: any slack on the looser axis is
-    // split equally so the data is centered both horizontally and vertically.
-    // vshift_ (pixels) shifts the data upward on screen — positive vshift_
-    // moves the canvas up, giving more room at the bottom. Clamp vshift_
-    // so the data extent can never be pushed off the top of the window:
-    // we need mapY(dminy) >= 0, i.e. y_off <= H, i.e. vshift_ <= (H+margin)/2 - dy*scale/2.
-    double vshift_eff = vshift_;
-    {
-        double y_off_no_shift = margin + (availH - dy * scale) * 0.5;
-        double max_vshift = H - y_off_no_shift; // mapY(dminy) = H - y_off = H - y_off_no_shift - vshift; require >= 0
-        if (vshift_eff > max_vshift) vshift_eff = max_vshift;
-        if (vshift_eff < -y_off_no_shift) vshift_eff = -y_off_no_shift; // mapY(dmaxy) = H - y_off - dy*scale; require <= H
-    }
-    double x_off = margin + (availW - dx * scale) * 0.5;
-    double y_off = margin + (availH - dy * scale) * 0.5 + vshift_eff;
-    auto mapX = [&](double x){ return x_off + (x - minx) * scale; };
-    auto mapY = [&](double y){ return H - (y_off + (y - miny) * scale); };
+    double availW = W - 2.0 * margin;
+    double availH = H - 2.0 * margin;
+    double scale = std::min(availW / WORLD_SIDE, availH / WORLD_SIDE);
+
+    // Center horizontally and vertically: any slack is split equally
+    double x_off = margin + (availW - WORLD_SIDE * scale) * 0.5;
+    double y_off = margin + (availH - WORLD_SIDE * scale) * 0.5;
+
+    auto mapX = [&](double x) { return x_off + (x - WORLD_MIN) * scale; };
+    auto mapY = [&](double y) { return H - (y_off + (y - WORLD_MIN) * scale); };
+
+    // Viewport rect in screen pixels
+    double vp_left   = mapX(WORLD_MIN);
+    double vp_right  = mapX(WORLD_MAX);
+    double vp_top    = mapY(WORLD_MAX);
+    double vp_bottom = mapY(WORLD_MIN);
 
     p.fillRect(rect(), Qt::white);
 
-    // Draw the data bounding box (no fill) first. The box outlines the
-    // *unpadded* data extent [dminx, dmaxx] x [dminy, dmaxy], with a
-    // tiny visual inset (1% of the data side) so points and the index
-    // labels we draw on top of them don't sit directly on the box
-    // stroke. The world view used for projection is a slightly larger
-    // square (centered on the data center, side = max(dx,dy) + 2*pad),
-    // which keeps the display square and gives labels room to render
-    // just outside the box.
-    double box_left, box_right, box_top, box_bot;
+    // Draw the fixed bounding box for [-10000, 10000]^2
     {
-        double inset = std::max(dx_data, dy_data) * 0.01;
-        double bx0 = dminx - inset, bx1 = dmaxx + inset;
-        double by0 = dminy - inset, by1 = dmaxy + inset;
-        double x_lo = mapX(bx0);
-        double x_hi = mapX(bx1);
-        double y_lo = mapY(by0);
-        double y_hi = mapY(by1);
-        box_left = std::min(x_lo, x_hi);
-        box_right = std::max(x_lo, x_hi);
-        box_top  = std::min(y_lo, y_hi);
-        box_bot  = std::max(y_lo, y_hi);
+        double bx_lo = mapX(WORLD_MIN);
+        double bx_hi = mapX(WORLD_MAX);
+        double by_lo = mapY(WORLD_MIN);
+        double by_hi = mapY(WORLD_MAX);
+        double box_left  = std::min(bx_lo, bx_hi);
+        double box_right = std::max(bx_lo, bx_hi);
+        double box_top   = std::min(by_lo, by_hi);
+        double box_bot   = std::max(by_lo, by_hi);
         p.setBrush(Qt::NoBrush);
         p.setPen(QPen(QColor(80,80,80), 2, Qt::SolidLine));
         p.drawRect(QRectF(box_left, box_top, box_right - box_left, box_bot - box_top));
@@ -305,18 +224,11 @@ void MultiViewer::paintEvent(QPaintEvent*) {
                 // Default offset: 5px right and 5px above the point.
                 double lx = pf.x() + 5;
                 double ly = pf.y() - 5;
-                // If the label would cross the top edge of the bbox, push
-                // it below the point instead.
-                if (ly - th < box_top) ly = pf.y() + 5 + th;
-                // If the label would cross the right edge, push it left of
-                // the point instead.
-                if (lx + tw > box_right) lx = pf.x() - 5 - tw;
-                // If the label would cross the left edge, push it right
-                // beyond the point (with a little extra room).
-                if (lx < box_left) lx = pf.x() + 5;
-                // If the label would cross the bottom edge, push it above
-                // the point (with a little extra room).
-                if (ly > box_bot) ly = pf.y() - 5 - th;
+                // Clamp to the actual viewport so labels never go off-screen.
+                if (ly - th < vp_top)   ly = pf.y() + 5 + th;
+                if (lx + tw > vp_right) lx = pf.x() - 5 - tw;
+                if (lx < vp_left)       lx = vp_left;
+                if (ly > vp_bottom)     ly = pf.y() - 5 - th;
                 p.drawText(QPointF(lx, ly), txt);
                 p.setPen(Qt::NoPen);
             }
@@ -390,11 +302,10 @@ void MultiViewer::paintEvent(QPaintEvent*) {
         p.setBrush(Qt::NoBrush);
     }
 
-    // Heads-up display (top-right): single line: ratio, e, d
+    // Heads-up display (top-right, inside viewport): ratio, e, d
     {
-        const int W = width();
-        const int pad = 8;
-        const int marginTR = 10; // margin from top-right edges
+        const int pad = 6;
+        const int marginTR = 10; // margin from viewport right/top edges
 
         const size_t n_orig = original_.size();
         const size_t n_simp = simplified_.size();
@@ -408,7 +319,11 @@ void MultiViewer::paintEvent(QPaintEvent*) {
         int textW = fm.horizontalAdvance(line);
         int textH = fm.height();
 
-        QRect rectBg(W - marginTR - (textW + 2*pad), marginTR, textW + 2*pad, textH + 2*pad);
+        // Position inside the viewport (top-right corner)
+        double hud_x = vp_right - marginTR - (textW + 2*pad);
+        double hud_y = vp_top + marginTR;
+        QRect rectBg(static_cast<int>(hud_x), static_cast<int>(hud_y),
+                     textW + 2*pad, textH + 2*pad);
         p.setPen(Qt::NoPen);
         p.setBrush(QColor(255, 255, 255, 210));
         p.drawRect(rectBg);
@@ -419,16 +334,17 @@ void MultiViewer::paintEvent(QPaintEvent*) {
         p.drawText(tx, ty, line);
     }
 
-    // Legend (top-left): show only number of points for each entry.
+    // Legend (top-left, inside the viewport): show number of points for each entry.
     // Each entry records a hit-test rectangle used by mousePressEvent to
     // toggle visibility on click. The first two slots (indices 0 and 1)
     // refer to the original and simplified trajectories respectively;
     // the rest (2..N+1) index into curves_.
     {
-        const int marginTL = 50;
         const int swatch = 10;
         const int pad = 6;
-        int x0 = marginTL, y0 = marginTL;
+        // Position the legend just inside the top-left corner of the viewport
+        double x0 = vp_left + swatch;
+        double y0 = vp_top + swatch;
 
         QFontMetrics fm(p.font());
     // Compose legend entries: original, simplified, then added curves, each with label and point count
@@ -451,9 +367,11 @@ void MultiViewer::paintEvent(QPaintEvent*) {
 
         for (const auto& e : entries) {
             int rowH = std::max(swatch, fm.height());
-            int textX = x0 + swatch + pad;
+            int ix0 = static_cast<int>(x0);
+            int iy0 = static_cast<int>(y0);
+            int textX = ix0 + swatch + pad;
             int textW = fm.horizontalAdvance(e.text);
-            QRect rowRect(x0, y0, (textX - x0) + textW, rowH);
+            QRect rowRect(ix0, iy0, (textX - ix0) + textW, rowH);
             legend_rects_.push_back(rowRect);
 
             // dim the entry when its underlying series is hidden
@@ -467,10 +385,10 @@ void MultiViewer::paintEvent(QPaintEvent*) {
             // draw color box
             p.setPen(Qt::NoPen);
             p.setBrush(swatchColor);
-            p.drawRect(x0, y0, swatch, swatch);
+            p.drawRect(ix0, iy0, swatch, swatch);
             // draw label
             p.setPen(textColor);
-            p.drawText(textX, y0 + fm.ascent(), e.text);
+            p.drawText(textX, iy0 + fm.ascent(), e.text);
             y0 += rowH + 4;
         }
     }

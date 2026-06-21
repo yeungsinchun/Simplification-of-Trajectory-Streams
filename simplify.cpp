@@ -102,48 +102,6 @@ static char parallel_int(const Point& a, const Point& b,
     return '0';
 }
 
-// Segment-segment intersection.  Returns one of:
-//   '0' - no intersection
-//   'v' - endpoint touches the other segment (single point in out_p)
-//   '1' - proper crossing (single point in out_p)
-//   'e' - collinear overlap (two endpoints in out_p, out_q)
-//
-// Converts inputs to Epeck just for the intersection construction (to avoid
-// Epick double rounding in near-parallel cases), then converts the result
-// back to Epick.  Uses CGAL::to_double on the Epeck FT result, which is
-// exact since the Epeck computation is fully symbolic.
-// Segment-segment intersection.  Returns one of:
-//   '0' - no intersection
-//   'v' - endpoint touches the other segment (single point in out_p)
-//   '1' - proper crossing (single point in out_p)
-//   'e' - collinear overlap (two endpoints in out_p, out_q)
-//
-// Fast path: use Epick's intersection directly and verify with exact predicates.
-// If the fast result fails validation, fall back to Epeck for exact construction.
-// This avoids Epeck overhead on the 80% of calls where Epick is already correct.
-static char seg_seg_int(const Point& a, const Point& b,
-                        const Point& c, const Point& d,
-                        Point& out_p, Point& out_q) {
-    auto inter = CGAL::intersection(Segment(a, b), Segment(c, d));
-    if (inter) {
-        if (const Segment* seg = std::get_if<Segment>(&*inter)) {
-            out_p = seg->source();
-            out_q = seg->target();
-            return 'e';
-        }
-        if (const Point* ip = std::get_if<Point>(&*inter)) {
-            out_p = *ip;
-            // Classify: if near c or d it's 'v', else '1'.
-            double sqd = CGAL::to_double(CGAL::squared_distance(out_p, c));
-            if (sqd < 1e-12) return 'v';
-            sqd = CGAL::to_double(CGAL::squared_distance(out_p, d));
-            if (sqd < 1e-12) return 'v';
-            return '1';
-        }
-    }
-    return '0';
-}
-
 // Advance the index for polygon P or Q depending on `inside`, and append
 // the appropriate vertex to `out` if `inside` is true.  Returns the new index.
 static int advance(int a, int& aa, int n, bool inside,
@@ -332,6 +290,13 @@ static std::vector<Point> convex_intersect(const std::vector<Point>& Pin,
     int a = leftmost_index(Pr);
     int b = leftmost_index(Qr);
 
+    // Pre-convert polygon vertices to Epeck once.  The inner loop re-visits
+    // edges repeatedly, so amortizing the conversion cost across all seg_seg_int
+    // calls in this invocation reduces total overhead vs per-call conversion.
+    std::vector<Epeck::Point_2> Pe(n), Qe(m);
+    for (int i = 0; i < n; ++i) Pe[i] = conv_to_exact(Pr[i]);
+    for (int i = 0; i < m; ++i) Qe[i] = conv_to_exact(Qr[i]);
+
     int aa = 0, ba = 0;
     InFlag inflag = InFlag::Unknown;
     bool first_point = true;
@@ -349,8 +314,34 @@ static std::vector<Point> convex_intersect(const std::vector<Point>& Pin,
         int cross  = area_sign_vec(A, B);
         int aHB    = area_sign(Qr[b1], Qr[b], Pr[a]);
         int bHA    = area_sign(Pr[a1], Pr[a], Qr[b]);
+
+        // Intersection using pre-converted Epeck vertices.
         Point p, q;
-        char code = seg_seg_int(Pr[a1], Pr[a], Qr[b1], Qr[b], p, q);
+        char code;
+        {
+            auto inter = CGAL::intersection(
+                Epeck::Segment_2(Pe[a1], Pe[a]),
+                Epeck::Segment_2(Qe[b1], Qe[b]));
+            if (!inter) {
+                code = '0';
+            } else if (const Epeck::Segment_2* seg =
+                           std::get_if<Epeck::Segment_2>(&*inter)) {
+                p = conv_to_inexact(seg->source());
+                q = conv_to_inexact(seg->target());
+                code = 'e';
+            } else if (const Epeck::Point_2* ip =
+                           std::get_if<Epeck::Point_2>(&*inter)) {
+                p = conv_to_inexact(*ip);
+                double sqd = CGAL::to_double(CGAL::squared_distance(p, Qr[b1]));
+                if (sqd < 1e-12) code = 'v';
+                else {
+                    sqd = CGAL::to_double(CGAL::squared_distance(p, Qr[b]));
+                    code = (sqd < 1e-12) ? 'v' : '1';
+                }
+            } else {
+                code = '0';
+            }
+        }
 
         // If A & B intersect, update inflag and emit p.
         if (code == '1' || code == 'v') {
@@ -449,7 +440,6 @@ static void intersect(const Polygon& subject, const Polygon& clip,
 bool showF = false; // true if -F is passed
 bool showG = false; // true if -G is passed
 bool showS = false; // true if -S is passed
-bool showLabels = false; // true if --labels is passed
 bool out_flag = false;      // write outputs if true
 bool gui_flag = false;      // show viewer if true
 bool dist_flag = false;     // compute frechet if true
@@ -461,9 +451,7 @@ constexpr double SQRT2 =
 // Bounding square [BMIN, BMAX]^2
 extern const double BMIN = -10000;
 extern const double BMAX = 10000;
-// Bounding data points (convex hull should not exceed bounding box)
-const double DATAMIN = -8000;
-const double DATAMAX = 8000;
+
 // TODO: DELTA should not be too high that convex hull goes out of bounding square, which may cause the program to crash
 double DELTA = 200;
 double EPSILON = 0.6;
@@ -483,8 +471,6 @@ static void print_help() {
               << "  --labels         Show vertex labels (indices) in GUI\n"
               << "  -d <delta>       Override DELTA (default " << DELTA << ")\n"
               << "  -e <epsilon>     Override EPSILON (default " << EPSILON << ")\n"
-              << "  --pad <frac>     Data-bbox padding as a fraction of the larger extent (default 0.08)\n"
-              << "  --vshift <px>    Shift canvas up by N pixels (default 0)\n"
               << "  -F/-G/-S         Debug polygon display modes\n"
               << "  --dump-intersect Dump every (F_poly, Gi_poly) pair fed to "
                  "intersect() to data/<id>/intersect_pairs.txt\n"
@@ -875,7 +861,6 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
     cur++;
     while (cur < int(stream.size())) {
         const Point& pi  = stream[cur];
-        bool shown_debug = false;
         std::vector<Point> Gi;
         {
             TIMER("get_conv_from_grid");
@@ -892,10 +877,6 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
                 TIMER("find_F");
                 F = find_F(P[i], S[i]);
             }
-            if (i == 0) {
-                // std::cerr << "  [cur=" << cur << "] F.size()=" << F.size()
-                //   << " Gi.size()=" << Gi.size() << '\n';
-            }
             {
                 TIMER("polygon_construction");
                 F_poly = Polygon(F.begin(), F.end());
@@ -903,10 +884,9 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
                 S_poly = Polygon(S[i].begin(), S[i].end());
             }
 
-            if (!shown_debug) {
+            if (i == 0) {
                 const QColor stepColors[] = {
                     Qt::red,
-                    QColor(255, 140, 0), // orange
                     Qt::blue,
                     Qt::green,
                     Qt::magenta,
@@ -919,13 +899,11 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
                     if (showG) viewer->addPolygon(Gi_poly, c);
                     if (showS) viewer->addPolygon(S_poly, c);
                 }
-                shown_debug = true;
             }
 
             {
                 TIMER("intersect");
                 intersect(F_poly, Gi_poly, back_inserter(new_S[i]));
-                // intersect_opencv(F_poly, Gi_poly, back_inserter(new_S[i]));
             }
 
             if (new_S[i].size() == 0) {
@@ -992,15 +970,12 @@ std::vector<Point> simplify(const std::vector<Point> &stream, MultiViewer* viewe
 // TODO: clean up this mess of flags
 int main(int argc, char** argv) {
     int test_case_no = -1;      // provided by --in <id>
-    double pad_frac = 0.08;     // default data-bbox padding (8% of larger extent)
-    int vshift = 0;             // pixels to shift the canvas up (positive = up)
 
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i],"-F") == 0) showF = true;
         else if (strcmp(argv[i],"-S") == 0) showS = true;
         else if (strcmp(argv[i],"-G") == 0) showG = true;
         else if (strcmp(argv[i],"--gui") == 0) gui_flag = true;
-        else if (strcmp(argv[i],"--labels") == 0) showLabels = true;
         else if (strcmp(argv[i],"--out") == 0) out_flag = true;
         else if (strcmp(argv[i],"--dist") == 0) dist_flag = true;
         else if (strcmp(argv[i],"-d") == 0 && i+1 < argc) {
@@ -1009,14 +984,6 @@ int main(int argc, char** argv) {
         else if (strcmp(argv[i],"-e") == 0 && i+1 < argc) {
             try { EPSILON = std::stod(argv[++i]); } catch(...) { std::cerr << "Invalid -e value\n"; return 1; }
         }
-        else if (strcmp(argv[i],"--pad") == 0 && i+1 < argc) {
-            try { pad_frac = std::stod(argv[++i]); }
-            catch(...) { std::cerr << "Invalid --pad value\n"; return 1; }
-        }
-        else if (strcmp(argv[i],"--vshift") == 0 && i+1 < argc) {
-            try { vshift = std::stoi(argv[++i]); }
-            catch(...) { std::cerr << "Invalid --vshift value\n"; return 1; }
-        }
         else if (strcmp(argv[i],"-h") == 0) { print_help(); return 0; }
         else if (strcmp(argv[i],"--in") == 0 && i+1 < argc) {
             try { test_case_no = std::stoi(argv[++i]); }
@@ -1024,13 +991,16 @@ int main(int argc, char** argv) {
         }
     }
 
+    if (dist_flag) out_flag = true;
+
     // Shorthand: first positional numeric argument means '--in <id> --out'; allows extra flags (e.g., '--gui')
     if (test_case_no == -1 && argc >= 2 && argv[1][0] != '-') {
         try {
             test_case_no = std::stoi(argv[1]);
             out_flag = true;
         } catch (...) {
-            // fall through to help if not parseable
+            std::cout << "Command parse error\n";
+            return 1;
         }
     }
 
@@ -1038,8 +1008,6 @@ int main(int argc, char** argv) {
         print_help();
         return 0;
     }
-
-    if (dist_flag) out_flag = true;
 
     std::vector<Point> stream;
     // Determine repo_root once (used for input/output/frechet). Try executable directory upward.
@@ -1054,20 +1022,18 @@ int main(int argc, char** argv) {
         }
         return {};
     };
+    // search from the executable
     try {
         repo_root = find_repo_root(argv[0], 5);
-    } catch (const std::filesystem::filesystem_error&) {
-        // argv[0] may be unresolvable; fall through to cwd.
-    }
-    if (repo_root.empty()) {
-        repo_root = find_repo_root(std::filesystem::current_path(), 5);
-        if (repo_root.empty()) {
-            // Last resort: use cwd as-is even without a `data/` subdir.
-            repo_root = std::filesystem::current_path();
+    } catch (const std::filesystem::filesystem_error& e) {
+        try {
+            repo_root = find_repo_root(std::filesystem::current_path(), 5);
+        } catch (const std::filesystem::filesystem_error& fallback_error) {
+            std::cerr << "Error: could not resolve the data directory: " << fallback_error.what() << "\n";
+            return 1;
         }
     }
     if (test_case_no != -1) {
-        // Prefer original in data/<id>/original.txt; fallback to data/taxi/<id>.txt
         auto simp_orig = repo_root / "data" / std::to_string(test_case_no) / "original.txt";
         std::ifstream fin(simp_orig.string());
         if (!fin) { std::cerr << "Cannot open " << simp_orig.string() << "\n"; return 1; }
@@ -1086,22 +1052,7 @@ int main(int argc, char** argv) {
     if (gui_flag) {
         vptr = &viewer;
         viewer.setParameters(DELTA, EPSILON);
-        viewer.setShowLabels(showLabels);
-        viewer.setPadFraction(pad_frac);
-        viewer.setVShift(vshift);
-        // Freeze the view to the full input stream extent so the canvas
-        // does not re-zoom as points stream in during simplification.
-        if (!stream.empty()) {
-            double mn_x =  1e300, mn_y =  1e300;
-            double mx_x = -1e300, mx_y = -1e300;
-            for (const auto& p : stream) {
-                double x = CGAL::to_double(p.x());
-                double y = CGAL::to_double(p.y());
-                if (x < mn_x) mn_x = x; if (x > mx_x) mx_x = x;
-                if (y < mn_y) mn_y = y; if (y > mx_y) mx_y = y;
-            }
-            viewer.setDataBBox(mn_x, mn_y, mx_x, mx_y);
-        }
+        viewer.setShowLabels(false);
         viewer.show();
     }
 
@@ -1115,23 +1066,17 @@ int main(int argc, char** argv) {
     }
     print_timing_summary();
 
-    // Optional output
     if (out_flag) {
-        if (test_case_no == -1) {
-            std::cerr << "--out requires --in <id> to determine output location\n";
-        } else {
-            std::filesystem::path dir = repo_root / "data" / std::to_string(test_case_no);
-            std::filesystem::create_directories(dir);
-            
-            // simplify_*.txt only
-            std::ofstream simp(dir / "simplify.txt");
-            std::size_t N = stream.size();
-            simp << N << '\n';
-            for (const auto& p : stream) {
-                simp << CGAL::to_double(p.x()) << ' ' << CGAL::to_double(p.y()) << '\n';
-            }
-            simp.close();
+        std::filesystem::path dir = repo_root / "data" / std::to_string(test_case_no);
+        std::filesystem::create_directories(dir);
+        
+        std::ofstream simp(dir / "simplify.txt");
+        std::size_t N = stream.size();
+        simp << N << '\n';
+        for (const auto& p : stream) {
+            simp << CGAL::to_double(p.x()) << ' ' << CGAL::to_double(p.y()) << '\n';
         }
+        simp.close();
         std::cout << "Output Written\n";
     }
 
@@ -1140,13 +1085,10 @@ int main(int argc, char** argv) {
         gui_result = app.exec();
     }
 
-    // Run distance computation only after GUI is closed (or immediately if no GUI)
     if (dist_flag && test_case_no != -1) {
         std::filesystem::path frechet_path = repo_root / "scripts" / "frechet";
-        // Quote the path to handle spaces (e.g., "Mobile Documents") and pass explicit args
         std::string cmd1 = std::string("\"") + frechet_path.string() + "\" --in " + std::to_string(test_case_no) + " --path \"" + (repo_root / "data" / std::to_string(test_case_no) / "simplify.txt").string() + "\"";
         int rc = std::system(cmd1.c_str());
-        (void)rc;
     }
 
     return gui_result;

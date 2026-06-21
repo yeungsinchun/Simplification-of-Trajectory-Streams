@@ -52,21 +52,6 @@ public:
 
     void setParameters(double delta, double epsilon);
     void setShowLabels(bool show);
-    // Set the data-bbox padding as a fraction of the larger data extent.
-    // Default 0.08 (8%). Larger values push the data away from the canvas edges.
-    void setPadFraction(double frac) { pad_frac_ = frac; update(); }
-    double padFraction() const { return pad_frac_; }
-
-    // Vertical shift of the canvas in pixels. Positive value moves the
-    // data upward on screen (gives more room at the bottom). Default 0.
-    void setVShift(int px) { vshift_ = px; update(); }
-    int vShift() const { return vshift_; }
-
-    // Freeze the view extent to the supplied data bounding box. When frozen,
-    // subsequent add*() calls do not affect the visible region — useful when
-    // the data streams in incrementally and we don't want the canvas to
-    // re-zoom on every repaint. Pass NaNs to unfreeze (revert to dynamic).
-    void setDataBBox(double minx, double miny, double maxx, double maxy);
     bool isViewFrozen() const { return view_frozen_; }
 
     // mark a special reference point (p0) for debugging/visualization
@@ -95,14 +80,9 @@ private:
     double delta_   = std::numeric_limits<double>::quiet_NaN();
     double epsilon_ = std::numeric_limits<double>::quiet_NaN();
     bool showLabels_ = false;
-    double pad_frac_ = 0.08;
-    int    vshift_   = 0;
 
-    // Frozen view extent. When view_frozen_ is true, paintEvent uses
-    // these values instead of recomputing from the data each frame.
+    // Frozen view extent (kept for API compatibility).
     bool   view_frozen_ = false;
-    double frozen_minx_ = 0, frozen_miny_ = 0;
-    double frozen_maxx_ = 0, frozen_maxy_ = 0;
 
     // Optional marked p0 for debugging
     std::optional<Point> marked_p0_;
@@ -119,8 +99,6 @@ private:
     // Index into the legend entries in the same order they are drawn:
     //   [-2] original, [-1] simplified, [0..N-1] curves.
     std::vector<QRect> legend_rects_;
-
-    void compute_bbox(double& minx,double& miny,double& maxx,double& maxy) const;
 };
 
 // process pending GUI events (call after adding points for incremental display)
