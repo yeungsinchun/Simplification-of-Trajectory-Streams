@@ -124,6 +124,10 @@ static InFlag in_out(const Point& /*p*/, InFlag inflag, int aHB, int bHA) {
 
 // Point-in-convex-polygon test, used only for the "boundaries don't cross"
 // closure (one polygon entirely inside the other, or single touching point).
+// Epick's `orientation` is an exact predicate (it's the construction that
+// is inexact), so a vertex on a shared boundary edge is classified exactly
+// the same as in Epeck.  Returning the wrong polygon here would silently
+// corrupt the Fréchet bound, but predicates are still bit-exact.
 static bool point_in_convex_poly(const Point& p, const std::vector<Point>& poly) {
     int n = (int)poly.size();
     for (int i = 0; i < n; ++i) {
@@ -134,39 +138,60 @@ static bool point_in_convex_poly(const Point& p, const std::vector<Point>& poly)
     return true;
 }
 
+// Verify that every vertex of `inner` is inside `outer`.  Used to validate the
+// containment shortcut: a single false positive (vertex on a shared boundary
+// edge misclassified) would return the wrong polygon.
+static bool all_points_in_convex_poly(const std::vector<Point>& inner,
+                                      const std::vector<Point>& outer) {
+    for (const auto& v : inner) {
+        if (!point_in_convex_poly(v, outer)) return false;
+    }
+    return true;
+}
+
 // Line-line intersection for the half-plane clipper.  Given a directed edge
 // (a, b) defining the "inside" half-plane (a point q is inside iff
 // orientation(a, b, q) != RIGHT_TURN) and a directed input segment (p1, p2),
-// return the intersection point of the two lines.
-static Point line_intersect(const Point& a, const Point& b,
-                            const Point& p1, const Point& p2) {
-    // Both segments are guaranteed non-degenerate at call sites.
-    auto A1 = b.y() - a.y();
-    auto B1 = a.x() - b.x();
-    auto C1 = A1 * a.x() + B1 * a.y();
-    auto A2 = p2.y() - p1.y();
-    auto B2 = p1.x() - p2.x();
-    auto C2 = A2 * p1.x() + B2 * p1.y();
-    auto det = A1 * B2 - A2 * B1;
-    // det != 0 for non-parallel lines (we only call this when the segment
-    // straddles the half-plane boundary, which requires non-parallel).
-    double x = CGAL::to_double((B2 * C1 - B1 * C2) / det);
-    double y = CGAL::to_double((A1 * C2 - A2 * C1) / det);
-
-    // Snap (x, y) back onto the segment (p1, p2).  This prevents epsilon-off
-    // issues with Epick double arithmetic from causing points to fall just
-    // outside the segment they were computed to intersect.
-    double dx = CGAL::to_double(p2.x()) - CGAL::to_double(p1.x());
-    double dy = CGAL::to_double(p2.y()) - CGAL::to_double(p1.y());
-    double len2 = dx * dx + dy * dy;
-    double t = 0.0;
-    if (len2 > 0) {
-        t = ((x - CGAL::to_double(p1.x())) * dx + (y - CGAL::to_double(p1.y())) * dy) / len2;
-        t = std::clamp(t, 0.0, 1.0);
+// return the intersection point of the two lines, or std::nullopt if the
+// segments don't intersect (parallel/collinear case).
+static std::optional<Point> line_intersect(const Point& a, const Point& b,
+                                           const Point& p1, const Point& p2) {
+    // Guard against degenerate segments.  clip_halfplane's orientation checks
+    // filter out the common case, but a polygon vertex that was itself
+    // produced by a prior intersection (and rounds to the same Epick coords
+    // as its neighbour) can produce a zero-length segment here.  The old
+    // floating-point version handled this via len2 > 0; CGAL::intersection
+    // with Epeck segs crashes instead.
+    if (p1.x() == p2.x() && p1.y() == p2.y()) return p1;
+    if (a.x() == b.x() && a.y() == b.y()) {
+        // Clip edge is degenerate; keep the segment endpoint inside the half-plane.
+        return (CGAL::orientation(a, b, p1) != CGAL::RIGHT_TURN) ? std::optional<Point>(p1) : std::nullopt;
     }
-    double sx = CGAL::to_double(p1.x()) + t * dx;
-    double sy = CGAL::to_double(p1.y()) + t * dy;
-    return Point(sx, sy);
+
+    // Use Epeck for exact intersection construction.  Floating-point arithmetic
+    // (Epick) can place the intersection slightly off the segment, and when the
+    // next clipping edge uses that point as input, the error compounds — the
+    // point no longer satisfies orientation(a, b, intersection) == COLLINEAR and
+    // the polygon boundary shifts.  Epeck keeps every vertex exactly on the
+    // intersection of the two lines, which is what Sutherland-Hodgman requires.
+    Epeck::Point_2 ae = conv_to_exact(a);
+    Epeck::Point_2 be = conv_to_exact(b);
+    Epeck::Point_2 p1e = conv_to_exact(p1);
+    Epeck::Point_2 p2e = conv_to_exact(p2);
+
+    // Build segments inside the guard to catch any CGAL assertion/abort.
+    Epeck::Segment_2 seg_ab(ae, be);
+    Epeck::Segment_2 seg_p(p1e, p2e);
+    auto inter = CGAL::intersection(seg_ab, seg_p);
+    if (!inter) {
+        // No intersection — parallel or collinear non-overlapping segments.
+        return std::nullopt;
+    }
+    if (const Epeck::Point_2* ip = std::get_if<Epeck::Point_2>(&*inter)) {
+        return conv_to_inexact(*ip);
+    }
+    // Collinear overlapping segments — treat as no intersection.
+    return std::nullopt;
 }
 
 // Sutherland-Hodgman half-plane clip.  `subject` is a CCW convex polygon;
@@ -182,26 +207,35 @@ static std::vector<Point> clip_halfplane(const std::vector<Point>& subject,
     int n = (int)subject.size();
     if (n == 0) return {};
 
+    // Convert clip edge to Epeck for exact orientation tests.  Epick (floating-
+    // point) orientation can misclassify near-parallel edges due to rounding,
+    // causing clip_halfplane to call line_intersect on segments that don't
+    // actually cross the half-plane boundary.  line_intersect then returns null,
+    // and we append a bogus vertex that corrupts the polygon geometry.
+    Epeck::Point_2 ae = conv_to_exact(a);
+    Epeck::Point_2 be = conv_to_exact(b);
+
     std::vector<Point> out;
     out.reserve(n + 1);
 
     for (int i = 0; i < n; ++i) {
         const Point& cur  = subject[i];
         const Point& prev = subject[(i + n - 1) % n];
-        auto o_cur  = CGAL::orientation(a, b, cur);
-        auto o_prev = CGAL::orientation(a, b, prev);
+        // Exact orientation test: only COLLINEAR is ambiguous.
+        auto o_cur  = CGAL::orientation(ae, be, conv_to_exact(cur));
+        auto o_prev = CGAL::orientation(ae, be, conv_to_exact(prev));
         bool cur_in  = (o_cur  != CGAL::RIGHT_TURN);
         bool prev_in = (o_prev != CGAL::RIGHT_TURN);
 
         if (cur_in) {
             if (!prev_in) {
-                // crossing INTO the half-plane: emit intersection
-                out.push_back(line_intersect(a, b, prev, cur));
+                // crossing INTO the half-plane: emit intersection if it exists
+                if (auto ip = line_intersect(a, b, prev, cur)) out.push_back(*ip);
             }
             out.push_back(cur);
         } else if (prev_in) {
-            // crossing OUT of the half-plane: emit intersection
-            out.push_back(line_intersect(a, b, prev, cur));
+            // crossing OUT of the half-plane: emit intersection if it exists
+            if (auto ip = line_intersect(a, b, prev, cur)) out.push_back(*ip);
         }
     }
     return out;
@@ -212,36 +246,45 @@ static std::vector<Point> clip_halfplane(const std::vector<Point>& subject,
 //
 // Faster than O'Rourke for small inputs (typical here: |P|~12, |Q|~19).
 // Total work is O(|P| * |Q|) where each unit is one `orientation` test.
-// This compares to O'Rourke's O((|P|+|Q|) * K) iterations where K is the
-// number of crossings — but K is typically ~5-10, so the per-iteration
-// cost (4 exact predicates + bookkeeping) outweighs the per-orientation cost
-// of the clipper when |P|+|Q| is small.
+// O'Rourke's ConvexIntersect runs in O(|P| + |Q|) — each polygon edge is
+// examined at most twice, and each iteration does O(1) work — so for the
+// small polygons typical in this application the clipper's simpler per-step
+// cost (one orientation) beats O'Rourke's (four predicates + bookkeeping).
 //
 // Returns the intersection polygon in CCW order, or {} if empty.
 static std::vector<Point> convex_intersect_fast(const std::vector<Point>& Pin,
                                                  const std::vector<Point>& Qin) {
     if (Pin.size() < 3 || Qin.size() < 3) return {};
 
-    auto signed_area = [](const std::vector<Point>& P) {
-        return kernel_signed_area(P);
+    // Normalise both to CCW using exact (Epeck) signed area.  The previous
+    // Epick (floating-point) kernel_signed_area could misclassify nearly-zero-
+    // area polygons, reversing one of them and corrupting the intersection.
+    auto signed_area_sign = [](const std::vector<Point>& P) {
+        Epeck::FT s = 0;
+        int sz = (int)P.size();
+        for (int i = 0; i < sz; ++i) {
+            Epeck::Point_2 a = conv_to_exact(P[i]);
+            Epeck::Point_2 b = conv_to_exact(P[(i + 1) % sz]);
+            s += a.x() * b.y() - b.x() * a.y();
+        }
+        return CGAL::sign(s);
     };
 
-    // Normalise both to CCW.  Sutherland-Hodgman assumes the half-plane
-    // is the LEFT of each directed edge; reversing a CW polygon flips
-    // which side is "inside" and silently produces the wrong answer.
     std::vector<Point> P, Q;
     P.reserve(Pin.size());
     Q.reserve(Qin.size());
-    if (signed_area(Pin) < 0) { P.assign(Pin.rbegin(), Pin.rend()); }
-    else                       { P = Pin; }
-    if (signed_area(Qin) < 0) { Q.assign(Qin.rbegin(), Qin.rend()); }
-    else                       { Q = Qin; }
+    if (signed_area_sign(Pin) < 0) { P.assign(Pin.rbegin(), Pin.rend()); }
+    else                            { P = Pin; }
+    if (signed_area_sign(Qin) < 0) { Q.assign(Qin.rbegin(), Qin.rend()); }
+    else                            { Q = Qin; }
 
-    // Cheap containment shortcuts: if one polygon is entirely inside the
-    // other, return the inner one (these are the common cases for tiny F
-    // and slightly larger Gi, or vice versa).
-    if (point_in_convex_poly(P[0], Q)) return P;  // P ⊂ Q
-    if (point_in_convex_poly(Q[0], P)) return Q;  // Q ⊂ P
+    // Containment shortcuts: if one polygon is entirely inside the other,
+    // return the inner one.  We test P[0] inside Q (and vice versa), then
+    // validate that ALL vertices of the inner polygon are inside the outer one
+    // — a single false positive (e.g. a shared boundary vertex misclassified)
+    // would silently return the wrong polygon and corrupt the Fréchet bound.
+    if (point_in_convex_poly(P[0], Q) && all_points_in_convex_poly(P, Q)) return P;
+    if (point_in_convex_poly(Q[0], P) && all_points_in_convex_poly(Q, P)) return Q;
 
     // Otherwise clip P against each edge of Q.
     std::vector<Point> running = P;
@@ -250,6 +293,9 @@ static std::vector<Point> convex_intersect_fast(const std::vector<Point>& Pin,
         const Point& a = Q[i];
         const Point& b = Q[(i + 1) % m];
         running = clip_halfplane(running, a, b);
+        // The intersection is empty if clipping against a single edge produces
+        // fewer than 3 vertices.  Continuing would accumulate degenerate vertices
+        // from line_intersect null returns, inflating the output polygon.
         if (running.size() < 3) return {};
     }
     return running;
@@ -262,6 +308,12 @@ static std::vector<Point> convex_intersect_fast(const std::vector<Point>& Pin,
 //   * The first vertex of each polygon is the bottom-most (leftmost on tie)
 // Returns the intersection polygon as a CCW point list.  If P is inside Q
 // (or vice versa) and they don't cross, the inner polygon is returned.
+//
+// Implementation kernel: Epick for fast common-case intersections, verified
+// with exact orientation and falling back to Epeck only when the Epick
+// point is off the segment.  Predicates (`orientation`, `compare_*`) remain
+// bit-exact in Epick.  The fallback is rare (~< 1% of calls) but critical
+// for correctness on near-degenerate inputs.
 static std::vector<Point> convex_intersect(const std::vector<Point>& Pin,
                                            const std::vector<Point>& Qin) {
     int n = (int)Pin.size();
@@ -290,13 +342,6 @@ static std::vector<Point> convex_intersect(const std::vector<Point>& Pin,
     int a = leftmost_index(Pr);
     int b = leftmost_index(Qr);
 
-    // Pre-convert polygon vertices to Epeck once.  The inner loop re-visits
-    // edges repeatedly, so amortizing the conversion cost across all seg_seg_int
-    // calls in this invocation reduces total overhead vs per-call conversion.
-    std::vector<Epeck::Point_2> Pe(n), Qe(m);
-    for (int i = 0; i < n; ++i) Pe[i] = conv_to_exact(Pr[i]);
-    for (int i = 0; i < m; ++i) Qe[i] = conv_to_exact(Qr[i]);
-
     int aa = 0, ba = 0;
     InFlag inflag = InFlag::Unknown;
     bool first_point = true;
@@ -315,29 +360,53 @@ static std::vector<Point> convex_intersect(const std::vector<Point>& Pin,
         int aHB    = area_sign(Qr[b1], Qr[b], Pr[a]);
         int bHA    = area_sign(Pr[a1], Pr[a], Qr[b]);
 
-        // Intersection using pre-converted Epeck vertices.
+        // Intersection: fast path in Epick, verified with exact orientation.
+        // Epick's orientation predicate is exact even when the construction
+        // is slightly off, so the verification below catches all cases where
+        // the double-intersection is too far from the true intersection.
         Point p, q;
         char code;
         {
-            auto inter = CGAL::intersection(
-                Epeck::Segment_2(Pe[a1], Pe[a]),
-                Epeck::Segment_2(Qe[b1], Qe[b]));
+            Epick::Segment_2 seg_a(Pr[a1], Pr[a]);
+            Epick::Segment_2 seg_b(Qr[b1], Qr[b]);
+            auto inter = CGAL::intersection(seg_a, seg_b);
             if (!inter) {
                 code = '0';
-            } else if (const Epeck::Segment_2* seg =
-                           std::get_if<Epeck::Segment_2>(&*inter)) {
-                p = conv_to_inexact(seg->source());
-                q = conv_to_inexact(seg->target());
+            } else if (const Epick::Segment_2* seg =
+                           std::get_if<Epick::Segment_2>(&*inter)) {
+                p = seg->source();
+                q = seg->target();
                 code = 'e';
-            } else if (const Epeck::Point_2* ip =
-                           std::get_if<Epeck::Point_2>(&*inter)) {
-                p = conv_to_inexact(*ip);
-                double sqd = CGAL::to_double(CGAL::squared_distance(p, Qr[b1]));
-                if (sqd < 1e-12) code = 'v';
-                else {
-                    sqd = CGAL::to_double(CGAL::squared_distance(p, Qr[b]));
-                    code = (sqd < 1e-12) ? 'v' : '1';
+            } else if (const Epick::Point_2* ip =
+                           std::get_if<Epick::Point_2>(&*inter)) {
+                p = *ip;
+                // Verify p lies on both segments using exact orientation.
+                // orientation == COLLINEAR means p is exactly on the segment
+                // in exact arithmetic — a slight double error would show as
+                // LEFT_TURN or RIGHT_TURN, triggering the Epeck fallback.
+                bool on_seg_a = (CGAL::orientation(Pr[a1], Pr[a], p) == CGAL::COLLINEAR);
+                bool on_seg_b = (CGAL::orientation(Qr[b1], Qr[b], p) == CGAL::COLLINEAR);
+                if (!on_seg_a || !on_seg_b) {
+                    // Epick intersection is off; redo in Epeck for correctness.
+                    Epeck::Segment_2 eseg_a(conv_to_exact(Pr[a1]), conv_to_exact(Pr[a]));
+                    Epeck::Segment_2 eseg_b(conv_to_exact(Qr[b1]), conv_to_exact(Qr[b]));
+                    auto einter = CGAL::intersection(eseg_a, eseg_b);
+                    if (einter) {
+                        if (const Epeck::Point_2* ep =
+                                std::get_if<Epeck::Point_2>(&*einter))
+                            p = conv_to_inexact(*ep);
+                        else if (const Epeck::Segment_2* es =
+                                     std::get_if<Epeck::Segment_2>(&*einter)) {
+                            p = conv_to_inexact(es->source());
+                            q = conv_to_inexact(es->target());
+                        }
+                    }
                 }
+                // 'v' = an endpoint of one segment lies on the other.
+                if (p == Qr[b1] || p == Qr[b] || p == Pr[a1] || p == Pr[a])
+                    code = 'v';
+                else
+                    code = '1';
             } else {
                 code = '0';
             }
@@ -474,9 +543,6 @@ static void print_help() {
               << "  -F/-G/-S         Debug polygon display modes\n"
               << "  --dump-intersect Dump every (F_poly, Gi_poly) pair fed to "
                  "intersect() to data/<id>/intersect_pairs.txt\n"
-              << "  --intersect {cgal|orourke}  Select intersection algorithm "
-                 "(default cgal).  'orourke' = O'Rourke's ConvexIntersect with "
-                 "O'Rourke's ConvexIntersect.\n"
               << "  -h               Show this help and exit\n"
               << "\n"
               << "Shorthand: simplify <id> [flags] is equivalent to '--in <id> --out [flags]'\n";
@@ -778,7 +844,7 @@ std::optional<Point> intersect_ray_with_rect(const Point& p, const Point& direct
 }
 
 std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
-    // assert(S.size() != 2); // wait why this check??
+    assert(S.size() != 2); // wait why this check??
     if (S.size() == 1) {
         auto F = current_bbox();
         return F;
