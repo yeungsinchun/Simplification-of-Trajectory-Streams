@@ -525,7 +525,7 @@ extern const double BMAX = 10000;
 double DELTA = 200;
 double EPSILON = 0.6;
 
-double GRID_val() { return EPSILON * DELTA / (2 * SQRT2); }
+double GRID_val() { return EPSILON * DELTA / SQRT2; }
 
 double R_val() { return (1.0 + EPSILON / 2.0) * DELTA; }
 
@@ -744,24 +744,6 @@ static void for_each_grid_row(double px, double py, F &&f) {
     }
 }
 
-std::vector<Point> get_conv_from_grid(const Point &p) {
-    const double px = CGAL::to_double(p.x());
-    const double py = CGAL::to_double(p.y());
-    const double GRID = GRID_val();
-    std::vector<Point> boundaries;
-    for_each_grid_row(px, py, [&](double px_, double py_,
-                                  double y_actual, int x_min, int x_max) {
-        boundaries.emplace_back(px_ + x_min * GRID, py_ + y_actual);
-        if (x_max != 0)  // avoid duplicating the rightmost of the previous row
-            boundaries.emplace_back(px_ + x_max * GRID, py_ + y_actual);
-    });
-    std::vector<Point> conv;
-    // O(n log n) hull; here h = O(n) so the asymptotic gain is modest.
-    CGAL::convex_hull_2(boundaries.begin(), boundaries.end(),
-                        std::back_inserter(conv));
-    return conv;
-}
-
 double expected_frechet = 0;
 
 std::vector<Point> get_points_from_grid(const Point &p) {
@@ -771,15 +753,50 @@ std::vector<Point> get_points_from_grid(const Point &p) {
     if (DELTA == 0) {
         return std::vector<Point>{p};
     }
+    
+    const double r = R_val();
+    const double r2 = r * r;
+    const double r2_eps = r2 * (1.0 + 1e-9);  // small tolerance for boundary cases
+    
+    // Determine the range of cells that could potentially stab the disk
+    const int j_min = static_cast<int>(std::floor(-r / GRID)) - 1;
+    const int j_max = static_cast<int>(std::ceil(r / GRID)) + 1;
+    const int k_min = j_min;
+    const int k_max = j_max;
+    
+    // Lambda to check if a cell (j, k) stabs the disk (center within radius r)
+    auto cell_stabs = [&](int j, int k) -> bool {
+        double cx = (j + 0.5) * GRID;  // cell center in local coords
+        double cy = (k + 0.5) * GRID;
+        return (cx * cx + cy * cy) <= r2_eps;
+    };
+    
     std::vector<Point> points;
-    for_each_grid_row(px, py, [&](double px_, double py_,
-                                  double y_actual, int x_min, int x_max) {
-        for (int x = x_min; x <= x_max; x++) {
-            points.emplace_back(px_ + x * GRID, py_ + y_actual);
-            expected_frechet = std::max(expected_frechet, CGAL::to_double(CGAL::squared_distance(p, points.back())));
+    
+    // For each potential corner, check if any of the 4 adjacent cells stab the disk
+    for (int j = j_min; j <= j_max; ++j) {
+        for (int k = k_min; k <= k_max; ++k) {
+            // Check if any of the 4 cells sharing corner (j, k) stab the disk:
+            // Cells: (j-1, k-1), (j, k-1), (j-1, k), (j, k)
+            if (cell_stabs(j-1, k-1) || cell_stabs(j, k-1) || 
+                cell_stabs(j-1, k) || cell_stabs(j, k)) {
+                Point corner(px + j * GRID, py + k * GRID);
+                points.push_back(corner);
+                expected_frechet = std::max(expected_frechet, 
+                    CGAL::to_double(CGAL::squared_distance(p, corner)));
+            }
         }
-    });
+    }
+    
     return points;
+}
+
+std::vector<Point> get_conv_from_grid(const Point &p) {
+    // Use get_points_from_grid to get all corners, then compute convex hull
+    std::vector<Point> points = get_points_from_grid(p);
+    std::vector<Point> conv;
+    CGAL::convex_hull_2(points.begin(), points.end(), std::back_inserter(conv));
+    return conv;
 }
 
 // Find the two tangent indices of p with respect to convex polygon S.
