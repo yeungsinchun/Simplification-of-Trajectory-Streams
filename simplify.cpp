@@ -506,6 +506,25 @@ static void intersect(const Polygon& subject, const Polygon& clip,
     *result++ = Polygon_with_holes(inter_poly);
 }
 
+// Direct vector<Point> overload — eliminates the copy_verts round-trip when
+// the caller already has vector<Point> (F from find_F, Gi from get_conv_from_grid).
+static void intersect(const std::vector<Point>& P_verts, const std::vector<Point>& Q_verts,
+                        std::back_insert_iterator<std::vector<Polygon_with_holes>> result) {
+    std::vector<Point> verts;
+    {
+        TIMER("convex_intersect");
+        verts = orourke_cgal::convex_intersect(P_verts, Q_verts);
+    }
+    if (verts.size() < 4) return;
+    if (verts.front() == verts.back())
+        verts.pop_back();
+
+    Polygon inter_poly(verts.begin(), verts.end());
+    if (!inter_poly.is_simple()) return;
+    if (inter_poly.is_clockwise_oriented()) inter_poly.reverse_orientation();
+    *result++ = Polygon_with_holes(inter_poly);
+}
+
 bool showF = false; // true if -F is passed
 bool showG = false; // true if -G is passed
 bool showS = false; // true if -S is passed
@@ -941,6 +960,7 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
     std::vector<std::vector<Point>> S(P.size(), std::vector<Point>{p0});
     int dead_cnt = 0;
     std::vector<int> dead(P.size());
+    std::vector<std::vector<Polygon_with_holes>> new_S(P.size());
     cur++;
     while (cur < int(stream.size())) {
         const Point& pi  = stream[cur];
@@ -949,25 +969,20 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
             TIMER("get_conv_from_grid");
             Gi = get_conv_from_grid(pi);
         }
-        std::vector<std::vector<Polygon_with_holes>> new_S(P.size());
+        
         for (int i = 0; i < int(P.size()); i++) {
             if (dead[i]) {
                 continue;
             }
+            new_S[i].clear();
+            
             std::vector<Point> F;
-            Polygon F_poly, Gi_poly, S_poly;
             {
                 TIMER("find_F");
                 F = find_F(P[i], S[i]);
             }
-            {
-                TIMER("polygon_construction");
-                F_poly = Polygon(F.begin(), F.end());
-                Gi_poly = Polygon(Gi.begin(), Gi.end());
-                S_poly = Polygon(S[i].begin(), S[i].end());
-            }
 
-            if (i == 0) {
+            if (i == 0 && viewer) {
                 const QColor stepColors[] = {
                     Qt::red,
                     Qt::blue,
@@ -976,17 +991,24 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
                     Qt::cyan
                 };
                 QColor c = stepColors[cur % 6];
-                if (viewer) {
-                    TIMER("gui_update");
-                    if (showF) viewer->addPolygon(F_poly, c);
-                    if (showG) viewer->addPolygon(Gi_poly, c);
-                    if (showS) viewer->addPolygon(S_poly, c);
+                TIMER("gui_update");
+                if (showF) {
+                    Polygon F_poly(F.begin(), F.end());
+                    viewer->addPolygon(F_poly, c);
+                }
+                if (showG) {
+                    Polygon Gi_poly(Gi.begin(), Gi.end());
+                    viewer->addPolygon(Gi_poly, c);
+                }
+                if (showS) {
+                    Polygon S_poly(S[i].begin(), S[i].end());
+                    viewer->addPolygon(S_poly, c);
                 }
             }
 
             {
                 TIMER("intersect");
-                intersect(F_poly, Gi_poly, back_inserter(new_S[i]));
+                intersect(F, Gi, back_inserter(new_S[i]));
             }
 
             if (new_S[i].size() == 0) {
