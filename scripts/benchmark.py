@@ -5,7 +5,7 @@ Benchmark script to compare simplify against DP, DOTS, and SQUISH.
 For each baseline algorithm:
 1. Run the algorithm on original.txt
 2. Compute Frechet distance (original vs algo output)
-3. For e in {0.5, 0.7, 0.9}:
+3. For e in {0.5, 0.666, 1.0}:
    - d = frechet_dist / (1 + e)
    - Run simplify with delta=d, epsilon=e
    - Save output to data/<id>/<BASELINE>_against_simplify.txt
@@ -34,14 +34,14 @@ from typing import Optional, Tuple
 
 import psutil
 
-REPO_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = Path(__file__).resolve().parent.parent
 DP_TOOL = REPO_ROOT / "release" / "DP"
 SIMPLIFY = REPO_ROOT / "./release" / "simplify"
 DOTS_BIN = REPO_ROOT / "release" / "DOTS"
 SQUISH_BIN = REPO_ROOT / "release" / "SQUISH"
 FRECHET = REPO_ROOT / "scripts" / "frechet"
 DATA_DIR = REPO_ROOT / "data"
-EPS_VALUES = [0.7, 0.8, 0.9]
+EPS_VALUES = [0.5, 0.666, 1.0]
 SQUISH_BUFFER = 0.1
 OUTPUT_CSV = REPO_ROOT / "compare_points.csv"
 
