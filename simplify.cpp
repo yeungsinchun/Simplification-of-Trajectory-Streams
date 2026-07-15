@@ -19,7 +19,7 @@
 // ===========================================================================
 
 double DELTA = 200;
-double EPSILON = 0.5;
+double EPSILON = 0.6;
 
 bool showF = false; // true if -F is passed
 bool showG = false; // true if -G is passed
@@ -147,7 +147,7 @@ inline void for_each_grid_row(double px, double py, double r, double GRID, F&& f
 }
 
 inline double GRID_val(double EPSILON, double DELTA) {
-    return EPSILON * DELTA / (2 * std::sqrt(2));
+    return EPSILON * DELTA / std::sqrt(2);
 }
 
 inline double R_val(double EPSILON, double DELTA) {

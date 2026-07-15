@@ -380,11 +380,15 @@ inline void intersect(const Polygon& subject, const Polygon& clip,
         Q_verts.push_back(*it);
     }
 
-    std::vector<Point> verts = orourke_cgal::convex_intersect_fast(P_verts, Q_verts);
+    std::vector<Point> verts = orourke_cgal::convex_intersect(P_verts, Q_verts);
     if (verts.size() < 4) return;
     if (verts.front() == verts.back())
         verts.pop_back();
 
+    // The intersection should be convex (hence simple).  But the O'Rourke
+    // main loop can emit kinks / collinear vertices that confuse CGAL's
+    // is_simple_2 check; drop those cases rather than emit a malformed
+    // polygon (which would corrupt the Fréchet bound).
     Polygon inter_poly(verts.begin(), verts.end());
     if (!inter_poly.is_simple()) return;
     if (inter_poly.is_clockwise_oriented()) inter_poly.reverse_orientation();
@@ -393,7 +397,7 @@ inline void intersect(const Polygon& subject, const Polygon& clip,
 
 inline void intersect(const std::vector<Point>& P_verts, const std::vector<Point>& Q_verts,
                       std::back_insert_iterator<std::vector<Polygon_with_holes>> result) {
-    std::vector<Point> verts = orourke_cgal::convex_intersect_fast(P_verts, Q_verts);
+    std::vector<Point> verts = orourke_cgal::convex_intersect(P_verts, Q_verts);
     if (verts.size() < 4) return;
     if (verts.front() == verts.back())
         verts.pop_back();
