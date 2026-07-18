@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstring>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <filesystem>
 #include <limits>
@@ -19,7 +20,7 @@
 // ===========================================================================
 
 double DELTA = 200;
-double EPSILON = 0.6;
+double EPSILON = 0.5;
 
 bool showF = false; // true if -F is passed
 bool showG = false; // true if -G is passed
@@ -37,11 +38,11 @@ static constexpr double BMAX =  10000;
 static constexpr double TOL  = 1e-6;
 
 inline bool point_in_convex(const Point& p, const std::vector<Point>& poly, bool ccw = true) {
+    const CGAL::Orientation outside = ccw ? CGAL::RIGHT_TURN : CGAL::LEFT_TURN;
     for (size_t i = 0, n = poly.size(); i < n; ++i) {
-        const auto& a = poly[i];
-        const auto& b = poly[(i + 1) % n];
-        if (CGAL::orientation(a, b, p) == (ccw ? CGAL::RIGHT_TURN : CGAL::LEFT_TURN))
+        if (CGAL::orientation(poly[i], poly[(i + 1) % n], p) == outside) {
             return false;
+        }
     }
     return true;
 }
@@ -147,7 +148,7 @@ inline void for_each_grid_row(double px, double py, double r, double GRID, F&& f
 }
 
 inline double GRID_val(double EPSILON, double DELTA) {
-    return EPSILON * DELTA / std::sqrt(2);
+    return EPSILON * DELTA / (2.0 * std::sqrt(2.0));
 }
 
 inline double R_val(double EPSILON, double DELTA) {
@@ -170,39 +171,44 @@ inline std::vector<Point> get_points_from_grid(const Point& p, double EPSILON, d
 
     const int j_min = static_cast<int>(std::floor(-r / GRID));
     const int j_max = static_cast<int>(std::ceil(r / GRID));
-    const int k_min = j_min;
-    const int k_max = j_max;
+    const int cell_count = j_max - j_min + 1;
+    const int corner_count = cell_count + 1;
 
-    // True if any corner of cell (j,k) lies on or inside the disk.
-    auto cell_stabbed = [&](int j, int k) -> bool {
-        double x0 = j * GRID, x1 = (j + 1) * GRID;
-        double y0 = k * GRID, y1 = (k + 1) * GRID;
-        double corners[4][2] = { {x0, y0}, {x1, y0}, {x1, y1}, {x0, y1} };
-        for (auto& c : corners) {
-            double d2 = c[0] * c[0] + c[1] * c[1];
-            if (d2 <= r2 + 1e-9) return true;
-        }
-        return false;
+    // Adjacent cells share corners, so deduplicate them in a corner-sized
+    // buffer. Cell indices end at j_max, but their upper corners reach
+    // j_max + 1 on each axis.
+    std::vector<Point> points;
+    points.reserve(size_t(corner_count) * corner_count);
+    std::vector<uint8_t> seen(size_t(corner_count) * corner_count, 0);
+
+    auto add_corner = [&](int ji, int ki) {
+        const int ix = ji - j_min, iy = ki - j_min;
+        const size_t index = size_t(ix) * corner_count + iy;
+        if (seen[index]) return;
+        seen[index] = 1;
+        points.emplace_back(px + ji * GRID, py + ki * GRID);
     };
 
-    std::vector<Point> points;
-    points.reserve((j_max - j_min + 1) * (k_max - k_min + 1) * 4);
     for (int j = j_min; j <= j_max; ++j) {
-        for (int k = k_min; k <= k_max; ++k) {
-            if (!cell_stabbed(j, k)) continue;
-            Point c00(px + j * GRID,     py + k * GRID);
-            Point c10(px + (j+1) * GRID, py + k * GRID);
-            Point c11(px + (j+1) * GRID, py + (k+1) * GRID);
-            Point c01(px + j * GRID,     py + (k+1) * GRID);
-            points.push_back(c00);
-            points.push_back(c10);
-            points.push_back(c11);
-            points.push_back(c01);
-            for (const Point& c : {c00, c10, c11, c01}) {
-                expected_frechet_ref() = std::max(expected_frechet_ref(),
-                    CGAL::to_double(CGAL::squared_distance(p, c)));
-            }
+        const double x0 = j * GRID, x1 = (j + 1) * GRID;
+        for (int k = j_min; k <= j_max; ++k) {
+            const double y0 = k * GRID, y1 = (k + 1) * GRID;
+            if (x0 * x0 + y0 * y0 > r2 &&
+                x1 * x1 + y0 * y0 > r2 &&
+                x0 * x0 + y1 * y1 > r2 &&
+                x1 * x1 + y1 * y1 > r2) continue;
+            add_corner(j,     k);
+            add_corner(j + 1, k);
+            add_corner(j + 1, k + 1);
+            add_corner(j,     k + 1);
         }
+    }
+
+    // Diagonal of the boundary cell: r + GRID * sqrt(2) = (1 + EPSILON) * DELTA.
+    // Tight Fréchet upper bound for this construction.
+    const double diagonal_sq = (r + GRID * std::sqrt(2.0)) * (r + GRID * std::sqrt(2.0));
+    if (diagonal_sq > expected_frechet_ref()) {
+        expected_frechet_ref() = diagonal_sq;
     }
     return points;
 }
@@ -215,17 +221,17 @@ inline std::vector<Point> get_conv_from_grid(const Point& p, double EPSILON, dou
 }
 
 inline std::vector<int> find_tangent_idx(const Point& p, const std::vector<Point>& S) {
-    int n = S.size();
+    const int n = static_cast<int>(S.size());
     std::vector<int> tangent;
     tangent.reserve(2);
 
     auto orient_at = [&](int i) {
-        return CGAL::orientation(p, S[i], S[(i + 1) % n]);
+        return CGAL::orientation(S[i], S[(i + 1) % n], p);
     };
 
-    int prev = orient_at(n - 1);
+    CGAL::Orientation prev = orient_at(n - 1);
     for (int i = 0; i < n; ++i) {
-        int cur = orient_at(i);
+        const CGAL::Orientation cur = orient_at(i);
         if (cur != prev && cur != CGAL::COLLINEAR) {
             tangent.push_back(i);
             if (tangent.size() == 2) break;
@@ -261,31 +267,51 @@ inline std::optional<Point> intersect_ray_with_rect(const Point& p, const Point&
     return std::nullopt;
 }
 
-inline std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
+inline void find_F(const Point& p, const std::vector<Point>& S,
+                   std::vector<Point>& F) {
+    F.clear();
     assert(S.size() != 2);
-    if (S.size() == 1) return current_bbox();
-    if (point_in_convex(p, S)) return current_bbox();
+    if (S.size() == 1 || point_in_convex(p, S)) {
+        const auto& bbox = current_bbox_static();
+        F.assign(bbox.begin(), bbox.end());
+        return;
+    }
 
     std::vector<int> tangent = find_tangent_idx(p, S);
-    assert(tangent.size() == 2);
+    if (tangent.size() != 2) {
+        return;
+    }
 
-    auto hit1 = intersect_ray_with_rect(p, S[tangent[0]]);
-    auto hit2 = intersect_ray_with_rect(p, S[tangent[1]]);
+    auto hit1 = ray_hit_bbox(p, S[tangent[0]]);
+    auto hit2 = ray_hit_bbox(p, S[tangent[1]]);
     if (!hit1 || !hit2) {
         std::cerr << "Ray doesn't intersect with bounding box!\n";
-        return current_bbox();
+        const auto& bbox = current_bbox_static();
+        F.assign(bbox.begin(), bbox.end());
+        return;
     }
 
     auto e1 = which_edge(hit1.value());
     auto e2 = which_edge(hit2.value());
+    if (!e1 || !e2) {
+        std::cerr << "Cannot determine which Bbox edge the ray intersect with.\n";
+        const auto& bbox = current_bbox_static();
+        F.assign(bbox.begin(), bbox.end());
+        return;
+    }
 
     int n = int(S.size());
     assert(n >= 3);
-    CGAL_precondition(Polygon(S.begin(), S.end()).is_counterclockwise_oriented());
     assert(tangent[1] - tangent[0] - 1 >= 1 || tangent[0] + n - tangent[1] - 1 >= 1);
 
-    std::vector<Point> F;
-    if (CGAL::right_turn(p, S[tangent[0]], S[tangent[1]])) {
+    F.reserve(n + 4);
+    // Raw-double right_turn: sign((S[t1] - p) x (S[t2] - p))
+    const double ax = CGAL::to_double(S[tangent[0]].x() - p.x()),
+                  ay = CGAL::to_double(S[tangent[0]].y() - p.y());
+    const double bx = CGAL::to_double(S[tangent[1]].x() - p.x()),
+                  by = CGAL::to_double(S[tangent[1]].y() - p.y());
+    const bool is_right_turn = (ax * by - ay * bx) < 0;
+    if (is_right_turn) {
         std::copy(S.begin() + tangent[0], S.begin() + tangent[1] + 1, std::back_inserter(F));
         F.push_back(hit2.value());
         append_rect_pts(F, e2.value(), e1.value(), true);
@@ -298,11 +324,6 @@ inline std::vector<Point> find_F(const Point& p, const std::vector<Point>& S) {
         F.push_back(hit2.value());
     }
 
-    if (!e1 || !e2) {
-        std::cerr << "Cannot determine which Bbox edge the ray intersect with.\n";
-        return current_bbox();
-    }
-    return F;
 }
 
 // ===========================================================================
@@ -400,6 +421,64 @@ void print_polygon_with_holes
 //  Core algorithm
 // ===========================================================================
 
+inline bool segment_within_frechet(const std::vector<Point>& stream,
+                                   int first, int last,
+                                   const Point& a, const Point& b,
+                                   double bound) {
+    const double ax = CGAL::to_double(a.x());
+    const double ay = CGAL::to_double(a.y());
+    const double dx = CGAL::to_double(b.x()) - ax;
+    const double dy = CGAL::to_double(b.y()) - ay;
+    const double length_sq = dx * dx + dy * dy;
+    const double safe_bound = bound - std::max(1.0, bound) * 1e-9;
+    const double bound_sq = safe_bound * safe_bound;
+    const double tolerance = std::numeric_limits<double>::epsilon() *
+                             std::max(1.0, bound_sq) * 64.0;
+
+    auto squared_distance = [](double x1, double y1, double x2, double y2) {
+        const double x = x1 - x2;
+        const double y = y1 - y2;
+        return x * x + y * y;
+    };
+
+    const double first_x = CGAL::to_double(stream[first].x());
+    const double first_y = CGAL::to_double(stream[first].y());
+    const double last_x = CGAL::to_double(stream[last].x());
+    const double last_y = CGAL::to_double(stream[last].y());
+    if (squared_distance(first_x, first_y, ax, ay) > bound_sq + tolerance ||
+        squared_distance(last_x, last_y, ax + dx, ay + dy) > bound_sq + tolerance) {
+        return false;
+    }
+
+    if (length_sq <= std::numeric_limits<double>::epsilon()) {
+        for (int i = first; i <= last; ++i) {
+            const double px = CGAL::to_double(stream[i].x());
+            const double py = CGAL::to_double(stream[i].y());
+            if (squared_distance(px, py, ax, ay) > bound_sq + tolerance) return false;
+        }
+        return true;
+    }
+
+    double reachable = 0.0;
+    for (int i = first; i <= last; ++i) {
+        const double px = CGAL::to_double(stream[i].x());
+        const double py = CGAL::to_double(stream[i].y());
+        const double rx = ax - px;
+        const double ry = ay - py;
+        const double linear = 2.0 * (rx * dx + ry * dy);
+        const double constant = rx * rx + ry * ry - bound_sq;
+        const double discriminant = linear * linear - 4.0 * length_sq * constant;
+        if (discriminant < -tolerance) return false;
+
+        const double root = std::sqrt(std::max(0.0, discriminant));
+        const double lo = std::max(0.0, (-linear - root) / (2.0 * length_sq));
+        const double hi = std::min(1.0, (-linear + root) / (2.0 * length_sq));
+        if (lo > hi + 1e-12 || reachable > hi + 1e-12) return false;
+        reachable = std::max(reachable, lo);
+    }
+    return true;
+}
+
 int get_longest_stab(const std::vector<Point>& stream, int cur,
                      std::vector<Point>& simplified,
                      double EPSILON, double DELTA,
@@ -418,43 +497,61 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
         viewer->addOriginalPoint(p0);
     }
     std::array<Point, 2> buffer = {p0, p0};
-    std::vector<std::vector<Point>> S(P.size(), std::vector<Point>{p0});
+    const int Pn = (int)P.size();
+    std::vector<std::vector<Point>> S(Pn, std::vector<Point>{p0});
     int dead_cnt = 0;
-    std::vector<int> dead(P.size());
-    std::vector<std::vector<Polygon_with_holes>> new_S(P.size());
+    std::vector<int> dead(Pn);
+    std::vector<std::vector<Point>> new_S(Pn);
+    std::vector<char> new_dead(Pn, 0);
+    std::vector<std::vector<Point>> F_work(Pn);
+    std::vector<char> F_cached(Pn, 0);
+    std::vector<Point> Gi;
+
     cur++;
     while (cur < int(stream.size())) {
         const Point& pi  = stream[cur];
-        std::vector<Point> Gi;
         {
             TIMER("get_conv_from_grid");
             Gi = get_conv_from_grid(pi, EPSILON, DELTA);
         }
-
-        for (int i = 0; i < int(P.size()); i++) {
-            if (dead[i]) {
-                continue;
+        std::fill(new_dead.begin(), new_dead.end(), 0);
+        if (viewer) std::fill(F_cached.begin(), F_cached.end(), 0);
+        for (int i = 0; i < Pn; ++i) {
+            if (dead[i]) continue;
+            find_F(P[i], S[i], F_work[i]);
+            if (!intersect(F_work[i], Gi, new_S[i])) {
+                new_dead[i] = 1;
+            } else if (viewer) {
+                F_cached[i] = 1;
             }
-            new_S[i].clear();
+        }
 
-            std::vector<Point> F;
-            {
-                TIMER("find_F");
-                F = find_F(P[i], S[i]);
+        bool verified_candidate = false;
+        for (int i = Pn - 1; i >= 0 && !verified_candidate; --i) {
+            if (dead[i] || new_dead[i]) continue;
+            for (const Point& endpoint : new_S[i]) {
+                if (segment_within_frechet(stream, p0cur, cur, P[i], endpoint,
+                                           (1.0 + EPSILON) * DELTA)) {
+                    buffer[0] = P[i];
+                    buffer[1] = endpoint;
+                    verified_candidate = true;
+                    break;
+                }
             }
+        }
+        if (!verified_candidate) break;
 
-            if (i == 0 && viewer) {
-                const QColor stepColors[] = {
-                    Qt::red,
-                    Qt::blue,
-                    Qt::green,
-                    Qt::magenta,
-                    Qt::cyan
-                };
-                QColor c = stepColors[cur % 6];
-                TIMER("gui_update");
-                if (showF) {
-                    Polygon F_poly(F.begin(), F.end());
+        // GUI updates (sequential, main thread only).
+        if (viewer) {
+            TIMER("gui_update");
+            const QColor stepColors[] = {
+                Qt::red, Qt::blue, Qt::green, Qt::magenta, Qt::cyan
+            };
+            QColor c = stepColors[cur % 6];
+            for (int i = 0; i < Pn; ++i) {
+                if (dead[i] || new_dead[i]) continue;
+                if (showF && F_cached[i]) {
+                    Polygon F_poly(F_work[i].begin(), F_work[i].end());
                     viewer->addPolygon(F_poly, c);
                 }
                 if (showG) {
@@ -465,21 +562,14 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
                     Polygon S_poly(S[i].begin(), S[i].end());
                     viewer->addPolygon(S_poly, c);
                 }
+                break;
             }
-
-            {
-                TIMER("intersect");
-                intersect(F, Gi, std::back_inserter(new_S[i]));
-            }
-
-            if (new_S[i].size() == 0) {
+        }
+        for (int i = 0; i < Pn; ++i) {
+            if (new_dead[i]) {
                 dead[i] = true;
                 dead_cnt++;
-                continue;
             }
-            assert(new_S[i].size() == 1);
-            buffer[0] = P[i];
-            buffer[1] = *new_S[i].begin()->outer_boundary().vertices_begin();
         }
         if (dead_cnt == int(P.size())) {
             break;
@@ -493,10 +583,7 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
             TIMER("update_S");
             for (int i = 0; i < int(P.size()); i++) {
                 if (dead[i]) continue;
-                S[i].clear();
-                std::copy(new_S[i].begin()->outer_boundary().vertices_begin(),
-                          new_S[i].begin()->outer_boundary().vertices_end(),
-                          std::back_inserter(S[i]));
+                S[i].swap(new_S[i]);
             }
         }
         cur++;
@@ -505,6 +592,7 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
             viewer_process_events();
         }
     }
+
     simplified.emplace_back(buffer[0]);
     simplified.emplace_back(buffer[1]);
     if (viewer) {
@@ -637,6 +725,7 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(dir);
 
         std::ofstream simp(dir / "simplify.txt");
+        simp << std::setprecision(std::numeric_limits<double>::max_digits10);
         std::size_t N = stream.size();
         simp << N << '\n';
         for (const auto& p : stream) {

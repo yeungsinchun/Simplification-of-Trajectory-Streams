@@ -14,19 +14,14 @@ set(CMAKE_AUTORCC OFF)
 set(CMAKE_AUTOUIC OFF)
 
 find_package(CGAL REQUIRED COMPONENTS Qt6)
-find_package(OpenCV COMPONENTS core imgproc PATHS /opt/homebrew NO_DEFAULT_PATH)
-# find_package(Boost REQUIRED)
 
 add_executable(simplify
   simplify.cpp
   drawing.cpp
 )
 
-target_include_directories(simplify PRIVATE ${OpenCV_INCLUDE_DIRS})
-
 target_link_libraries(simplify
   CGAL::CGAL_Qt6
-  ${OpenCV_LIBS}
 )
 
 target_compile_definitions(simplify PRIVATE CGAL_USE_BASIC_VIEWER)
