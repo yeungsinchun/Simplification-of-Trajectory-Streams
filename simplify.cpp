@@ -421,17 +421,16 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
     int dead_cnt = 0;
     std::vector<int> dead(Pn);
     std::vector<std::vector<Point>> new_S(Pn);
-    std::vector<char> new_dead(Pn, 0);
     std::vector<std::vector<Point>> F(Pn);
     std::vector<Point> Gi;
 
     cur++;
     while (cur < int(stream.size())) {
-        const Point& pi  = stream[cur];
+        const Point& pi = stream[cur];
         SIGNPOST_BEGIN(stab.step);
         SIGNPOST_EVENT(stab.consume, "cur=%d", cur);
         Gi = get_conv_from_grid(pi, EPSILON, DELTA);
-        std::fill(new_dead.begin(), new_dead.end(), 0);
+
         for (int i = 0; i < Pn; ++i) {
             if (dead[i]) continue;
             {
@@ -445,32 +444,24 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
                 hit = intersect(F[i], Gi, new_S[i]);
                 SIGNPOST_END(intersect);
             }
-            if (!hit) new_dead[i] = 1;
-        }
-
-        bool has_candidate = false;
-        for (int i = Pn - 1; i >= 0 && !has_candidate; --i) {
-            if (dead[i] || new_dead[i]) continue;
-            if (!new_S[i].empty()) {
-                buffer[0] = P[i];
-                buffer[1] = new_S[i].front();
-                has_candidate = true;
-            }
-        }
-        SIGNPOST_END(stab.step);
-        if (!has_candidate) break;
-        for (int i = 0; i < Pn; ++i) {
-            if (new_dead[i]) {
+            if (!hit) {
                 dead[i] = true;
                 dead_cnt++;
             }
         }
-        if (dead_cnt == int(P.size())) {
-            break;
+
+        bool has_candidate = false;
+        for (int i = Pn - 1; i >= 0 && !has_candidate; --i) {
+            if (dead[i] || new_S[i].empty()) continue;
+            buffer[0] = P[i];
+            buffer[1] = new_S[i].front();
+            has_candidate = true;
         }
-        for (int i = 0; i < int(P.size()); i++) {
-            if (dead[i]) continue;
-            S[i].swap(new_S[i]);
+        SIGNPOST_END(stab.step);
+        if (!has_candidate || dead_cnt == Pn) break;
+
+        for (int i = 0; i < Pn; ++i) {
+            if (!dead[i]) S[i].swap(new_S[i]);
         }
         cur++;
     }

@@ -105,17 +105,12 @@ inline char parallel_int(const Point& a, const Point& b,
     return '0';
 }
 
-inline Point line_point(const Point& a, const Point& b,
-                        const Point& c, const Point& d) {
-    double ax = CGAL::to_double(a.x()), ay = CGAL::to_double(a.y());
-    double bx = CGAL::to_double(b.x()), by = CGAL::to_double(b.y());
-    double cx = CGAL::to_double(c.x()), cy = CGAL::to_double(c.y());
-    double dx = CGAL::to_double(d.x()), dy = CGAL::to_double(d.y());
-    double rx = bx - ax, ry = by - ay;
-    double sx = dx - cx, sy = dy - cy;
-    double denom = rx * sy - ry * sx;
-    double t = ((cx - ax) * sy - (cy - ay) * sx) / denom;
-    return Point(ax + t * rx, ay + t * ry);
+inline std::optional<Point> line_point(const Point& a, const Point& b,
+                                       const Point& c, const Point& d) {
+    const auto intersection = CGAL::intersection(Line(a, b), Line(c, d));
+    if (!intersection) return std::nullopt;
+    if (const Point* point = std::get_if<Point>(&*intersection)) return *point;
+    return std::nullopt;
 }
 
 inline char seg_seg_int(const Point& a, const Point& b,
@@ -128,7 +123,9 @@ inline char seg_seg_int(const Point& a, const Point& b,
 
     if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
         ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) {
-        p = line_point(a, b, c, d);
+        const auto intersection = line_point(a, b, c, d);
+        if (!intersection) return '0';
+        p = *intersection;
         return '1';
     }
 
@@ -143,9 +140,13 @@ inline char seg_seg_int(const Point& a, const Point& b,
     return '0';
 }
 
+inline void append_unique(std::vector<Point>& out, const Point& point) {
+    if (out.empty() || out.back() != point) out.push_back(point);
+}
+
 inline int advance(int a, int& aa, int n, bool inside,
                    const Point& v, std::vector<Point>& out) {
-    if (inside) out.push_back(v);
+    if (inside) append_unique(out, v);
     aa++;
     return (a + 1) % n;
 }
@@ -497,13 +498,13 @@ inline std::vector<Point> convex_intersect_robust(const std::vector<Point>& Pin,
                 first_point = false;
                 p0 = p;
             }
-            out.push_back(p);
+            append_unique(out, p);
             inflag = in_out(p, inflag, aHB, bHA);
         }
 
         if (code == 'e' && dot_sign(P[a1], P[a], Q[b1], Q[b]) < 0) {
-            out.push_back(p);
-            out.push_back(q);
+            append_unique(out, p);
+            append_unique(out, q);
             return out;
         }
         if (cross == 0 && aHB < 0 && bHA < 0) return {};
@@ -533,7 +534,8 @@ inline std::vector<Point> convex_intersect_robust(const std::vector<Point>& Pin,
         return {};
     }
 
-    out.push_back(p0);
+    append_unique(out, p0);
+    if (out.size() > 1 && out.front() == out.back()) out.pop_back();
     return out;
 }
 
@@ -547,26 +549,19 @@ inline bool intersect(const std::vector<Point>& P_verts,
                       const std::vector<Point>& Q_verts,
                       std::vector<Point>& result) {
     result = orourke_cgal::convex_intersect_robust(P_verts, Q_verts);
-
     if (!result.empty() && result.front() == result.back()) result.pop_back();
+
     if (result.size() < 3) {
         result.clear();
         return false;
     }
 
     Polygon polygon(result.begin(), result.end());
-    if (!polygon.is_simple()) {
-        result = orourke_cgal::convex_intersect_robust(P_verts, Q_verts);
-        if (!result.empty() && result.front() == result.back()) result.pop_back();
-        if (result.size() < 3) {
-            result.clear();
-            return false;
-        }
-        polygon = Polygon(result.begin(), result.end());
-        if (!polygon.is_simple()) {
-            result.clear();
-            return false;
-        }
+    if (!polygon.is_simple() || !polygon.is_convex() ||
+        !orourke_cgal::all_points_in_convex_poly(result, P_verts) ||
+        !orourke_cgal::all_points_in_convex_poly(result, Q_verts)) {
+        result.clear();
+        return false;
     }
     if (polygon.is_clockwise_oriented()) std::reverse(result.begin(), result.end());
     return true;
