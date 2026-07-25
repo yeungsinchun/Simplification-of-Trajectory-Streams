@@ -546,15 +546,7 @@ inline std::vector<Point> convex_intersect_robust(const std::vector<Point>& Pin,
 inline bool intersect(const std::vector<Point>& P_verts,
                       const std::vector<Point>& Q_verts,
                       std::vector<Point>& result) {
-    bool numerically_reliable = false;
-    const bool fast_intersects = orourke_cgal::convex_intersect(
-        P_verts, Q_verts, result, numerically_reliable);
-    if (!numerically_reliable) {
-        result = orourke_cgal::convex_intersect_robust(P_verts, Q_verts);
-    } else if (!fast_intersects) {
-        result.clear();
-        return false;
-    }
+    result = orourke_cgal::convex_intersect_robust(P_verts, Q_verts);
 
     if (!result.empty() && result.front() == result.back()) result.pop_back();
     if (result.size() < 3) {

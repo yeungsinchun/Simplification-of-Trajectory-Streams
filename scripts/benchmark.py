@@ -315,44 +315,13 @@ def _fmt_d(d: float) -> str:
     return s if s else "0"
 
 
-def _parse_simplify_total_ms(stdout: str) -> Optional[float]:
-    """Extract simplify's algorithm-only wall time (ms) from its stdout.
-
-    `simplify` prints a `TIMING SUMMARY` block via print_timing_summary()
-    (simplify.cpp) at exit. The block ends with a line of the form:
-
-        TOTAL (wall time)                                      1234.56
-
-    The `total` timer is set at simplify.cpp:1399 and wraps only the call
-    to simplify(stream, vptr) — i.e. the algorithm body, not the CGAL/Qt
-    init, not the file I/O. We use it as the algorithm-only wall time so
-    it is comparable to the per-invocation wall time of the baseline
-    binaries (which are also short C++ programs, but with a heavier init
-    cost that we leave in the measurement for symmetry).
-    """
-    if not stdout:
-        return None
-    # The print uses std::left << std::setw(50) << "TOTAL (wall time)" then
-    # std::right << std::setw(10) << <ms>. So the literal label is followed
-    # by some padding whitespace and the number. Match the last such line.
-    m = re.search(r"TOTAL \(wall time\)\s+([\d.]+)", stdout)
-    if m:
-        try:
-            return float(m.group(1))
-        except ValueError:
-            return None
-    return None
-
-
 def run_simplify(idv: int, delta: float, epsilon: float, baseline_name: str,
                   out_suffix: str = "", timeout=300, mem_cap_mb=0) -> Tuple[str, float]:
     """Run simplify and output to data/<id>/<out_name>.
 
     Returns (status, elapsed_seconds). status is one of 'ok', 'timeout',
-    'memcap', 'error'. The elapsed_seconds is the algorithm-only wall
-    time parsed from simplify's own TIMER("total") (chrono's
-    high_resolution_clock) when available, falling back to the outer
-    subprocess wall time when the summary line is missing.
+    'memcap', 'error'. The elapsed time is measured around the headless
+    subprocess with the monotonic clock.
 
     If `out_suffix` is empty, the file is named
     `simplify_against_<BASELINE>_<e>_<d>.txt` (per (e, d) invocation).
@@ -365,17 +334,9 @@ def run_simplify(idv: int, delta: float, epsilon: float, baseline_name: str,
     else:
         sh_out = data_dir / f"simplify_against_{baseline_name}_{_fmt_eps(epsilon)}_{_fmt_d(delta)}.txt"
     cmd = [str(SIMPLIFY), str(idv), "--out", "-d", str(delta), "-e", str(epsilon)]
-    status, stdout, _stderr = run_cmd(cmd, cwd=REPO_ROOT, timeout=timeout,
-                                       mem_cap_mb=mem_cap_mb, tag=f"simplify id={idv} d={delta:.2f} e={epsilon}")
-    outer_elapsed = time.monotonic() - t0
-    algo_ms = _parse_simplify_total_ms(stdout)
-    if algo_ms is not None:
-        elapsed = algo_ms / 1000.0
-    else:
-        # Fallback: use subprocess wall time. The simplify binary should
-        # always print the timing summary, so a missing line indicates a
-        # binary error / early exit.
-        elapsed = outer_elapsed
+    status, _stdout, _stderr = run_cmd(cmd, cwd=REPO_ROOT, timeout=timeout,
+                                        mem_cap_mb=mem_cap_mb, tag=f"simplify id={idv} d={delta:.2f} e={epsilon}")
+    elapsed = time.monotonic() - t0
     if status != 'ok':
         # If the child was killed mid-run, the partial file it was writing
         # is still on disk and would be picked up by the next attempt as if
@@ -646,9 +607,8 @@ def process_id(idv: int, mem_cap_mb: int = 0,
     n_repeats controls how many times each baseline binary is run per
     (id, baseline); the recorded baseline_time is the median of the
     per-invocation wall times. (default 1; --repeats N on the CLI sets
-    it to 3 by default.) simplify_time is the algorithm-only time
-    parsed from simplify's own internal TIMER("total"), so it does
-    not depend on n_repeats.
+    it to 3 by default.) simplify_time is the subprocess wall time for
+    one headless simplify invocation, so it does not depend on n_repeats.
     """
     data_dir = DATA_DIR / str(idv)
     original = data_dir / "original.txt"
@@ -786,11 +746,9 @@ def process_id(idv: int, mem_cap_mb: int = 0,
             if sh_fret is not None and (best_simp_fret is None or sh_fret < best_simp_fret):
                 best_simp_fret = sh_fret
                 best_simp = simplify_points
-                # simplify_time is the algorithm-only wall time parsed from
-                # simplify's own TIMER("total"); the Frechet cost is no longer
-                # amortized into this column. (Frechet still runs — its time
-                # is discarded, since the only purpose of the Frechet call
-                # here is to find the best (e, d).)
+                # simplify_time is the headless subprocess wall time. The
+                # Frechet cost is excluded from this column; that call only
+                # selects the best (e, d).
                 best_simp_time = simplify_time
                 best_e = eps
                 best_d = delta
@@ -890,9 +848,8 @@ def _sweep_simplify(idv: int, algo_name: str, orig_points, baseline_points,
         if sh_fret is not None and (best_simp_fret is None or sh_fret < best_simp_fret):
             best_simp_fret = sh_fret
             best_simp = simplify_points
-            # Algorithm-only wall time from simplify's TIMER("total").
-            # Frechet is intentionally excluded from the simplify_time
-            # column (see process_id for the same logic).
+            # Headless simplify subprocess wall time. Frechet is intentionally
+            # excluded from the simplify_time column (see process_id).
             best_simp_time = simplify_time
             best_e = eps
             best_d = delta
@@ -958,9 +915,9 @@ def main():
     parser.add_argument('--repeats', type=int, default=3,
                         help='number of times to run each baseline binary (DP / DOTS / SQUISH) '
                              'per (id, baseline). The recorded baseline_time is the median of '
-                             'the per-invocation wall times; the first repeat amortizes dylib / '
-                             'Qt loader cost. simplify_time is parsed from simplify\'s own '
-                             'TIMER("total") and is independent of this flag. (default: 3)')
+                             'the per-invocation wall times; the first repeat amortizes loader '
+                             'cost. simplify_time is one headless subprocess wall time and is '
+                             'independent of this flag. (default: 3)')
     parser.add_argument('--recompute-baseline', action='store_true',
                         help='on --resume, re-run the baseline binary for every (id, baseline) '
                              'even if the row is fully valid. Keeps the cached simplify result '

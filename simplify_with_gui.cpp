@@ -4,13 +4,15 @@
 #include <array>
 #include <cmath>
 #include <cstring>
-#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <filesystem>
 #include <limits>
 #include <string>
 #include <vector>
+#include <QApplication>
+#include "drawing.h"
 #include "simplify_geometry.h"
 #include "timer.h"
 
@@ -22,7 +24,11 @@ double DELTA = 200;
 double EPSILON = 0.5;
 double expected_frechet_squared = 0.0;
 
+bool showF = false; // true if -F is passed
+bool showG = false; // true if -G is passed
+bool showS = false; // true if -S is passed
 bool out_flag = false;
+bool gui_flag = false;
 bool dist_flag = false;
 
 // ===========================================================================
@@ -317,17 +323,22 @@ inline void find_F(const Point& p, const std::vector<Point>& S,
 // ===========================================================================
 
 static void print_help() {
-    std::cout << "Usage: simplify [options]\n"
+    std::cout << "Usage: simplify_with_gui [options]\n"
               << "  --in <id>        Read input from data/taxi/<id>.txt (resolved absolutely)\n"
               << "  --out            Write output to data/<id>/original.txt & simplify.txt (resolved absolutely; requires --in <id>)\n"
               << "  --dist           After output, compute Frechet distance by invoking ./frechet (Julia wrapper) with --in <id> --path <simplify.txt>\n"
+              << "  --gui            Show GUI viewer \n"
+              << "  --keep           Do not clear F/G/S polygons in GUI between steps\n"
+              << "  --no-simp        Do not show the simplified curve in GUI\n"
+              << "  --labels         Show vertex labels (indices) in GUI\n"
               << "  -d <delta>       Override DELTA (default " << DELTA << ")\n"
               << "  -e <epsilon>     Override EPSILON (default " << EPSILON << ")\n"
+              << "  -F/-G/-S         Debug polygon display modes\n"
               << "  --dump-intersect Dump every (F_poly, Gi_poly) pair fed to "
                  "intersect() to data/<id>/intersect_pairs.txt\n"
               << "  -h               Show this help and exit\n"
               << "\n"
-              << "Shorthand: simplify <id> [flags] is equivalent to '--in <id> --out [flags]'\n";
+              << "Shorthand: simplify_with_gui <id> [flags] is equivalent to '--in <id> --out [flags]'\n";
 }
 
 // Copied from examples/Boolean_set_operations/print_utils.cpp
@@ -404,7 +415,8 @@ void print_polygon_with_holes
 
 int get_longest_stab(const std::vector<Point>& stream, int cur,
                      std::vector<Point>& simplified,
-                     double EPSILON, double DELTA) {
+                     double EPSILON, double DELTA,
+                     MultiViewer* viewer = nullptr) {
     SIGNPOST_EVENT(stab.start, "cur=%d", cur);
     const Point& p0 = stream[cur];
     std::vector<Point> P;
@@ -414,6 +426,10 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
         SIGNPOST_END(get_points_from_grid);
         SIGNPOST_EVENT(stab.grid_points, "Pn=%lu", (unsigned long)P.size());
     }
+    if (viewer) {
+        viewer->markP0(p0);
+        viewer->addOriginalPoint(p0);
+    }
     std::array<Point, 2> buffer = {p0, p0};
     const int Pn = (int)P.size();
     std::vector<std::vector<Point>> S(Pn);
@@ -422,7 +438,8 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
     std::vector<int> dead(Pn);
     std::vector<std::vector<Point>> new_S(Pn);
     std::vector<char> new_dead(Pn, 0);
-    std::vector<std::vector<Point>> F(Pn);
+    std::vector<std::vector<Point>> F_work(Pn);
+    std::vector<char> F_cached(Pn, 0);
     std::vector<Point> Gi;
 
     cur++;
@@ -432,20 +449,25 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
         SIGNPOST_EVENT(stab.consume, "cur=%d", cur);
         Gi = get_conv_from_grid(pi, EPSILON, DELTA);
         std::fill(new_dead.begin(), new_dead.end(), 0);
+        if (viewer) std::fill(F_cached.begin(), F_cached.end(), 0);
         for (int i = 0; i < Pn; ++i) {
             if (dead[i]) continue;
             {
                 SIGNPOST_BEGIN(find_F);
-                find_F(P[i], S[i], F[i]);
+                find_F(P[i], S[i], F_work[i]);
                 SIGNPOST_END(find_F);
             }
             bool hit;
             {
                 SIGNPOST_BEGIN(intersect);
-                hit = intersect(F[i], Gi, new_S[i]);
+                hit = intersect(F_work[i], Gi, new_S[i]);
                 SIGNPOST_END(intersect);
             }
-            if (!hit) new_dead[i] = 1;
+            if (!hit) {
+                new_dead[i] = 1;
+            } else if (viewer) {
+                F_cached[i] = 1;
+            }
         }
 
         bool has_candidate = false;
@@ -459,6 +481,30 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
         }
         SIGNPOST_END(stab.step);
         if (!has_candidate) break;
+
+        // GUI updates (sequential, main thread only).
+        if (viewer) {
+            const QColor stepColors[] = {
+                Qt::red, Qt::blue, Qt::green, Qt::magenta, Qt::cyan
+            };
+            QColor c = stepColors[cur % 6];
+            for (int i = 0; i < Pn; ++i) {
+                if (dead[i] || new_dead[i]) continue;
+                if (showF && F_cached[i]) {
+                    Polygon F_poly(F_work[i].begin(), F_work[i].end());
+                    viewer->addPolygon(F_poly, c);
+                }
+                if (showG) {
+                    Polygon Gi_poly(Gi.begin(), Gi.end());
+                    viewer->addPolygon(Gi_poly, c);
+                }
+                if (showS) {
+                    Polygon S_poly(S[i].begin(), S[i].end());
+                    viewer->addPolygon(S_poly, c);
+                }
+                break;
+            }
+        }
         for (int i = 0; i < Pn; ++i) {
             if (new_dead[i]) {
                 dead[i] = true;
@@ -468,23 +514,36 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
         if (dead_cnt == int(P.size())) {
             break;
         }
+        if (viewer) {
+            viewer->addOriginalPoint(pi);
+            viewer->markPi(pi);
+        }
         for (int i = 0; i < int(P.size()); i++) {
             if (dead[i]) continue;
             S[i].swap(new_S[i]);
         }
         cur++;
+        if (viewer) {
+            viewer_process_events();
+        }
     }
-    SIGNPOST_EVENT(stab.emit, "buffer=(%{public}lf,%{public}lf)->(%{public}lf,%{public}lf)",
-                   (double)CGAL::to_double(buffer[0].x()), (double)CGAL::to_double(buffer[0].y()),
-                   (double)CGAL::to_double(buffer[1].x()), (double)CGAL::to_double(buffer[1].y()));
 
     simplified.emplace_back(buffer[0]);
     simplified.emplace_back(buffer[1]);
+    if (viewer) {
+        viewer->addSimplifiedPoint(buffer[0]);
+        viewer->addSimplifiedPoint(buffer[1]);
+        viewer->clearPolygons();
+        viewer->clearMarkedP0();
+        viewer->clearMarkedPi();
+        viewer_process_events();
+    }
     return cur;
 }
 
 std::vector<Point> simplify(const std::vector<Point>& stream,
-                            double EPSILON, double DELTA) {
+                            double EPSILON, double DELTA,
+                            MultiViewer* viewer = nullptr) {
     SIGNPOST_BEGIN(simplify.run);
     configure_bbox(stream, EPSILON, DELTA);
     std::vector<Point> simplified;
@@ -493,7 +552,7 @@ std::vector<Point> simplify(const std::vector<Point>& stream,
     int prefix = 0;
     while (cur != int(stream.size())) {
         SIGNPOST_EVENT(simplify.prefix, "from=%d size=%lu", cur, (unsigned long)simplified.size());
-        cur = get_longest_stab(stream, cur, simplified, EPSILON, DELTA);
+        cur = get_longest_stab(stream, cur, simplified, EPSILON, DELTA, viewer);
         prefix++;
     }
     SIGNPOST_END(simplify.run);
@@ -513,13 +572,12 @@ int main(int argc, char** argv) {
     int test_case_no = -1;
 
     for (int i = 1; i < argc; ++i) {
-        if (strcmp(argv[i],"--out") == 0) out_flag = true;
+        if (strcmp(argv[i],"-F") == 0) showF = true;
+        else if (strcmp(argv[i],"-S") == 0) showS = true;
+        else if (strcmp(argv[i],"-G") == 0) showG = true;
+        else if (strcmp(argv[i],"--gui") == 0) gui_flag = true;
+        else if (strcmp(argv[i],"--out") == 0) out_flag = true;
         else if (strcmp(argv[i],"--dist") == 0) dist_flag = true;
-        else if (strcmp(argv[i],"--gui") == 0 || strcmp(argv[i],"-F") == 0 ||
-                 strcmp(argv[i],"-G") == 0 || strcmp(argv[i],"-S") == 0) {
-            std::cerr << "GUI options require simplify_with_gui\n";
-            return 1;
-        }
         else if (strcmp(argv[i],"-d") == 0 && i+1 < argc) {
             try { DELTA = std::stod(argv[++i]); } catch(...) { std::cerr << "Invalid -d value\n"; return 1; }
         }
@@ -585,8 +643,18 @@ int main(int argc, char** argv) {
         }
     }
 
+    QApplication app(argc, argv);
+    MultiViewer viewer;
+    MultiViewer* vptr = nullptr;
+    if (gui_flag) {
+        vptr = &viewer;
+        viewer.setParameters(DELTA, EPSILON);
+        viewer.setShowLabels(false);
+        viewer.show();
+    }
+
     SIGNPOST_BEGIN(app.run);
-    std::vector<Point> simplified = simplify(stream, EPSILON, DELTA);
+    std::vector<Point> simplified = simplify(stream, EPSILON, DELTA, vptr);
     stream = std::move(simplified);
     SIGNPOST_END(app.run);
 
@@ -605,11 +673,16 @@ int main(int argc, char** argv) {
         std::cout << "Output Written\n";
     }
 
+    int gui_result = 0;
+    if (gui_flag) {
+        gui_result = app.exec();
+    }
+
     if (dist_flag && test_case_no != -1) {
         std::filesystem::path frechet_path = repo_root / "scripts" / "frechet";
         std::string cmd1 = std::string("\"") + frechet_path.string() + "\" --in " + std::to_string(test_case_no) + " --path \"" + (repo_root / "data" / std::to_string(test_case_no) / "simplify.txt").string() + "\"";
         int rc = std::system(cmd1.c_str());
     }
 
-    return 0;
+    return gui_result;
 }

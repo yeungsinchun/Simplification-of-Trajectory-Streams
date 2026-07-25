@@ -48,7 +48,8 @@ julia -e 'using Pkg; Pkg.add("FrechetDist")'
 ├── CMakeLists.txt
 ├── README.md
 │
-├── simplify.cpp               # Main algorithm (this paper) + Qt viewer
+├── simplify.cpp               # Headless main algorithm (this paper)
+├── simplify_with_gui.cpp      # Main algorithm with the Qt viewer
 ├── simplify_old.cpp           # Older snapshot (kept for reference)
 ├── drawing.cpp / drawing.h    # Shared Qt viewer widget
 │
@@ -99,7 +100,8 @@ Targets produced inside `release/`:
 
 | Target | Purpose |
 |---|---|
-| `simplify` | Main algorithm + Qt viewer (this paper). Use this. |
+| `simplify` | Headless main algorithm (this paper). |
+| `simplify_with_gui` | Main algorithm with the Qt viewer. |
 | `plot_curve` | Overlay viewer for every curve in `data/<id>/`. |
 | `normalize` | Convert raw T-Drive CSVs to normalized `data/<id>/original.txt`. |
 | `DP_adapted` | Douglas-Peucker baseline (vendored from `traj-compression/batch/DP/`). |
@@ -178,13 +180,13 @@ The normalizer reads the last two comma-separated fields of each line in
 ./release/simplify --in 1 --out
 
 # With the Qt viewer
-./release/simplify --in 1 --gui
+./release/simplify_with_gui --in 1 --gui
 
 # GUI + write output + compute Fréchet distance after the viewer closes
-./release/simplify --in 1 --gui --out --dist
+./release/simplify_with_gui --in 1 --gui --out --dist
 
 # Override delta/epsilon
-./release/simplify --in 1 -d 1500 -e 0.5 --gui
+./release/simplify_with_gui --in 1 -d 1500 -e 0.5 --gui
 ```
 
 Shorthand: `simplify <id> [flags]` is equivalent to

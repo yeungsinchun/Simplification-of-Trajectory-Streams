@@ -15,16 +15,29 @@ set(CMAKE_AUTOUIC OFF)
 
 find_package(CGAL REQUIRED COMPONENTS Qt6)
 
+option(SIGNPOSTS "Emit os_signpost points-of-interest for Instruments profiling" OFF)
+if(SIGNPOSTS)
+    add_compile_definitions(SIGNPOSTS)
+endif()
+
 add_executable(simplify
   simplify.cpp
-  drawing.cpp
 )
 
 target_link_libraries(simplify
+  CGAL::CGAL
+)
+
+add_executable(simplify_with_gui
+  simplify_with_gui.cpp
+  drawing.cpp
+)
+
+target_link_libraries(simplify_with_gui
   CGAL::CGAL_Qt6
 )
 
-target_compile_definitions(simplify PRIVATE CGAL_USE_BASIC_VIEWER)
+target_compile_definitions(simplify_with_gui PRIVATE CGAL_USE_BASIC_VIEWER)
 
 # Normalize raw taxi data
 add_executable(normalize

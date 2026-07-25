@@ -129,4 +129,33 @@ inline void print_timing_summary() {
     fprintf(stderr, "====================================\n");
 }
 
+// ===========================================================================
+//  Signposts (Instruments "Points of Interest")
+// ===========================================================================
+//
+// Instrument the hot path with os_signpost so that Instruments' Time Profiler
+// shows named, color-coded bars nested in the call stack.  No-op when
+// SIGNPOSTS is disabled and on non-Apple platforms.
+#if defined(__APPLE__) && defined(SIGNPOSTS)
+  #include <os/signpost.h>
+  #include <os/log.h>
+  namespace timer_detail {
+      inline os_log_t& signpost_log() {
+          static os_log_t log = os_log_create("simplify.signpost", OS_LOG_CATEGORY_POINTS_OF_INTEREST);
+          return log;
+      }
+  }
+  #define SIGNPOST_BEGIN(name) \
+      os_signpost_id_t _sp_id = os_signpost_id_generate(timer_detail::signpost_log()); \
+      os_signpost_interval_begin(timer_detail::signpost_log(), _sp_id, #name, "%{public}s", "")
+#define SIGNPOST_END(name) \
+      os_signpost_interval_end(timer_detail::signpost_log(), _sp_id, #name, "")
+  #define SIGNPOST_EVENT(name, fmt, ...) \
+      os_signpost_event_emit(timer_detail::signpost_log(), OS_SIGNPOST_ID_EXCLUSIVE, #name, fmt, ##__VA_ARGS__)
+#else
+  #define SIGNPOST_BEGIN(name) ((void)0)
+  #define SIGNPOST_END(name)   ((void)0)
+  #define SIGNPOST_EVENT(name, fmt, ...) ((void)0)
+#endif
+
 #endif // TIMER_H
