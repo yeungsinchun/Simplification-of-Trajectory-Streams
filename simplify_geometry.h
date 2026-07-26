@@ -556,14 +556,35 @@ inline bool intersect(const std::vector<Point>& P_verts,
         return false;
     }
 
-    Polygon polygon(result.begin(), result.end());
-    if (!polygon.is_simple() || !polygon.is_convex() ||
-        !orourke_cgal::all_points_in_convex_poly(result, P_verts) ||
+    // Convexity test in O(k): every consecutive turn must share one sign.
+    // For O'Rourke output (a bounded intersection of two convex polygons with
+    // at most n+m vertices) a consistently-oriented polygon has total turning
+    // of exactly 2*pi, hence is simple; so this replaces CGAL's much costlier
+    // is_simple()/is_convex()/Polygon construction without weakening the check.
+    const int k = static_cast<int>(result.size());
+    int turn_sign = 0;
+    for (int i = 0; i < k; ++i) {
+        const CGAL::Orientation o =
+            CGAL::orientation(result[i], result[(i + 1) % k], result[(i + 2) % k]);
+        if (o == CGAL::COLLINEAR) continue;
+        const int s = (o == CGAL::LEFT_TURN) ? 1 : -1;
+        if (turn_sign == 0) {
+            turn_sign = s;
+        } else if (turn_sign != s) {
+            result.clear();
+            return false;
+        }
+    }
+    if (turn_sign == 0) {
+        result.clear();
+        return false;
+    }
+    if (!orourke_cgal::all_points_in_convex_poly(result, P_verts) ||
         !orourke_cgal::all_points_in_convex_poly(result, Q_verts)) {
         result.clear();
         return false;
     }
-    if (polygon.is_clockwise_oriented()) std::reverse(result.begin(), result.end());
+    if (turn_sign < 0) std::reverse(result.begin(), result.end());
     return true;
 }
 
