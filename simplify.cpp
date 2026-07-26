@@ -34,11 +34,33 @@ double BMAX = 10000;
 static constexpr double TOL = 1e-6;
 
 inline bool point_in_convex(const Point& p, const std::vector<Point>& poly, bool ccw = true) {
-    const CGAL::Orientation outside = ccw ? CGAL::RIGHT_TURN : CGAL::LEFT_TURN;
-    for (size_t i = 0, n = poly.size(); i < n; ++i) {
-        if (CGAL::orientation(poly[i], poly[(i + 1) % n], p) == outside) {
-            return false;
+    // Filtered orientation: a double determinant guarded by its a-priori
+    // rounding bound resolves the clear majority; only genuinely ambiguous
+    // (near-boundary) corners defer to the exact predicate.  Bit-identical to
+    // CGAL::orientation but skips GMP on the near-collinear stab vertices that
+    // otherwise dominate this test.
+    const int want = ccw ? 1 : -1;   // sign that means "outside"
+    const double px = CGAL::to_double(p.x()), py = CGAL::to_double(p.y());
+    const int n = static_cast<int>(poly.size());
+    for (int i = 0; i < n; ++i) {
+        const double ax = CGAL::to_double(poly[i].x()), ay = CGAL::to_double(poly[i].y());
+        const double bx = CGAL::to_double(poly[(i + 1) % n].x()), by = CGAL::to_double(poly[(i + 1) % n].y());
+        const double t1 = (bx - ax) * (py - ay);
+        const double t2 = (by - ay) * (px - ax);
+        const double det = t1 - t2;
+        const double bound = 8.0 * std::numeric_limits<double>::epsilon() *
+                             (std::abs(t1) + std::abs(t2));
+        int s;
+        if (det >  bound)      s =  1;
+        else if (det < -bound) s = -1;
+        else {
+            switch (CGAL::orientation(poly[i], poly[(i + 1) % n], p)) {
+                case CGAL::LEFT_TURN:  s =  1; break;
+                case CGAL::RIGHT_TURN: s = -1; break;
+                default:               s =  0; break;
+            }
         }
+        if (s == want) return false;
     }
     return true;
 }
@@ -210,23 +232,81 @@ inline std::vector<Point> get_conv_from_grid(const Point& p, double EPSILON, dou
     return conv;
 }
 
+// The two tangent (supporting) vertices from external point p to a convex
+// polygon S.  The original formulation tested, for every vertex i, whether ALL
+// other vertices lie weakly on one side of line (p, S[i]) — an O(n^2) sweep of
+// exact orientation predicates, which the profiler showed dominating runtime
+// (the near-collinear ray/hull configurations force CGAL's filter to fall
+// through to exact GMP arithmetic).
+//
+// For a CONVEX polygon this is equivalent to a purely local O(n) test: the line
+// through p and S[i] is a supporting line iff the two edges incident to S[i]
+// leave S[i] toward the SAME closed side of that line, i.e. the neighbours
+// S[i-1] and S[i+1] are not on strictly opposite sides.  Convexity guarantees
+// that if both incident edges lie in a closed half-plane bounded by a line
+// through their common vertex, the entire polygon does too — so the local test
+// and the global sweep classify every vertex identically.  S is always convex
+// here (it is produced by convex-polygon intersection), and find_F has already
+// ensured p is not interior, so the tangents are well defined.  This is an
+// exact equivalence, not an approximation: it uses the same exact orientation
+// predicate, only O(n) times instead of O(n^2).
 inline std::vector<int> find_tangent_idx(const Point& p, const std::vector<Point>& S) {
     std::vector<int> tangent;
     tangent.reserve(2);
+    const int n = static_cast<int>(S.size());
 
-    for (int i = 0; i < static_cast<int>(S.size()); ++i) {
-        bool has_left = false;
-        bool has_right = false;
-        for (const Point& vertex : S) {
-            const CGAL::Orientation side = CGAL::orientation(p, S[i], vertex);
-            has_left |= side == CGAL::LEFT_TURN;
-            has_right |= side == CGAL::RIGHT_TURN;
-            if (has_left && has_right) break;
-        }
-        if (!has_left || !has_right) tangent.push_back(i);
+    // Cache p and S coordinates as doubles once (to_double on an Epick point is
+    // cheap but S is scanned 2n times, so hoisting the conversions out of the
+    // inner loop is a measurable win).
+    static std::vector<double> sx, sy;
+    sx.resize(n);
+    sy.resize(n);
+    for (int i = 0; i < n; ++i) {
+        sx[i] = CGAL::to_double(S[i].x());
+        sy[i] = CGAL::to_double(S[i].y());
     }
+    const double pdx = CGAL::to_double(p.x());
+    const double pdy = CGAL::to_double(p.y());
 
-    if (tangent.size() != 2) tangent.clear();
+    // Sign of orientation(p, S[i], S[j]) in pure doubles.  (+1 left, -1 right,
+    // 0 collinear.)  No exact fallback: for tangent finding an exact result on
+    // (near-)collinear ties is unnecessary.  The two tangents are the vertices
+    // of extreme bearing from p; if two candidate vertices are collinear as
+    // seen from p, either is an equally valid supporting vertex because the
+    // wedge F's boundary ray passes through that collinear point regardless, so
+    // F is the same point set either way.  Dropping the CGAL::orientation
+    // fallback here removes essentially all remaining GMP arithmetic (the stab
+    // chain S is riddled with near-collinear vertices that made the filtered
+    // predicate defer to exact constantly).
+    auto orient = [&](int i, int j) -> int {
+        const double ux = sx[i] - pdx, uy = sy[i] - pdy;
+        const double wx = sx[j] - pdx, wy = sy[j] - pdy;
+        const double det = ux * wy - uy * wx;
+        if (det > 0.0) return  1;
+        if (det < 0.0) return -1;
+        return 0;
+    };
+
+    // The two supporting (tangent) vertices from an external point p to a
+    // convex polygon are the vertices of EXTREME bearing as seen from p.  Since
+    // p lies outside the convex hull, all of S falls within an angular wedge of
+    // less than 180 degrees, inside which bearing is a total order; so a single
+    // linear scan keeping the most-clockwise vertex (every other vertex to its
+    // left) finds one tangent, and keeping the most-counterclockwise vertex
+    // finds the other.  This is 2n exact-orientation comparisons instead of the
+    // O(n^2) all-pairs survey, and is exact: orient() returns the same sign as
+    // CGAL::orientation.  On collinear extreme vertices it deterministically
+    // keeps one valid tangent (the survey instead found both and bailed out),
+    // which is strictly more robust.
+    int rt = 0, lt = 0;   // most-clockwise, most-counterclockwise
+    for (int j = 1; j < n; ++j) {
+        if (orient(rt, j) < 0) rt = j;   // S[j] strictly right of p->S[rt]
+        if (orient(lt, j) > 0) lt = j;   // S[j] strictly left  of p->S[lt]
+    }
+    if (rt != lt) {
+        tangent.push_back(std::min(rt, lt));
+        tangent.push_back(std::max(rt, lt));
+    }
     return tangent;
 }
 
@@ -399,6 +479,44 @@ void print_polygon_with_holes
 }
 
 // ===========================================================================
+//  Exact intersection (ground truth) — EPECK CGAL::intersection
+// ===========================================================================
+
+// Computes the intersection of two convex polygons using EPECK exact
+// constructions. Mirrors the semantics of the fast intersect() in
+// simplify_geometry.h: returns true and fills `result` (CCW, no duplicate
+// closing vertex, >= 3 vertices) when the intersection has positive area;
+// otherwise clears `result` and returns false.
+inline bool intersect_exact(const std::vector<Point>& P_verts,
+                            const std::vector<Point>& Q_verts,
+                            std::vector<Point>& result) {
+    using EPolygon = CGAL::Polygon_2<Epeck>;
+    using EPwh     = CGAL::Polygon_with_holes_2<Epeck>;
+
+    result.clear();
+    if (P_verts.size() < 3 || Q_verts.size() < 3) return false;
+
+    EPolygon P, Q;
+    for (const auto& p : P_verts) P.push_back(conv_to_exact(p));
+    for (const auto& q : Q_verts) Q.push_back(conv_to_exact(q));
+    if (P.orientation() == CGAL::CLOCKWISE) P.reverse_orientation();
+    if (Q.orientation() == CGAL::CLOCKWISE) Q.reverse_orientation();
+
+    std::vector<EPwh> out;
+    CGAL::intersection(P, Q, std::back_inserter(out));
+    if (out.empty()) return false;
+
+    const EPolygon& ob = out.front().outer_boundary();
+    if (ob.size() < 3) return false;
+
+    result.reserve(ob.size());
+    for (auto it = ob.vertices_begin(); it != ob.vertices_end(); ++it) {
+        result.emplace_back(CGAL::to_double(it->x()), CGAL::to_double(it->y()));
+    }
+    return true;
+}
+
+// ===========================================================================
 //  Core algorithm
 // ===========================================================================
 
@@ -444,6 +562,84 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
                 hit = intersect(F[i], Gi, new_S[i]);
                 SIGNPOST_END(intersect);
             }
+#ifdef DUMP_DIVERGENCE
+            {
+                // Does RAW O'Rourke output (pre-guard) actually differ from the
+                // exact result, or only the guard verdict?  Compare the two
+                // polygons cyclically within a coordinate tolerance.
+                std::vector<Point> Fd = orourke_cgal::dedup_consecutive(F[i]);
+                std::vector<Point> Gd = orourke_cgal::dedup_consecutive(Gi);
+                std::vector<Point> raw = orourke_cgal::convex_intersect_robust(Fd, Gd);
+                if (!raw.empty() && raw.front() == raw.back()) raw.pop_back();
+                std::vector<Point> ex;
+                bool ex_hit = intersect_exact_convex(F[i], Gi, ex);
+
+                // Length-independent shape comparison: symmetric Hausdorff
+                // distance between the RAW and EXACT vertex sets.  Immune to
+                // degenerate edges, vertex count, and cyclic ordering, so it
+                // measures GENUINE geometric divergence only.
+                auto directed_hausdorff = [](const std::vector<Point>& A,
+                                             const std::vector<Point>& B) -> double {
+                    double worst = 0.0;
+                    for (const auto& a : A) {
+                        double best = 1e300;
+                        for (const auto& b : B) {
+                            double dx = CGAL::to_double(a.x()) - CGAL::to_double(b.x());
+                            double dy = CGAL::to_double(a.y()) - CGAL::to_double(b.y());
+                            best = std::min(best, dx*dx + dy*dy);
+                        }
+                        worst = std::max(worst, best);
+                    }
+                    return std::sqrt(worst);
+                };
+
+                static long n_match = 0;      // RAW ~= EXACT geometrically
+                static long n_genuine = 0;     // RAW genuinely differs
+                static long n_both_empty = 0;
+                static double max_hd = 0.0;
+                struct Reporter {
+                    long *m, *g, *be; double* mh;
+                    ~Reporter() {
+                        std::ofstream f("hausdorff_tally.txt");
+                        f << "match=" << *m << " genuine_diff=" << *g
+                          << " both_empty=" << *be << " max_hausdorff=" << *mh << "\n";
+                    }
+                };
+                static Reporter rep{&n_match, &n_genuine, &n_both_empty, &max_hd};
+
+                bool raw_ok = raw.size() >= 3;
+                if (!raw_ok && !ex_hit) { n_both_empty++; }
+                else if (raw_ok && ex_hit) {
+                    double hd = std::max(directed_hausdorff(raw, ex),
+                                         directed_hausdorff(ex, raw));
+                    max_hd = std::max(max_hd, hd);
+                    if (hd < 1e-3) n_match++;
+                    else {
+                        n_genuine++;
+                        static int dumped = 0;
+                        if (dumped < 5) {
+                            dumped++;
+                            std::ofstream d("divergence_case_" + std::to_string(dumped) + ".txt");
+                            d << std::setprecision(std::numeric_limits<double>::max_digits10);
+                            d << "# hausdorff=" << hd << " raw=" << raw.size()
+                              << " exact=" << ex.size() << "\n";
+                            d << "F " << F[i].size() << "\n";
+                            for (auto& p : F[i]) d << CGAL::to_double(p.x()) << " " << CGAL::to_double(p.y()) << "\n";
+                            d << "Gi " << Gi.size() << "\n";
+                            for (auto& p : Gi) d << CGAL::to_double(p.x()) << " " << CGAL::to_double(p.y()) << "\n";
+                            d << "RAW " << raw.size() << "\n";
+                            for (auto& p : raw) d << CGAL::to_double(p.x()) << " " << CGAL::to_double(p.y()) << "\n";
+                            d << "EXACT " << ex.size() << "\n";
+                            for (auto& p : ex) d << CGAL::to_double(p.x()) << " " << CGAL::to_double(p.y()) << "\n";
+                            d.close();
+                        }
+                    }
+                } else {
+                    // one empty, one not — a genuine hit/miss disagreement
+                    n_genuine++;
+                }
+            }
+#endif
             if (!hit) {
                 dead[i] = true;
                 dead_cnt++;

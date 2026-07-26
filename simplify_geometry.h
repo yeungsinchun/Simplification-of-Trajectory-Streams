@@ -55,17 +55,46 @@ namespace orourke_cgal {
 
 enum class InFlag { Pin, Qin, Unknown };
 
+// Sign of the orientation determinant, IDENTICAL to CGAL::orientation but
+// cheaper on the common case.  CGAL's Epick predicate runs an interval-
+// arithmetic filter (Interval_nt: paired doubles with rounding-mode switches)
+// before any exact stage; here we replace that filter with a single double
+// determinant guarded by its a-priori forward-error bound (Shewchuk's orient2d
+// bound is ~3*eps*(|t1|+|t2|); 8*eps is safely conservative).  When the double
+// result clears the bound we return it directly; otherwise we defer to the
+// exact predicate.  The result is bit-identical to CGAL::orientation, so no
+// approximation is introduced -- only the redundant interval filter is skipped
+// on the ~99% of calls that are numerically unambiguous.
 inline int area_sign(const Point& a, const Point& b, const Point& c) {
+    const double ax = CGAL::to_double(a.x()), ay = CGAL::to_double(a.y());
+    const double bx = CGAL::to_double(b.x()), by = CGAL::to_double(b.y());
+    const double cx = CGAL::to_double(c.x()), cy = CGAL::to_double(c.y());
+    const double t1 = (bx - ax) * (cy - ay);
+    const double t2 = (by - ay) * (cx - ax);
+    const double det = t1 - t2;
+    const double bound = 8.0 * std::numeric_limits<double>::epsilon() *
+                         (std::abs(t1) + std::abs(t2));
+    if (det >  bound) return  1;
+    if (det < -bound) return -1;
     switch (CGAL::orientation(a, b, c)) {
         case CGAL::LEFT_TURN:  return  1;
         case CGAL::RIGHT_TURN: return -1;
-        case CGAL::COLLINEAR:  return  0;
+        default:               return  0;
     }
-    return 0;
 }
 
+// Sign of the 2x2 vector determinant, identical to CGAL::determinant's sign
+// but with the same double-filter / exact-fallback treatment as area_sign.
 inline int area_sign_vec(const Vector& a, const Vector& b) {
-    auto c = CGAL::determinant(a, b);
+    const double ax = CGAL::to_double(a.x()), ay = CGAL::to_double(a.y());
+    const double bx = CGAL::to_double(b.x()), by = CGAL::to_double(b.y());
+    const double t1 = ax * by, t2 = ay * bx;
+    const double det = t1 - t2;
+    const double bound = 8.0 * std::numeric_limits<double>::epsilon() *
+                         (std::abs(t1) + std::abs(t2));
+    if (det >  bound) return  1;
+    if (det < -bound) return -1;
+    const auto c = CGAL::determinant(a, b);
     if (c > 0) return  1;
     if (c < 0) return -1;
     return 0;
@@ -173,6 +202,108 @@ inline bool all_points_in_convex_poly(const std::vector<Point>& inner,
         if (!point_in_convex_poly(v, outer)) return false;
     }
     return true;
+}
+
+// --- Tolerance-aware orientation for INEXACTLY-constructed points ----------
+// O'Rourke emits intersection vertices via Epick line-line constructions, so a
+// vertex that lies mathematically ON an input edge can land a few ULPs to
+// either side.  Exact-sign predicates (CGAL::orientation) then misclassify it,
+// reading a real edge as a spurious kink and discarding a valid intersection.
+//
+// We classify the turn by the PERPENDICULAR DISTANCE of c from the supporting
+// line of a->b (= cross / |a->b|), compared against an ABSOLUTE band in
+// coordinate units.  A relative band (REL*|cross|) was tried first but fails on
+// the short edges of the result polygon: there |cross| ~ e*noise while the band
+// ~ REL*e^2, so for e below ~100 units construction noise (~1e-7) exceeds the
+// band and a boundary-resting vertex reads as a definite kink.  An absolute
+// perpendicular band is scale-stable: genuine kinks from ill-conditioned
+// constructions deviate >=1 unit, boundary noise is <1e-6, and TURN_TOL sits in
+// the empty gap between them.
+inline constexpr double TURN_TOL = 1e-3;
+
+inline int tol_turn_sign(const Point& a, const Point& b, const Point& c) {
+    const double abx = CGAL::to_double(b.x()) - CGAL::to_double(a.x());
+    const double aby = CGAL::to_double(b.y()) - CGAL::to_double(a.y());
+    const double acx = CGAL::to_double(c.x()) - CGAL::to_double(a.x());
+    const double acy = CGAL::to_double(c.y()) - CGAL::to_double(a.y());
+    const double cross = abx * acy - aby * acx;
+    const double len = std::sqrt(abx * abx + aby * aby);
+    if (len < 1e-9) return 0;               // degenerate edge: no turn info
+    const double perp = cross / len;         // signed distance of c from line ab
+    if (perp >  TURN_TOL) return  1;         // clear left turn
+    if (perp < -TURN_TOL) return -1;         // clear right turn
+    return 0;                                // (near-)collinear within band
+}
+
+// Absolute perpendicular-distance tolerance (in coordinate units) for the
+// containment guard.  Empirically the O'Rourke result vertices split into two
+// cleanly separated groups: correct ones sit <1e-6 outside either input (pure
+// boundary rounding noise), while genuinely ill-conditioned line-line
+// constructions poke >=1 unit out; the 1e-6..1e-3 band is empty.  A threshold
+// in that gap rejects the ~40k false positives (which a relative cross-product
+// band could not, because F's axis-aligned bbox edges make the relative band
+// collapse to REL*|cross| and flag even a 1e-12 excursion) while still catching
+// every real failure with a >=3-order margin on both sides.
+inline constexpr double CONTAINMENT_TOL = 1e-3;
+
+// Point-in-CCW-convex-polygon by absolute perpendicular distance: a point
+// counts as outside only when it lies more than CONTAINMENT_TOL beyond some
+// edge's supporting line.  Degenerate edges (near-zero length) carry no
+// half-plane information and are skipped.
+inline bool point_in_convex_poly_tol(const Point& p,
+                                      const std::vector<Point>& poly) {
+    const int n = (int)poly.size();
+    const double px = CGAL::to_double(p.x()), py = CGAL::to_double(p.y());
+    for (int i = 0; i < n; ++i) {
+        const double ax = CGAL::to_double(poly[i].x()), ay = CGAL::to_double(poly[i].y());
+        const double bx = CGAL::to_double(poly[(i + 1) % n].x()), by = CGAL::to_double(poly[(i + 1) % n].y());
+        const double ex = bx - ax, ey = by - ay;
+        const double len = std::sqrt(ex * ex + ey * ey);
+        if (len < 1e-9) continue;  // degenerate edge: no constraint
+        const double perp = (ex * (py - ay) - ey * (px - ax)) / len;
+        if (perp < -CONTAINMENT_TOL) return false;  // clearly outside
+    }
+    return true;
+}
+
+inline bool all_points_in_convex_poly_tol(const std::vector<Point>& inner,
+                                          const std::vector<Point>& outer) {
+    for (const auto& v : inner) {
+        if (!point_in_convex_poly_tol(v, outer)) return false;
+    }
+    return true;
+}
+
+// Collapse consecutive near-coincident vertices (including the wrap-around
+// pair).  Near-duplicate points accumulate in the stab chain S across
+// iterations and reach the intersector via find_F, producing edges only a few
+// ULPs long (~1e-13 at these coordinate scales).  O'Rourke's ConvexIntersect
+// derives its advance direction from the edge vector P[a]-P[a-1]; on such a
+// near-zero edge that vector's exact cross-product sign is meaningless rounding
+// noise, so the walk takes the wrong branch and silently drops the following
+// vertex.  Removing these degenerate edges up front eliminates the failure at
+// its source (Sutherland-Hodgman is immune because it never derives a
+// direction from a subject edge, which is why it disagreed with O'Rourke).
+// EPS2 is a squared distance: 1e-12 == (1e-6)^2, far above the ~1e-13 duplicate
+// noise yet far below any real feature (adjacent distinct vertices are >=1
+// apart, i.e. squared >=1).
+inline std::vector<Point> dedup_consecutive(const std::vector<Point>& poly) {
+    const int n = static_cast<int>(poly.size());
+    if (n < 2) return poly;
+    constexpr double EPS2 = 1e-12;
+    auto close = [](const Point& a, const Point& b) {
+        const double dx = CGAL::to_double(a.x()) - CGAL::to_double(b.x());
+        const double dy = CGAL::to_double(a.y()) - CGAL::to_double(b.y());
+        return dx * dx + dy * dy <= EPS2;
+    };
+    std::vector<Point> out;
+    out.reserve(n);
+    for (int i = 0; i < n; ++i) {
+        if (!out.empty() && close(poly[i], out.back())) continue;
+        out.push_back(poly[i]);
+    }
+    while (out.size() >= 2 && close(out.front(), out.back())) out.pop_back();
+    return out;
 }
 
 inline std::optional<Point> line_intersect(const Point& a, const Point& b,
@@ -542,49 +673,215 @@ inline std::vector<Point> convex_intersect_robust(const std::vector<Point>& Pin,
 }  // namespace orourke_cgal
 
 // ===========================================================================
-//  Intersection (public API — calls into orourke_cgal::convex_intersect)
+//  Exact convex-intersection fallback (EPECK)
+// ===========================================================================
+//
+// The fast Epick O'Rourke path (below) is correct for well-conditioned inputs
+// but its double-precision line-line constructions break down on near-
+// degenerate configurations (e.g. a huge bbox-corner polygon clipped by a tiny
+// grid cell): it can emit a vertex hundreds of units outside the true region.
+// When the fast path's validation detects such output, intersect() re-runs the
+// clip here with exact constructions.  Sutherland-Hodgman is used because,
+// for convex inputs, it cannot produce the kinks/self-intersections O'Rourke
+// can, and in EPECK every keep/drop decision and crossing point is exact.  The
+// final vertices are converted back to Epick doubles (topology is exact; the
+// residual coordinate error is ~1e-12, far below the ~1e-6 noise the fast path
+// exhibits).
+inline bool intersect_exact_convex(const std::vector<Point>& P_verts,
+                                   const std::vector<Point>& Q_verts,
+                                   std::vector<Point>& result) {
+    result.clear();
+    const int n = static_cast<int>(P_verts.size());
+    const int m = static_cast<int>(Q_verts.size());
+    if (n < 3 || m < 3) return false;
+
+    using EPoint = Epeck::Point_2;
+    using ELine  = Epeck::Line_2;
+
+    std::vector<EPoint> subject, clip;
+    subject.reserve(n);
+    clip.reserve(m);
+    for (const auto& p : P_verts) subject.push_back(conv_to_exact(p));
+    for (const auto& q : Q_verts) clip.push_back(conv_to_exact(q));
+
+    auto signed_area2 = [](const std::vector<EPoint>& v) {
+        Epeck::FT s = 0;
+        const int sz = static_cast<int>(v.size());
+        for (int i = 0; i < sz; ++i) {
+            const EPoint& a = v[i];
+            const EPoint& b = v[(i + 1) % sz];
+            s += a.x() * b.y() - b.x() * a.y();
+        }
+        return s;
+    };
+    if (signed_area2(subject) < 0) std::reverse(subject.begin(), subject.end());
+    if (signed_area2(clip) < 0) std::reverse(clip.begin(), clip.end());
+
+    std::vector<EPoint> out = subject;
+    for (int e = 0; e < m && out.size() >= 3; ++e) {
+        const EPoint& a = clip[e];
+        const EPoint& b = clip[(e + 1) % m];
+        const ELine edge(a, b);
+        std::vector<EPoint> in;
+        in.swap(out);
+        const int sz = static_cast<int>(in.size());
+        for (int i = 0; i < sz; ++i) {
+            const EPoint& cur = in[i];
+            const EPoint& prv = in[(i + sz - 1) % sz];
+            const bool cur_in = CGAL::orientation(a, b, cur) != CGAL::RIGHT_TURN;
+            const bool prv_in = CGAL::orientation(a, b, prv) != CGAL::RIGHT_TURN;
+            if (cur_in) {
+                if (!prv_in) {
+                    const auto ip = CGAL::intersection(edge, ELine(prv, cur));
+                    if (ip) if (const EPoint* pp = std::get_if<EPoint>(&*ip)) out.push_back(*pp);
+                }
+                out.push_back(cur);
+            } else if (prv_in) {
+                const auto ip = CGAL::intersection(edge, ELine(prv, cur));
+                if (ip) if (const EPoint* pp = std::get_if<EPoint>(&*ip)) out.push_back(*pp);
+            }
+        }
+    }
+    if (out.size() < 3) { result.clear(); return false; }
+
+    result.reserve(out.size());
+    for (const auto& p : out) {
+        result.emplace_back(CGAL::to_double(p.x()), CGAL::to_double(p.y()));
+    }
+    if (result.size() > 1 && result.front() == result.back()) result.pop_back();
+    if (result.size() < 3) { result.clear(); return false; }
+    return true;
+}
+
+// ===========================================================================
+//  Convex-convex intersection by double-precision Sutherland-Hodgman
+// ===========================================================================
+//
+// Both inputs are convex (F(S,p) is a convex wedge clipped to the axis-aligned
+// bbox; conv(G) is a convex grid-cell polygon), so their intersection is the
+// subject polygon successively clipped by each half-plane of the clip polygon.
+//
+// Why this replaces O'Rourke's ConvexIntersect:  O'Rourke's dual-advance walk
+// derives its next move from the *sign of a cross product of two edge
+// directions* and, on the near-degenerate slivers F produces (a cap only a few
+// units wide attached to two edges thousands of units long, reaching the bbox
+// border), that sign is dominated by rounding and the walk takes the wrong
+// branch — it then traces the *clip* polygon and emits a region far larger
+// than the true intersection (observed: 18 vertices tracing Q where the exact
+// answer is a 9-vertex cap 500+ units smaller).  Sutherland-Hodgman cannot
+// exhibit this failure mode by construction: it only ever *removes* subject
+// area against each clip half-plane, so the output is always a subset of the
+// subject and can never balloon.  A near-collinear misclassification of the
+// in/out side test can at worst displace a boundary vertex by construction
+// noise (~1e-9 here), never change the topology.  Because it is structurally
+// robust it needs no convexity guard, no containment guard, and no exact
+// fallback — which is exactly where the previous version spent its GMP time.
+//
+// Complexity is O(n*m) but both polygons are tiny (n,m ~ 4..20), and every
+// operation is a plain double, so in practice it is far faster than the
+// O(n+m) O'Rourke walk once that walk's exact-predicate/fallback cost is
+// included.
+namespace sh_double {
+
+inline void to_ccw(std::vector<std::array<double, 2>>& v) {
+    double a = 0.0;
+    const int n = static_cast<int>(v.size());
+    for (int i = 0; i < n; ++i) {
+        const auto& p = v[i];
+        const auto& q = v[(i + 1) % n];
+        a += p[0] * q[1] - q[0] * p[1];
+    }
+    if (a < 0.0) std::reverse(v.begin(), v.end());
+}
+
+// Clip convex subject P by convex clip Q; both given as Epick points.  Returns
+// the intersection polygon (CCW, no closing duplicate) in Epick points, or an
+// empty vector when the intersection is degenerate (<3 vertices).
+inline std::vector<Point> clip(const std::vector<Point>& P_verts,
+                               const std::vector<Point>& Q_verts) {
+    const int n = static_cast<int>(P_verts.size());
+    const int m = static_cast<int>(Q_verts.size());
+    if (n < 3 || m < 3) return {};
+
+    std::vector<std::array<double, 2>> subj, clipv;
+    subj.reserve(n);
+    clipv.reserve(m);
+    for (const auto& p : P_verts)
+        subj.push_back({CGAL::to_double(p.x()), CGAL::to_double(p.y())});
+    for (const auto& q : Q_verts)
+        clipv.push_back({CGAL::to_double(q.x()), CGAL::to_double(q.y())});
+    to_ccw(subj);
+    to_ccw(clipv);
+
+    std::vector<std::array<double, 2>> out = subj;
+    std::vector<std::array<double, 2>> in;
+    for (int e = 0; e < m && out.size() >= 3; ++e) {
+        const double ax = clipv[e][0],           ay = clipv[e][1];
+        const double bx = clipv[(e + 1) % m][0], by = clipv[(e + 1) % m][1];
+        const double ex = bx - ax, ey = by - ay;
+        // Signed area of triangle (a,b,pt); >=0 means pt is on/left of edge a->b
+        // (inside, since the clip is CCW).
+        auto side = [&](const std::array<double, 2>& pt) {
+            return ex * (pt[1] - ay) - ey * (pt[0] - ax);
+        };
+        in.swap(out);
+        out.clear();
+        const int sz = static_cast<int>(in.size());
+        for (int i = 0; i < sz; ++i) {
+            const auto& cur = in[i];
+            const auto& prv = in[(i + sz - 1) % sz];
+            const double sc = side(cur), sp = side(prv);
+            const bool cin = sc >= 0.0, pin = sp >= 0.0;
+            if (cin) {
+                if (!pin) {
+                    const double t = sp / (sp - sc);
+                    out.push_back({prv[0] + t * (cur[0] - prv[0]),
+                                   prv[1] + t * (cur[1] - prv[1])});
+                }
+                out.push_back(cur);
+            } else if (pin) {
+                const double t = sp / (sp - sc);
+                out.push_back({prv[0] + t * (cur[0] - prv[0]),
+                               prv[1] + t * (cur[1] - prv[1])});
+            }
+        }
+    }
+    if (out.size() < 3) return {};
+
+    std::vector<Point> result;
+    result.reserve(out.size());
+    for (const auto& p : out) result.emplace_back(p[0], p[1]);
+    return result;
+}
+
+}  // namespace sh_double
+
+// ===========================================================================
+//  Intersection (public API)
 // ===========================================================================
 
-inline bool intersect(const std::vector<Point>& P_verts,
-                      const std::vector<Point>& Q_verts,
-                      std::vector<Point>& result) {
-    result = orourke_cgal::convex_intersect_robust(P_verts, Q_verts);
-    if (!result.empty() && result.front() == result.back()) result.pop_back();
+#ifdef PROFILE_INTERSECT
+inline long g_intersect_calls = 0;
+inline long g_fallback_calls = 0;
+#endif
 
+inline bool intersect(const std::vector<Point>& P_in,
+                      const std::vector<Point>& Q_in,
+                      std::vector<Point>& result) {
+#ifdef PROFILE_INTERSECT
+    g_intersect_calls++;
+#endif
+    // Remove degenerate (near-zero-length) edges: collinear duplicate vertices
+    // carry no half-plane information and only add spurious near-zero-length
+    // clip edges.
+    const std::vector<Point> P_verts = orourke_cgal::dedup_consecutive(P_in);
+    const std::vector<Point> Q_verts = orourke_cgal::dedup_consecutive(Q_in);
+
+    result = orourke_cgal::dedup_consecutive(sh_double::clip(P_verts, Q_verts));
     if (result.size() < 3) {
         result.clear();
         return false;
     }
-
-    // Convexity test in O(k): every consecutive turn must share one sign.
-    // For O'Rourke output (a bounded intersection of two convex polygons with
-    // at most n+m vertices) a consistently-oriented polygon has total turning
-    // of exactly 2*pi, hence is simple; so this replaces CGAL's much costlier
-    // is_simple()/is_convex()/Polygon construction without weakening the check.
-    const int k = static_cast<int>(result.size());
-    int turn_sign = 0;
-    for (int i = 0; i < k; ++i) {
-        const CGAL::Orientation o =
-            CGAL::orientation(result[i], result[(i + 1) % k], result[(i + 2) % k]);
-        if (o == CGAL::COLLINEAR) continue;
-        const int s = (o == CGAL::LEFT_TURN) ? 1 : -1;
-        if (turn_sign == 0) {
-            turn_sign = s;
-        } else if (turn_sign != s) {
-            result.clear();
-            return false;
-        }
-    }
-    if (turn_sign == 0) {
-        result.clear();
-        return false;
-    }
-    if (!orourke_cgal::all_points_in_convex_poly(result, P_verts) ||
-        !orourke_cgal::all_points_in_convex_poly(result, Q_verts)) {
-        result.clear();
-        return false;
-    }
-    if (turn_sign < 0) std::reverse(result.begin(), result.end());
     return true;
 }
 
