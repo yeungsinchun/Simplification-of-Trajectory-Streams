@@ -43,17 +43,3 @@ target_compile_definitions(simplify_with_gui PRIVATE CGAL_USE_BASIC_VIEWER)
 add_executable(normalize
   scripts/normalize.cpp
 )
-
-# Plot all curves in data/<id>/ in one window, clickable to toggle.
-add_executable(plot_curve
-  scripts/plot_curve.cpp
-  drawing.cpp
-)
-
-target_include_directories(plot_curve PRIVATE ${CMAKE_SOURCE_DIR})
-
-target_compile_definitions(plot_curve PRIVATE CGAL_USE_BASIC_VIEWER)
-
-target_link_libraries(plot_curve
-  CGAL::CGAL_Qt6
-)
