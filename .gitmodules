@@ -1,0 +1,3 @@
+[submodule "traj-compression"]
+	path = traj-compression
+	url = https://github.com/yeungsinchun/traj-compression.git
