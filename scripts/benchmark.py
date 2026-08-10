@@ -1,27 +1,24 @@
 #!/usr/bin/env python3
 """
-Benchmark script to compare simplify against DP, DOTS, and SQUISH.
+Benchmark script to compare simplify against DOTS.
 
 For each baseline algorithm:
 1. Run the algorithm on original.txt
-2. Compute Frechet distance (original vs algo output)
-3. For e in {0.5, 0.666, 1.0}:
-   - d = frechet_dist / (1 + e)
+2. Compute Frechet distance (original vs algo output) d
+3. - e = {d - 1}
+   - d = 1
    - Run simplify with delta=d, epsilon=e
    - Save output to data/<id>/<BASELINE>_against_simplify.txt
    - Compute Frechet distance for simplify output
-4. Append results to compare_points.csv
+4. Append results to results/benchmark.csv
 
-The DP, DOTS and SQUISH binaries are built into release/ by the top-level
-CMakeLists.txt (alongside `simplify`), so this script only needs the
-release/ directory to exist.
+Both binaries are built by the top-level CMake project in build-release/.
 """
 import argparse
 import concurrent.futures
 import csv
 import functools
 import os
-import re
 import statistics
 import subprocess
 import sys
@@ -35,15 +32,16 @@ from typing import Optional, Tuple
 import psutil
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DP_TOOL = REPO_ROOT / "release" / "DP"
-SIMPLIFY = REPO_ROOT / "./release" / "simplify"
-DOTS_BIN = REPO_ROOT / "release" / "DOTS"
-SQUISH_BIN = REPO_ROOT / "release" / "SQUISH"
-FRECHET = REPO_ROOT / "scripts" / "frechet"
+SIMPLIFY = REPO_ROOT / "build-release" / "simplify"
+DOTS_BIN = REPO_ROOT / "build-release" / "dots"
+FRECHET = REPO_ROOT / "scripts" / "frechet.jl"
 DATA_DIR = REPO_ROOT / "data"
-EPS_VALUES = [0.5, 0.666, 1.0]
-SQUISH_BUFFER = 0.1
-OUTPUT_CSV = REPO_ROOT / "compare_points.csv"
+OUTPUT_CSV = REPO_ROOT / "results" / "benchmark.csv"
+CSV_COLUMNS = [
+    'id', 'baseline_algo', 'original_points', 'baseline_points', 'simplify_points',
+    'baseline_frechet', 'simplify_frechet', 'baseline_time', 'simplify_time',
+    'best_e', 'best_d', 'status',
+]
 
 # Per-invocation resource limits. These defaults are sized to keep the
 # benchmark overnight-stable on a typical workstation: simplify has been
@@ -394,14 +392,8 @@ def _median_run(cmd, *, cwd, timeout, mem_cap_mb, tag, n_repeats, on_success=Non
     return 'ok', statistics.median(times)
 
 
-def run_dp(original: Path, dp_out: Path, timeout=30, mem_cap_mb=0, n_repeats=1) -> Tuple[str, float]:
-    cmd = [str(DP_TOOL), str(original), "200", str(dp_out)]
-    return _median_run(cmd, cwd=REPO_ROOT, timeout=timeout, mem_cap_mb=mem_cap_mb,
-                        tag=f"DP {original.parent.name}", n_repeats=n_repeats)
-
-
 def run_dots(idv: int, dots_out: Path, timeout=60, mem_cap_mb=0, n_repeats=1) -> Tuple[str, float]:
-    cmd = [str(DOTS_BIN), str(idv), "1000"]
+    cmd = [str(DOTS_BIN), str(idv), "-lssd", "200000"]
 
     def _post():
         # DOTS writes to data/<id>/dots_simplified.txt (hardcoded by the C++ binary).
@@ -415,12 +407,6 @@ def run_dots(idv: int, dots_out: Path, timeout=60, mem_cap_mb=0, n_repeats=1) ->
 
     return _median_run(cmd, cwd=REPO_ROOT, timeout=timeout, mem_cap_mb=mem_cap_mb,
                         tag=f"DOTS id={idv}", n_repeats=n_repeats, on_success=_post)
-
-
-def run_squish(original: Path, squish_out: Path, timeout=30, mem_cap_mb=0, n_repeats=1) -> Tuple[str, float]:
-    cmd = [str(SQUISH_BIN), str(original), str(SQUISH_BUFFER), str(squish_out)]
-    return _median_run(cmd, cwd=REPO_ROOT, timeout=timeout, mem_cap_mb=mem_cap_mb,
-                        tag=f"SQUISH {original.parent.name}", n_repeats=n_repeats)
 
 
 def needs_header(path: Path, expected_header: list[str]) -> bool:
@@ -448,6 +434,37 @@ def _algo(row) -> Optional[str]:
         return row[1]
     except (IndexError, TypeError):
         return None
+
+
+def _ensure_csv_header(path: Path) -> None:
+    """Create `path` with the expected header or prepend it to legacy output."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists() or path.stat().st_size == 0:
+        with path.open('w', newline='') as f:
+            csv.writer(f).writerow(CSV_COLUMNS)
+        return
+
+    try:
+        with path.open('r', newline='') as f:
+            first_row = next(csv.reader(f), None)
+        with path.open('r', newline='') as f:
+            rows = list(csv.reader(f))
+        if first_row == CSV_COLUMNS:
+            data_rows = rows[1:]
+        elif first_row == CSV_COLUMNS[:-1]:
+            data_rows = rows[1:]
+        else:
+            data_rows = rows
+        migrated_rows = [
+            row if len(row) == len(CSV_COLUMNS) else row + ['ok']
+            for row in data_rows
+        ]
+        if first_row == CSV_COLUMNS and migrated_rows == data_rows:
+            return
+        with path.open('w', newline='') as f:
+            csv.writer(f).writerows([CSV_COLUMNS, *migrated_rows])
+    except OSError as e:
+        print(f"[csv] warning: failed to initialize {path}: {e}", file=sys.stderr)
 
 
 def _load_existing_csv(path: Path):
@@ -594,7 +611,7 @@ def process_id(idv: int, mem_cap_mb: int = 0,
     """Process one ID and return rows for CSV.
 
     valid_keys / reuse_data are populated by main() from the existing
-    compare_points.csv on --resume. For each (id, baseline_algo):
+    results/benchmark.csv on --resume. For each (id, baseline_algo):
       * if the key is in valid_keys: skip — row is already complete.
       * elif the key is in reuse_data: skip the baseline, reuse the
         existing baseline_points / baseline_frechet / baseline_algo_time,
@@ -622,23 +639,11 @@ def process_id(idv: int, mem_cap_mb: int = 0,
     rows = []
 
     baselines = {
-        'DP': {
-            'file': data_dir / "DP.txt",
-            'run': lambda: run_dp(original, data_dir / "DP.txt",
-                                  timeout=algo_timeout, mem_cap_mb=mem_cap_mb,
-                                  n_repeats=n_repeats),
-        },
         'DOTS': {
             'file': data_dir / "DOTS.txt",
             'run': lambda: run_dots(idv, data_dir / "DOTS.txt",
                                     timeout=algo_timeout, mem_cap_mb=mem_cap_mb,
                                     n_repeats=n_repeats),
-        },
-        'SQUISH': {
-            'file': data_dir / "SQUISH.txt",
-            'run': lambda: run_squish(original, data_dir / "SQUISH.txt",
-                                      timeout=algo_timeout, mem_cap_mb=mem_cap_mb,
-                                      n_repeats=n_repeats),
         },
     }
 
@@ -679,8 +684,10 @@ def process_id(idv: int, mem_cap_mb: int = 0,
         algo_file = algo['file']
 
         if status != 'ok' or not algo_file.exists():
-            print(f"[ID:{idv}]   {algo_name} {status}, skipping")
-            rows.append([idv, algo_name, orig_points, -1, -1, -1, -1, baseline_algo_time, -1, -1, -1])
+            failure_status = status if status != 'ok' else 'missing_output'
+            print(f"[ID:{idv}]   {algo_name} {failure_status}, skipping")
+            rows.append([idv, algo_name, orig_points, -1, -1, -1, -1, baseline_algo_time, -1, -1, -1,
+                        f"baseline_{failure_status}"])
             continue
 
         baseline_points = count_points(algo_file)
@@ -693,35 +700,41 @@ def process_id(idv: int, mem_cap_mb: int = 0,
 
         if baseline_fret is None:
             print(f"[ID:{idv}]   {algo_name} Frechet {fret_status}, skipping")
-            rows.append([idv, algo_name, orig_points, baseline_points, -1, baseline_fret, -1,
-                        baseline_algo_time, -1, -1, -1])
+            rows.append([idv, algo_name, orig_points, baseline_points, -1, -1, -1,
+                        baseline_algo_time, -1, -1, -1, f"baseline_frechet_{fret_status}"])
             continue
 
-        # Batch Frechet for simplify: run all 3 simplify first, then one Julia call
-        # (baseline Frechet must come first since it's used to derive delta)
+        # Use the requested exact parameter relationship for one simplify run.
+        # The baseline Frechet distance supplies epsilon; delta is fixed at 1.
+        eps = baseline_fret - 1.0
+        delta = 1.0
+        if eps <= 0:
+            print(f"[ID:{idv}]   Computed e={eps}, which is not positive; skipping simplify")
+            rows.append([idv, algo_name, orig_points, baseline_points, -1, baseline_fret, -1,
+                        baseline_algo_time, -1, eps, delta, "epsilon_not_positive"])
+            continue
         simp_results = []
-        for eps in EPS_VALUES:
-            delta = baseline_fret / (1.0 + eps)
-            print(f"[ID:{idv}]   Running simplify e={eps} d={delta:.4f}...")
-            sh_status, simplify_time = run_simplify(
-                idv, delta, eps, algo_name,
-                timeout=sh_timeout, mem_cap_mb=mem_cap_mb)
-            sh_file = DATA_DIR / str(idv) / f"simplify_against_{algo_name}_{_fmt_eps(eps)}_{_fmt_d(delta)}.txt"
-            if sh_status != 'ok' or not sh_file.exists():
-                print(f"[ID:{idv}]     simplify e={eps} {sh_status}, skipping")
-                simp_results.append((eps, delta, None, sh_status, simplify_time, None))
-            else:
-                simplify_points = count_points(sh_file)
-                print(f"[ID:{idv}]     simplify e={eps} done, points={simplify_points}, time={simplify_time:.2f}s")
-                simp_results.append((eps, delta, sh_file, 'ok', simplify_time, simplify_points))
+        print(f"[ID:{idv}]   Running simplify e={eps} d={delta:.4f}...")
+        sh_status, simplify_time = run_simplify(
+            idv, delta, eps, algo_name,
+            timeout=sh_timeout, mem_cap_mb=mem_cap_mb)
+        sh_file = DATA_DIR / str(idv) / f"simplify_against_{algo_name}_{_fmt_eps(eps)}_{_fmt_d(delta)}.txt"
+        if sh_status != 'ok' or not sh_file.exists():
+            failure_status = sh_status if sh_status != 'ok' else 'missing_output'
+            print(f"[ID:{idv}]     simplify e={eps} {failure_status}, skipping")
+            simp_results.append((eps, delta, None, failure_status, simplify_time, None))
+        else:
+            simplify_points = count_points(sh_file)
+            print(f"[ID:{idv}]     simplify e={eps} done, points={simplify_points}, time={simplify_time:.2f}s")
+            simp_results.append((eps, delta, sh_file, 'ok', simplify_time, simplify_points))
 
-        # Batch all simplify Frechet calls into ONE Julia invocation
+        # Batch the DOTS and simplify Frechet calls into ONE Julia invocation
         batch_paths = [sh_file for _, _, sh_file, status, _, _ in simp_results
                        if status == 'ok' and sh_file is not None]
 
         if not batch_paths:
             rows.append([idv, algo_name, orig_points, baseline_points, -1, baseline_fret, -1,
-                        baseline_algo_time, -1, -1, -1])
+                        baseline_algo_time, -1, -1, -1, f"simplify_{sh_status}"])
             continue
 
         print(f"[ID:{idv}]   Batch Frechet for {len(batch_paths)} simplify paths...")
@@ -755,7 +768,7 @@ def process_id(idv: int, mem_cap_mb: int = 0,
 
         if best_simp is None:
             rows.append([idv, algo_name, orig_points, baseline_points, -1, baseline_fret, -1,
-                        baseline_algo_time, -1, -1, -1])
+                        baseline_algo_time, -1, -1, -1, f"simplify_frechet_{batch_status}"])
         else:
             rows.append([
                 idv, algo_name,
@@ -763,7 +776,7 @@ def process_id(idv: int, mem_cap_mb: int = 0,
                 baseline_points, best_simp,
                 baseline_fret, best_simp_fret,
                 baseline_algo_time, best_simp_time,
-                best_e, best_d,
+                best_e, best_d, 'ok',
             ])
 
     print(f"[ID:{idv}] Done.")
@@ -774,32 +787,34 @@ def _sweep_simplify(idv: int, algo_name: str, orig_points, baseline_points,
                        baseline_fret, baseline_algo_time, baseline_fret_time,
                        sh_timeout, frechet_timeout, mem_cap_mb,
                        baseline_algo_file: Optional[Path] = None) -> list:
-    """Run the simplify 3-epsilon sweep for one (id, baseline) and return
-    one CSV row (or one all-(-1) row if every simplify attempt failed).
+    """Run simplify with epsilon=baseline Frechet-1 and delta=1.
 
-    Runs all 3 simplify calls first, then batches all 4 Frechet calls
-    (baseline + 3 simplify) into a single Julia invocation.
+    Returns one CSV row and batches the DOTS and simplify Frechet calls.
     """
-    # Phase 1: run all 3 simplify invocations, collecting results
-    simp_results = []  # [(eps, delta, sh_file, sh_status, simplify_time, simplify_points), ...]
+    # Phase 1: run one simplify invocation with the requested parameters.
+    eps = baseline_fret - 1.0
+    delta = 1.0
+    if eps <= 0:
+        print(f"[ID:{idv}]   Computed e={eps}, which is not positive; skipping simplify")
+        return [[idv, algo_name, orig_points, baseline_points, -1, baseline_fret, -1,
+                 baseline_algo_time, -1, eps, delta, 'epsilon_not_positive']]
+    simp_results = []  # [(eps, delta, sh_file, sh_status, simplify_time, simplify_points)]
+    print(f"[ID:{idv}]   Running simplify e={eps} d={delta:.4f}...")
+    sh_status, simplify_time = run_simplify(
+        idv, delta, eps, algo_name,
+        timeout=sh_timeout, mem_cap_mb=mem_cap_mb)
+    sh_file = DATA_DIR / str(idv) / f"simplify_against_{algo_name}_{_fmt_eps(eps)}_{_fmt_d(delta)}.txt"
 
-    for eps in EPS_VALUES:
-        delta = baseline_fret / (1.0 + eps)
-        print(f"[ID:{idv}]   Running simplify e={eps} d={delta:.4f}...")
-        sh_status, simplify_time = run_simplify(
-            idv, delta, eps, algo_name,
-            timeout=sh_timeout, mem_cap_mb=mem_cap_mb)
-        sh_file = DATA_DIR / str(idv) / f"simplify_against_{algo_name}_{_fmt_eps(eps)}_{_fmt_d(delta)}.txt"
+    if sh_status != 'ok' or not sh_file.exists():
+        failure_status = sh_status if sh_status != 'ok' else 'missing_output'
+        print(f"[ID:{idv}]     simplify e={eps} {failure_status}, skipping")
+        simp_results.append((eps, delta, None, failure_status, simplify_time, None))
+    else:
+        simplify_points = count_points(sh_file)
+        print(f"[ID:{idv}]     simplify e={eps} done, points={simplify_points}, time={simplify_time:.2f}s")
+        simp_results.append((eps, delta, sh_file, 'ok', simplify_time, simplify_points))
 
-        if sh_status != 'ok' or not sh_file.exists():
-            print(f"[ID:{idv}]     simplify e={eps} {sh_status}, skipping")
-            simp_results.append((eps, delta, None, sh_status, simplify_time, None))
-        else:
-            simplify_points = count_points(sh_file)
-            print(f"[ID:{idv}]     simplify e={eps} done, points={simplify_points}, time={simplify_time:.2f}s")
-            simp_results.append((eps, delta, sh_file, 'ok', simplify_time, simplify_points))
-
-    # Phase 2: batch all Frechet calls into ONE Julia invocation
+    # Phase 2: batch DOTS and simplify Frechet calls into ONE Julia invocation
     # Build paths list: baseline_algo_file + all successful simplify files
     batch_paths = []
     if baseline_algo_file is not None and baseline_algo_file.exists():
@@ -810,7 +825,7 @@ def _sweep_simplify(idv: int, algo_name: str, orig_points, baseline_points,
 
     if not batch_paths:
         return [[idv, algo_name, orig_points, baseline_points, -1, baseline_fret, -1,
-                baseline_algo_time, -1, -1, -1]]
+                baseline_algo_time, -1, -1, -1, f"simplify_{sh_status}"]]
 
     print(f"[ID:{idv}]   Batch Frechet for {len(batch_paths)} paths...")
     batch_results, batch_total_time, batch_status = frechet_batch(
@@ -856,7 +871,7 @@ def _sweep_simplify(idv: int, algo_name: str, orig_points, baseline_points,
 
     if best_simp is None:
         return [[idv, algo_name, orig_points, baseline_points, -1, baseline_fret, -1,
-                baseline_algo_time, -1, -1, -1]]
+                baseline_algo_time, -1, -1, -1, f"simplify_frechet_{batch_status}"]]
     return [[
         idv, algo_name,
         orig_points,
@@ -864,7 +879,7 @@ def _sweep_simplify(idv: int, algo_name: str, orig_points, baseline_points,
         baseline_fret if baseline_fret_new is None else baseline_fret_new,
         best_simp_fret,
         baseline_algo_time, best_simp_time,
-        best_e, best_d,
+        best_e, best_d, 'ok',
     ]]
 
 
@@ -889,11 +904,11 @@ def _process_id_worker(idv, mem_cap_mb, algo_timeout, sh_timeout,
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Compare simplify against DP, DOTS, SQUISH")
+    parser = argparse.ArgumentParser(description="Compare simplify against DOTS")
     parser.add_argument('--a', type=int, default=1, help='start id (inclusive)')
     parser.add_argument('--b', type=int, default=1000, help='end id (inclusive)')
     parser.add_argument('--resume', action='store_true',
-                        help='read existing compare_points.csv and skip (id, baseline_algo) rows '
+                        help='read existing results/benchmark.csv and skip (id, baseline_algo) rows '
                              'that are already valid (no -1 in simplify_points/simplify_frechet). '
                              'Rows with -1 in those columns are re-run, reusing the cached baseline '
                              'numbers and only invoking simplify again. Without this flag the '
@@ -904,7 +919,7 @@ def main():
                         help=f'RSS cap per child process in MB (default: {DEFAULT_MEM_CAP_MB}; '
                              '0 disables the watchdog)')
     parser.add_argument('--algo-timeout', type=int, default=DEFAULT_ALGO_TIMEOUT_S,
-                        help=f'wall-clock timeout in seconds for DP/DOTS/SQUISH '
+                        help=f'wall-clock timeout in seconds for DOTS '
                              f'(default: {DEFAULT_ALGO_TIMEOUT_S})')
     parser.add_argument('--sh-timeout', type=int, default=DEFAULT_SH_TIMEOUT_S,
                         help=f'wall-clock timeout in seconds per simplify invocation '
@@ -913,7 +928,7 @@ def main():
                         help=f'wall-clock timeout in seconds per Frechet (Julia) call '
                              f'(default: {DEFAULT_FRECHET_TIMEOUT_S})')
     parser.add_argument('--repeats', type=int, default=3,
-                        help='number of times to run each baseline binary (DP / DOTS / SQUISH) '
+                        help='number of times to run the DOTS baseline binary '
                              'per (id, baseline). The recorded baseline_time is the median of '
                              'the per-invocation wall times; the first repeat amortizes loader '
                              'cost. simplify_time is one headless subprocess wall time and is '
@@ -932,13 +947,15 @@ def main():
     # Get IDs to process
     ids = list(range(args.a, args.b + 1))
 
+    _ensure_csv_header(OUTPUT_CSV)
+
     # On --resume, load existing CSV state and decide per (id, algo) what
     # needs work. The old behavior treated the whole ID as completed if any
     # row for it existed in the CSV — which meant a row with -1 in the
     # simplify columns would never be retried. The new behavior is row-
     # level: a row is "valid" only when both simplify_points and
     # simplify_frechet are real numbers (not -1), and an ID is skipped
-    # entirely only if all 3 of its rows are valid.
+    # entirely only if its DOTS row is valid.
     valid_keys: set = set()
     reuse_data: dict = {}
     if args.resume and OUTPUT_CSV.exists():
@@ -954,27 +971,14 @@ def main():
             print(f"Recompute baseline: forced {len(reuse_data)} (id, algo) rows to re-time the baseline")
         skipped_rows = len(valid_keys)
         invalid_rows = len(reuse_data)
-        # An ID is "needs work" if at least one of its 3 algorithm rows is
-        # missing or invalid. We map over ids in input order (not after
-        # filtering) so the count below matches what users see in the log.
-        needs_work = lambda idv: any(
-            (idv, a) not in valid_keys for a in ('DP', 'DOTS', 'SQUISH')
-        )
+        # An ID is "needs work" if its DOTS row is missing or invalid. We map
+        # over ids in input order (not after filtering) so the count below
+        # matches what users see in the log.
+        needs_work = lambda idv: (idv, 'DOTS') not in valid_keys
         skipped_ids = sum(1 for i in ids if not needs_work(i))
         ids = [i for i in ids if needs_work(i)]
         print(f"Resuming: {skipped_rows} valid rows across {skipped_ids} fully-done IDs skipped; "
               f"{invalid_rows} invalid rows queued for retry; {len(ids)} IDs to process")
-
-    cols = ['id', 'baseline_algo', 'original_points', 'baseline_points', 'simplify_points',
-            'baseline_frechet', 'simplify_frechet',
-            'baseline_time', 'simplify_time', 'best_e', 'best_d']
-
-    # Write header only if file doesn't exist
-    write_header = not OUTPUT_CSV.exists()
-    if write_header:
-        with OUTPUT_CSV.open('w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(cols)
 
     print(f"Processing IDs {args.a}-{args.b} ({len(ids)} IDs) with {args.workers} workers...")
     print(f"Resource limits: mem_cap={args.mem_cap_mb} MB, "

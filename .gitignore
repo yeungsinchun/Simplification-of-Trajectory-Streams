@@ -1,12 +1,31 @@
+# Local build and IDE output
 test.cpp
 build/
+build-*/
 release/
-debug
-taxi_log_2008_by_id
-.cache
-.vscode
+debug/
+*.trace/
+*.trace
+.vscode/
 .DS_Store
-.metals
+.metals/
+
+# Downloaded source data and generated trajectory outputs
+taxi_log_2008_by_id/
+.cache/
+/data/
+
+# Python and notebook caches
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Generated benchmark output (tracked historical result snapshots remain tracked)
+results/*.csv
+results/*.png
+
+# Generated report artifacts (tracked report sources and snapshots remain tracked)
+/report/
 
 # Per-intersection-pair dumps produced by `simplify --dump-intersect <id>`.
 # These are intermediate artifacts for the test_convex_intersect benchmark
@@ -46,9 +65,4 @@ ui_*.h
 /simplify_SH
 /normalize
 
-__pycache__/
-*.pyc
-
 *.log
-
-/data

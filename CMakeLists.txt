@@ -14,17 +14,24 @@ set(CMAKE_AUTORCC OFF)
 set(CMAKE_AUTOUIC OFF)
 
 find_package(CGAL REQUIRED COMPONENTS Qt6)
-
-option(SIGNPOSTS "Emit os_signpost points-of-interest for Instruments profiling" OFF)
-if(SIGNPOSTS)
-    add_compile_definitions(SIGNPOSTS)
-endif()
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets Svg)
 
 add_executable(simplify
   simplify.cpp
 )
 
 target_link_libraries(simplify
+  CGAL::CGAL
+)
+
+# Instrumented twin of `simplify`: same algorithm with TIMER hooks and a
+# per-run timing breakdown printed to stderr.  Kept as a separate binary so the
+# production `simplify` hot path carries zero timing overhead.
+add_executable(simplify_with_time
+  simplify_with_time.cpp
+)
+
+target_link_libraries(simplify_with_time
   CGAL::CGAL
 )
 
@@ -35,11 +42,14 @@ add_executable(simplify_with_gui
 
 target_link_libraries(simplify_with_gui
   CGAL::CGAL_Qt6
+  Qt6::Core
+  Qt6::Gui
+  Qt6::Widgets
+  Qt6::OpenGL
+  Qt6::OpenGLWidgets
+  Qt6::Svg
 )
 
 target_compile_definitions(simplify_with_gui PRIVATE CGAL_USE_BASIC_VIEWER)
 
-# Normalize raw taxi data
-add_executable(normalize
-  scripts/normalize.cpp
-)
+add_subdirectory(traj-compression/online/DOTS)

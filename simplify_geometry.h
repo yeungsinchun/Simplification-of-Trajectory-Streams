@@ -396,10 +396,37 @@ inline std::vector<Point> get_points_from_grid(const Point& p, double EPSILON, d
 }
 
 // Convex hull of the delta-disk grid samples around p (the region conv(G_i)).
+//
+// The grid-corner offsets depend only on (EPSILON, DELTA), never on p: every
+// call to get_points_from_grid(p, ...) yields the same corner set merely
+// translated by p.  Convex hull is translation-equivariant, so conv(G_i) has
+// an identical shape for every point in the stream and only its position
+// changes.  We therefore build the origin-centred hull once per (EPSILON,
+// DELTA) and translate that cached template by p on each call, turning a
+// per-step O(m log m) hull build into an O(h) copy-with-offset.
 inline std::vector<Point> get_conv_from_grid(const Point& p, double EPSILON, double DELTA) {
-    std::vector<Point> points = get_points_from_grid(p, EPSILON, DELTA);
+    thread_local double cached_eps   = std::numeric_limits<double>::quiet_NaN();
+    thread_local double cached_delta = std::numeric_limits<double>::quiet_NaN();
+    thread_local std::vector<std::array<double, 2>> hull_offsets;
+
+    if (EPSILON != cached_eps || DELTA != cached_delta) {
+        std::vector<Point> points = get_points_from_grid(Point(0, 0), EPSILON, DELTA);
+        std::vector<Point> conv;
+        CGAL::convex_hull_2(points.begin(), points.end(), std::back_inserter(conv));
+        hull_offsets.clear();
+        hull_offsets.reserve(conv.size());
+        for (const auto& q : conv)
+            hull_offsets.push_back({CGAL::to_double(q.x()), CGAL::to_double(q.y())});
+        cached_eps   = EPSILON;
+        cached_delta = DELTA;
+    }
+
+    const double px = CGAL::to_double(p.x());
+    const double py = CGAL::to_double(p.y());
     std::vector<Point> conv;
-    CGAL::convex_hull_2(points.begin(), points.end(), std::back_inserter(conv));
+    conv.reserve(hull_offsets.size());
+    for (const auto& off : hull_offsets)
+        conv.emplace_back(px + off[0], py + off[1]);
     return conv;
 }
 

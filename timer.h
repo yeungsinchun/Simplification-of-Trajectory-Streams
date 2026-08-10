@@ -10,6 +10,14 @@
 #include <cstdio>
 
 namespace timer_detail {
+    // Runtime switch. When false (default) every TIMER() is a cheap no-op:
+    // the Timer ctor reads this flag and bails out before touching any clock
+    // or map, so leaving TIMER() calls in the hot path costs ~1 branch each.
+    // Flipped on by the --time flag.
+    inline bool& enabled() {
+        static bool e = false;
+        return e;
+    }
     inline std::map<std::string, double>& timing() {
         static std::map<std::string, double> t;
         return t;
@@ -35,11 +43,14 @@ namespace timer_detail {
 struct Timer {
     std::chrono::high_resolution_clock::time_point start;
     const char* name;
-    Timer(const char* n) : name(n) {
+    bool active;
+    Timer(const char* n) : name(n), active(timer_detail::enabled()) {
+        if (!active) return;
         start = std::chrono::high_resolution_clock::now();
         timer_detail::stack().push_back(name);
     }
     ~Timer() {
+        if (!active) return;
         auto end = std::chrono::high_resolution_clock::now();
         auto dur = std::chrono::duration<double, std::milli>(end - start).count();
         timer_detail::timing()[name] += dur;

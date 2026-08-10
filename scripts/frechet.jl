@@ -3,23 +3,22 @@
 Fréchet distance wrapper — supports both single-path and batch modes.
 
 Single-path mode (legacy):
-  frechet <id>                       Compare data/<id>/original.txt with
-                                     data/taxi_simplified/<id>/our_simplified.txt
-                                     and dp_simplified.txt (legacy layout).
-  frechet --in <id>                  Same as positional <id>.
-  frechet --in <id> --path <file>   Compare original against an explicit
-                                     simplified-curve file.
-  frechet --raw                      Print only the raw distance number.
+  frechet.jl <id>                       Compare data/<id>/original.txt with
+                                        data/<id>/simplify.txt.
+  frechet.jl --in <id>                  Same as positional <id>.
+  frechet.jl --in <id> --path <file>    Compare original against an explicit
+                                        simplified-curve file.
+  frechet.jl --raw                      Print only the raw distance number.
 
 Batch mode (benchmark speedup):
-  frechet --id <id> --batch <path1> --batch <path2> ... --batch <pathN>
-                                     Reads original once, computes Frechet against
-                                     all N batch paths in a single Julia session,
-                                     then prints one line per path:
-                                       <basename1>: <distance1>
-                                       <basename2>: <distance2>
-                                       ...
-                                     All in ~1s instead of N × 7s overhead.
+  frechet.jl --id <id> --batch <path1> --batch <path2> ... --batch <pathN>
+                                        Reads original once, computes Frechet against
+                                        all N batch paths in a single Julia session,
+                                        then prints one line per path:
+                                          <basename1>: <distance1>
+                                          <basename2>: <distance2>
+                                          ...
+                                        All in ~1s instead of N × 7s overhead.
 
 Usage:
   julia frechet.jl --id 42 --batch data/42/DP.txt --batch data/42/simplify_against_DP_0.7_123.4.txt --batch data/42/simplify_against_DOTS_0.8_456.7.txt --raw
@@ -107,10 +106,6 @@ function run_single(id::Int, path_arg::String, raw::Bool)
 
     P = read_curve(original_path)
 
-    if !raw
-        println("Computing...")
-    end
-
     for p in targets
         if !isfile(p)
             println("  MISSING: $p")
@@ -123,8 +118,9 @@ function run_single(id::Int, path_arg::String, raw::Bool)
             if raw
                 println(dist)
             else
-                println("  $(basename(p)): $dist")
+                println("Frechet distance: $dist")
             end
+            flush(stdout)
         catch e
             println(stderr, "  ERROR ($p): $e")
         end
@@ -166,7 +162,7 @@ function main()
 
     # Batch mode: --id is set with --batch
     batch_id = parsed["id"]
-    batch_paths_list = parsed["batch"]  # action=:append_arg, list of strings
+    batch_paths_list = parsed["batch"]
     has_batch_id = batch_id != 0 && !isempty(batch_paths_list)
 
     if has_batch_id

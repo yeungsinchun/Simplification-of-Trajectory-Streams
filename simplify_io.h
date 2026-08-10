@@ -1,0 +1,169 @@
+#ifndef SIMPLIFY_IO_H
+#define SIMPLIFY_IO_H
+
+// ===========================================================================
+//  Shared scaffolding for the simplify front-ends
+// ===========================================================================
+//
+// Both the bare (simplify.cpp) and timed (simplify_with_time.cpp) executables share
+// the same command-line parsing, repo-root discovery, and stream I/O.  Those
+// pieces live here as inline definitions so each translation unit compiles its
+// own copy without violating the ODR.  The only thing that differs between the
+// two front-ends is the core algorithm (instrumented or not) and main().
+
+#include <CGAL/Boolean_set_operations_2.h>
+#include <CGAL/Iso_rectangle_2.h>
+#include <array>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <limits>
+#include <string>
+#include <vector>
+
+#include "simplify_geometry.h"
+
+// ===========================================================================
+//  Global parameters
+// ===========================================================================
+
+inline double DELTA = 200;
+inline double EPSILON = 0.5;
+
+inline std::filesystem::path repo_root;
+inline bool out_flag = false;
+inline bool dist_flag = false;
+
+// ===========================================================================
+//  Help
+// ===========================================================================
+
+inline void print_help(const char* prog) {
+    std::cout << "Usage: " << prog << " [options]\n"
+              << "  --in <id>        Read input from data/taxi/<id>.txt (resolved absolutely)\n"
+              << "  --out            Write output to data/<id>/original.txt & simplify.txt (resolved absolutely; requires --in <id>)\n"
+              << "  --dist           After output, compute Frechet distance by invoking ./frechet (Julia wrapper) with --in <id> --path <simplify.txt>\n"
+              << "  -d <delta>       Override DELTA (default " << DELTA << ")\n"
+              << "  -e <epsilon>     Override EPSILON (default " << EPSILON << ")\n"
+              << "  --dump-intersect Dump every (F_poly, Gi_poly) pair fed to "
+                 "intersect() to data/<id>/intersect_pairs.txt\n"
+              << "  -h               Show this help and exit\n"
+              << "\n"
+              << "Shorthand: " << prog << " <id> [flags] is equivalent to '--in <id> --out [flags]'\n";
+}
+
+inline int parse_arguments(int argc, char** argv, int& test_case_no) {
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i],"--out") == 0) out_flag = true;
+        else if (strcmp(argv[i],"--dist") == 0) dist_flag = true;
+        else if (strcmp(argv[i],"--gui") == 0 || strcmp(argv[i],"-F") == 0 ||
+                 strcmp(argv[i],"-G") == 0 || strcmp(argv[i],"-S") == 0) {
+            std::cerr << "GUI options require simplify_with_gui\n";
+            return 1;
+        }
+        else if (strcmp(argv[i],"-d") == 0 && i+1 < argc) {
+            try { DELTA = std::stod(argv[++i]); } catch(...) { std::cerr << "Invalid -d value\n"; return 1; }
+        }
+        else if (strcmp(argv[i],"-e") == 0 && i+1 < argc) {
+            try { EPSILON = std::stod(argv[++i]); } catch(...) { std::cerr << "Invalid -e value\n"; return 1; }
+        }
+        else if (strcmp(argv[i],"-h") == 0) { print_help(argv[0]); return 0; }
+        else if (strcmp(argv[i],"--in") == 0 && i+1 < argc) {
+            try { test_case_no = std::stoi(argv[++i]); }
+            catch(...) { std::cerr << "Invalid --in argument\n"; return 1; }
+        }
+    }
+
+    if (dist_flag) out_flag = true;
+
+    if (test_case_no == -1 && argc >= 2 && argv[1][0] != '-') {
+        try {
+            test_case_no = std::stoi(argv[1]);
+            out_flag = true;
+        } catch (...) {
+            std::cout << "Command parse error\n";
+            return 1;
+        }
+    }
+
+    if (argc == 1) {
+        print_help(argv[0]);
+        return 0;
+    }
+    return 0;
+}
+
+inline int get_repo_root(char** argv, std::filesystem::path& repo_root) {
+    auto find_repo_root = [](const std::filesystem::path& start, int max_levels) -> std::filesystem::path {
+        auto dir = std::filesystem::weakly_canonical(start);
+        for (int i = 0; i < max_levels && !dir.empty(); ++i) {
+            if (std::filesystem::is_directory(dir / "data")) return dir;
+            const auto parent = dir.parent_path();
+            if (parent == dir) break;
+            dir = parent;
+        }
+        return {};
+    };
+    try {
+        // search with reference to the path passed by argv[0]
+        repo_root = find_repo_root(argv[0], 5);
+    } catch (const std::filesystem::filesystem_error& e) {
+        // search with reference to the shell location
+        try {
+            repo_root = find_repo_root(std::filesystem::current_path(), 5);
+        } catch (const std::filesystem::filesystem_error& fallback_error) {
+            std::cerr << "Error: could not resolve the data directory: " << fallback_error.what() << "\n";
+            return 1;
+        }
+    }
+    return 0;
+}
+
+inline int read_stream(int test_case_no, char** argv, std::vector<Point>& stream) {
+    if (test_case_no != -1) {
+        auto simp_orig = repo_root / "data" / std::to_string(test_case_no) / "original.txt";
+        auto simp_output = repo_root / "data" / std::to_string(test_case_no) / "simplify.txt";
+        std::cout << "Input file: " << simp_orig.string() << '\n';
+        if (out_flag) std::cout << "Output file: " << simp_output.string() << '\n';
+        std::ifstream fin(simp_orig.string());
+        if (!fin) { std::cerr << "Cannot open " << simp_orig.string() << "\n"; return 1; }
+        int N = 0;
+        if (!(fin >> N)) { std::cerr << "Empty or invalid input in " << simp_orig.string() << "\n"; return 1; }
+        stream.clear(); stream.reserve(N);
+        for (int i = 0; i < N; ++i) {
+            double x,y; if (!(fin >> x >> y)) { std::cerr << "Malformed pair at index " << i << " in " << simp_orig.string() << "\n"; return 1; }
+            stream.emplace_back(x, y);
+        }
+        std::cout << "Loaded " << stream.size() << " points." << "\n";
+    }
+    return 0;
+}
+
+inline int out_stream(int test_case_no, char** argv, const std::vector<Point>& stream) {
+    std::filesystem::path dir = repo_root / "data" / std::to_string(test_case_no);
+    std::filesystem::create_directories(dir);
+    std::ofstream simp(dir / "simplify.txt");
+    simp << std::setprecision(std::numeric_limits<double>::max_digits10);
+    std::size_t N = stream.size();
+    simp << N << '\n';
+    for (const auto& p : stream) {
+        simp << CGAL::to_double(p.x()) << ' ' << CGAL::to_double(p.y()) << '\n';
+    }
+    simp.close();
+    return 0;
+}
+
+// The Frechet-distance post-step shared by both front-ends.
+inline void maybe_run_frechet(int test_case_no) {
+    if (dist_flag && test_case_no != -1) {
+        std::cout << "Calculating Frechet distance...\n" << std::flush;
+        std::filesystem::path frechet_path = repo_root / "scripts" / "frechet";
+        std::string cmd1 = std::string("\"") + frechet_path.string() + "\" --in " + std::to_string(test_case_no) + " --path \"" + (repo_root / "data" / std::to_string(test_case_no) / "simplify.txt").string() + "\"";
+        int rc = std::system(cmd1.c_str());
+        (void)rc;
+    }
+}
+
+#endif // SIMPLIFY_IO_H
