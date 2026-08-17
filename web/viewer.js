@@ -1373,14 +1373,13 @@
             if (sy < minY) minY = sy;
           }
           
-          const tag = status === 'justDied' ? ' (just died)' : status === 'dead' ? ' (dead)' : '';
-          const headerText = `${ci + 1}/${pfx.P.length}${tag}`;
+          const headerText = `${ci + 1}/${pfx.P.length}`;
           ctx.save();
           ctx.font = "bold 12px -apple-system, BlinkMacSystemFont, sans-serif";
           const tw = ctx.measureText(headerText).width;
-          // Anchor closer to the grid (reduced offset)
-          const hx = minX - tw - 4;  // 4px left of leftmost dot
-          const hy = minY - 4;       // 4px above topmost dot
+          // Anchor very close to the grid
+          const hx = minX - tw - 2;  // 2px left of leftmost dot
+          const hy = minY - 2;       // 2px above topmost dot
           ctx.fillStyle = status === 'dead' ? "rgba(255,95,109,0.85)"
             : status === 'justDied' ? "rgba(255,60,60,0.95)"
             : "#ff9f43";
