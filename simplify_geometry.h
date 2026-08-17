@@ -395,13 +395,6 @@ inline std::vector<Point> get_points_from_grid(const Point& p, double EPSILON, d
         }
     }
 
-    // Sort row-major: ascending y (bottom → top), then ascending x within each row.
-    std::sort(points.begin(), points.end(), [](const Point& a, const Point& b) {
-        const double ay = CGAL::to_double(a.y()), by = CGAL::to_double(b.y());
-        if (ay != by) return ay < by;
-        return CGAL::to_double(a.x()) < CGAL::to_double(b.x());
-    });
-
     return points;
 }
 
