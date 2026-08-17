@@ -215,9 +215,12 @@ inline double expected_frechet_squared = 0.0;
 // guarded by its a-priori rounding bound resolves the clear majority; only
 // genuinely ambiguous (near-boundary) corners defer to the exact predicate.
 inline bool point_in_convex(const Point& p, const std::vector<Point>& poly, bool ccw = true) {
-    const int want = ccw ? 1 : -1;   // sign that means "outside"
-    const double px = CGAL::to_double(p.x()), py = CGAL::to_double(p.y());
     const int n = static_cast<int>(poly.size());
+    // A point cannot be inside a polygon with fewer than 3 vertices
+    if (n < 3) return false;
+    
+    const int bad = ccw ? -1 : 1;   // sign that means "outside" (right for CCW, left for CW)
+    const double px = CGAL::to_double(p.x()), py = CGAL::to_double(p.y());
     for (int i = 0; i < n; ++i) {
         const double ax = CGAL::to_double(poly[i].x()), ay = CGAL::to_double(poly[i].y());
         const double bx = CGAL::to_double(poly[(i + 1) % n].x()), by = CGAL::to_double(poly[(i + 1) % n].y());
@@ -236,7 +239,7 @@ inline bool point_in_convex(const Point& p, const std::vector<Point>& poly, bool
                 default:               s =  0; break;
             }
         }
-        if (s == want) return false;
+        if (s == bad) return false;
     }
     return true;
 }
@@ -320,8 +323,8 @@ inline void append_rect_pts(std::vector<Point>& out, Bbox_edge from, Bbox_edge t
 }
 
 // Grid spacing and disk radius from the (epsilon, delta) parameters.
-inline double GRID_val(double EPSILON, double DELTA) {
-    return EPSILON * DELTA / (2.0 * std::sqrt(2.0));
+inline double GRID_val(double EPSILON, double DELTA, int multiplier = 1) {
+    return EPSILON * DELTA / (2.0 * std::sqrt(2.0)) / multiplier;
 }
 
 inline double R_val(double EPSILON, double DELTA) {
@@ -345,10 +348,10 @@ inline void configure_bbox(const std::vector<Point>& stream, double EPSILON, dou
 
 // All distinct grid corners within radius R of p (the delta-disk sample set).
 // Updates expected_frechet_squared with the farthest corner offset seen.
-inline std::vector<Point> get_points_from_grid(const Point& p, double EPSILON, double DELTA) {
+inline std::vector<Point> get_points_from_grid(const Point& p, double EPSILON, double DELTA, int multiplier = 1) {
     const double px = CGAL::to_double(p.x());
     const double py = CGAL::to_double(p.y());
-    const double GRID = GRID_val(EPSILON, DELTA);
+    const double GRID = GRID_val(EPSILON, DELTA, multiplier);
     if (DELTA == 0) return std::vector<Point>{p};
 
     const double r = R_val(EPSILON, DELTA);
@@ -392,6 +395,13 @@ inline std::vector<Point> get_points_from_grid(const Point& p, double EPSILON, d
         }
     }
 
+    // Sort row-major: ascending y (bottom → top), then ascending x within each row.
+    std::sort(points.begin(), points.end(), [](const Point& a, const Point& b) {
+        const double ay = CGAL::to_double(a.y()), by = CGAL::to_double(b.y());
+        if (ay != by) return ay < by;
+        return CGAL::to_double(a.x()) < CGAL::to_double(b.x());
+    });
+
     return points;
 }
 
@@ -404,13 +414,14 @@ inline std::vector<Point> get_points_from_grid(const Point& p, double EPSILON, d
 // changes.  We therefore build the origin-centred hull once per (EPSILON,
 // DELTA) and translate that cached template by p on each call, turning a
 // per-step O(m log m) hull build into an O(h) copy-with-offset.
-inline std::vector<Point> get_conv_from_grid(const Point& p, double EPSILON, double DELTA) {
+inline std::vector<Point> get_conv_from_grid(const Point& p, double EPSILON, double DELTA, int multiplier = 1) {
     thread_local double cached_eps   = std::numeric_limits<double>::quiet_NaN();
     thread_local double cached_delta = std::numeric_limits<double>::quiet_NaN();
+    thread_local int cached_mult = 0;
     thread_local std::vector<std::array<double, 2>> hull_offsets;
 
-    if (EPSILON != cached_eps || DELTA != cached_delta) {
-        std::vector<Point> points = get_points_from_grid(Point(0, 0), EPSILON, DELTA);
+    if (EPSILON != cached_eps || DELTA != cached_delta || multiplier != cached_mult) {
+        std::vector<Point> points = get_points_from_grid(Point(0, 0), EPSILON, DELTA, multiplier);
         std::vector<Point> conv;
         CGAL::convex_hull_2(points.begin(), points.end(), std::back_inserter(conv));
         hull_offsets.clear();
@@ -419,6 +430,7 @@ inline std::vector<Point> get_conv_from_grid(const Point& p, double EPSILON, dou
             hull_offsets.push_back({CGAL::to_double(q.x()), CGAL::to_double(q.y())});
         cached_eps   = EPSILON;
         cached_delta = DELTA;
+        cached_mult  = multiplier;
     }
 
     const double px = CGAL::to_double(p.x());
@@ -548,7 +560,8 @@ inline void find_F(const Point& p, const std::vector<Point>& S,
                    std::vector<Point>& F) {
     F.clear();
     assert(S.size() != 2);
-    if (S.size() == 1 || point_in_convex(p, S)) {
+    bool p_in_S = point_in_convex(p, S);
+    if (S.size() == 1 || p_in_S) {
         F = current_bbox();
         return;
     }
@@ -561,7 +574,6 @@ inline void find_F(const Point& p, const std::vector<Point>& S,
     auto hit1 = ray_hit_bbox(p, S[tangent[0]]);
     auto hit2 = ray_hit_bbox(p, S[tangent[1]]);
     if (!hit1 || !hit2) {
-        std::cerr << "Ray doesn't intersect with bounding box!\n";
         F = current_bbox();
         return;
     }
@@ -569,7 +581,6 @@ inline void find_F(const Point& p, const std::vector<Point>& S,
     auto e1 = which_edge(hit1.value());
     auto e2 = which_edge(hit2.value());
     if (!e1 || !e2) {
-        std::cerr << "Cannot determine which Bbox edge the ray intersect with.\n";
         F = current_bbox();
         return;
     }

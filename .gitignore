@@ -32,6 +32,12 @@ results/*.png
 # and can be very large (case 10's dump is 270 MB).
 data/**/*
 
+# Trace JSON produced by `simplify --web-server` for the local web visualizer.
+# These can be tens to hundreds of MB and are meant to be generated on demand.
+web/*.trace.json
+web/trace*.json
+web/sample_trace.json
+
 # CMake in-source build pollution
 CMakeCache.txt
 CMakeFiles/

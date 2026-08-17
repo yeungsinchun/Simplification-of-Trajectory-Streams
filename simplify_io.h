@@ -35,6 +35,9 @@ inline double EPSILON = 0.5;
 inline std::filesystem::path repo_root;
 inline bool out_flag = false;
 inline bool dist_flag = false;
+inline bool web_server_flag = false;
+inline bool help_flag = false;
+inline std::string json_output_path = "";
 
 // ===========================================================================
 //  Help
@@ -49,6 +52,9 @@ inline void print_help(const char* prog) {
               << "  -e <epsilon>     Override EPSILON (default " << EPSILON << ")\n"
               << "  --dump-intersect Dump every (F_poly, Gi_poly) pair fed to "
                  "intersect() to data/<id>/intersect_pairs.txt\n"
+              << "  --web-server     Emit a machine-readable JSON trace of the algorithm to "
+                 "stdout for the web visualizer (suppresses all other stdout text)\n"
+              << "  --json-output <path>  Write JSON trace to file instead of stdout (use with --web-server)\n"
               << "  -h               Show this help and exit\n"
               << "\n"
               << "Shorthand: " << prog << " <id> [flags] is equivalent to '--in <id> --out [flags]'\n";
@@ -58,6 +64,10 @@ inline int parse_arguments(int argc, char** argv, int& test_case_no) {
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i],"--out") == 0) out_flag = true;
         else if (strcmp(argv[i],"--dist") == 0) dist_flag = true;
+        else if (strcmp(argv[i],"--web-server") == 0) web_server_flag = true;
+        else if (strcmp(argv[i],"--json-output") == 0 && i+1 < argc) {
+            json_output_path = argv[++i];
+        }
         else if (strcmp(argv[i],"--gui") == 0 || strcmp(argv[i],"-F") == 0 ||
                  strcmp(argv[i],"-G") == 0 || strcmp(argv[i],"-S") == 0) {
             std::cerr << "GUI options require simplify_with_gui\n";
@@ -69,7 +79,7 @@ inline int parse_arguments(int argc, char** argv, int& test_case_no) {
         else if (strcmp(argv[i],"-e") == 0 && i+1 < argc) {
             try { EPSILON = std::stod(argv[++i]); } catch(...) { std::cerr << "Invalid -e value\n"; return 1; }
         }
-        else if (strcmp(argv[i],"-h") == 0) { print_help(argv[0]); return 0; }
+        else if (strcmp(argv[i],"-h") == 0) { print_help(argv[0]); help_flag = true; return 0; }
         else if (strcmp(argv[i],"--in") == 0 && i+1 < argc) {
             try { test_case_no = std::stoi(argv[++i]); }
             catch(...) { std::cerr << "Invalid --in argument\n"; return 1; }
@@ -90,6 +100,7 @@ inline int parse_arguments(int argc, char** argv, int& test_case_no) {
 
     if (argc == 1) {
         print_help(argv[0]);
+        help_flag = true;
         return 0;
     }
     return 0;
@@ -125,8 +136,10 @@ inline int read_stream(int test_case_no, char** argv, std::vector<Point>& stream
     if (test_case_no != -1) {
         auto simp_orig = repo_root / "data" / std::to_string(test_case_no) / "original.txt";
         auto simp_output = repo_root / "data" / std::to_string(test_case_no) / "simplify.txt";
-        std::cout << "Input file: " << simp_orig.string() << '\n';
-        if (out_flag) std::cout << "Output file: " << simp_output.string() << '\n';
+        if (!web_server_flag) {
+            std::cout << "Input file: " << simp_orig.string() << '\n';
+            if (out_flag) std::cout << "Output file: " << simp_output.string() << '\n';
+        }
         std::ifstream fin(simp_orig.string());
         if (!fin) { std::cerr << "Cannot open " << simp_orig.string() << "\n"; return 1; }
         int N = 0;
@@ -136,7 +149,7 @@ inline int read_stream(int test_case_no, char** argv, std::vector<Point>& stream
             double x,y; if (!(fin >> x >> y)) { std::cerr << "Malformed pair at index " << i << " in " << simp_orig.string() << "\n"; return 1; }
             stream.emplace_back(x, y);
         }
-        std::cout << "Loaded " << stream.size() << " points." << "\n";
+        if (!web_server_flag) std::cout << "Loaded " << stream.size() << " points." << "\n";
     }
     return 0;
 }
@@ -158,7 +171,7 @@ inline int out_stream(int test_case_no, char** argv, const std::vector<Point>& s
 // The Frechet-distance post-step shared by both front-ends.
 inline void maybe_run_frechet(int test_case_no) {
     if (dist_flag && test_case_no != -1) {
-        std::cout << "Calculating Frechet distance...\n" << std::flush;
+        if (!web_server_flag) std::cout << "Calculating Frechet distance...\n" << std::flush;
         std::filesystem::path frechet_path = repo_root / "scripts" / "frechet";
         std::string cmd1 = std::string("\"") + frechet_path.string() + "\" --in " + std::to_string(test_case_no) + " --path \"" + (repo_root / "data" / std::to_string(test_case_no) / "simplify.txt").string() + "\"";
         int rc = std::system(cmd1.c_str());
