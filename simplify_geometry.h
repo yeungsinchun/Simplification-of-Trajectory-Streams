@@ -381,10 +381,11 @@ inline std::vector<Point> get_points_from_grid(const Point& p, double EPSILON, d
         points.emplace_back(px + corner_x, py + corner_y);
     };
 
-    for (int j = j_min; j <= j_max; ++j) {
-        const double x0 = j * GRID, x1 = (j + 1) * GRID;
-        for (int k = j_min; k <= j_max; ++k) {
-            const double y0 = k * GRID, y1 = (k + 1) * GRID;
+    // Row-major order: iterate by y (rows) first, then x (columns)
+    for (int k = j_min; k <= j_max; ++k) {
+        const double y0 = k * GRID, y1 = (k + 1) * GRID;
+        for (int j = j_min; j <= j_max; ++j) {
+            const double x0 = j * GRID, x1 = (j + 1) * GRID;
             const double nearest_x = x0 > 0.0 ? x0 : (x1 < 0.0 ? x1 : 0.0);
             const double nearest_y = y0 > 0.0 ? y0 : (y1 < 0.0 ? y1 : 0.0);
             if (nearest_x * nearest_x + nearest_y * nearest_y > r2) continue;
