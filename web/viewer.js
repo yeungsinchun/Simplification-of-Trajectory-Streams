@@ -1359,27 +1359,32 @@
           }
         }
 
-        // 10. "N/M" label anchored to the viewed candidate's orange dot (top-left).
+        // 10. "N/M" label anchored to top-left of the entire P grid (doesn't move when cycling).
         if (viewedCandidate) {
           const ci = viewedCandidate.originalIdx;
           const status = statusOf(viewedCandidate);
-          const anchor = pfx.P[ci];
-          if (anchor) {
-            const [acx, acy] = worldToScreen(anchor[0], anchor[1]);
-            const tag = status === 'justDied' ? ' (just died)' : status === 'dead' ? ' (dead)' : '';
-            const headerText = `${ci + 1}/${pfx.P.length}${tag}`;
-            ctx.save();
-            ctx.font = "bold 12px -apple-system, BlinkMacSystemFont, sans-serif";
-            const tw = ctx.measureText(headerText).width;
-            // Anchor to top-left of the orange dot
-            const hx = acx - tw - 8;  // 8px left of the dot
-            const hy = acy - 8;       // 8px above the dot
-            ctx.fillStyle = status === 'dead' ? "rgba(255,95,109,0.85)"
-              : status === 'justDied' ? "rgba(255,60,60,0.95)"
-              : "#ff9f43";
-            ctx.fillText(headerText, hx, hy);
-            ctx.restore();
+          
+          // Find the top-left corner of all P anchors
+          let minX = Infinity, minY = Infinity;
+          for (const pt of pfx.P) {
+            const [sx, sy] = worldToScreen(pt[0], pt[1]);
+            if (sx < minX) minX = sx;
+            if (sy < minY) minY = sy;
           }
+          
+          const tag = status === 'justDied' ? ' (just died)' : status === 'dead' ? ' (dead)' : '';
+          const headerText = `${ci + 1}/${pfx.P.length}${tag}`;
+          ctx.save();
+          ctx.font = "bold 12px -apple-system, BlinkMacSystemFont, sans-serif";
+          const tw = ctx.measureText(headerText).width;
+          // Anchor to top-left of the entire grid
+          const hx = minX - tw - 8;  // 8px left of leftmost dot
+          const hy = minY - 8;       // 8px above topmost dot
+          ctx.fillStyle = status === 'dead' ? "rgba(255,95,109,0.85)"
+            : status === 'justDied' ? "rgba(255,60,60,0.95)"
+            : "#ff9f43";
+          ctx.fillText(headerText, hx, hy);
+          ctx.restore();
         }
       }
 
