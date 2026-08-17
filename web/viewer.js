@@ -1129,9 +1129,10 @@
         committed.push(pfx.output[0], pfx.output[1]);
       }
       strokePath(committed, "#3ddc97", 2.25);
-      // Skip the last point — it coincides with the current P-grid anchor (orange
-      // dot) for intermediate prefixes, or with output[1] for the final step.
-      const dotsToShow = committed.slice(0, -1);
+      // Show dots for all committed points except the very last one (which is either
+      // the current P-grid anchor for intermediate prefixes, or the final trajectory
+      // endpoint which should remain as part of the stream, not simplified output).
+      const dotsToShow = committed.length > 0 ? committed.slice(0, -1) : [];
       for (const p of dotsToShow) dot(p, 1.8, "#3ddc97", null);
     }
 
