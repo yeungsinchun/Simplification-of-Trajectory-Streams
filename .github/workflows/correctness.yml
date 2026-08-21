@@ -1,0 +1,228 @@
+name: Correctness - Fréchet dist & output points vs previous commit
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  correctness-vs-prev:
+    name: New build must not regress vs previous commit
+    runs-on: ubuntu-latest
+
+    env:
+      EPSILON: "299"
+      DELTA: "1"
+      # Absolute tolerance on Fréchet distance comparison. Both implementations
+      # produce distances ≈ input EPSILON (299), and floating-point noise in
+      # the input propagates to ~1e-3 differences in the final distance.
+      DIST_TOL: "0.01"
+      # Allowed drift on the output point count: must not be larger than the
+      # previous commit by more than this many points.
+      POINTS_TOL: "0"
+
+    steps:
+      - name: Checkout current commit (new)
+        uses: actions/checkout@v4
+        with:
+          path: new
+          submodules: recursive
+
+      - name: Checkout previous commit (original)
+        uses: actions/checkout@v4
+        with:
+          path: orig
+          ref: ${{ github.event.pull_request.base_sha }}
+          submodules: recursive
+        continue-on-error: true
+
+      - name: Fall back to HEAD~1 if no PR base available
+        if: hashFiles('orig/simplify.cpp') == ''
+        run: |
+          git clone --depth 2 --recurse-submodules \
+            https://github.com/${{ github.repository }}.git orig_fallback
+          cd orig_fallback
+          git checkout HEAD~1
+          cd ..
+          rm -rf orig
+          mv orig_fallback orig
+
+      - name: Sync CI data fixtures into orig checkout
+        # The previous commit may predate the data/1..10/original.txt
+        # fixtures, so copy them from the current checkout before running
+        # the orig binary.
+        run: |
+          mkdir -p orig/data
+          cp -r new/data/1 orig/data/1
+          cp -r new/data/2 orig/data/2
+          cp -r new/data/3 orig/data/3
+          cp -r new/data/4 orig/data/4
+          cp -r new/data/5 orig/data/5
+          cp -r new/data/6 orig/data/6
+          cp -r new/data/7 orig/data/7
+          cp -r new/data/8 orig/data/8
+          cp -r new/data/9 orig/data/9
+          cp -r new/data/10 orig/data/10
+
+      - name: Backport frechet invocation fix to orig checkout
+        # Previous commits called a non-existent scripts/frechet binary for
+        # --dist. Patch the call site so the orig binary actually runs the
+        # Fréchet calculation; otherwise every dist check fails trivially.
+        # This isolates the comparison to "did the algorithm regress" rather
+        # than "did the frechet invocation regress".
+        run: |
+          python3 - <<'PY'
+          import re, pathlib, sys
+          p = pathlib.Path("orig/simplify_io.h")
+          src = p.read_text()
+          before = src
+
+          # 1) scripts/frechet  ->  scripts/frechet.jl
+          src = re.sub(
+              r'std::filesystem::path frechet_path = repo_root / "scripts" / "frechet";',
+              r'std::filesystem::path frechet_path = repo_root / "scripts" / "frechet.jl";',
+              src)
+
+          # 2) prefix "julia " to the invocation
+          src = src.replace(
+              'std::string cmd1 = std::string("\\"") + frechet_path.string()',
+              'std::string cmd1 = std::string("julia \\"") + frechet_path.string()',
+              1)
+
+          if src != before:
+              p.write_text(src)
+              print("[patch] applied")
+          else:
+              print("[patch] no changes needed (already fixed)")
+          PY
+
+          echo "---- orig/simplify_io.h (frechet block) ----"
+          grep -n -A1 -B1 frechet orig/simplify_io.h | head -30
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential libcgal-dev qtbase5-dev
+
+      - name: Install Julia (for Fréchet distance)
+        uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.10'
+
+      - name: Build original
+        working-directory: orig
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target simplify -j"$(nproc)"
+
+      - name: Build new
+        working-directory: new
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target simplify -j"$(nproc)"
+
+      - name: Run correctness comparison (IDs 1..10)
+        run: |
+          set -uo pipefail
+
+          IDS=(1 2 3 4 5 6 7 8 9 10)
+          RESULTS=new/results_correctness.tsv
+          printf 'id\torig_dist\torig_points\tnew_dist\tnew_points\tstatus\n' \
+            > "$RESULTS"
+
+          OVERALL_OK=1
+          ROWS="| ID | orig dist | new dist | Δ dist | orig pts | new pts | Δ pts | verdict |"$'\n'
+          ROWS+="|----|----------:|---------:|-------:|---------:|--------:|------:|---------|"$'\n'
+
+          for ID in "${IDS[@]}"; do
+            echo "============================================================"
+            echo "ID=$ID"
+            echo "============================================================"
+
+            # --- ORIGINAL: cd into orig/ so its data writes stay isolated ---
+            ( cd orig/ && \
+              ./build/simplify "$ID" --dist -e "$EPSILON" -d "$DELTA" \
+                > "/tmp/orig_$ID.log" 2>&1 ) \
+              || { echo "❌ ORIGINAL run failed for ID=$ID"; cat "/tmp/orig_$ID.log"; exit 1; }
+
+            ORIG_DIST=$(grep -E '^[0-9]+(\.[0-9]+)?$' "/tmp/orig_$ID.log" | tail -1)
+            # Fall back to "Frechet distance: NNN" form (orig binary w/o --raw)
+            if [ -z "$ORIG_DIST" ]; then
+              ORIG_DIST=$(grep -oE 'Frechet distance: *[0-9]+(\.[0-9]+)?' "/tmp/orig_$ID.log" | tail -1 | grep -oE '[0-9]+(\.[0-9]+)?')
+            fi
+            ORIG_POINTS=$(head -1 "orig/data/$ID/simplify.txt" 2>/dev/null \
+                          | tr -d '[:space:]')
+            ORIG_POINTS=${ORIG_POINTS:-0}
+
+            echo "  orig: dist=$ORIG_DIST  points=$ORIG_POINTS"
+
+            # --- NEW: cd into new/ so its data writes stay isolated ---
+            ( cd new/ && \
+              ./build/simplify "$ID" --dist -e "$EPSILON" -d "$DELTA" \
+                > "/tmp/new_$ID.log" 2>&1 ) \
+              || { echo "❌ NEW run failed for ID=$ID"; cat "/tmp/new_$ID.log"; exit 1; }
+
+            NEW_DIST=$(grep -E '^[0-9]+(\.[0-9]+)?$' "/tmp/new_$ID.log" | tail -1)
+            # Fall back to "Frechet distance: NNN" form
+            if [ -z "$NEW_DIST" ]; then
+              NEW_DIST=$(grep -oE 'Frechet distance: *[0-9]+(\.[0-9]+)?' "/tmp/new_$ID.log" | tail -1 | grep -oE '[0-9]+(\.[0-9]+)?')
+            fi
+            NEW_POINTS=$(head -1 "new/data/$ID/simplify.txt" 2>/dev/null \
+                         | tr -d '[:space:]')
+            NEW_POINTS=${NEW_POINTS:-0}
+
+            echo "  new:  dist=$NEW_DIST  points=$NEW_POINTS"
+
+            # --- ASSERT ---
+            # Use a small absolute tolerance on dist comparisons: both
+            # implementations produce Fréchet distances that are essentially
+            # equal to the input epsilon (299), and floating-point noise on
+            # the input points propagates to differences of order 1e-3 in the
+            # final distance. Tolerances are env-configurable above.
+            STATUS="OK"
+            DELTA_DIST=$(awk -v o="$ORIG_DIST" -v n="$NEW_DIST" \
+                            'BEGIN { printf "%.6f", n - o }')
+            DELTA_PTS=$(awk -v o="$ORIG_POINTS" -v n="$NEW_POINTS" \
+                          'BEGIN { printf "%d", n - o }')
+
+            if awk -v n="$NEW_DIST" -v o="$ORIG_DIST" -v tol="$DIST_TOL" \
+                   'BEGIN { exit !(n+0 > o+0 + tol + 1e-9) }'; then
+              STATUS="FAIL_DIST"
+            fi
+            if [ "$STATUS" = "OK" ] \
+               && [ $((NEW_POINTS - ORIG_POINTS)) -gt "$POINTS_TOL" ]; then
+              STATUS="FAIL_POINTS"
+            fi
+
+            if [ "$STATUS" != "OK" ]; then OVERALL_OK=0; fi
+
+            printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+              "$ID" "$ORIG_DIST" "$ORIG_POINTS" "$NEW_DIST" "$NEW_POINTS" "$STATUS" \
+              >> "$RESULTS"
+            ROWS+="| $ID | $ORIG_DIST | $NEW_DIST | $DELTA_DIST | $ORIG_POINTS | $NEW_POINTS | $DELTA_PTS | $STATUS |"$'\n'
+          done
+
+          echo ""
+          echo "================================================================"
+          echo "Correctness summary"
+          echo "================================================================"
+          printf '%s' "$ROWS"
+          echo ""
+          column -t -s $'\t' "$RESULTS" || cat "$RESULTS"
+
+          if [ "$OVERALL_OK" -ne 1 ]; then
+            echo ""
+            echo "❌ Correctness regression: new build produced a larger Fréchet distance"
+            echo "   or more output points than the previous commit on at least one ID."
+            exit 1
+          fi
+          echo "✅ Correctness OK — new build ≤ original on all IDs."
+
+      - name: Upload correctness report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: correctness-vs-prev
+          path: new/results_correctness.tsv

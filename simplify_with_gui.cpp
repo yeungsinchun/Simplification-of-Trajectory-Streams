@@ -14,7 +14,6 @@
 #include <QApplication>
 #include "drawing.h"
 #include "simplify_geometry.h"
-#include "timer.h"
 
 // ===========================================================================
 //  Global parameters
@@ -175,15 +174,9 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
                      std::vector<Point>& simplified,
                      double epsilon, double delta,
                      MultiViewer* viewer = nullptr) {
-    SIGNPOST_EVENT(stab.start, "cur=%d", cur);
     const Point& p0 = stream[cur];
     std::vector<Point> P;
-    {
-        SIGNPOST_BEGIN(get_points_from_grid);
-        P = get_points_from_grid(p0, epsilon, delta);
-        SIGNPOST_END(get_points_from_grid);
-        SIGNPOST_EVENT(stab.grid_points, "Pn=%lu", (unsigned long)P.size());
-    }
+    P = get_points_from_grid(p0, epsilon, delta);
 
     if (viewer) {
         viewer->markP0(p0);
@@ -203,23 +196,13 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
     cur++;
     while (cur < static_cast<int>(stream.size())) {
         const Point& pi = stream[cur];
-        SIGNPOST_BEGIN(stab.step);
-        SIGNPOST_EVENT(stab.consume, "cur=%d", cur);
         Gi = get_conv_from_grid(pi, epsilon, delta);
 
         for (int i = 0; i < Pn; ++i) {
             if (dead[i]) continue;
-            {
-                SIGNPOST_BEGIN(find_F);
-                find_F(P[i], S[i], F[i]);
-                SIGNPOST_END(find_F);
-            }
+            find_F(P[i], S[i], F[i]);
             bool hit;
-            {
-                SIGNPOST_BEGIN(intersect);
-                hit = intersect(F[i], Gi, new_S[i]);
-                SIGNPOST_END(intersect);
-            }
+            hit = intersect(F[i], Gi, new_S[i]);
             if (!hit) {
                 dead[i] = true;
                 dead_cnt++;
@@ -233,7 +216,6 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
             buffer[1] = new_S[i].front();
             has_candidate = true;
         }
-        SIGNPOST_END(stab.step);
         if (!has_candidate || dead_cnt == Pn) break;
 
         if (viewer) {
@@ -260,10 +242,6 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
         cur++;
     }
 
-    SIGNPOST_EVENT(stab.emit, "buffer=(%{public}lf,%{public}lf)->(%{public}lf,%{public}lf)",
-                   (double)CGAL::to_double(buffer[0].x()), (double)CGAL::to_double(buffer[0].y()),
-                   (double)CGAL::to_double(buffer[1].x()), (double)CGAL::to_double(buffer[1].y()));
-
     simplified.emplace_back(buffer[0]);
     simplified.emplace_back(buffer[1]);
     if (viewer) {
@@ -279,29 +257,22 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
 std::vector<Point> simplify(const std::vector<Point>& stream,
                             double epsilon, double delta,
                             MultiViewer* viewer = nullptr) {
-    SIGNPOST_BEGIN(simplify.run);
     configure_bbox(stream, epsilon, delta);
     std::vector<Point> simplified;
     std::cout << "Simplifying...\n";
 
     auto core_start = std::chrono::high_resolution_clock::now();
     int cur = 0;
-    int prefix = 0;
     while (cur != static_cast<int>(stream.size())) {
-        SIGNPOST_EVENT(simplify.prefix, "from=%d size=%lu", cur, (unsigned long)simplified.size());
         cur = get_longest_stab(stream, cur, simplified, epsilon, delta, viewer);
-        prefix++;
     }
     auto core_end = std::chrono::high_resolution_clock::now();
     double core_ms = std::chrono::duration<double, std::milli>(core_end - core_start).count();
     std::fprintf(stderr, "SIMPLIFY_CORE_MS %.4f\n", core_ms);
 
-    SIGNPOST_END(simplify.run);
     std::cout << "Expected Frechet distance: " << std::sqrt(expected_frechet_squared) << '\n';
     std::cout << "The original stream of size " << stream.size()
               << " is simplified to " << simplified.size() << " points.\n";
-    SIGNPOST_EVENT(simplify.done, "n=%lu m=%lu prefixes=%d",
-                   (unsigned long)stream.size(), (unsigned long)simplified.size(), prefix);
     return simplified;
 }
 
@@ -330,9 +301,7 @@ int main(int argc, char** argv) {
     viewer.addOriginalPoints(stream);
     viewer_process_events();
 
-    SIGNPOST_BEGIN(app.run);
     std::vector<Point> simplified = simplify(stream, EPSILON, DELTA, &viewer);
-    SIGNPOST_END(app.run);
     stream = std::move(simplified);
 
     if (show_simplified) {

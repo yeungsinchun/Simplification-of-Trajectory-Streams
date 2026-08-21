@@ -5,7 +5,7 @@
 // Consumes the JSON trace produced by `simplify --web-server` and renders an
 // interactive step-through of the paper's streaming construction: for each
 // "prefix" (one call to get_longest_stab) it shows the delta-disk candidate
-// anchors P, and for each step within a prefix it shows the point p_i being
+// anchors P, and for each step within a prefix it shows the point v_i being
 // consumed, the delta-disk hull G_i, each surviving candidate's free-space
 // wedge F(S,p) fed into intersect(), the resulting stab region S, and the
 // best (buffer) segment chosen so far.
@@ -30,6 +30,7 @@
     playTimer: null,
     computedFrechet: null,
     computingFrechet: false,
+    currentStartPoint: null, // shared between renderStatus() and render() for the "p" label
   };
 
   // -------------------------------------------------------------------------
@@ -43,6 +44,7 @@
   const canvasContainer = el("canvasContainer");
   const dropHint = el("dropHint");
   const paramsBar = el("paramsBar");
+  const playbackBar = el("playbackBar");
   const statusGrid = el("statusGrid");
   const statusIndices = el("statusIndices");
 
@@ -55,6 +57,23 @@
   const traceSelect = el("traceSelect");
   const loadBtn = el("loadBtn");
 
+  // Mobile off-canvas controls
+  const headerToggle = el("headerToggle");
+  const headerBody = el("headerBody");
+  const playbackToggle = el("playbackToggle");
+  const playbackBarEl = el("playbackBar");
+  const mobileBackBtn = el("mobileBackBtn");
+  const mobileLayersToggle = el("mobileLayersToggle");
+  const layersSection = el("layersSection");
+  const mobilePanelClose = el("mobilePanelClose");
+  const mobilePanelOpen = el("mobilePanelOpen");
+  const mobileTransport = el("mobileTransport");
+  const mobileStepBackBtn = el("mobileStepBackBtn");
+  const mobileCandidateBackBtn = el("mobileCandidateBackBtn");
+  const mobilePlayBtn = el("mobilePlayBtn");
+  const mobileCandidateForwardBtn = el("mobileCandidateForwardBtn");
+  const mobileStepForwardBtn = el("mobileStepForwardBtn");
+
   const stepInput = el("stepInput");
   const segmentInput = el("segmentInput");
   const playBtn = el("playBtn");
@@ -63,14 +82,20 @@
   // Current loaded file/trace state
   let currentFile = null;
   let currentTraceId = null;
-  let frechetJobId = null;
-  let frechetPollTimer = null;
+
+  function setLoadButtonBusy(isBusy) {
+    loadBtn.disabled = isBusy;
+    loadBtn.setAttribute("aria-busy", String(isBusy));
+    loadBtn.innerHTML = isBusy
+      ? '<span class="button-spinner" aria-hidden="true"></span><span class="visually-hidden">Loading</span>'
+      : "Load Trace";
+  }
 
   // Speed presets
   const speedPresets = document.querySelectorAll(".speed-preset");
   let currentSpeedMultiplier = 1; // Default 1x
   const toggles = {};
-  for (const key of ["bbox", "stream", "simplified", "ball-p0", "ball-pi", "Gi", "F", "F-Si", "S", "P"]) {
+  for (const key of ["stream", "simplified", "ball-p0", "ball-pi", "Gi", "F", "F-Si", "S", "P", "dead-candidates"]) {
     toggles[key] = el(`toggle-${key}`);
   }
 
@@ -91,6 +116,22 @@
       pauseIcon.style.display = 'none';
       if (label) label.textContent = 'Play';
     }
+    // Mirror to the mobile FAB
+    const fabPlay = playbackToggle && playbackToggle.querySelector('.play-fab-icon');
+    const fabPause = playbackToggle && playbackToggle.querySelector('.pause-fab-icon');
+    if (fabPlay && fabPause) {
+      fabPlay.style.display = state.playing ? 'none' : 'block';
+      fabPause.style.display = state.playing ? 'block' : 'none';
+    }
+    const mobilePlay = mobilePlayBtn && mobilePlayBtn.querySelector('.mobile-play-icon');
+    const mobilePause = mobilePlayBtn && mobilePlayBtn.querySelector('.mobile-pause-icon');
+    const mobileLabel = mobilePlayBtn && mobilePlayBtn.querySelector('.mobile-play-label');
+    if (mobilePlay && mobilePause) {
+      mobilePlay.style.display = state.playing ? 'none' : 'block';
+      mobilePause.style.display = state.playing ? 'block' : 'none';
+      mobilePlayBtn.setAttribute('aria-label', state.playing ? 'Pause' : 'Play');
+      if (mobileLabel) mobileLabel.textContent = state.playing ? 'Pause' : 'Play';
+    }
   }
   
   // Initialize play button state
@@ -99,6 +140,22 @@
   // -------------------------------------------------------------------------
   //  File loading
   // -------------------------------------------------------------------------
+
+  async function apiErrorMessage(resp) {
+    const fallback = `Server error ${resp.status}`;
+    try {
+      const text = await resp.text();
+      if (!text) return fallback;
+      try {
+        const data = JSON.parse(text);
+        return data.error || fallback;
+      } catch {
+        return text.length <= 200 ? text : fallback;
+      }
+    } catch {
+      return fallback;
+    }
+  }
 
   function loadTraceText(text, name) {
     let parsed;
@@ -125,6 +182,57 @@
       return;
     }
     stopPlaying();
+    
+    // For sample traces (51, 52, 53), shift all y-coordinates up by 500
+    const isSampleTrace = (currentTraceId !== null)
+      && (parseInt(currentTraceId, 10) === 51
+       || parseInt(currentTraceId, 10) === 52
+       || parseInt(currentTraceId, 10) === 53);
+    if (isSampleTrace) {
+      const Y_OFFSET = 500;
+      // Shift bbox
+      if (parsed.bbox) {
+        parsed.bbox[1] += Y_OFFSET; // ymin
+        parsed.bbox[3] += Y_OFFSET; // ymax
+      }
+      // Shift stream (full input trajectory)
+      if (parsed.stream) {
+        parsed.stream.forEach(p => p[1] += Y_OFFSET);
+      }
+      // Shift all points in prefixes
+      if (parsed.prefixes) {
+        parsed.prefixes.forEach(pfx => {
+          // Shift P (original points)
+          if (pfx.P) pfx.P.forEach(p => p[1] += Y_OFFSET);
+          // Shift p0 (start anchor)
+          if (pfx.p0) pfx.p0[1] += Y_OFFSET;
+          // Shift S (simplified so far)
+          if (pfx.S) pfx.S.forEach(p => p[1] += Y_OFFSET);
+          // Shift output (the simplified segment for this prefix)
+          if (pfx.output) {
+            pfx.output.forEach(p => p[1] += Y_OFFSET);
+          }
+          // Shift all step data
+          if (pfx.steps) {
+            pfx.steps.forEach(step => {
+              // Shift pi (current point)
+              if (step.pi) step.pi[1] += Y_OFFSET;
+              // Shift Gi (convex hull)
+              if (step.Gi) step.Gi.forEach(p => p[1] += Y_OFFSET);
+              // Shift candidate data
+              if (step.candidates) {
+                step.candidates.forEach(cand => {
+                  if (cand.F) cand.F.forEach(p => p[1] += Y_OFFSET);
+                  if (cand.S) cand.S.forEach(p => p[1] += Y_OFFSET);
+                  if (cand.rays) cand.rays.forEach(ray => ray.forEach(p => p[1] += Y_OFFSET));
+                });
+              }
+            });
+          }
+        });
+      }
+    }
+    
     state.trace = parsed;
     state.prefixIdx = 0;
     state.stepIdx = parsed.prefixes.length && parsed.prefixes[0].steps.length ? 0 : -1;
@@ -133,12 +241,21 @@
     dropHint.style.display = "none";
     el("sidebar").style.display = "flex";
     el("resizer").style.display = "block";
+    canvas.classList.add("has-trace");
+    document.body.classList.add("trace-loaded-mobile");
+    if (playbackBar) playbackBar.classList.add("visible");
+    if (playbackToggle) playbackToggle.classList.add("visible");
     renderParamsBar();
     setupSliders();
     fitToData();
     render();
+    // Update button states - disable step back if we're at step 0 (i=1, the first step)
+    const stepBackBtn = el("stepBackBtn");
+    stepBackBtn.disabled = (state.prefixIdx === 0 && state.stepIdx <= 0);
     // Typeset MathJax in sidebar
-    if (window.MathJax) MathJax.typesetPromise([el("sidebar")]);
+    if (window.MathJax) {
+      MathJax.typesetPromise([el("sidebar")]).catch(() => {});
+    }
     // Automatically start Fréchet computation
     startFrechetComputation();
   }
@@ -154,6 +271,7 @@
     currentFile = f;
     currentTraceId = null;
     traceSelect.value = "";
+    syncPreloadedTrigger();
     uploadStatus.textContent = "File selected. Click 'Load Trace' to generate.";
     uploadStatus.style.color = "#8b93a3";
   });
@@ -167,12 +285,14 @@
       return;
     }
 
+    // Collapse header drawer once loading starts so the canvas gets more room.
+    if (headerBody && headerBody.classList.contains("open")) closeHeader();
+
     // Check if we have a file or a selected trace
     if (currentFile) {
       // Generate from uploaded file
-      uploadStatus.textContent = "Generating trace...";
-      uploadStatus.style.color = "#e8c547";
-      loadBtn.disabled = true;
+      uploadStatus.textContent = "";
+      setLoadButtonBusy(true);
 
       try {
         const formData = new FormData();
@@ -185,8 +305,7 @@
 
         const resp = await fetch("/api/trace", { method: "POST", body: formData });
         if (!resp.ok) {
-          const err = await resp.json();
-          throw new Error(err.error || `Server error ${resp.status}`);
+          throw new Error(await apiErrorMessage(resp));
         }
         const traceText = await resp.text();
         
@@ -200,13 +319,12 @@
         uploadStatus.textContent = `Error: ${err.message}`;
         uploadStatus.style.color = "#ff5f6d";
       } finally {
-        loadBtn.disabled = false;
+        setLoadButtonBusy(false);
       }
     } else if (currentTraceId) {
       // Generate from preloaded trace
-      uploadStatus.textContent = "Loading trace...";
-      uploadStatus.style.color = "#e8c547";
-      loadBtn.disabled = true;
+      uploadStatus.textContent = "";
+      setLoadButtonBusy(true);
 
       try {
         console.log(`[Client] Starting trace load (ID=${currentTraceId}) with eps=${eps}, delta=${delta}`);
@@ -214,8 +332,7 @@
 
         const resp = await fetch(`/api/trace/${currentTraceId}?epsilon=${eps}&delta=${delta}`);
         if (!resp.ok) {
-          const err = await resp.json();
-          throw new Error(err.error || `Server error ${resp.status}`);
+          throw new Error(await apiErrorMessage(resp));
         }
         const traceText = await resp.text();
         
@@ -229,7 +346,7 @@
         uploadStatus.textContent = `Error: ${err.message}`;
         uploadStatus.style.color = "#ff5f6d";
       } finally {
-        loadBtn.disabled = false;
+        setLoadButtonBusy(false);
       }
     } else {
       uploadStatus.textContent = "Please select a file or preloaded trace first";
@@ -245,6 +362,209 @@
   // Trace metadata keyed by id — populated on load, used by the change handler.
   const traceMetaById = {};
 
+  // Cached ordered trace list (id + label + n_points) used by the picker overlay.
+  let tracesList = [];
+
+  const preloadedTrigger = el("preloadedTrigger");
+  const preloadedLabel = el("preloadedLabel");
+  const tracePicker = el("tracePicker");
+  const tracePickerBackdrop = el("tracePickerBackdrop");
+  const tracePickerClose = el("tracePickerClose");
+  const tracePickerList = el("tracePickerList");
+
+  function openTracePicker() {
+    if (!tracePicker) return;
+    tracePicker.classList.add("open");
+    tracePickerBackdrop.classList.add("open");
+    tracePicker.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+  }
+  function closeTracePicker() {
+    if (!tracePicker) return;
+    tracePicker.classList.remove("open");
+    tracePickerBackdrop.classList.remove("open");
+    tracePicker.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+  }
+
+  function renderTracePicker() {
+    if (!tracePickerList) return;
+    tracePickerList.innerHTML = "";
+    if (!tracesList.length) {
+      const empty = document.createElement("div");
+      empty.className = "trace-picker-empty";
+      empty.textContent = "No preloaded traces available.";
+      tracePickerList.appendChild(empty);
+      return;
+    }
+    let addedDivider = false;
+    tracesList.forEach(t => {
+      const id = t.id !== undefined ? t.id : t;
+      const n = t.n_points;
+      const label = t.label || `Trace ${id}`;
+      const isSample = (id === 51 || id === 52 || id === 53);
+      if (!isSample && !addedDivider) {
+        const sep = document.createElement("div");
+        sep.className = "trace-picker-divider";
+        sep.textContent = "Other traces";
+        tracePickerList.appendChild(sep);
+        addedDivider = true;
+      }
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "trace-picker-item";
+      btn.dataset.traceId = id;
+      if (String(traceSelect.value) === String(id)) btn.classList.add("selected");
+      const labelEl = document.createElement("span");
+      labelEl.textContent = label;
+      btn.appendChild(labelEl);
+      if (n != null) {
+        const meta = document.createElement("span");
+        meta.className = "trace-picker-item-meta";
+        meta.textContent = `${n.toLocaleString()} pts`;
+        btn.appendChild(meta);
+      }
+      btn.addEventListener("click", () => {
+        traceSelect.value = id;
+        traceSelect.dispatchEvent(new Event("change"));
+        closeTracePicker();
+      });
+      tracePickerList.appendChild(btn);
+    });
+  }
+
+  function syncPreloadedTrigger() {
+    if (!preloadedTrigger || !preloadedLabel) return;
+    // If a file is currently chosen, show its name in the trigger.
+    if (currentFile && currentFile.name) {
+      preloadedLabel.textContent = currentFile.name;
+      preloadedTrigger.classList.add("has-value");
+      return;
+    }
+    const opt = traceSelect.options[traceSelect.selectedIndex];
+    const value = traceSelect.value;
+    if (value && opt && opt.textContent) {
+      preloadedLabel.textContent = opt.textContent;
+      preloadedTrigger.classList.add("has-value");
+    } else {
+      preloadedLabel.textContent = "Select trace…";
+      preloadedTrigger.classList.remove("has-value");
+    }
+  }
+
+  if (preloadedTrigger) preloadedTrigger.addEventListener("click", openTracePicker);
+  if (tracePickerClose) tracePickerClose.addEventListener("click", closeTracePicker);
+  if (tracePickerBackdrop) tracePickerBackdrop.addEventListener("click", closeTracePicker);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      if (tracePicker && tracePicker.classList.contains("open")) closeTracePicker();
+      if (playbackBarEl && playbackBarEl.classList.contains("open")) closePlayback();
+      if (headerBody && headerBody.classList.contains("open")) closeHeader();
+    }
+  });
+
+  // ---- Mobile header toggle (collapse file controls) ----
+  function openHeader() {
+    if (!headerBody) return;
+    headerBody.classList.add("open");
+    headerToggle.classList.add("active");
+    headerToggle.setAttribute("aria-expanded", "true");
+  }
+  function closeHeader() {
+    if (!headerBody) return;
+    headerBody.classList.remove("open");
+    headerToggle.classList.remove("active");
+    headerToggle.setAttribute("aria-expanded", "false");
+  }
+  if (headerToggle) {
+    headerToggle.addEventListener("click", () => {
+      if (headerBody.classList.contains("open")) closeHeader();
+      else openHeader();
+    });
+  }
+
+  // ---- Mobile playback FAB + bottom-sheet ----
+  function openPlayback() {
+    if (!playbackBarEl) return;
+    playbackBarEl.classList.add("open");
+    playbackToggle.classList.add("active");
+    playbackToggle.setAttribute("aria-expanded", "true");
+    document.body.classList.add("playback-open");
+  }
+  function closePlayback() {
+    if (!playbackBarEl) return;
+    playbackBarEl.classList.remove("open");
+    playbackToggle.classList.remove("active");
+    playbackToggle.setAttribute("aria-expanded", "false");
+    document.body.classList.remove("playback-open");
+  }
+  if (playbackToggle) {
+    playbackToggle.addEventListener("click", () => {
+      if (playbackBarEl.classList.contains("open")) closePlayback();
+      else openPlayback();
+    });
+  }
+  if (mobileBackBtn) {
+    mobileBackBtn.addEventListener("click", () => window.location.reload());
+  }
+  if (mobileLayersToggle && layersSection) {
+    mobileLayersToggle.addEventListener("click", () => {
+      const isOpen = layersSection.classList.toggle("layers-open");
+      mobileLayersToggle.setAttribute("aria-expanded", String(isOpen));
+    });
+  }
+  if (mobilePanelClose) {
+    mobilePanelClose.addEventListener("click", () => {
+      document.body.classList.add("mobile-panel-closed");
+      resizeCanvas();
+      render();
+    });
+  }
+  if (mobilePanelOpen) {
+    mobilePanelOpen.addEventListener("click", () => {
+      document.body.classList.remove("mobile-panel-closed");
+      resizeCanvas();
+      render();
+    });
+  }
+
+  // Keep the touch bar anchored to the visible screen while mobile browsers
+  // pinch-zoom and pan their visual viewport.
+  function syncMobileTransportViewport() {
+    if (!mobileTransport || !window.visualViewport) return;
+    const viewport = window.visualViewport;
+    if (viewport.scale <= 1.01) {
+      mobileTransport.style.transform = "";
+      return;
+    }
+    const x = viewport.offsetLeft;
+    const y = viewport.offsetTop + viewport.height - document.documentElement.clientHeight;
+    mobileTransport.style.transform =
+      `translate(${x}px, ${y}px) scale(${1 / viewport.scale})`;
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", syncMobileTransportViewport);
+    window.visualViewport.addEventListener("scroll", syncMobileTransportViewport);
+  }
+  window.addEventListener("resize", syncMobileTransportViewport);
+  syncMobileTransportViewport();
+
+  if (mobileStepBackBtn) {
+    mobileStepBackBtn.addEventListener("click", () => el("stepBackBtn").click());
+  }
+  if (mobileCandidateBackBtn) {
+    mobileCandidateBackBtn.addEventListener("click", () => el("candidateBackBtn").click());
+  }
+  if (mobilePlayBtn) {
+    mobilePlayBtn.addEventListener("click", () => playBtn.click());
+  }
+  if (mobileCandidateForwardBtn) {
+    mobileCandidateForwardBtn.addEventListener("click", () => el("candidateForwardBtn").click());
+  }
+  if (mobileStepForwardBtn) {
+    mobileStepForwardBtn.addEventListener("click", () => el("stepForwardBtn").click());
+  }
+
   // Populate dropdown on page load
   (async () => {
     try {
@@ -255,6 +575,7 @@
         const data = await resp.json();
         console.log('[Traces] Received data:', data);
         if (data.traces && data.traces.length > 0) {
+          tracesList = data.traces;
           let addedDivider = false;
           data.traces.forEach(t => {
             const id = t.id !== undefined ? t.id : t;
@@ -282,6 +603,7 @@
             }
             traceSelect.appendChild(opt);
           });
+          renderTracePicker();
           console.log(`[Traces] Added ${data.traces.length} traces to dropdown`);
         } else {
           console.warn('[Traces] No traces in response');
@@ -305,12 +627,18 @@
       render();
       uploadStatus.textContent = "";
       dropHint.style.display = "flex";
+      document.body.classList.remove("trace-loaded-mobile");
+      if (playbackBar) playbackBar.classList.remove("visible");
+      if (playbackToggle) playbackToggle.classList.remove("visible");
+      syncPreloadedTrigger();
       return;
     }
 
     currentTraceId = traceId;
     currentFile = null;
     trajectoryFileName.textContent = "no file chosen";
+    syncPreloadedTrigger();
+    if (headerBody && headerBody.classList.contains("open")) closeHeader();
 
     // Auto-fill ε/δ from meta if available (sample traces have recommended values).
     const meta = traceMetaById[traceId];
@@ -356,7 +684,7 @@
     paramsBar.innerHTML = `
       <span>\\(\\varepsilon\\) <b>${fmt(t.eps)}</b></span>
       <span>\\(\\delta\\) <b>${fmt(t.delta)}</b></span>
-      <span>\\(\\text{grid}_\\text{val}\\) <b>${fmt(t.grid_val)}</b></span>
+      <span>\\(\\text{len}_\\text{grid}\\) <b>${fmt(t.grid_val)}</b></span>
       <span>\\(R\\) (disk radius) <b>${fmt(t.r_val)}</b></span>
       <span>a-priori Fréchet bound <b>${fmt(t.expected_frechet)}</b></span>
       ${computedFrechetDisplay}
@@ -366,7 +694,9 @@
       <span>|simplified| <b>${t.simplified.length}</b></span>
       <span>ratio <b>${(100 * t.simplified.length / t.stream.length).toFixed(1)}%</b></span>
     `;
-    if (window.MathJax) MathJax.typesetPromise([paramsBar]);
+    if (window.MathJax) {
+      MathJax.typesetPromise([paramsBar]).catch(() => {});
+    }
   }
 
   function currentPrefix() {
@@ -389,30 +719,20 @@
       return;
     }
 
-    const startIdx = pfx.p0_idx !== undefined ? pfx.p0_idx : "—";
     const curIdx   = step ? step.stream_idx : "—";
 
-    // Determine the start point based on the viewed candidate
+    // p always shows the stream index of the prefix's anchor vertex, NOT the
+    // candidate grid index.  p0_idx is set once when the prefix is created
+    // (it is the index into the full stream where this prefix begins).
     let startPoint = pfx.p0;
-    if (step) {
-      const alive = step.candidates.filter((c) => c.alive).length;
-      if (alive > 0) {
-        const aliveCandidates = step.candidates
-          .map((c, i) => ({ ...c, originalIdx: i }))
-          .filter(c => c.alive);
-        const cur = aliveCandidates[state.candidateIdx % aliveCandidates.length];
-        // Use the first point of the stab region S as the start point
-        if (cur.S && cur.S.length > 0) {
-          startPoint = cur.S[0];
-        }
-      }
-    }
+    let startIdx = pfx.p0_idx !== undefined ? pfx.p0_idx : "—";
+    state.currentStartPoint = startPoint;
 
     // Big index numbers
     statusIndices.innerHTML = `
       <div class="status-idx-block">
-        <span class="idx-label" style="color:#c47aff">\\(v_0\\) (start)</span>
-        <span class="idx-num" style="color:#c47aff">#${startIdx}</span>
+        <span class="idx-label" style="color:#ff9f43">\\(p\\) (start)</span>
+        <span class="idx-num" style="color:#ff9f43">#${startIdx}</span>
         <span class="idx-coord">${ptStr(startPoint)}</span>
       </div>
       <div class="status-idx-block">
@@ -420,39 +740,26 @@
         <span class="idx-num" style="color:#ff7ae8">${step ? "#" + curIdx : "—"}</span>
         <span class="idx-coord">${step ? ptStr(step.pi) : ""}</span>
       </div>`;
-    if (window.MathJax) MathJax.typesetPromise([statusIndices]);
+    if (window.MathJax) {
+      MathJax.typesetPromise([statusIndices]).catch(() => {});
+    }
 
     // Detail rows — present-state only, no future end vertex
     const rows = [];
     if (step) {
       const alive = step.candidates.filter((c) => c.alive).length;
-      rows.push(["alive", `<b style="color:#3ddc97">${alive}</b> / ${step.candidates.length}`]);
-      
-      // Always show the viewing row, even if no alive candidates
-      if (alive > 0) {
-        const aliveCandidates = step.candidates
-          .map((c, i) => ({ ...c, originalIdx: i }))
-          .filter(c => c.alive);
-        const cur = aliveCandidates[state.candidateIdx % aliveCandidates.length];
-        const candPt = pfx.P[cur.originalIdx];
-        
-        rows.push(["<span style='color:#ff9f43'>viewing</span>",
-                   `<span style='color:#ff9f43'>P[${cur.originalIdx}] = ${ptStr(candPt)}</span>`]);
-      } else {
-        rows.push(["<span style='color:#ff9f43'>viewing</span>",
-                   `<span style='color:#999'>—</span>`]);
-      }
+      rows.push(["alive", `<b style="color:#3ddc97">${alive}</b> / ${pfx.P.length}`]);
     } else {
       rows.push(["step", "before first"]);
       rows.push(["alive", `<b style="color:#3ddc97">${pfx.P.length}</b> / ${pfx.P.length}`]);
-      rows.push(["<span style='color:#ff9f43'>viewing</span>",
-                 `<span style='color:#999'>—</span>`]);
     }
 
     statusGrid.innerHTML = rows
       .map(([k, v]) => `<span>${k}</span><span class="mono"><b>${v}</b></span>`)
       .join("");
-    if (window.MathJax) MathJax.typesetPromise([statusGrid]);
+    if (window.MathJax) {
+      MathJax.typesetPromise([statusGrid]).catch(() => {});
+    }
   }
 
   function ptStr(p) {
@@ -517,6 +824,7 @@
 
   // Pan (drag).
   canvas.addEventListener("mousedown", (e) => {
+    if (!state.trace) return;
     state.dragging = true;
     canvas.classList.add("dragging");
     state.dragStart = [e.clientX, e.clientY];
@@ -539,6 +847,7 @@
   canvasWrap.addEventListener(
     "wheel",
     (e) => {
+      if (!state.trace) return;
       e.preventDefault();
       const rect = canvasWrap.getBoundingClientRect();
       const sx = e.clientX - rect.left;
@@ -555,6 +864,7 @@
   );
 
   window.addEventListener("resize", () => { resizeCanvas(); render(); });
+  window.addEventListener("orientationchange", () => { setTimeout(() => { resizeCanvas(); render(); }, 100); });
 
   // -------------------------------------------------------------------------
   //  Prefix / step navigation
@@ -582,6 +892,9 @@
     else state.stepIdx = pfx ? Math.max(-1, Math.min(pfx.steps.length - 1, state.stepIdx)) : -1;
     state.candidateIdx = 0; // Reset candidate cycling when changing prefix
     render();
+    // Update button states - disable step back if at prefix 0 and step 0 or before
+    const stepBackBtn = el("stepBackBtn");
+    stepBackBtn.disabled = (state.prefixIdx === 0 && state.stepIdx <= 0);
   }
 
   function goToStep(i) {
@@ -605,6 +918,9 @@
         state.stepIdx = prevPfx.steps.length - 1;
         state.candidateIdx = 0;
         render();
+        // Update button states
+        const stepBackBtn = el("stepBackBtn");
+        stepBackBtn.disabled = (state.prefixIdx === 0 && state.stepIdx <= 0);
       }
       return;
     }
@@ -612,6 +928,10 @@
     state.stepIdx = i;
     state.candidateIdx = 0;
     render();
+    
+    // Update button states - disable step back if at prefix 0 and step 0 or before
+    const stepBackBtn = el("stepBackBtn");
+    stepBackBtn.disabled = (state.prefixIdx === 0 && state.stepIdx <= 0);
   }
 
   // Playback-bar prefix buttons
@@ -757,56 +1077,16 @@
   });
 
   // -------------------------------------------------------------------------
-  //  Fréchet distance (async, non-blocking)
+  //  Fréchet distance
   // -------------------------------------------------------------------------
 
   function setFrechetResult(html) {
     frechetResult.innerHTML = html;
   }
 
-  function stopFrechetPoll() {
-    if (frechetPollTimer) { clearTimeout(frechetPollTimer); frechetPollTimer = null; }
-    frechetJobId = null;
-  }
-
-  async function pollFrechet(jobId) {
-    try {
-      console.log('Polling Fréchet job:', jobId);
-      const resp = await fetch(`/api/frechet/${jobId}`);
-      if (!resp.ok) {
-        console.error('Fréchet poll failed:', resp.status, resp.statusText, 'for job:', jobId);
-        state.computingFrechet = false;
-        renderParamsBar();
-        return; 
-      }
-      const data = await resp.json();
-      console.log('Fréchet poll response:', data);
-      if (data.status === "done") {
-        stopFrechetPoll();
-        state.computedFrechet = data.distance;
-        state.computingFrechet = false;
-        console.log('Fréchet computation finished:', data.distance);
-        renderParamsBar();
-      } else if (data.status === "error") {
-        console.error('Fréchet computation error:', data.error);
-        stopFrechetPoll();
-        state.computingFrechet = false;
-        renderParamsBar();
-      } else {
-        frechetPollTimer = setTimeout(() => pollFrechet(jobId), 1200);
-      }
-    } catch (e) {
-      console.error('Fréchet poll exception:', e);
-      stopFrechetPoll();
-      state.computingFrechet = false;
-      renderParamsBar();
-    }
-  }
-
   async function startFrechetComputation() {
     if (!state.trace) return;
     console.log('startFrechetComputation called - currentTraceId:', currentTraceId, 'currentFile:', currentFile);
-    stopFrechetPoll();
     state.computingFrechet = true;
     renderParamsBar();
 
@@ -832,15 +1112,13 @@
         body,
       });
       if (!resp.ok) {
-        console.error('Fréchet POST failed:', resp.status, resp.statusText);
-        state.computingFrechet = false;
-        renderParamsBar();
-        return;
+        throw new Error(await apiErrorMessage(resp));
       }
       const data = await resp.json();
-      frechetJobId = data.job_id;
-      console.log('Fréchet job started:', frechetJobId);
-      pollFrechet(frechetJobId);
+      state.computedFrechet = data.distance;
+      state.computingFrechet = false;
+      console.log('Fréchet computation finished:', data.distance);
+      renderParamsBar();
     } catch (e) {
       console.error('Fréchet computation error:', e);
       state.computingFrechet = false;
@@ -991,6 +1269,10 @@
     const xSpacing = getTickSpacing(xRange);
     const ySpacing = getTickSpacing(yRange);
 
+    // Position axes at the data bounds instead of world origin (0,0)
+    const xAxisY = ymin;
+    const yAxisX = xmin;
+
     ctx.strokeStyle = "#444";
     ctx.fillStyle = "#999";
     ctx.lineWidth = 1;
@@ -1001,7 +1283,7 @@
     // X-axis ticks
     const xStart = Math.ceil(xmin / xSpacing) * xSpacing;
     for (let x = xStart; x <= xmax; x += xSpacing) {
-      const [sx, sy] = worldToScreen(x, 0);
+      const [sx, sy] = worldToScreen(x, xAxisY);
       ctx.beginPath();
       ctx.moveTo(sx, sy - 5);
       ctx.lineTo(sx, sy + 5);
@@ -1014,7 +1296,7 @@
     ctx.textBaseline = "middle";
     const yStart = Math.ceil(ymin / ySpacing) * ySpacing;
     for (let y = yStart; y <= ymax; y += ySpacing) {
-      const [sx, sy] = worldToScreen(0, y);
+      const [sx, sy] = worldToScreen(yAxisX, y);
       ctx.beginPath();
       ctx.moveTo(sx - 5, sy);
       ctx.lineTo(sx + 5, sy);
@@ -1022,23 +1304,30 @@
       ctx.fillText(y.toFixed(0), sx - 8, sy);
     }
 
-    // Draw axes
+    // Draw axes at the data bounds
     ctx.strokeStyle = "#666";
     ctx.lineWidth = 1.5;
-    // X-axis
-    const [x0Left, y0] = worldToScreen(xmin, 0);
-    const [x0Right, _] = worldToScreen(xmax, 0);
+    // X-axis at bottom of data
+    const [x0Left, y0] = worldToScreen(xmin, xAxisY);
+    const [x0Right, _] = worldToScreen(xmax, xAxisY);
     ctx.beginPath();
     ctx.moveTo(x0Left, y0);
     ctx.lineTo(x0Right, y0);
     ctx.stroke();
-    // Y-axis
-    const [x0, y0Bottom] = worldToScreen(0, ymin);
-    const [__, y0Top] = worldToScreen(0, ymax);
+    // Y-axis at left of data
+    const [x0, y0Bottom] = worldToScreen(yAxisX, ymin);
+    const [__, y0Top] = worldToScreen(yAxisX, ymax);
     ctx.beginPath();
     ctx.moveTo(x0, y0Bottom);
     ctx.lineTo(x0, y0Top);
     ctx.stroke();
+
+    // Draw bounding box (always visible, solid lines)
+    ctx.strokeStyle = "#888";
+    ctx.lineWidth = 1.5;
+    const [bx1, by1] = worldToScreen(xmin, ymin);
+    const [bx2, by2] = worldToScreen(xmax, ymax);
+    ctx.strokeRect(bx1, by2, bx2 - bx1, by1 - by2);
   }
 
   // -------------------------------------------------------------------------
@@ -1076,19 +1365,18 @@
     } else {
       candidateInput.value = `0 / 0`;
     }
-
-    // 1. Bounding box.
-    if (toggles.bbox.checked && t.bbox) {
-      const [xmin, ymin, xmax, ymax] = t.bbox;
-      fillPolygon(
-        [[xmin, ymin], [xmax, ymin], [xmax, ymax], [xmin, ymax]],
-        null,
-        "#3a4152",
-        1
-      );
+    if (mobileStepBackBtn) {
+      mobileStepBackBtn.disabled = state.prefixIdx === 0 && state.stepIdx <= 0;
     }
+    if (mobileStepForwardBtn) {
+      const atLastPrefix = state.prefixIdx === t.prefixes.length - 1;
+      mobileStepForwardBtn.disabled = atLastPrefix && state.stepIdx >= n - 1;
+    }
+    const hasCandidates = Boolean(step && step.candidates.length);
+    if (mobileCandidateBackBtn) mobileCandidateBackBtn.disabled = !hasCandidates;
+    if (mobileCandidateForwardBtn) mobileCandidateForwardBtn.disabled = !hasCandidates;
 
-    // 2. Full input stream (faint polyline + small filled dots).
+    // 1. Full input stream (faint polyline + small filled dots).
     if (toggles.stream.checked) {
       strokePath(t.stream, "#3d4456", 1.25);
       
@@ -1101,7 +1389,11 @@
       }
       if (pfx && step && state.stepIdx === pfx.steps.length - 1) {
         simplifiedPoints.add(`${pfx.output[0][0]},${pfx.output[0][1]}`);
-        simplifiedPoints.add(`${pfx.output[1][0]},${pfx.output[1][1]}`);
+        // Do NOT add output[1] if this is the very last prefix - that's the trajectory endpoint
+        const isLastPrefix = state.prefixIdx === t.prefixes.length - 1;
+        if (!isLastPrefix) {
+          simplifiedPoints.add(`${pfx.output[1][0]},${pfx.output[1][1]}`);
+        }
       }
       
       // Draw stream dots, but skip those that are part of simplified output
@@ -1125,15 +1417,22 @@
       // complete, so we can safely reveal the output segment (this also ensures the
       // final prefix's segment is shown — it would otherwise never be promoted into
       // a "prior" prefix by advancing to a non-existent next prefix).
-      if (pfx && step && state.stepIdx === pfx.steps.length - 1) {
+      // BUT: do NOT show output if we're at stepIdx === -1 (before first step of prefix)
+      if (pfx && step && state.stepIdx >= 0 && state.stepIdx === pfx.steps.length - 1) {
         committed.push(pfx.output[0], pfx.output[1]);
       }
-      strokePath(committed, "#3ddc97", 2.25);
-      // Show dots for all committed points except the very last one (which is either
-      // the current P-grid anchor for intermediate prefixes, or the final trajectory
-      // endpoint which should remain as part of the stream, not simplified output).
-      const dotsToShow = committed.length > 0 ? committed.slice(0, -1) : [];
-      for (const p of dotsToShow) dot(p, 1.8, "#3ddc97", null);
+      // Only draw if we have at least 2 points (a complete segment)
+      if (committed.length >= 2) {
+        strokePath(committed, "#3ddc97", 2.25);
+        // Show dots for all committed points except the trajectory endpoint
+        // If at the final step of the final prefix, exclude the last point (trajectory endpoint)
+        const isAtFinalStepOfFinalPrefix = pfx && step && 
+                                            state.stepIdx === pfx.steps.length - 1 && 
+                                            state.prefixIdx === t.prefixes.length - 1;
+        const numToExclude = isAtFinalStepOfFinalPrefix ? 1 : 0;
+        const dotsToShow = committed.length > numToExclude ? committed.slice(0, committed.length - numToExclude) : [];
+        for (const p of dotsToShow) dot(p, 1.8, "#3ddc97", null);
+      }
     }
 
     if (pfx) {
@@ -1166,8 +1465,8 @@
         if (toggles["ball-p0"].checked) {
           drawBall(pfx.p0[0], pfx.p0[1], "rgba(196,122,255,0.07)", "rgba(196,122,255,0.6)", 1.5);
         }
-        // Ball at p_i: the ball that conv(G_i) must cover at this step.
-        if (step && toggles["ball-pi"].checked) {
+        // Ball at v_i: the ball that conv(G_i) must cover at this step.
+        if (step && step.pi && toggles["ball-pi"].checked) {
           drawBall(step.pi[0], step.pi[1], "rgba(255,122,232,0.07)", "rgba(255,122,232,0.85)", 1.75);
         }
       }
@@ -1191,7 +1490,7 @@
         const COLORS = {
           alive:    { fFill: "rgba(79,157,255,0.18)",  fStroke: "rgba(79,157,255,0.85)",  ray: "rgba(79,157,255,1)",   lw: 2,    dotR: 3,   dotFill: "#ff9f43", dotStroke: "#ff6b1a" },
           justDied: { fFill: "rgba(255,60,60,0.14)",    fStroke: "rgba(255,60,60,0.9)",    ray: "rgba(255,60,60,1)",    lw: 1.75, dotR: 3,   dotFill: "#ff3c3c", dotStroke: "#cc1a1a" },
-          dead:     { fFill: "rgba(255,95,109,0.08)",  fStroke: "rgba(255,95,109,0.7)",   ray: "rgba(255,95,109,0.7)", lw: 1.5,  dotR: 2.5, dotFill: "#ff5f6d", dotStroke: "#cc3344" },
+          dead:     { fFill: "rgba(255,60,60,0.08)",  fStroke: "rgba(255,60,60,0.7)",   ray: "rgba(255,60,60,0.7)", lw: 1.5,  dotR: 2.5, dotFill: "#ff3c3c", dotStroke: "#cc1a1a" },
         };
 
         const cyclePool = allCandidates.filter(c => statusOf(c) !== 'dead');
@@ -1272,20 +1571,20 @@
                   Math.abs(fp[0]-co[0]) < 1 && Math.abs(fp[1]-co[1]) < 1));
             })();
 
-            // Use a lighter blue color for F_Si
+            // Use cyan color for F_Si
             const fSiCol = {
-              fFill: "rgba(110,181,255,0.12)",
-              fStroke: "rgba(110,181,255,0.85)",
-              ray: "rgba(110,181,255,0.6)",
+              fFill: "rgba(34,211,238,0.12)",
+              fStroke: "rgba(34,211,238,0.85)",
+              ray: "rgba(34,211,238,0.6)",
               lw: 1.5
             };
 
             if (status === 'alive' && isBbox) {
               ctx.save();
-              ctx.strokeStyle = "rgba(110,181,255,0.7)";
+              ctx.strokeStyle = "rgba(34,211,238,0.7)";
               ctx.lineWidth = 1.5;
               ctx.setLineDash([6, 4]);
-              fillPolygon(c.F_Si, null, "rgba(110,181,255,0.7)", 1.5);
+              fillPolygon(c.F_Si, null, "rgba(34,211,238,0.7)", 1.5);
               ctx.setLineDash([]);
               ctx.restore();
             } else {
@@ -1326,7 +1625,7 @@
 
           // S region — only when alive.
           if (status === 'alive' && toggles.S.checked && c.S && c.S.length >= 3) {
-            fillPolygon(c.S, "rgba(61,220,151,0.18)", "#3ddc97", 2);
+            fillPolygon(c.S, "rgba(167,139,250,0.18)", "#a78bfa", 2);
           }
 
           if (toggles.P.checked && anchor) {
@@ -1334,26 +1633,33 @@
           }
         }
 
-        // 7. Dead candidate anchors — red dots (always shown).
-        for (const c of allCandidates) {
-          if (c.alive) continue;
-          const anchor = pfx.P[c.originalIdx];
-          if (anchor) {
-            const [ax, ay] = worldToScreen(anchor[0], anchor[1]);
-            ctx.fillStyle = "#ff5f6d";
-            ctx.beginPath();
-            ctx.arc(ax, ay, 1.2, 0, 2 * Math.PI);
-            ctx.fill();
+        // 7. Dead candidate anchors — red dots (only when toggle is checked).
+        if (toggles["dead-candidates"].checked) {
+          for (const c of allCandidates) {
+            if (c.alive) continue;
+            const anchor = pfx.P[c.originalIdx];
+            if (anchor) {
+              const [ax, ay] = worldToScreen(anchor[0], anchor[1]);
+              ctx.fillStyle = "#888888";
+              ctx.beginPath();
+              ctx.arc(ax, ay, 1.2, 0, 2 * Math.PI);
+              ctx.fill();
+            }
           }
         }
 
         // 8. P candidate anchors (non-viewed).
         if (toggles.P.checked) {
           const viewedOrigIdx = viewedCandidate ? viewedCandidate.originalIdx : -1;
+          const showDead = toggles["dead-candidates"].checked;
           for (let ii = 0; ii < pfx.P.length; ++ii) {
             if (ii === viewedOrigIdx) continue;
             const sc = step.candidates[ii];
             const st = sc ? statusOf(sc) : 'alive';
+            
+            // Skip dead/justDied candidates if toggle is off
+            if (!showDead && (st === 'justDied' || st === 'dead')) continue;
+            
             dot(pfx.P[ii], 1.2,
               st === 'alive' ? "#ff9f43" : st === 'justDied' ? "#ff3c3c" : "#7a4a1f",
               null);
@@ -1362,7 +1668,7 @@
 
         // 10. "N/M" label anchored to top-left of the entire P grid (doesn't move when cycling).
         if (viewedCandidate) {
-          const ci = viewedCandidate.originalIdx;
+          const currentCycleIdx = state.candidateIdx % cyclePool.length;
           const status = statusOf(viewedCandidate);
           
           // Find the top-left corner of all P anchors
@@ -1373,14 +1679,14 @@
             if (sy < minY) minY = sy;
           }
           
-          const headerText = `${ci + 1}/${pfx.P.length}`;
+          const headerText = `${currentCycleIdx + 1}/${cyclePool.length}`;
           ctx.save();
           ctx.font = "bold 12px -apple-system, BlinkMacSystemFont, sans-serif";
           const tw = ctx.measureText(headerText).width;
-          // Anchor very close to the grid
-          const hx = minX - tw - 2;  // 2px left of leftmost dot
-          const hy = minY - 2;       // 2px above topmost dot
-          ctx.fillStyle = status === 'dead' ? "rgba(255,95,109,0.85)"
+          // Position very close to the top-left corner of the orange grid
+          const hx = minX - tw + 30;  // 8px left of leftmost dot
+          const hy = minY;           // Aligned with topmost dot
+          ctx.fillStyle = status === 'dead' ? "rgba(255,60,60,0.85)"
             : status === 'justDied' ? "rgba(255,60,60,0.95)"
             : "#ff9f43";
           ctx.fillText(headerText, hx, hy);
@@ -1388,13 +1694,14 @@
         }
       }
 
-      // 9. Small canvas labels — p₀ in orange, pᵢ with actual stream index in pink.
-      {
-        const [p0x, p0y] = worldToScreen(pfx.p0[0], pfx.p0[1]);
+      // 9. Small canvas labels — v_i with actual stream index in pink, and p in orange.
+      if (state.currentStartPoint) {
+        // Add orange "p" label for the active anchor point
+        const [pax, pay] = worldToScreen(state.currentStartPoint[0], state.currentStartPoint[1]);
         ctx.save();
         ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, sans-serif";
         ctx.fillStyle = "#ff9f43";
-        ctx.fillText(`p${pfx.p0_idx}`, p0x + 7, p0y - 6);
+        ctx.fillText(`p`, pax + 7, pay - 6);
         ctx.restore();
       }
       if (step) {
@@ -1402,7 +1709,7 @@
         ctx.save();
         ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, sans-serif";
         ctx.fillStyle = "#ff7ae8";
-        ctx.fillText(`p${step.stream_idx}`, pix + 7, piy - 6);
+        ctx.fillText(`v${step.stream_idx}`, pix + 7, piy - 6);
         ctx.restore();
       }
     }

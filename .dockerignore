@@ -1,0 +1,37 @@
+# Build artifacts
+build/
+*.o
+*.a
+CMakeCache.txt
+CMakeFiles/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# Documentation and notes
+*.md
+papers/
+
+# Test files
+test_*.py
+test_*.txt
+
+# Cursor
+.cursor/

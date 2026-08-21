@@ -68,7 +68,6 @@ The build produces these main targets:
 | Target | Purpose |
 | --- | --- |
 | `simplify` | Headless streaming simplifier |
-| `simplify_with_time` | Instrumented headless timing build |
 | `simplify_with_gui` | Qt viewer and simplifier |
 | `dots` | DOTS baseline used by `benchmark.py` |
 

@@ -1,0 +1,49 @@
+# .gcloudignore — controls what `gcloud run deploy --source .` uploads.
+#
+# Without this file, gcloud uses a default that pulls in .gitignore via
+# `#!include:.gitignore`, which strips data/ (the directory the web app
+# reads at runtime). See https://cloud.google.com/sdk/gcloud/reference/topic/gcloudignore
+#
+# Rules below mirror what we want excluded from the upload. Everything not
+# listed here is uploaded, so DO NOT add a blanket "data/" rule.
+
+# Build artifacts
+build/
+*.o
+*.a
+CMakeCache.txt
+CMakeFiles/
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Git internals (always safe to exclude from an image)
+.git/
+.gitignore
+
+# Heavy directories not needed at runtime
+taxi_log_2008_by_id/
+papers/
+report/
+results/
+traj-compression/
+
+# Tooling state
+.cursor/
+.cache/
+
+# KEEP these (the running image needs them):
+#   data/        — pre-baked trajectories the Flask viewer reads
+#   web/         — server.py, requirements.txt, viewer.js, index.html
+#   scripts/     — frechet.jl and friends, invoked by /api/frechet

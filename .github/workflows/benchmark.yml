@@ -1,123 +1,174 @@
-name: Performance Benchmarks
+name: Benchmark - Core time vs previous commit (±10%)
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  schedule:
-    # Run daily at 00:00 UTC to track performance over time
-    - cron: '0 0 * * *'
   workflow_dispatch:
 
 jobs:
-  benchmark:
+  bench-vs-prev:
+    name: New build must not slow down by >10% vs previous commit
     runs-on: ubuntu-latest
-    
+
+    env:
+      EPSILON: "299"
+      DELTA: "1"
+      # Multiplicative limit on slowdown: new_time <= orig_time * SLOWDOWN_LIMIT.
+      SLOWDOWN_LIMIT: "1.10"
+      # Absolute floor (ms) below which the multiplicative ratio check is
+      # skipped: tiny runs are dominated by wall-clock noise, so we only
+      # enforce the 10% slowdown on runs that take at least this long.
+      MIN_BENCH_MS: "20"
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
-        fetch-depth: 0  # Full history for comparisons
-    
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y cmake build-essential libcgal-dev qtbase5-dev
-    
-    - name: Build Release
-      run: |
-        mkdir -p build
-        cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release
-        cmake --build . --target simplify -j$(nproc)
-    
-    - name: Run comprehensive benchmarks
-      run: |
-        echo "# Performance Benchmark Results" > benchmark_report.md
-        echo "" >> benchmark_report.md
-        echo "**Commit:** \`${{ github.sha }}\`" >> benchmark_report.md
-        echo "**Branch:** \`${{ github.ref_name }}\`" >> benchmark_report.md
-        echo "**Date:** $(date -u)" >> benchmark_report.md
-        echo "" >> benchmark_report.md
-        
-        echo "## Test Cases" >> benchmark_report.md
-        echo "" >> benchmark_report.md
-        echo "| Dataset | Input Points | ε | δ | Time (ms) | Output Points | Compression % | Points/sec |" >> benchmark_report.md
-        echo "|---------|--------------|---|---|-----------|---------------|---------------|------------|" >> benchmark_report.md
-        
-        # Test different epsilon values
-        for epsilon in 50 100 200 299 500; do
-          output=$(./build/simplify 1 -e $epsilon -d 1 2>&1)
-          time_ms=$(echo "$output" | grep "SIMPLIFY_CORE_MS:" | awk '{print $2}')
-          output_pts=$(echo "$output" | grep "Simplified to" | awk '{print $3}')
-          compression=$(echo "$output" | grep "Simplified to" | awk '{print $5}' | tr -d '(%)')
-          
-          # Calculate throughput
-          time_sec=$(echo "scale=3; $time_ms / 1000" | bc)
-          throughput=$(echo "scale=0; 588 / $time_sec" | bc)
-          
-          echo "| 1 | 588 | $epsilon | 1 | $time_ms | $output_pts | $compression | $throughput |" >> benchmark_report.md
-        done
-        
-        echo "" >> benchmark_report.md
-        echo "## Performance Summary" >> benchmark_report.md
-        echo "" >> benchmark_report.md
-        
-        # Get baseline timing
-        baseline=$(./build/simplify 1 -e 299 -d 1 2>&1 | grep "SIMPLIFY_CORE_MS:" | awk '{print $2}')
-        echo "**Baseline (ε=299, δ=1):** ${baseline}ms" >> benchmark_report.md
-        echo "" >> benchmark_report.md
-        
-        # Performance thresholds
-        baseline_int=$(echo "$baseline" | cut -d. -f1)
-        if [ "$baseline_int" -lt 100 ]; then
-          echo "🚀 **Excellent** - Sub-100ms performance" >> benchmark_report.md
-        elif [ "$baseline_int" -lt 150 ]; then
-          echo "✅ **Good** - Under 150ms" >> benchmark_report.md
-        elif [ "$baseline_int" -lt 200 ]; then
-          echo "⚠️ **Warning** - Approaching 200ms threshold" >> benchmark_report.md
-        else
-          echo "❌ **Slow** - Over 200ms threshold" >> benchmark_report.md
-          exit 1
-        fi
-        
-        cat benchmark_report.md
-    
-    - name: Upload benchmark report
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: benchmark-report-${{ github.sha }}
-        path: benchmark_report.md
-    
-    - name: Comment on PR
-      if: github.event_name == 'pull_request'
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const fs = require('fs');
-          const report = fs.readFileSync('benchmark_report.md', 'utf8');
-          
-          await github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.name,
-            body: report
-          });
-    
-    - name: Store benchmark data
-      if: github.ref == 'refs/heads/main'
-      run: |
-        mkdir -p benchmark_history
-        timestamp=$(date +%Y%m%d_%H%M%S)
-        cp benchmark_report.md "benchmark_history/bench_${timestamp}_${{ github.sha }}.md"
-        
-        # Create CSV for trending
-        if [ ! -f benchmark_history/history.csv ]; then
-          echo "timestamp,commit,time_ms" > benchmark_history/history.csv
-        fi
-        
-        baseline=$(grep "SIMPLIFY_CORE_MS:" benchmark_report.md | head -1 | awk '{print $2}')
-        echo "${timestamp},${{ github.sha }},${baseline}" >> benchmark_history/history.csv
+      - name: Checkout current commit (new)
+        uses: actions/checkout@v4
+        with:
+          path: new
+          submodules: recursive
+
+      - name: Checkout previous commit (original)
+        uses: actions/checkout@v4
+        with:
+          path: orig
+          ref: ${{ github.event.pull_request.base_sha }}
+          submodules: recursive
+        continue-on-error: true
+
+      - name: Fall back to HEAD~1 if no PR base available
+        if: hashFiles('orig/simplify.cpp') == ''
+        run: |
+          git clone --depth 2 --recurse-submodules \
+            https://github.com/${{ github.repository }}.git orig_fallback
+          cd orig_fallback
+          git checkout HEAD~1
+          cd ..
+          rm -rf orig
+          mv orig_fallback orig
+
+      - name: Sync CI data fixtures into orig checkout
+        # The previous commit may predate the data/1..10/original.txt
+        # fixtures, so copy them from the current checkout before running
+        # the orig binary.
+        run: |
+          mkdir -p orig/data
+          cp -r new/data/1 orig/data/1
+          cp -r new/data/2 orig/data/2
+          cp -r new/data/3 orig/data/3
+          cp -r new/data/4 orig/data/4
+          cp -r new/data/5 orig/data/5
+          cp -r new/data/6 orig/data/6
+          cp -r new/data/7 orig/data/7
+          cp -r new/data/8 orig/data/8
+          cp -r new/data/9 orig/data/9
+          cp -r new/data/10 orig/data/10
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential libcgal-dev qtbase5-dev
+
+      - name: Build original
+        working-directory: orig
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target simplify -j"$(nproc)"
+
+      - name: Build new
+        working-directory: new
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target simplify -j"$(nproc)"
+
+      - name: Run benchmark comparison (IDs 1..10)
+        run: |
+          set -uo pipefail
+
+          IDS=(1 2 3 4 5 6 7 8 9 10)
+          RESULTS=new/results_benchmark.tsv
+          printf 'id\torig_ms\tnew_ms\tratio\tlimit\tstatus\n' > "$RESULTS"
+
+          OVERALL_OK=1
+          ROWS="| ID | orig ms | new ms | ratio | limit | verdict |"$'\n'
+          ROWS+="|----|--------:|-------:|------:|------:|---------|"$'\n'
+
+          for ID in "${IDS[@]}"; do
+            echo "============================================================"
+            echo "ID=$ID"
+            echo "============================================================"
+
+            # --- ORIGINAL ---
+            ( cd orig/ && \
+              ./build/simplify "$ID" -e "$EPSILON" -d "$DELTA" \
+                > "/tmp/orig_b$ID.log" 2>&1 ) \
+              || { echo "❌ ORIGINAL run failed for ID=$ID"; cat "/tmp/orig_b$ID.log"; exit 1; }
+
+            ORIG_MS=$(grep '^SIMPLIFY_CORE_MS:' "/tmp/orig_b$ID.log" | awk '{print $2}')
+            echo "  orig: ${ORIG_MS} ms"
+
+            # --- NEW ---
+            ( cd new/ && \
+              ./build/simplify "$ID" -e "$EPSILON" -d "$DELTA" \
+                > "/tmp/new_b$ID.log" 2>&1 ) \
+              || { echo "❌ NEW run failed for ID=$ID"; cat "/tmp/new_b$ID.log"; exit 1; }
+
+            NEW_MS=$(grep '^SIMPLIFY_CORE_MS:' "/tmp/new_b$ID.log" | awk '{print $2}')
+            echo "  new:  ${NEW_MS} ms"
+
+            # --- ASSERT: new_ms <= orig_ms * SLOWDOWN_LIMIT ---
+            # For very small runs (< MIN_BENCH_MS), wall-clock noise dominates
+            # and the multiplicative check is meaningless. We only enforce the
+            # ratio on runs that are large enough for the ratio to be stable.
+            RATIO=$(awk -v o="$ORIG_MS" -v n="$NEW_MS" \
+                      'BEGIN { if (o+0 > 0) printf "%.3f", n/o; else print "inf" }')
+
+            STATUS="OK"
+            REASON=""
+            if awk -v n="$NEW_MS" -v o="$ORIG_MS" -v lim="$SLOWDOWN_LIMIT" \
+                   'BEGIN { exit !(o+0 > 0 && n+0 > o*lim + 1e-9) }'; then
+              # Only fail if both binaries ran long enough for the ratio to
+              # be meaningful.
+              if awk -v o="$ORIG_MS" -v floor="$MIN_BENCH_MS" \
+                     'BEGIN { exit !(o+0 >= floor) }'; then
+                STATUS="FAIL_SLOW"
+                REASON="new=${NEW_MS}ms > orig=${ORIG_MS}ms × ${SLOWDOWN_LIMIT}"
+              else
+                STATUS="OK_NOISY"
+                REASON="run too short (orig ${ORIG_MS}ms < ${MIN_BENCH_MS}ms floor)"
+              fi
+            fi
+
+            if [ "$STATUS" != "OK" ]; then OVERALL_OK=0; fi
+
+            printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+              "$ID" "$ORIG_MS" "$NEW_MS" "$RATIO" "$SLOWDOWN_LIMIT" "$STATUS" \
+              >> "$RESULTS"
+            ROWS+="| $ID | $ORIG_MS | $NEW_MS | $RATIO | $SLOWDOWN_LIMIT | $STATUS |"$'\n'
+            if [ -n "$REASON" ]; then
+              ROWS+="| | | | | | _${REASON}_ |"$'\n'
+            fi
+          done
+
+          echo ""
+          echo "================================================================"
+          echo "Benchmark summary  (limit: new_time ≤ orig_time × $SLOWDOWN_LIMIT)"
+          echo "================================================================"
+          printf '%s' "$ROWS"
+          echo ""
+          column -t -s $'\t' "$RESULTS" || cat "$RESULTS"
+
+          if [ "$OVERALL_OK" -ne 1 ]; then
+            echo ""
+            echo "❌ Performance regression: at least one ID is >10% slower on the new build."
+            exit 1
+          fi
+          echo "✅ Benchmark OK — new build within 10% of original on all IDs."
+
+      - name: Upload benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-vs-prev
+          path: new/results_benchmark.tsv

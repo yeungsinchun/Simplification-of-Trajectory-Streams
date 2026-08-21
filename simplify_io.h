@@ -1,19 +1,8 @@
 #ifndef SIMPLIFY_IO_H
 #define SIMPLIFY_IO_H
 
-// ===========================================================================
-//  Shared scaffolding for the simplify front-ends
-// ===========================================================================
-//
-// Both the bare (simplify.cpp) and timed (simplify_with_time.cpp) executables share
-// the same command-line parsing, repo-root discovery, and stream I/O.  Those
-// pieces live here as inline definitions so each translation unit compiles its
-// own copy without violating the ODR.  The only thing that differs between the
-// two front-ends is the core algorithm (instrumented or not) and main().
-
 #include <CGAL/Boolean_set_operations_2.h>
 #include <CGAL/Iso_rectangle_2.h>
-#include <array>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -47,7 +36,7 @@ inline void print_help(const char* prog) {
     std::cout << "Usage: " << prog << " [options]\n"
               << "  --in <id>        Read input from data/taxi/<id>.txt (resolved absolutely)\n"
               << "  --out            Write output to data/<id>/original.txt & simplify.txt (resolved absolutely; requires --in <id>)\n"
-              << "  --dist           After output, compute Frechet distance by invoking ./frechet (Julia wrapper) with --in <id> --path <simplify.txt>\n"
+              << "  --dist           After output, compute Frechet distance by invoking 'julia scripts/frechet.jl' with --in <id> --path <simplify.txt>" << '\n'
               << "  -d <delta>       Override DELTA (default " << DELTA << ")\n"
               << "  -e <epsilon>     Override EPSILON (default " << EPSILON << ")\n"
               << "  --dump-intersect Dump every (F_poly, Gi_poly) pair fed to "
@@ -142,11 +131,19 @@ inline int read_stream(int test_case_no, char** argv, std::vector<Point>& stream
         }
         std::ifstream fin(simp_orig.string());
         if (!fin) { std::cerr << "Cannot open " << simp_orig.string() << "\n"; return 1; }
+        
+        // Optimize IO performance
+        fin.sync_with_stdio(false);
+        fin.tie(nullptr);
+        
         int N = 0;
         if (!(fin >> N)) { std::cerr << "Empty or invalid input in " << simp_orig.string() << "\n"; return 1; }
         stream.clear(); stream.reserve(N);
+        
+        // Batch read points
+        double x, y;
         for (int i = 0; i < N; ++i) {
-            double x,y; if (!(fin >> x >> y)) { std::cerr << "Malformed pair at index " << i << " in " << simp_orig.string() << "\n"; return 1; }
+            if (!(fin >> x >> y)) { std::cerr << "Malformed pair at index " << i << " in " << simp_orig.string() << "\n"; return 1; }
             stream.emplace_back(x, y);
         }
         if (!web_server_flag) std::cout << "Loaded " << stream.size() << " points." << "\n";
@@ -158,6 +155,11 @@ inline int out_stream(int test_case_no, char** argv, const std::vector<Point>& s
     std::filesystem::path dir = repo_root / "data" / std::to_string(test_case_no);
     std::filesystem::create_directories(dir);
     std::ofstream simp(dir / "simplify.txt");
+    
+    // Optimize IO performance
+    simp.sync_with_stdio(false);
+    simp.tie(nullptr);
+    
     simp << std::setprecision(std::numeric_limits<double>::max_digits10);
     std::size_t N = stream.size();
     simp << N << '\n';
@@ -172,8 +174,8 @@ inline int out_stream(int test_case_no, char** argv, const std::vector<Point>& s
 inline void maybe_run_frechet(int test_case_no) {
     if (dist_flag && test_case_no != -1) {
         if (!web_server_flag) std::cout << "Calculating Frechet distance...\n" << std::flush;
-        std::filesystem::path frechet_path = repo_root / "scripts" / "frechet";
-        std::string cmd1 = std::string("\"") + frechet_path.string() + "\" --in " + std::to_string(test_case_no) + " --path \"" + (repo_root / "data" / std::to_string(test_case_no) / "simplify.txt").string() + "\"";
+        std::filesystem::path frechet_path = repo_root / "scripts" / "frechet.jl";
+        std::string cmd1 = std::string("julia \"") + frechet_path.string() + "\" --in " + std::to_string(test_case_no) + " --path \"" + (repo_root / "data" / std::to_string(test_case_no) / "simplify.txt").string() + "\" --raw";
         int rc = std::system(cmd1.c_str());
         (void)rc;
     }

@@ -365,9 +365,9 @@ inline std::vector<Point> get_points_from_grid(const Point& p, double EPSILON, d
     // Adjacent cells share corners, so deduplicate them in a corner-sized
     // buffer. Cell indices end at j_max, but their upper corners reach
     // j_max + 1 on each axis.
-    std::vector<Point> points;
-    points.reserve(size_t(corner_count) * corner_count);
     std::vector<uint8_t> seen(size_t(corner_count) * corner_count, 0);
+    std::vector<std::pair<int, int>> corner_coords;
+    corner_coords.reserve(size_t(corner_count) * corner_count);
 
     auto add_corner = [&](int ji, int ki) {
         const int ix = ji - j_min, iy = ki - j_min;
@@ -378,10 +378,10 @@ inline std::vector<Point> get_points_from_grid(const Point& p, double EPSILON, d
         const double corner_y = ki * GRID;
         expected_frechet_squared = std::max(
             expected_frechet_squared, corner_x * corner_x + corner_y * corner_y);
-        points.emplace_back(px + corner_x, py + corner_y);
+        corner_coords.push_back({ji, ki});
     };
 
-    // Row-major order: iterate by y (rows) first, then x (columns)
+    // Collect all corners within the disk
     for (int k = j_min; k <= j_max; ++k) {
         const double y0 = k * GRID, y1 = (k + 1) * GRID;
         for (int j = j_min; j <= j_max; ++j) {
@@ -394,6 +394,21 @@ inline std::vector<Point> get_points_from_grid(const Point& p, double EPSILON, d
             add_corner(j + 1, k + 1);
             add_corner(j,     k + 1);
         }
+    }
+
+    // Sort corners in row-major order: top-to-bottom (descending y), then left-to-right (ascending x)
+    std::sort(corner_coords.begin(), corner_coords.end(), [](const auto& a, const auto& b) {
+        if (a.second != b.second) return a.second > b.second; // y descending (top first)
+        return a.first < b.first; // x ascending (left to right)
+    });
+
+    // Build the final points vector
+    std::vector<Point> points;
+    points.reserve(corner_coords.size());
+    for (const auto& [ji, ki] : corner_coords) {
+        const double corner_x = ji * GRID;
+        const double corner_y = ki * GRID;
+        points.emplace_back(px + corner_x, py + corner_y);
     }
 
     return points;

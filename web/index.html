@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Trajectory Simplification Visualizer</title>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+    --accent: #4f9dff;
+    --accent-dim: #2a4a72;
+    --danger: #ff5f6d;
+    --ok: #3ddc97;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    overflow: hidden;
+  }
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--panel-border);
+    flex-wrap: wrap;
+  }
+  header h1 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+    white-space: nowrap;
+    color: var(--text);
+  }
+  header .sub {
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+  .file-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .upload-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .upload-form label {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .params {
+    display: flex;
+    gap: 14px;
+    margin-left: auto;
+    color: var(--text-dim);
+    font-size: 12px;
+    flex-wrap: wrap;
+  }
+  .params b { color: var(--text); font-weight: 600; }
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  #mainContent {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    position: relative;
+  }
+  #resizer {
+    width: 4px;
+    background: var(--panel-border);
+    cursor: col-resize;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 320px;
+    z-index: 10;
+    display: none;
+  }
+  #resizer:hover {
+    background: var(--accent);
+  }
+  #canvasWrap {
+    flex: 1;
+    position: relative;
+    background: var(--bg);
+    overflow: hidden;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  #canvasContainer {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  #canvas {
+    position: absolute;
+    top: 0; left: 0;
+    cursor: default;
+  }
+  #canvas.has-trace {
+    cursor: grab;
+  }
+  #canvas.dragging {
+    cursor: grabbing;
+  }
+  #playbackBar {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: var(--panel);
+    border-top: 1px solid var(--panel-border);
+    flex-wrap: wrap;
+  }
+  #playbackBar.visible { display: flex; }
+  .pb-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: #1a1f2b;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 3px;
+  }
+  .pb-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--panel-border);
+    margin: 0 8px;
+  }
+  .pb-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 56px;
+    padding: 5px 8px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 11px;
+    line-height: 1;
+    transition: background 0.12s, color 0.12s;
+    flex-shrink: 0;
+  }
+  .pb-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .pb-btn:hover:not(:disabled) { background: #262c3d; color: var(--accent); }
+  .pb-btn:active:not(:disabled) { background: #2e3650; }
+  .pb-btn:disabled { opacity: 0.3; cursor: default; }
+  .pb-btn--play {
+    background: var(--accent);
+    color: #0b0e14;
+    min-width: 64px;
+  }
+  .pb-btn--play:hover:not(:disabled) {
+    background: #3de8b0;
+    color: #0b0e14;
+  }
+  .pb-btn--accent {
+    background: #2a4a72;
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+  }
+  .pb-btn--accent:hover:not(:disabled) {
+    background: #345f8f;
+    color: #fff;
+  }
+  .pb-divider {
+    width: 1px;
+    height: 36px;
+    background: var(--panel-border);
+    margin: 0 4px;
+    flex-shrink: 0;
+  }
+  .speed-preset {
+    padding: 4px 9px !important;
+    font-size: 12px;
+    background: var(--bg);
+    border: 1px solid var(--panel-border);
+    color: var(--text-dim);
+    min-width: 36px;
+    border-radius: 5px;
+  }
+  .speed-preset:hover { background: var(--panel-border); color: var(--text); }
+  .speed-preset.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0B0E14;
+    font-weight: 600;
+  }
+  #frechetResult {
+    font-size: 12px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  #frechetResult b { color: #ffd166; }
+  #frechetResult .err { color: var(--danger); }
+  #dropHint {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: var(--text-dim);
+    pointer-events: none;
+    max-width: min(92%, 480px);
+    padding: 0 16px;
+  }
+  #dropHint * { pointer-events: auto; user-select: text; cursor: text; }
+  #dropHint .big { font-size: 18px; color: var(--text); margin-bottom: 8px; font-weight: 500; }
+  #dropHint .dropHint-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 72px; height: 72px;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+    background: rgba(38, 191, 144, 0.08);
+    border: 1px dashed rgba(38, 191, 144, 0.35);
+    color: var(--accent);
+  }
+  #dropHint .dropHint-icon svg { width: 44px; height: 44px; }
+  #dropHint .dropHint-sub { font-size: 13px; line-height: 1.5; color: var(--text-dim); }
+  #dropHint .dropHint-sub b { color: var(--text); font-weight: 500; }
+  #dropHint .dropHint-format {
+    margin-top: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: #c7cdd8;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    padding: 6px 10px;
+    display: inline-block;
+  }
+  #dropHint .dropHint-format code {
+    color: var(--accent);
+    background: transparent;
+  }
+  #dropHint .desktop-instructions {
+    margin-top: 18px;
+    padding: 12px 14px;
+    text-align: left;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+  }
+  #dropHint .desktop-instructions h2 {
+    margin: 0 0 8px;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  #dropHint .desktop-instructions ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--text-dim);
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  #dropHint .desktop-instructions b { color: var(--text); font-weight: 500; }
+  #sidebar {
+    width: 320px;
+    flex-shrink: 0;
+    background: var(--panel);
+    border-left: 1px solid var(--panel-border);
+    padding: 14px;
+    overflow-y: auto;
+    display: none;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .section h2 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin: 0 0 2px 0;
+    font-weight: 600;
+  }
+  .stepper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .stepper .label {
+    flex: 1;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .stepper .label b { color: var(--text); }
+  button {
+    background: #1e2330;
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+  button:hover:not(:disabled) { background: #262c3d; border-color: var(--accent-dim); }
+  button:disabled { opacity: 0.35; cursor: default; }
+  button.iconbtn { width: 30px; padding: 5px 0; text-align: center; }
+  button.primary { background: var(--accent-dim); border-color: var(--accent); }
+  button.primary:hover { background: #345f8f; }
+  .button-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.35);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    vertical-align: -2px;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+  input[type="file"] { display: none; }
+  #trajectoryFileName {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  @media (max-width: 720px) {
+    #trajectoryFileName { display: none; }
+  }
+  input[type="number"] {
+    width: 62px;
+    background: #1e2330;
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 5px;
+    padding: 3px 6px;
+    font-size: 12px;
+  }
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 3px 0;
+  }
+  .toggle-row label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 12.5px;
+  }
+  .swatch {
+    width: 12px; height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    display: inline-block;
+  }
+  .toggle-row input[type="checkbox"] {
+    accent-color: var(--accent);
+    width: 14px; height: 14px;
+  }
+  /* Step status panel */
+  .status-indices {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 10px;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .status-idx-block {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 6px 7px;
+    gap: 2px;
+  }
+  .status-idx-block + .status-idx-block {
+    border-left: 1px solid var(--panel-border);
+  }
+  .status-idx-block .idx-label {
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .status-idx-block .idx-num {
+    font-size: 26px;
+    font-weight: 700;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    line-height: 1;
+  }
+  .status-idx-block .idx-coord {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    white-space: nowrap;
+  }
+  .status-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 10px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .status-grid > *:nth-child(even) {
+    text-align: right;
+  }
+  .status-grid b { color: var(--text); font-weight: 600; }
+  .status-grid .mono { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 11.5px; }
+  #speedRow { display: flex; align-items: center; gap: 8px; }
+  #speedRow input[type="range"] { flex: 1; }
+  .hint {
+    color: var(--text-dim);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .shortcuts-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    color: var(--text-dim);
+  }
+  .shortcuts-table td {
+    padding: 5px 4px;
+    vertical-align: top;
+  }
+  .shortcuts-table td:first-child {
+    white-space: nowrap;
+    padding-right: 10px;
+    color: var(--text);
+  }
+  kbd {
+    background: #1e2330;
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11.5px;
+    font-family: inherit;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  .err {
+    color: var(--danger);
+    font-size: 12px;
+  }
+  .mobile-back, .mobile-layers-toggle, .mobile-start-help,
+  .mobile-panel-close, .mobile-panel-open, .mobile-transport { display: none; }
+
+  /* ---------- Responsive layout ---------- */
+  @media (max-width: 900px) {
+    #sidebar {
+      width: 280px;
+      padding: 12px;
+    }
+    #resizer { right: 280px; }
+    .pb-btn { min-width: 48px; padding: 4px 6px; }
+    .pb-btn--play { min-width: 56px; }
+  }
+
+  @media (max-width: 720px) {
+    html, body { font-size: 13px; overflow: auto; }
+    #app { height: auto; min-height: 100vh; }
+    main { min-height: 60vh; }
+    header {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+      padding: 14px 14px 16px;
+    }
+    header h1 {
+      font-size: 16px;
+      text-align: center;
+    }
+    .file-controls { width: 100%; }
+    .upload-form {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+      width: 100%;
+    }
+    .upload-form label,
+    .upload-form span { font-size: 11px; }
+    .upload-form select,
+    .upload-form button,
+    .upload-form input[type="number"] {
+      width: 100%;
+      max-width: none;
+      padding: 10px 12px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .upload-form #traceSelect { max-width: none; }
+    .upload-form .or-divider { text-align: center; }
+    .params { margin-left: 0; width: 100%; justify-content: center; }
+    .params b { color: var(--text); font-weight: 600; }
+    #mainContent { flex-direction: column; }
+    #resizer { display: none !important; }
+    #sidebar {
+      width: 100%;
+      max-height: none;
+      border-left: none;
+      border-top: 1px solid var(--panel-border);
+    }
+    #canvasContainer { min-height: 380px; }
+    #playbackBar {
+      padding: 8px 10px;
+      gap: 8px;
+    }
+    #playbackBar > div {
+      flex: 1 1 calc(50% - 16px);
+      min-width: 160px;
+    }
+    .pb-divider { display: none; }
+    .pb-group { width: 100%; justify-content: center; }
+    #speedRow { flex-wrap: wrap; }
+    #dropHint .big { font-size: 17px; }
+  }
+
+  @media (max-width: 720px) {
+    /* ---- Mobile controls ---- */
+    #dropHint { display: none; }
+    body:not(.trace-loaded-mobile) main { display: none; }
+    body:not(.trace-loaded-mobile) header {
+      min-height: 100vh;
+      min-height: 100svh;
+      align-content: flex-start;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(79,157,255,0.12), transparent 42%),
+        var(--bg);
+      border-bottom: 0;
+    }
+
+    header {
+      padding: 14px;
+      gap: 12px;
+    }
+    header h1 {
+      font-size: 17px;
+      text-align: center;
+      width: 100%;
+      margin: 0;
+    }
+    .mobile-back {
+      min-height: 40px;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .mobile-back svg { width: 17px; height: 17px; }
+    body.trace-loaded-mobile header {
+      flex-direction: row;
+      align-items: center;
+      padding: 10px 12px;
+    }
+    body.trace-loaded-mobile header h1 {
+      flex: 1;
+      width: auto;
+      text-align: right;
+      font-size: 14px;
+    }
+    body.trace-loaded-mobile .mobile-back { display: inline-flex; }
+    body.trace-loaded-mobile .headerBody { display: none; }
+    .headerToggle {
+      display: none !important;
+    }
+    .playbackToggle { display: none !important; }
+
+    body.trace-loaded-mobile .mobile-transport {
+      display: grid;
+      position: fixed;
+      left: 10px;
+      right: 10px;
+      bottom: max(10px, env(safe-area-inset-bottom));
+      z-index: 900;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 5px;
+      padding: 6px;
+      background: rgba(20, 24, 34, 0.94);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.48);
+      backdrop-filter: blur(12px);
+      transform-origin: left bottom;
+      will-change: transform;
+    }
+    .mobile-transport button {
+      min-width: 0;
+      min-height: 48px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      padding: 5px 2px;
+      background: #242a39;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      color: var(--text);
+      font: inherit;
+      font-size: 18px;
+      font-weight: 700;
+      touch-action: manipulation;
+    }
+    .mobile-transport button:active { background: #343d53; }
+    .mobile-transport button:disabled { opacity: 0.35; }
+    .mobile-transport button span {
+      color: var(--text-dim);
+      font-size: 9px;
+      font-weight: 600;
+      line-height: 1;
+    }
+    .mobile-transport .mobile-play {
+      background: var(--accent);
+      color: #0b0e14;
+    }
+    .mobile-transport svg { width: 20px; height: 20px; }
+    body.trace-loaded-mobile.mobile-panel-closed .mobile-panel-open {
+      bottom: calc(76px + env(safe-area-inset-bottom));
+    }
+
+    .headerBody {
+      display: flex;
+      width: 100%;
+      flex-direction: column;
+      gap: 12px;
+      padding: 12px;
+      margin: 0;
+      background: var(--bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+    }
+    .headerBody.open { display: flex; }
+    .params:empty { display: none; }
+    .file-controls, .upload-form, .preloaded-row { width: 100%; }
+    .upload-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .preloaded-row,
+    .upload-form #uploadBtn,
+    .upload-form #trajectoryFileName,
+    .upload-form #loadBtn,
+    .upload-form #uploadStatus {
+      grid-column: 1 / -1;
+    }
+    .upload-form .or-divider {
+      grid-column: 1 / -1;
+      margin: -2px 0 !important;
+      font-size: 11px !important;
+    }
+    .upload-form .or-divider,
+    .upload-form #uploadBtn,
+    .upload-form #trajectoryFileName {
+      display: none;
+    }
+    .upload-form label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: #1e2330;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+    }
+    .upload-form label input[type="number"] {
+      min-width: 0;
+      padding: 4px 6px;
+      text-align: right;
+    }
+    .upload-form button {
+      min-height: 44px;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+    #uploadStatus {
+      text-align: center;
+      line-height: 1.4;
+    }
+    .params {
+      padding-top: 10px;
+      border-top: 1px solid var(--panel-border);
+      justify-content: flex-start;
+      gap: 8px 14px;
+    }
+    .mobile-start-help {
+      display: block;
+      padding: 14px;
+      background: rgba(79,157,255,0.06);
+      border: 1px solid rgba(79,157,255,0.2);
+      border-radius: 10px;
+    }
+    .mobile-start-help h2 {
+      margin: 0 0 9px;
+      color: var(--text);
+      font-size: 13px;
+      letter-spacing: 0.02em;
+    }
+    .mobile-start-help ul {
+      margin: 0;
+      padding-left: 19px;
+      color: var(--text-dim);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+    .mobile-start-help li + li { margin-top: 4px; }
+    .mobile-start-help b {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    #playbackBar { display: none !important; }
+
+    body.trace-loaded-mobile main { min-height: 0; }
+    body.trace-loaded-mobile #canvasContainer {
+      min-height: 52vh;
+      height: 52vh;
+    }
+    body.trace-loaded-mobile #sidebar {
+      position: relative;
+      gap: 10px;
+      padding: 18px 10px 10px;
+      margin-top: 22px;
+      background: var(--bg);
+    }
+    body.trace-loaded-mobile .mobile-panel-close {
+      display: flex;
+      position: absolute;
+      top: -28px;
+      left: 50%;
+      z-index: 20;
+      transform: translateX(-50%);
+      align-items: center;
+      justify-content: center;
+      width: 64px;
+      height: 29px;
+      min-height: 0;
+      padding: 5px 12px 2px;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-bottom: 0;
+      border-radius: 32px 32px 0 0;
+    }
+    body.trace-loaded-mobile .mobile-panel-close svg {
+      width: 20px;
+      height: 20px;
+    }
+    body.trace-loaded-mobile.mobile-panel-closed #sidebar {
+      display: none !important;
+    }
+    body.trace-loaded-mobile.mobile-panel-closed .mobile-panel-open {
+      display: flex;
+      position: fixed;
+      right: 14px;
+      bottom: 14px;
+      z-index: 800;
+      align-items: center;
+      gap: 7px;
+      min-height: 44px;
+      padding: 10px 14px;
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #0b0e14;
+      font-weight: 700;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+    .mobile-panel-open svg {
+      width: 18px;
+      height: 18px;
+    }
+    body.trace-loaded-mobile #sidebar .section {
+      padding: 12px;
+      gap: 10px;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+    }
+    body.trace-loaded-mobile #sidebar .section h2 {
+      font-size: 12px;
+      color: var(--text);
+    }
+    body.trace-loaded-mobile .status-indices { margin-bottom: 2px; }
+    body.trace-loaded-mobile .status-idx-block { padding: 10px 6px; }
+    body.trace-loaded-mobile .status-grid {
+      padding: 0 4px;
+      font-size: 13px;
+    }
+    .mobile-layers-toggle {
+      width: 100%;
+      min-height: 44px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      font-size: 14px;
+      font-weight: 600;
+      text-align: left;
+    }
+    .mobile-layers-toggle svg {
+      width: 18px;
+      height: 18px;
+      transition: transform 0.18s ease;
+    }
+    #layersSection .toggle-row { display: none; }
+    #layersSection.layers-open .toggle-row { display: flex; }
+    #layersSection.layers-open .mobile-layers-toggle svg { transform: rotate(180deg); }
+    #layersSection > h2 { display: none; }
+    #layersSection .mobile-layers-toggle { display: flex; }
+    #layersSection.layers-open {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+    #layersSection.layers-open .mobile-layers-toggle {
+      grid-column: 1 / -1;
+    }
+    #layersSection .toggle-row {
+      min-height: 46px;
+      padding: 8px;
+      background: #1a1f2b;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+    }
+    #layersSection .toggle-row label {
+      width: 100%;
+      line-height: 1.3;
+    }
+    #layersSection .toggle-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+  }
+
+  /* Hide mobile-only chrome on desktop */
+  @media (min-width: 721px) {
+    .headerToggle, .playbackToggle { display: none !important; }
+    .headerBody { display: contents; }
+    .playbackBody { display: contents; }
+    #playbackBar .playback-handle { display: none; }
+  }
+
+  @media (max-width: 480px) {
+    header h1 { font-size: 14px; }
+    .params { font-size: 11px; gap: 8px; }
+    input[type="number"] { width: 100%; }
+    #stepInput, #segmentInput, #candidateInput { width: 64px; }
+    .pb-btn { min-width: 42px; }
+    .pb-btn--play { min-width: 50px; }
+    .speed-preset { padding: 3px 6px !important; font-size: 11px; min-width: 30px; }
+    .toggle-row label { font-size: 12px; }
+    .status-idx-block .idx-num { font-size: 22px; }
+  }
+
+  /* Touch: prevent accidental pan/zoom while interacting with controls */
+  @media (hover: none) {
+    .pb-btn, button { padding: 10px 14px; }
+    input[type="number"], #stepInput, #segmentInput, #candidateInput { padding: 8px 10px; }
+  }
+
+  /* ---------- Preloaded trace picker ---------- */
+  .visually-hidden {
+    position: absolute !important;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .preloaded-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+  .preloaded-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+  .preloaded-trigger {
+    display: none; /* hidden on desktop — the real <select> is used */
+    flex: 1 1 auto;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: #1e2330;
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 5px;
+    padding: 8px 10px;
+    font-size: 13px;
+    cursor: pointer;
+    text-align: left;
+    overflow: hidden;
+  }
+  .preloaded-trigger span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1 1 auto;
+  }
+  .preloaded-trigger svg {
+    width: 16px; height: 16px;
+    flex-shrink: 0;
+    color: var(--text-dim);
+  }
+  .preloaded-trigger:hover { border-color: var(--accent-dim); }
+  .preloaded-trigger.has-value { color: var(--text); border-color: var(--accent-dim); }
+
+  .trace-picker {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.25s ease-out;
+    pointer-events: none;
+  }
+  .trace-picker.open {
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  .trace-picker-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    background: rgba(0,0,0,0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease-out;
+  }
+  .trace-picker-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .trace-picker-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--panel-border);
+    flex-shrink: 0;
+  }
+  .trace-picker-header h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .trace-picker-close {
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 8px;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .trace-picker-close:hover { background: #262c3d; }
+  .trace-picker-close svg { width: 18px; height: 18px; }
+  .trace-picker-list {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 8px 0;
+  }
+  .trace-picker-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 16px 18px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
+    color: var(--text);
+    font-size: 15px;
+    text-align: left;
+    cursor: pointer;
+    min-height: 56px;
+  }
+  .trace-picker-item:active { background: #262c3d; }
+  .trace-picker-item.selected { background: rgba(38, 191, 144, 0.08); }
+  .trace-picker-item-meta {
+    font-size: 12px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+  .trace-picker-divider {
+    padding: 8px 18px 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    border-top: 1px solid var(--panel-border);
+    margin-top: 4px;
+  }
+  .trace-picker-empty {
+    padding: 32px 18px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  @media (max-width: 720px) {
+    /* On mobile, hide the real <select> and show the trigger button. */
+    .preloaded-row { width: 100%; }
+    .preloaded-label { display: none; }
+    .preloaded-trigger { display: flex; }
+    #traceSelect.visually-hidden-mobile { display: none; }
+  }
+  @media (min-width: 721px) {
+    /* On desktop, show the native select inline. */
+    .preloaded-trigger { display: none !important; }
+    #traceSelect {
+      position: static !important;
+      width: auto !important;
+      height: auto !important;
+      padding: 3px 6px !important;
+      margin: 0 !important;
+      overflow: visible !important;
+      clip: auto !important;
+      white-space: normal !important;
+      background: #1e2330;
+      color: var(--text);
+      border: 1px solid var(--panel-border);
+      border-radius: 5px;
+      font-size: 12px;
+      max-width: 130px;
+    }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button type="button" id="mobileBackBtn" class="mobile-back" aria-label="Back to trace selection">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Back
+    </button>
+    <h1>Trajectory Simplification Visualizer</h1>
+    <button type="button" id="headerToggle" class="headerToggle" aria-label="Show controls" aria-expanded="false" aria-controls="headerBody">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+    </button>
+    <div class="headerBody" id="headerBody">
+      <div class="file-controls">
+        <div class="upload-form">
+          <div class="preloaded-row">
+            <span class="preloaded-label">Preloaded:</span>
+            <button type="button" id="preloadedTrigger" class="preloaded-trigger">
+              <span id="preloadedLabel">Select trace…</span>
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <!-- Real select kept for accessibility, hidden visually on mobile -->
+            <select id="traceSelect" class="visually-hidden">
+              <option value="">Select trace...</option>
+            </select>
+          </div>
+          <span class="or-divider" style="color: var(--text-dim); font-size: 12px; margin: 0 8px;">or</span>
+          <button id="uploadBtn" class="primary">Upload original.txt</button>
+          <input type="file" id="trajectoryInput" accept=".txt,text/plain" />
+          <span id="trajectoryFileName">no file chosen</span>
+          <label>&epsilon; <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" /></label>
+          <label>&delta; <input type="number" id="deltaInput" value="500" step="10" min="1" /></label>
+          <button id="loadBtn" class="primary">Load Trace</button>
+          <span class="sub" id="uploadStatus"></span>
+        </div>
+      </div>
+      <div class="params" id="paramsBar"></div>
+      <div class="mobile-start-help">
+        <h2>Instructions</h2>
+        <ul>
+          <li>Select a preloaded trajectory.</li>
+          <li>Adjust <b>&epsilon;</b> and <b>&delta;</b>, then tap <b>Load Trace</b>.</li>
+          <li>Drag the visualization to pan and pinch to zoom.</li>
+          <li>Use <b>Controls</b> to view status and toggle layers.</li>
+          <li>Tap <b>Back</b> to choose another trajectory.</li>
+        </ul>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div id="mainContent">
+      <div id="canvasWrap">
+        <div id="canvasContainer">
+          <canvas id="canvas"></canvas>
+          <div id="dropHint">
+            <div class="dropHint-icon" aria-hidden="true">
+              <svg viewBox="0 0 64 64" fill="none">
+                <path d="M12 44 L20 28 L28 36 L36 22 L44 32 L52 18" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+                <circle cx="20" cy="28" r="2.5" fill="currentColor"/>
+                <circle cx="28" cy="36" r="2.5" fill="currentColor"/>
+                <circle cx="36" cy="22" r="2.5" fill="currentColor"/>
+                <circle cx="44" cy="32" r="2.5" fill="currentColor"/>
+              </svg>
+            </div>
+            <div class="big">Upload a trajectory to get started</div>
+            <div class="dropHint-sub">
+              Click <b>Upload original.txt</b> or select a <b>preloaded trace</b>, pick &epsilon;/&delta;, then <b>Load Trace</b>
+            </div>
+            <div class="dropHint-format">
+              Format: first line <code>N</code>, then <code>N</code> lines of <code>"x y"</code>
+            </div>
+            <div class="desktop-instructions">
+              <h2>Intruction</h2>
+              <ul>
+                <li><kbd>←</kbd> / <kbd>→</kbd>: Previous / next step</li>
+                <li><kbd>Shift</kbd> + <kbd>←</kbd> / <kbd>→</kbd>: Previous / next segment</li>
+                <li><kbd>Space</kbd>: Play / pause</li>
+                <li><kbd>C</kbd> / <kbd>X</kbd>: Next / previous candidate</li>
+                <li><b>Drag</b>: Pan</li>
+                <li><b>Scroll</b>: Zoom</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div id="playbackBar">
+          <span class="playback-handle" aria-hidden="true"></span>
+          <div class="playbackBody" id="playbackBody">
+          <!-- Step navigation with input -->
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <button id="stepBackBtn" class="pb-btn" title="Previous step (←)">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <input id="stepInput" type="text" style="width: 80px; text-align: center; background: #1e2330; color: var(--text); border: 1px solid var(--panel-border); border-radius: 5px; padding: 4px 8px; font-size: 12px;" placeholder="0 / 0" title="Current step / total steps">
+              <button id="stepForwardBtn" class="pb-btn" title="Next step (→)">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+            <span style="font-size: 10px; color: var(--text-dim); font-weight: 500;">pts for current segment</span>
+          </div>
+
+          <div class="pb-divider"></div>
+
+          <!-- Segment navigation with input -->
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <button id="prefixBackBtn" class="pb-btn" title="Previous simplified segment (Shift+←)">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M19 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><line x1="5" y1="6" x2="5" y2="18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+              </button>
+              <input id="segmentInput" type="text" style="width: 80px; text-align: center; background: #1e2330; color: var(--text); border: 1px solid var(--panel-border); border-radius: 5px; padding: 4px 8px; font-size: 12px;" placeholder="0 / 0" title="Current segment / total segments">
+              <button id="prefixForwardBtn" class="pb-btn" title="Next simplified segment (Shift+→)">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M5 18l6-6-6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><line x1="19" y1="6" x2="19" y2="18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+              </button>
+            </div>
+            <span style="font-size: 10px; color: var(--text-dim); font-weight: 500;">segments in simplified curve</span>
+          </div>
+
+          <div class="pb-divider"></div>
+
+          <!-- Candidate navigation with input -->
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <button id="candidateBackBtn" class="pb-btn" title="Previous candidate">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <input id="candidateInput" type="text" style="width: 80px; text-align: center; background: #1e2330; color: var(--text); border: 1px solid var(--panel-border); border-radius: 5px; padding: 4px 8px; font-size: 12px;" placeholder="0 / 0" title="Current candidate / total candidates">
+              <button id="candidateForwardBtn" class="pb-btn" title="Next candidate (C)">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+            <span style="font-size: 10px; color: var(--text-dim); font-weight: 500;">candidate anchors</span>
+          </div>
+
+          <div class="pb-divider"></div>
+
+          <!-- Play/Pause -->
+          <button id="playBtn" class="pb-btn pb-btn--play" title="Play / pause (Space)">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path class="play-icon" d="M8 5v14l11-7z" fill="currentColor"/>
+              <path class="pause-icon" d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" fill="currentColor" style="display:none;"/>
+            </svg>
+            <span class="play-label">Play</span>
+          </button>
+
+          <!-- Speed -->
+          <div style="display:flex; align-items:center; gap:6px; margin-left:8px;">
+            <span style="font-size:11px; color:var(--text-dim);">Speed</span>
+            <button class="speed-preset" data-speed="0.25">0.25×</button>
+            <button class="speed-preset" data-speed="0.5">0.5×</button>
+            <button class="speed-preset active" data-speed="1">1×</button>
+            <button class="speed-preset" data-speed="2">2×</button>
+            <button class="speed-preset" data-speed="4">4×</button>
+          </div>
+          </div>
+        </div>
+      </div>
+      <div id="resizer"></div>
+      <div id="sidebar">
+      <button type="button" id="mobilePanelClose" class="mobile-panel-close" aria-label="Hide controls">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+
+      <div class="section">
+        <h2>Status</h2>
+        <div id="statusIndices" class="status-indices"></div>
+        <div class="status-grid" id="statusGrid"></div>
+      </div>
+
+      <div class="section" id="layersSection">
+        <h2>Layers</h2>
+        <button type="button" id="mobileLayersToggle" class="mobile-layers-toggle" aria-expanded="false" aria-controls="layersSection">
+          Layers
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="toggle-row">
+          <label><input type="checkbox" id="toggle-stream" checked /><span class="swatch" style="background:#5a6272"></span>Full stream</label>
+        </div>
+        <div class="toggle-row">
+          <label><input type="checkbox" id="toggle-simplified" checked /><span class="swatch" style="background:#3ddc97"></span>Simplified so far</label>
+        </div>
+        <div class="toggle-row">
+          <label><input type="checkbox" id="toggle-ball-p0" checked /><span class="swatch" style="background:#c47aff"></span>\(B_p\) (δ-ball at start vertex)</label>
+        </div>
+        <div class="toggle-row">
+          <label><input type="checkbox" id="toggle-ball-pi" checked /><span class="swatch" style="background:#ff7ae8"></span>\(B_{v_i}\) (δ-ball at current vertex)</label>
+        </div>
+        <div class="toggle-row">
+          <label><input type="checkbox" id="toggle-Gi" checked /><span class="swatch" style="background:#e8c547"></span>\(\mathrm{conv}(G_{v_i})\)</label>
+        </div>
+        <div class="toggle-row">
+          <label><input type="checkbox" id="toggle-F" checked /><span class="swatch" style="background:#4f9dff"></span>\(F(S_{i-1}[p], p)\)</label>
+        </div>
+        <div class="toggle-row">
+          <label><input type="checkbox" id="toggle-F-Si" /><span class="swatch" style="background:#22d3ee"></span>\(F(S_i[p], p)\)</label>
+        </div>
+        <div class="toggle-row">
+          <label><input type="checkbox" id="toggle-S" checked /><span class="swatch" style="background:#a78bfa"></span>\(S_i[p] = \mathrm{conv}(G_{v_i}) \cap F(S_{i-1}[p], p)\)</label>
+        </div>
+        <div class="toggle-row">
+          <label><input type="checkbox" id="toggle-P" checked /><span class="swatch" style="background:#ff9f43"></span>\(P\) (candidate anchors in \(G_{v_0}\) )</label>
+        </div>
+        <div class="toggle-row">
+          <label><input type="checkbox" id="toggle-dead-candidates" checked /><span class="swatch" style="background:#ff3c3c"></span>Dead candidates</label>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>View</h2>
+        <div class="stepper">
+          <button id="fitBtn">Fit to data</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Instructions</h2>
+        <table class="shortcuts-table">
+          <tbody>
+            <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Previous / next step</td></tr>
+            <tr><td><kbd>Shift</kbd>+<kbd>←</kbd>/<kbd>→</kbd></td><td>Previous / next simplified segment</td></tr>
+            <tr><td><kbd>Space</kbd></td><td>Play / pause auto-advance</td></tr>
+            <tr><td><kbd>C</kbd> / <kbd>X</kbd></td><td>Cycle through alive candidates forward / backward</td></tr>
+            <tr><td>Drag</td><td>Pan the view</td></tr>
+            <tr><td>Scroll / pinch</td><td>Zoom in / out</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <button type="button" id="mobilePanelOpen" class="mobile-panel-open">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      Controls
+    </button>
+    </div>
+  </main>
+</div>
+
+<!-- Full-screen trace picker overlay (mobile) -->
+<div id="tracePicker" class="trace-picker" aria-hidden="true">
+  <div class="trace-picker-header">
+    <h2>Choose a preloaded trace</h2>
+    <button type="button" id="tracePickerClose" class="trace-picker-close" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div id="tracePickerList" class="trace-picker-list"></div>
+</div>
+<div id="tracePickerBackdrop" class="trace-picker-backdrop" aria-hidden="true"></div>
+
+<!-- Mobile touch controls for steps, candidates, and playback -->
+<nav id="mobileTransport" class="mobile-transport" aria-label="Playback navigation">
+  <button type="button" id="mobileStepBackBtn" aria-label="Previous step">
+    ←
+    <span>Step</span>
+  </button>
+  <button type="button" id="mobileCandidateBackBtn" aria-label="Previous candidate">
+    ‹
+    <span>Candidate</span>
+  </button>
+  <button type="button" id="mobilePlayBtn" class="mobile-play" aria-label="Play">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path class="mobile-play-icon" d="M8 5v14l11-7z" fill="currentColor"/>
+      <path class="mobile-pause-icon" d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" fill="currentColor" style="display:none;"/>
+    </svg>
+    <span class="mobile-play-label">Play</span>
+  </button>
+  <button type="button" id="mobileCandidateForwardBtn" aria-label="Next candidate">
+    ›
+    <span>Candidate</span>
+  </button>
+  <button type="button" id="mobileStepForwardBtn" aria-label="Next step">
+    →
+    <span>Step</span>
+  </button>
+</nav>
+
+<!-- Mobile playback FAB (opens bottom sheet) -->
+<button type="button" id="playbackToggle" class="playbackToggle" aria-label="Show playback controls" aria-expanded="false" aria-controls="playbackBar">
+  <svg viewBox="0 0 24 24" fill="none">
+    <path class="play-fab-icon" d="M8 5v14l11-7z" fill="currentColor"/>
+    <path class="pause-fab-icon" d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" fill="currentColor" style="display:none;"/>
+  </svg>
+</button>
+
+<script src="viewer.js"></script>
+</body>
+</html>

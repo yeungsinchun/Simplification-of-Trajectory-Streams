@@ -15,6 +15,20 @@ taxi_log_2008_by_id/
 .cache/
 /data/
 
+# CI regression fixtures: the raw input trajectories for IDs 1..10 must be
+# checked into git so the CI workflow can run the simplify binary against a
+# deterministic dataset without needing Kaggle access at build time.
+!data/1/original.txt
+!data/2/original.txt
+!data/3/original.txt
+!data/4/original.txt
+!data/5/original.txt
+!data/6/original.txt
+!data/7/original.txt
+!data/8/original.txt
+!data/9/original.txt
+!data/10/original.txt
+
 # Python and notebook caches
 __pycache__/
 *.py[cod]
@@ -30,6 +44,8 @@ results/*.png
 # Per-intersection-pair dumps produced by `simplify --dump-intersect <id>`.
 # These are intermediate artifacts for the test_convex_intersect benchmark
 # and can be very large (case 10's dump is 270 MB).
+# (Only the carve-out entries above are allowed under data/; everything else
+# under data/ remains ignored.)
 data/**/*
 
 # Trace JSON produced by `simplify --web-server` for the local web visualizer.

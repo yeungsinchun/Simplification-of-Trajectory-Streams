@@ -8,10 +8,7 @@
 // ===========================================================================
 //  Core algorithm — bare (no instrumentation)
 // ===========================================================================
-//
-// This is the production front-end: no timing hooks in the hot path.  The
-// instrumented twin lives in simplify_with_time.cpp and is built as the separate
-// `simplify_time` executable.
+
 
 int get_longest_stab(const std::vector<Point>& stream, int cur,
                      std::vector<Point>& simplified,
@@ -308,6 +305,8 @@ std::vector<Point> simplify(const std::vector<Point>& stream,
 // ===========================================================================
 
 int main(int argc, char** argv) {
+    std::ios::sync_with_stdio(false);
+    
     int test_case_no = -1;
     int code = get_repo_root(argv, repo_root);
     if (code != 0) {
