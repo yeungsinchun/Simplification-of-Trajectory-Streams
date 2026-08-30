@@ -9,7 +9,7 @@ on:
 
 jobs:
   bench-vs-prev:
-    name: New build must not slow down by >1.5x vs previous commit
+    name: New build must not slow down by >1.5x
     runs-on: ubuntu-latest
 
     env:
@@ -26,13 +26,13 @@ jobs:
 
     steps:
       - name: Checkout current commit (new)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: new
           submodules: recursive
 
       - name: Checkout previous commit (original)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: orig
           ref: ${{ github.event.pull_request.base_sha || github.event.before }}
@@ -92,7 +92,6 @@ jobs:
                 cat "$log"
                 exit 1
               fi
-              echo "    ${tag} run ${run}/${BENCH_RUNS}: ${ms} ms"
               sum=$(awk -v s="$sum" -v m="$ms" 'BEGIN { print s + m }')
             done
 
@@ -100,78 +99,54 @@ jobs:
           }
 
           IDS=(1 2 3 4 5 6 7 8 9 10)
-          RESULTS=new/results_benchmark.tsv
-          printf 'id\torig_ms\tnew_ms\tratio\tlimit\tstatus\n' > "$RESULTS"
+          RESULTS=new/benchmark.tsv
+          printf 'id\tprev_ms\tnew_ms\tratio\n' > "$RESULTS"
 
           OVERALL_OK=1
-          ROWS="| ID | orig ms (avg/${BENCH_RUNS}) | new ms (avg/${BENCH_RUNS}) | ratio | limit | verdict |"$'\n'
-          ROWS+="|----|--------:|-------:|------:|------:|---------|"$'\n'
+          REPORT=""
 
           for ID in "${IDS[@]}"; do
-            echo "============================================================"
-            echo "ID=$ID"
-            echo "============================================================"
-
-            # --- ORIGINAL ---
             ORIG_MS=$(bench_avg_ms orig "$ID" orig)
-            echo "  orig avg: ${ORIG_MS} ms"
-
-            # --- NEW ---
             NEW_MS=$(bench_avg_ms new "$ID" new)
-            echo "  new  avg: ${NEW_MS} ms"
 
-            # --- ASSERT: new_ms <= orig_ms * SLOWDOWN_LIMIT ---
-            # For very small runs (< MIN_BENCH_MS), wall-clock noise dominates
-            # and the multiplicative check is meaningless. We only enforce the
-            # ratio on runs that are large enough for the ratio to be stable.
             RATIO=$(awk -v o="$ORIG_MS" -v n="$NEW_MS" \
                       'BEGIN { if (o+0 > 0) printf "%.3f", n/o; else print "inf" }')
 
             STATUS="OK"
-            REASON=""
             if awk -v n="$NEW_MS" -v o="$ORIG_MS" -v lim="$SLOWDOWN_LIMIT" \
                    'BEGIN { exit !(o+0 > 0 && n+0 > o*lim + 1e-9) }'; then
-              # Only fail if both binaries ran long enough for the ratio to
-              # be meaningful.
               if awk -v o="$ORIG_MS" -v floor="$MIN_BENCH_MS" \
                      'BEGIN { exit !(o+0 >= floor) }'; then
-                STATUS="FAIL_SLOW"
-                REASON="new=${NEW_MS}ms > orig=${ORIG_MS}ms × ${SLOWDOWN_LIMIT}"
-              else
-                STATUS="OK_NOISY"
-                REASON="run too short (orig ${ORIG_MS}ms < ${MIN_BENCH_MS}ms floor)"
+                STATUS="FAIL"
               fi
             fi
 
             if [ "$STATUS" != "OK" ]; then OVERALL_OK=0; fi
 
-            printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
-              "$ID" "$ORIG_MS" "$NEW_MS" "$RATIO" "$SLOWDOWN_LIMIT" "$STATUS" \
-              >> "$RESULTS"
-            ROWS+="| $ID | $ORIG_MS | $NEW_MS | $RATIO | $SLOWDOWN_LIMIT | $STATUS |"$'\n'
-            if [ -n "$REASON" ]; then
-              ROWS+="| | | | | | _${REASON}_ |"$'\n'
+            printf '%s\t%s\t%s\t%s\n' \
+              "$ID" "$ORIG_MS" "$NEW_MS" "$RATIO" >> "$RESULTS"
+
+            LINE=$(printf "%2d  %8.4f ms  %8.4f ms  %6.3f" \
+              "$ID" "$ORIG_MS" "$NEW_MS" "$RATIO")
+            if [ "$STATUS" = "FAIL" ]; then
+              LINE="$LINE  FAIL"
             fi
+            REPORT+="${LINE}"$'\n'
           done
 
-          echo ""
-          echo "================================================================"
-          echo "Benchmark summary  (limit: new_time ≤ orig_time × $SLOWDOWN_LIMIT)"
-          echo "================================================================"
-          printf '%s' "$ROWS"
-          echo ""
-          column -t -s $'\t' "$RESULTS" || cat "$RESULTS"
+          echo "Benchmark (avg of ${BENCH_RUNS} runs, limit ${SLOWDOWN_LIMIT}x)"
+          printf '%s' "$REPORT"
 
           if [ "$OVERALL_OK" -ne 1 ]; then
             echo ""
             echo "❌ Performance regression: at least one ID exceeds the ${SLOWDOWN_LIMIT}x slowdown bar."
             exit 1
           fi
-          echo "✅ Benchmark OK — new build within ${SLOWDOWN_LIMIT}x of original on all IDs."
+          echo "✅ Benchmark OK"
 
       - name: Upload benchmark report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: benchmark-vs-prev
-          path: new/results_benchmark.tsv
+          name: benchmark
+          path: new/benchmark.tsv
