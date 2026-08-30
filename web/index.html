@@ -125,6 +125,28 @@
   #canvas.dragging {
     cursor: grabbing;
   }
+  #traceLoadingHud {
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    z-index: 30;
+    display: none;
+    align-items: center;
+    gap: 9px;
+    transform: translateX(-50%);
+    padding: 9px 13px;
+    color: var(--text);
+    background: rgba(22,26,34,0.92);
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    box-shadow: 0 5px 18px rgba(0,0,0,0.3);
+    font-size: 12px;
+    white-space: nowrap;
+    backdrop-filter: blur(8px);
+  }
+  #traceLoadingHud.visible { display: flex; }
+  #traceLoadingHud.error { color: var(--danger); }
+  #traceLoadingHud.error .button-spinner { display: none; }
   #playbackBar {
     display: none;
     align-items: center;
@@ -648,6 +670,12 @@
       background: var(--accent);
       color: #0b0e14;
     }
+    body.trace-preview-loading .mobile-transport,
+    body.trace-preview-error .mobile-transport { display: none; }
+    body.trace-preview-loading #sidebar,
+    body.trace-preview-error #sidebar,
+    body.trace-preview-loading #resizer,
+    body.trace-preview-error #resizer { display: none !important; }
     .mobile-transport svg { width: 20px; height: 20px; }
     body.trace-loaded-mobile.mobile-panel-closed .mobile-panel-open {
       bottom: calc(76px + env(safe-area-inset-bottom));
@@ -1130,6 +1158,10 @@
       <div id="canvasWrap">
         <div id="canvasContainer">
           <canvas id="canvas"></canvas>
+          <div id="traceLoadingHud" role="status" aria-live="polite">
+            <span class="button-spinner" aria-hidden="true"></span>
+            <span id="traceLoadingText">Loading details…</span>
+          </div>
           <div id="dropHint">
             <div class="dropHint-icon" aria-hidden="true">
               <svg viewBox="0 0 64 64" fill="none">

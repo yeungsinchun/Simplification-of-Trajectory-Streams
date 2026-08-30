@@ -1,10 +1,5 @@
-# Multi-stage build: compile C++ binary, then package with Python runtime
 FROM ubuntu:22.04 AS builder
 
-# Install build dependencies
-# Note: libboost-all-dev is NOT needed. CGAL (header-only) only requires Boost
-# headers at build time, not Boost binaries at runtime. The CGAL::CGAL target
-# links to nothing — no Boost shared libs are needed by the simplify binary.
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \

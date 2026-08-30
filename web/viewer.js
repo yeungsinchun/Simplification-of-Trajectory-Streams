@@ -19,6 +19,7 @@
 
   const state = {
     trace: null,        // parsed JSON
+    preview: null,      // lightweight original trajectory shown while the full trace loads
     prefixIdx: 0,
     stepIdx: 0,          // -1 means "before any step" (only P anchors, no consumption yet)
     candidateIdx: 0,     // which candidate to show F/S for (cycles through alive and dead)
@@ -47,6 +48,8 @@
   const playbackBar = el("playbackBar");
   const statusGrid = el("statusGrid");
   const statusIndices = el("statusIndices");
+  const traceLoadingHud = el("traceLoadingHud");
+  const traceLoadingText = el("traceLoadingText");
 
   const uploadBtn = el("uploadBtn");
   const trajectoryInput = el("trajectoryInput");
@@ -157,6 +160,89 @@
     }
   }
 
+  function trajectoryPointsFromText(text) {
+    const lines = text.trim().split(/\r?\n/);
+    const count = Number.parseInt(lines[0], 10);
+    if (!Number.isFinite(count) || count < 2) return [];
+    const points = [];
+    for (let i = 1; i < lines.length && points.length < count; i++) {
+      const [x, y] = lines[i].trim().split(/\s+/).map(Number);
+      if (Number.isFinite(x) && Number.isFinite(y)) points.push([x, y]);
+    }
+    return points;
+  }
+
+  function previewBBox(points, epsilon, delta, yOffset) {
+    let minCoord = Infinity;
+    let maxCoord = -Infinity;
+    for (const [x, y] of points) {
+      minCoord = Math.min(minCoord, x, y);
+      maxCoord = Math.max(maxCoord, x, y);
+    }
+    const gridReach = (1 + epsilon) * delta;
+    const padding = gridReach + Math.max(1, gridReach * 1e-6);
+    return [
+      minCoord - padding,
+      minCoord - padding + yOffset,
+      maxCoord + padding,
+      maxCoord + padding + yOffset,
+    ];
+  }
+
+  function showTracePreview(points) {
+    if (!Array.isArray(points) || points.length < 2 || state.trace) return;
+
+    const isSampleTrace = currentTraceId !== null
+      && [51, 52, 53].includes(Number.parseInt(currentTraceId, 10));
+    const yOffset = isSampleTrace ? 500 : 0;
+    const previewPoints = isSampleTrace
+      ? points.map(([x, y]) => [x, y + yOffset])
+      : points;
+    const epsilon = Number.parseFloat(epsilonInput.value);
+    const delta = Number.parseFloat(deltaInput.value);
+
+    state.preview = {
+      points: previewPoints,
+      bbox: previewBBox(points, epsilon, delta, yOffset),
+    };
+    dropHint.style.display = "none";
+    el("sidebar").style.display = "flex";
+    el("resizer").style.display = "block";
+    canvas.classList.add("has-trace");
+    document.body.classList.add("trace-loaded-mobile", "trace-preview-loading");
+    document.body.classList.remove("trace-preview-error");
+    traceLoadingHud.classList.add("visible");
+    traceLoadingHud.classList.remove("error");
+    traceLoadingText.textContent = "Loading details…";
+    fitToBBox(state.preview.bbox);
+    render();
+  }
+
+  function finishTracePreview() {
+    state.preview = null;
+    document.body.classList.remove("trace-preview-loading", "trace-preview-error");
+    traceLoadingHud.classList.remove("visible", "error");
+  }
+
+  function failTracePreview(message) {
+    if (!state.preview) return;
+    document.body.classList.remove("trace-preview-loading");
+    document.body.classList.add("trace-preview-error");
+    traceLoadingHud.classList.add("visible", "error");
+    traceLoadingText.textContent = message;
+  }
+
+  async function showPreloadedTracePreview(traceId) {
+    try {
+      const resp = await fetch(`/api/trace/${traceId}/original`);
+      if (!resp.ok) return;
+      const data = await resp.json();
+      showTracePreview(data.points);
+    } catch (err) {
+      console.warn("Could not load trajectory preview:", err);
+    }
+  }
+
   function loadTraceText(text, name) {
     let parsed;
     try {
@@ -233,6 +319,7 @@
       }
     }
     
+    finishTracePreview();
     state.trace = parsed;
     state.prefixIdx = 0;
     state.stepIdx = parsed.prefixes.length && parsed.prefixes[0].steps.length ? 0 : -1;
@@ -303,7 +390,11 @@
         console.log(`[Client] Starting trace upload with eps=${eps}, delta=${delta}`);
         const startTime = performance.now();
 
-        const resp = await fetch("/api/trace", { method: "POST", body: formData });
+        const traceRequest = fetch("/api/trace", { method: "POST", body: formData });
+        const originalText = await currentFile.text();
+        showTracePreview(trajectoryPointsFromText(originalText));
+
+        const resp = await traceRequest;
         if (!resp.ok) {
           throw new Error(await apiErrorMessage(resp));
         }
@@ -318,6 +409,7 @@
       } catch (err) {
         uploadStatus.textContent = `Error: ${err.message}`;
         uploadStatus.style.color = "#ff5f6d";
+        failTracePreview("Could not load details");
       } finally {
         setLoadButtonBusy(false);
       }
@@ -330,7 +422,10 @@
         console.log(`[Client] Starting trace load (ID=${currentTraceId}) with eps=${eps}, delta=${delta}`);
         const startTime = performance.now();
 
-        const resp = await fetch(`/api/trace/${currentTraceId}?epsilon=${eps}&delta=${delta}`);
+        const traceRequest = fetch(`/api/trace/${currentTraceId}?epsilon=${eps}&delta=${delta}`);
+        await showPreloadedTracePreview(currentTraceId);
+
+        const resp = await traceRequest;
         if (!resp.ok) {
           throw new Error(await apiErrorMessage(resp));
         }
@@ -345,6 +440,7 @@
       } catch (err) {
         uploadStatus.textContent = `Error: ${err.message}`;
         uploadStatus.style.color = "#ff5f6d";
+        failTracePreview("Could not load details");
       } finally {
         setLoadButtonBusy(false);
       }
@@ -798,17 +894,11 @@
     return [x, y];
   }
 
-  function fitToData() {
-    const t = state.trace;
-    if (!t) return;
-    const bbox = t.bbox; // [xmin, ymin, xmax, ymax]
+  function fitToBBox(bbox) {
+    if (!bbox) return;
     let xmin = bbox[0], ymin = bbox[1], xmax = bbox[2], ymax = bbox[3];
-    if (!isFinite(xmin) || !isFinite(xmax) || xmax <= xmin) {
-      xmin = -1; xmax = 1; ymin = -1; ymax = 1;
-      for (const p of t.stream) {
-        xmin = Math.min(xmin, p[0]); xmax = Math.max(xmax, p[0]);
-        ymin = Math.min(ymin, p[1]); ymax = Math.max(ymax, p[1]);
-      }
+    if (![xmin, ymin, xmax, ymax].every(Number.isFinite)) {
+      xmin = -1; ymin = -1; xmax = 1; ymax = 1;
     }
     const rect = canvasContainer.getBoundingClientRect();
     const w = Math.max(1e-6, xmax - xmin);
@@ -820,11 +910,17 @@
     state.cam.y = (ymin + ymax) / 2;
   }
 
+  function fitToData() {
+    const data = state.trace || state.preview;
+    if (!data) return;
+    fitToBBox(data.bbox);
+  }
+
   el("fitBtn").addEventListener("click", () => { fitToData(); render(); });
 
   // Pan (drag).
   canvas.addEventListener("mousedown", (e) => {
-    if (!state.trace) return;
+    if (!state.trace && !state.preview) return;
     state.dragging = true;
     canvas.classList.add("dragging");
     state.dragStart = [e.clientX, e.clientY];
@@ -847,7 +943,7 @@
   canvasWrap.addEventListener(
     "wheel",
     (e) => {
-      if (!state.trace) return;
+      if (!state.trace && !state.preview) return;
       e.preventDefault();
       const rect = canvasWrap.getBoundingClientRect();
       const sx = e.clientX - rect.left;
@@ -1341,7 +1437,16 @@
     renderStatus();
 
     const t = state.trace;
-    if (!t) return;
+    if (!t) {
+      if (state.preview && state.preview.points.length) {
+        strokePath(state.preview.points, "#4f9dff", 1.6);
+        const stride = Math.max(1, Math.ceil(state.preview.points.length / 1200));
+        for (let i = 0; i < state.preview.points.length; i += stride) {
+          dot(state.preview.points[i], 1.25, "#7bb6ff", null);
+        }
+      }
+      return;
+    }
 
     const pfx = currentPrefix();
     const step = currentStep();
