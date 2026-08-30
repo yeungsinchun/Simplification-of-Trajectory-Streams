@@ -34,7 +34,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: orig
-          ref: ${{ github.event.pull_request.base_sha }}
+          # PRs compare against the base branch tip; pushes compare against the
+          # commit immediately before this push (github.event.before).
+          ref: ${{ github.event.pull_request.base_sha || github.event.before }}
           submodules: recursive
         continue-on-error: true
 
@@ -65,6 +67,7 @@ jobs:
           cp -r new/data/8 orig/data/8
           cp -r new/data/9 orig/data/9
           cp -r new/data/10 orig/data/10
+          cp -r new/scripts orig/scripts
 
       - name: Backport frechet invocation fix to orig checkout
         # Previous commits called a non-existent scripts/frechet binary for
@@ -104,23 +107,26 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential libcgal-dev qtbase5-dev
+          sudo apt-get install -y cmake build-essential libcgal-dev
 
       - name: Install Julia (for Fréchet distance)
         uses: julia-actions/setup-julia@v2
         with:
-          version: '1.10'
+          version: '1.12'
+
+      - name: Install Julia packages (Fréchet distance)
+        run: julia -e 'using Pkg; Pkg.add(["FrechetDist", "ArgParse"])'
 
       - name: Build original
         working-directory: orig
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF
           cmake --build build --target simplify -j"$(nproc)"
 
       - name: Build new
         working-directory: new
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF
           cmake --build build --target simplify -j"$(nproc)"
 
       - name: Run correctness comparison (IDs 1..10)
@@ -147,10 +153,10 @@ jobs:
                 > "/tmp/orig_$ID.log" 2>&1 ) \
               || { echo "❌ ORIGINAL run failed for ID=$ID"; cat "/tmp/orig_$ID.log"; exit 1; }
 
-            ORIG_DIST=$(grep -E '^[0-9]+(\.[0-9]+)?$' "/tmp/orig_$ID.log" | tail -1)
+            ORIG_DIST=$(grep -E '^[0-9]+(\.[0-9]+)?$' "/tmp/orig_$ID.log" | tail -1 || true)
             # Fall back to "Frechet distance: NNN" form (orig binary w/o --raw)
             if [ -z "$ORIG_DIST" ]; then
-              ORIG_DIST=$(grep -oE 'Frechet distance: *[0-9]+(\.[0-9]+)?' "/tmp/orig_$ID.log" | tail -1 | grep -oE '[0-9]+(\.[0-9]+)?')
+              ORIG_DIST=$(grep -oE 'Frechet distance: *[0-9]+(\.[0-9]+)?' "/tmp/orig_$ID.log" | tail -1 | grep -oE '[0-9]+(\.[0-9]+)?' || true)
             fi
             ORIG_POINTS=$(head -1 "orig/data/$ID/simplify.txt" 2>/dev/null \
                           | tr -d '[:space:]')
@@ -164,16 +170,25 @@ jobs:
                 > "/tmp/new_$ID.log" 2>&1 ) \
               || { echo "❌ NEW run failed for ID=$ID"; cat "/tmp/new_$ID.log"; exit 1; }
 
-            NEW_DIST=$(grep -E '^[0-9]+(\.[0-9]+)?$' "/tmp/new_$ID.log" | tail -1)
+            NEW_DIST=$(grep -E '^[0-9]+(\.[0-9]+)?$' "/tmp/new_$ID.log" | tail -1 || true)
             # Fall back to "Frechet distance: NNN" form
             if [ -z "$NEW_DIST" ]; then
-              NEW_DIST=$(grep -oE 'Frechet distance: *[0-9]+(\.[0-9]+)?' "/tmp/new_$ID.log" | tail -1 | grep -oE '[0-9]+(\.[0-9]+)?')
+              NEW_DIST=$(grep -oE 'Frechet distance: *[0-9]+(\.[0-9]+)?' "/tmp/new_$ID.log" | tail -1 | grep -oE '[0-9]+(\.[0-9]+)?' || true)
             fi
             NEW_POINTS=$(head -1 "new/data/$ID/simplify.txt" 2>/dev/null \
                          | tr -d '[:space:]')
             NEW_POINTS=${NEW_POINTS:-0}
 
             echo "  new:  dist=$NEW_DIST  points=$NEW_POINTS"
+
+            if [ -z "$ORIG_DIST" ] || [ -z "$NEW_DIST" ]; then
+              echo "❌ Could not parse Fréchet distance for ID=$ID"
+              echo "--- orig log ---"
+              cat "/tmp/orig_$ID.log"
+              echo "--- new log ---"
+              cat "/tmp/new_$ID.log"
+              exit 1
+            fi
 
             # --- ASSERT ---
             # Use a small absolute tolerance on dist comparisons: both

@@ -25,10 +25,10 @@ Usage:
 """
 
 using FrechetDist
-using FrechetDist.cg
-using FrechetDist.cg.point
-using FrechetDist.cg.polygon
 using ArgParse
+
+import FrechetDist.cg.point: npoint
+import FrechetDist.cg.polygon: Polygon2F
 
 function read_curve(filename)
     lines = readlines(filename)

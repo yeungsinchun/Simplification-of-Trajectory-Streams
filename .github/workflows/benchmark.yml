@@ -33,7 +33,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: orig
-          ref: ${{ github.event.pull_request.base_sha }}
+          ref: ${{ github.event.pull_request.base_sha || github.event.before }}
           submodules: recursive
         continue-on-error: true
 
@@ -68,18 +68,18 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential libcgal-dev qtbase5-dev
+          sudo apt-get install -y cmake build-essential libcgal-dev
 
       - name: Build original
         working-directory: orig
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF
           cmake --build build --target simplify -j"$(nproc)"
 
       - name: Build new
         working-directory: new
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF
           cmake --build build --target simplify -j"$(nproc)"
 
       - name: Run benchmark comparison (IDs 1..10)
