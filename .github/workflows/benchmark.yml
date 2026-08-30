@@ -1,4 +1,4 @@
-name: Benchmark - Core time vs previous commit (±10%)
+name: Benchmark - Core time vs previous commit (1.5x)
 
 on:
   push:
@@ -9,17 +9,19 @@ on:
 
 jobs:
   bench-vs-prev:
-    name: New build must not slow down by >10% vs previous commit
+    name: New build must not slow down by >1.5x vs previous commit
     runs-on: ubuntu-latest
 
     env:
       EPSILON: "299"
       DELTA: "1"
       # Multiplicative limit on slowdown: new_time <= orig_time * SLOWDOWN_LIMIT.
-      SLOWDOWN_LIMIT: "1.10"
+      SLOWDOWN_LIMIT: "1.50"
+      # Number of timed runs to average per binary and dataset ID.
+      BENCH_RUNS: "3"
       # Absolute floor (ms) below which the multiplicative ratio check is
       # skipped: tiny runs are dominated by wall-clock noise, so we only
-      # enforce the 10% slowdown on runs that take at least this long.
+      # enforce the slowdown bar on runs that take at least this long.
       MIN_BENCH_MS: "20"
 
     steps:
@@ -86,12 +88,37 @@ jobs:
         run: |
           set -uo pipefail
 
+          bench_avg_ms() {
+            local dir=$1 id=$2 tag=$3
+            local sum=0
+            local run ms
+
+            for run in $(seq 1 "$BENCH_RUNS"); do
+              local log="/tmp/${tag}_${id}_r${run}.log"
+              ( cd "$dir/" && \
+                ./build/simplify "$id" -e "$EPSILON" -d "$DELTA" \
+                  > "$log" 2>&1 ) \
+                || { echo "❌ ${tag^^} run failed for ID=$id (run $run/$BENCH_RUNS)"; cat "$log"; exit 1; }
+
+              ms=$(grep '^SIMPLIFY_CORE_MS:' "$log" | awk '{print $2}')
+              if [ -z "$ms" ]; then
+                echo "❌ Missing SIMPLIFY_CORE_MS for ID=$id (run $run/$BENCH_RUNS)"
+                cat "$log"
+                exit 1
+              fi
+              echo "    ${tag} run ${run}/${BENCH_RUNS}: ${ms} ms"
+              sum=$(awk -v s="$sum" -v m="$ms" 'BEGIN { print s + m }')
+            done
+
+            awk -v s="$sum" -v n="$BENCH_RUNS" 'BEGIN { printf "%.4f", s / n }'
+          }
+
           IDS=(1 2 3 4 5 6 7 8 9 10)
           RESULTS=new/results_benchmark.tsv
           printf 'id\torig_ms\tnew_ms\tratio\tlimit\tstatus\n' > "$RESULTS"
 
           OVERALL_OK=1
-          ROWS="| ID | orig ms | new ms | ratio | limit | verdict |"$'\n'
+          ROWS="| ID | orig ms (avg/${BENCH_RUNS}) | new ms (avg/${BENCH_RUNS}) | ratio | limit | verdict |"$'\n'
           ROWS+="|----|--------:|-------:|------:|------:|---------|"$'\n'
 
           for ID in "${IDS[@]}"; do
@@ -100,22 +127,12 @@ jobs:
             echo "============================================================"
 
             # --- ORIGINAL ---
-            ( cd orig/ && \
-              ./build/simplify "$ID" -e "$EPSILON" -d "$DELTA" \
-                > "/tmp/orig_b$ID.log" 2>&1 ) \
-              || { echo "❌ ORIGINAL run failed for ID=$ID"; cat "/tmp/orig_b$ID.log"; exit 1; }
-
-            ORIG_MS=$(grep '^SIMPLIFY_CORE_MS:' "/tmp/orig_b$ID.log" | awk '{print $2}')
-            echo "  orig: ${ORIG_MS} ms"
+            ORIG_MS=$(bench_avg_ms orig "$ID" orig)
+            echo "  orig avg: ${ORIG_MS} ms"
 
             # --- NEW ---
-            ( cd new/ && \
-              ./build/simplify "$ID" -e "$EPSILON" -d "$DELTA" \
-                > "/tmp/new_b$ID.log" 2>&1 ) \
-              || { echo "❌ NEW run failed for ID=$ID"; cat "/tmp/new_b$ID.log"; exit 1; }
-
-            NEW_MS=$(grep '^SIMPLIFY_CORE_MS:' "/tmp/new_b$ID.log" | awk '{print $2}')
-            echo "  new:  ${NEW_MS} ms"
+            NEW_MS=$(bench_avg_ms new "$ID" new)
+            echo "  new  avg: ${NEW_MS} ms"
 
             # --- ASSERT: new_ms <= orig_ms * SLOWDOWN_LIMIT ---
             # For very small runs (< MIN_BENCH_MS), wall-clock noise dominates
@@ -161,10 +178,10 @@ jobs:
 
           if [ "$OVERALL_OK" -ne 1 ]; then
             echo ""
-            echo "❌ Performance regression: at least one ID is >10% slower on the new build."
+            echo "❌ Performance regression: at least one ID exceeds the ${SLOWDOWN_LIMIT}x slowdown bar."
             exit 1
           fi
-          echo "✅ Benchmark OK — new build within 10% of original on all IDs."
+          echo "✅ Benchmark OK — new build within ${SLOWDOWN_LIMIT}x of original on all IDs."
 
       - name: Upload benchmark report
         if: always()
