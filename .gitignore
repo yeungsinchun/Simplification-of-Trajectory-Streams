@@ -1,3 +1,6 @@
+# Local deploy script (machine-specific)
+deploy.sh
+
 # Local build and IDE output
 test.cpp
 build/
