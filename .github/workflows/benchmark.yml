@@ -1,4 +1,4 @@
-name: Benchmark - Core time vs previous commit (1.5x)
+name: Benchmark
 
 on:
   push:
@@ -37,23 +37,9 @@ jobs:
           path: orig
           ref: ${{ github.event.pull_request.base_sha || github.event.before }}
           submodules: recursive
-        continue-on-error: true
 
-      - name: Fall back to HEAD~1 if no PR base available
-        if: hashFiles('orig/simplify.cpp') == ''
-        run: |
-          git clone --depth 2 --recurse-submodules \
-            https://github.com/${{ github.repository }}.git orig_fallback
-          cd orig_fallback
-          git checkout HEAD~1
-          cd ..
-          rm -rf orig
-          mv orig_fallback orig
-
-      - name: Sync CI data fixtures into orig checkout
-        # The previous commit may predate the data/1..10/original.txt
-        # fixtures, so copy them from the current checkout before running
-        # the orig binary.
+      - name: Sync data from new to old
+        # Sync data so fair test can be drawn
         run: |
           mkdir -p orig/data
           cp -r new/data/1 orig/data/1
