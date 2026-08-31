@@ -41,6 +41,70 @@ def trace_json_response(tracejson):
     return response
 
 
+def stream_simplify_trace(cmd, label):
+    """Run simplify with --json-stream and yield NDJSON lines as they are produced."""
+    def generate():
+        # Keep stderr on a pipe but drain it in a thread so a full stderr
+        # buffer cannot deadlock the C++ process while we read stdout.
+        proc = subprocess.Popen(
+            cmd,
+            cwd=REPO_ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
+        stderr_chunks = []
+
+        def _drain_stderr():
+            assert proc.stderr is not None
+            for chunk in proc.stderr:
+                stderr_chunks.append(chunk)
+
+        import threading
+        stderr_thread = threading.Thread(target=_drain_stderr, daemon=True)
+        stderr_thread.start()
+
+        emitted = False
+        try:
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                if line:
+                    emitted = True
+                    yield line if line.endswith('\n') else line + '\n'
+            proc.wait(timeout=300)
+            stderr_thread.join(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+            yield json.dumps({'type': 'error', 'message': 'Processing timeout (>5min)'}) + '\n'
+            return
+        except Exception as e:
+            proc.kill()
+            proc.wait()
+            yield json.dumps({'type': 'error', 'message': str(e)}) + '\n'
+            return
+
+        err = ''.join(stderr_chunks).strip()
+        if err:
+            print(f"[{label}] C++ stderr:\n{err}")
+        if proc.returncode != 0:
+            message = err or 'Binary execution failed'
+            print(f"[{label}] simplify failed: {message}")
+            yield json.dumps({'type': 'error', 'message': message}) + '\n'
+
+    return Response(
+        generate(),
+        mimetype='application/x-ndjson',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+            # Disable Flask/Werkzeug buffering hints for proxies.
+            'Connection': 'keep-alive',
+        },
+    )
+
+
 # --- Static file serving ---
 
 @app.route('/')
@@ -144,66 +208,28 @@ def get_trace(trace_id):
         return jsonify({'error': 'Invalid epsilon or delta'}), 400
     
     try:
-        # Run simplify binary with JSON output to file
         import time
-        import tempfile
-        
-        # Create a temporary file for JSON output
-        json_fd, json_path = tempfile.mkstemp(suffix='.json', prefix='trace_')
-        os.close(json_fd)  # Close the file descriptor, we'll write via C++
-        
-        try:
-            cmd = [
-                str(SIMPLIFY_BIN),
-                '--in', str(trace_id),
-                '-e', str(epsilon),
-                '-d', str(delta),
-                '--web-server',
-                '--json-output', json_path
-            ]
-            
-            print(f"[Trace {trace_id}] Running simplify with eps={epsilon}, delta={delta}")
-            start_time = time.time()
-            
-            result = subprocess.run(
-                cmd,
-                cwd=REPO_ROOT,
-                capture_output=True,
-                text=True,
-                timeout=300
-            )
-            
+
+        cmd = [
+            str(SIMPLIFY_BIN),
+            '--in', str(trace_id),
+            '-e', str(epsilon),
+            '-d', str(delta),
+            '--web-server',
+            '--json-stream',
+        ]
+
+        print(f"[Trace {trace_id}] Streaming simplify with eps={epsilon}, delta={delta}")
+        start_time = time.time()
+        response = stream_simplify_trace(cmd, f"Trace {trace_id}")
+
+        @response.call_on_close
+        def _log_done():
             elapsed = time.time() - start_time
-            print(f"[Trace {trace_id}] Simplify completed in {elapsed:.2f}s")
-            
-            # Print any stderr output from C++ binary
-            if result.stderr:
-                print(f"[Trace {trace_id}] C++ stderr:\n{result.stderr}")
-            
-            if result.returncode != 0:
-                return jsonify({
-                    'error': 'Binary execution failed',
-                    'stderr': result.stderr
-                }), 500
-            
-            # Return the JSON file content directly without re-parsing
-            # This is faster than json.load() + jsonify()
-            with open(json_path, 'r') as f:
-                json_content = f.read()
-            
-            # Parse only to set frechet_distance to null
-            tracejson = json.loads(json_content)
-            tracejson['frechet_distance'] = None
-            
-            return trace_json_response(tracejson), 200
-        
-        finally:
-            # Clean up the temporary JSON file
-            if os.path.exists(json_path):
-                os.unlink(json_path)
+            print(f"[Trace {trace_id}] Stream finished in {elapsed:.2f}s")
+
+        return response
     
-    except subprocess.TimeoutExpired:
-        return jsonify({'error': 'Processing timeout (>5min)'}), 504
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -258,68 +284,34 @@ def generate_trace():
         with open(temp_file, 'w') as f:
             f.write(content)
         
-        # Run simplify binary with JSON output to file
         import time
-        import tempfile as tf
-        
-        # Create a temporary file for JSON output
-        json_fd, json_path = tf.mkstemp(suffix='.json', prefix='upload_')
-        os.close(json_fd)
-        
-        try:
-            cmd = [
-                str(SIMPLIFY_BIN),
-                '--in', temp_id,
-                '-e', str(epsilon),
-                '-d', str(delta),
-                '--web-server',
-                '--json-output', json_path
-            ]
-            
-            print(f"[Upload] Running simplify with eps={epsilon}, delta={delta}")
-            start_time = time.time()
-            
-            result = subprocess.run(
-                cmd,
-                cwd=REPO_ROOT,
-                capture_output=True,
-                text=True,
-                timeout=300  # 5min timeout
-            )
-            
+
+        cmd = [
+            str(SIMPLIFY_BIN),
+            '--in', temp_id,
+            '-e', str(epsilon),
+            '-d', str(delta),
+            '--web-server',
+            '--json-stream',
+        ]
+
+        print(f"[Upload] Streaming simplify with eps={epsilon}, delta={delta}")
+        start_time = time.time()
+        response = stream_simplify_trace(cmd, "Upload")
+
+        @response.call_on_close
+        def _cleanup_upload():
             elapsed = time.time() - start_time
-            print(f"[Upload] Simplify completed in {elapsed:.2f}s")
-            
-            if result.returncode != 0:
-                return jsonify({
-                    'error': 'Binary execution failed',
-                    'stderr': result.stderr
-                }), 500
-            
-            # Return the JSON file content directly without re-parsing
-            # This is faster than json.load() + jsonify()
-            with open(json_path, 'r') as f:
-                json_content = f.read()
-            
-            # Parse only to set frechet_distance to null
-            tracejson = json.loads(json_content)
-            tracejson['frechet_distance'] = None
-            
-            return trace_json_response(tracejson), 200
-        
-        finally:
-            # Clean up the temporary JSON file
-            if os.path.exists(json_path):
-                os.unlink(json_path)
+            print(f"[Upload] Stream finished in {elapsed:.2f}s")
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir, ignore_errors=True)
+
+        return response
     
-    except subprocess.TimeoutExpired:
-        return jsonify({'error': 'Processing timeout (>5min)'}), 504
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        # Clean up temp directory
         if temp_dir.exists():
             shutil.rmtree(temp_dir, ignore_errors=True)
+        return jsonify({'error': str(e)}), 500
 
 
 # --- Fréchet distance ---
