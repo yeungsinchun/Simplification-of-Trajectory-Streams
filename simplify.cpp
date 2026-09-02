@@ -293,25 +293,11 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
     return cur;
 }
 
-static double bare_simplify_core_ms(const std::vector<Point>& stream,
-                                    double EPSILON, double DELTA) {
-    auto t0 = std::chrono::high_resolution_clock::now();
-    std::vector<Point> probe;
-    int cur = 0;
-    while (cur != int(stream.size()))
-        cur = get_longest_stab(stream, cur, probe, EPSILON, DELTA);
-    return std::chrono::duration<double, std::milli>(
-        std::chrono::high_resolution_clock::now() - t0).count();
-}
-
 std::vector<Point> simplify_web(const std::vector<Point>& stream,
                                 double EPSILON, double DELTA) {
     std::vector<Point> simplified;
     std::vector<webtrace::PrefixTrace> prefixes;
     configure_bbox(stream, EPSILON, DELTA);
-
-    // Match `./simplify <id>` timing: bare algorithm only, excluding web trace work.
-    const double core_ms = bare_simplify_core_ms(stream, EPSILON, DELTA);
 
     std::ostream* stream_out = nullptr;
     if (json_stream_flag && json_output_path.empty()) {
@@ -320,9 +306,13 @@ std::vector<Point> simplify_web(const std::vector<Point>& stream,
         stream_out->flush();
     }
 
+    double core_ms = 0;
     int cur = 0;
     while (cur != int(stream.size())) {
+        auto t0 = std::chrono::high_resolution_clock::now();
         cur = get_longest_stab_web(stream, cur, simplified, EPSILON, DELTA, prefixes);
+        core_ms += std::chrono::duration<double, std::milli>(
+            std::chrono::high_resolution_clock::now() - t0).count();
         if (stream_out) {
             webtrace::write_stream_prefix(*stream_out, prefixes.back());
             stream_out->flush();
