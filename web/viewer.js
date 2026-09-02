@@ -2,10 +2,11 @@
 //  Trajectory Simplification Visualizer — viewer logic
 // ===========================================================================
 //
-// Consumes the JSON trace produced by `simplify --web-server` and renders an
-// interactive step-through of the paper's streaming construction: for each
-// "prefix" (one call to get_longest_stab) it shows the delta-disk candidate
-// anchors P, and for each step within a prefix it shows the point v_i being
+// Consumes the NDJSON trace streamed by `simplify --web-server --json-stream`
+// (or a monolithic JSON fallback) and renders an interactive step-through of
+// the paper's streaming construction: for each "prefix" (one call to
+// get_longest_stab) it shows the delta-disk boundary anchors P, and for each
+// step within a prefix it shows the point v_i being
 // consumed, the delta-disk hull G_i, each surviving candidate's free-space
 // wedge F(S,p) fed into intersect(), the resulting stab region S, and the
 // best (buffer) segment chosen so far.
@@ -1969,7 +1970,7 @@
           }
         }
 
-        // 7. Dead candidate anchors — red dots (only when toggle is checked).
+        // 7. Dead boundary anchors — red dots (only when toggle is checked).
         if (toggles["dead-candidates"].checked) {
           for (const c of allCandidates) {
             if (c.alive) continue;
@@ -1984,7 +1985,7 @@
           }
         }
 
-        // 8. P candidate anchors (non-viewed).
+        // 8. P boundary anchors (non-viewed).
         if (toggles.P.checked) {
           const viewedOrigIdx = viewedCandidate ? viewedCandidate.originalIdx : -1;
           const showDead = toggles["dead-candidates"].checked;

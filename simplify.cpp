@@ -61,11 +61,12 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
 //
 // Mirrors get_longest_stab/simplify exactly, but instead of only emitting the
 // final two-point segment per prefix, it records every intermediate value the
-// paper's construction produces (the candidate anchors P, the delta-disk hull
+// paper's construction produces (the boundary anchors P, the delta-disk hull
 // Gi, the free-space wedge F(S,p), and the resulting stab region S) at every
-// step of every prefix.  The whole trace is then serialized as one JSON
-// object to stdout for the web visualizer.  No human-readable text is ever
-// written in this mode so stdout stays valid JSON.
+// step of every prefix.  With --json-stream (used by the Flask server), stdout
+// is NDJSON: header line, one prefix per line, then done.  Without it, the
+// whole trace is one JSON object.  No human-readable text is ever written in
+// this mode so stdout stays machine-readable.
 namespace webtrace {
 
 struct Candidate {
@@ -316,6 +317,9 @@ std::vector<Point> simplify_web(const std::vector<Point>& stream,
     std::ostream* stream_out = nullptr;
     if (json_stream_flag && json_output_path.empty()) {
         stream_out = &std::cout;
+        // Warm boundary-offset cache before the client sees the stream header.
+        if (!stream.empty())
+            get_boundary_points_from_grid(stream[0], EPSILON, DELTA);
         webtrace::write_stream_header(*stream_out, EPSILON, DELTA, stream);
         stream_out->flush();
     }

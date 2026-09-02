@@ -3,7 +3,8 @@
 Flask backend for the trajectory simplification web visualizer.
 
 Accepts an uploaded original.txt trajectory file + epsilon/delta params,
-runs the C++ simplify binary with --web-server, and returns the trace JSON.
+runs the C++ simplify binary with --web-server --json-stream, and streams
+the trace as NDJSON (header, one prefix per line, done).
 """
 import os
 import subprocess
