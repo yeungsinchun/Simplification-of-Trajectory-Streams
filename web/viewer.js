@@ -289,17 +289,20 @@
   function renderParamsBarPreview() {
     if (!isMobileUI()) return;
     paramsBar.innerHTML = `
-      ${paramsBlueMetric("Simplification time", "", true)}`;
+      ${paramsBlueMetric("Computed Fréchet distance", "", true, "frechet")}
+      ${paramsBlueMetric("Simplification time", "", true, "time")}`;
   }
 
-  function paramsBlueMetric(label, value, loading) {
-    const spinner = loading
+  function paramsBlueMetric(label, value, loading, slot = "") {
+    const valueClass = slot === "time"
+      ? "params-metric-value params-metric-value--time"
+      : slot === "frechet"
+        ? "params-metric-value params-metric-value--frechet"
+        : "params-metric-value";
+    const slotContent = loading
       ? `<span class="button-spinner params-spinner" aria-hidden="true"></span><span class="visually-hidden">Loading</span>`
-      : "";
-    const valueHtml = !loading && value
-      ? `<b>${value}</b>`
-      : "";
-    return `<span class="params-metric params-metric--blue"><span class="params-metric-body">${spinner}<span class="params-metric-label">${label}</span>${valueHtml ? ` ${valueHtml}` : ""}</span></span>`;
+      : (value ? `<b>${value}</b>` : "");
+    return `<span class="params-metric params-metric--blue"><span class="params-metric-body"><span class="params-metric-label">${label}</span><span class="${valueClass}">${slotContent}</span></span></span>`;
   }
 
   function showTraceLoading() {
@@ -976,6 +979,7 @@
         "Computed Fréchet distance",
         computedFrechetValue,
         frechetLoading,
+        "frechet",
       )
       : "";
 
@@ -995,7 +999,7 @@
 
     paramsBar.innerHTML = `
       ${computedFrechetDisplay}
-      ${paramsBlueMetric("Simplification time", timeValue, timeLoading)}
+      ${paramsBlueMetric("Simplification time", timeValue, timeLoading, "time")}
       <span>\\(\\varepsilon\\) <b>${fmt(t.eps)}</b></span>
       <span>\\(\\delta\\) <b>${fmt(t.delta)}</b></span>
       <span>\\(\\text{len}_\\text{grid}\\) <b>${fmt(t.grid_val)}</b></span>

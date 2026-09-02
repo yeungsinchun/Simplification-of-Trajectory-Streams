@@ -13,6 +13,8 @@
 #include <iterator>
 #include <limits>
 #include <optional>
+#include <set>
+#include <unordered_map>
 #include <vector>
 
 using Kernel = CGAL::Exact_predicates_inexact_constructions_kernel;
@@ -243,53 +245,6 @@ inline bool point_in_convex(const Point& p, const std::vector<Point>& poly, bool
     return true;
 }
 
-// True when q lies on the closed segment ab (within GEOM_TOL).
-inline bool point_on_segment(const Point& a, const Point& b, const Point& q) {
-    const double ax = CGAL::to_double(a.x()), ay = CGAL::to_double(a.y());
-    const double bx = CGAL::to_double(b.x()), by = CGAL::to_double(b.y());
-    const double qx = CGAL::to_double(q.x()), qy = CGAL::to_double(q.y());
-    const double t1 = (bx - ax) * (qy - ay);
-    const double t2 = (by - ay) * (qx - ax);
-    const double det = t1 - t2;
-    const double bound = 8.0 * std::numeric_limits<double>::epsilon() *
-                         (std::abs(t1) + std::abs(t2));
-    if (std::abs(det) > bound) return false;
-    if (CGAL::orientation(a, b, q) != CGAL::COLLINEAR) return false;
-    return qx >= std::min(ax, bx) - GEOM_TOL && qx <= std::max(ax, bx) + GEOM_TOL &&
-           qy >= std::min(ay, by) - GEOM_TOL && qy <= std::max(ay, by) + GEOM_TOL;
-}
-
-// Strict interior of a CCW convex polygon; boundary and exterior return false.
-inline bool strictly_inside_convex(const Point& p, const std::vector<Point>& poly, bool ccw = true) {
-    const int n = static_cast<int>(poly.size());
-    if (n < 3) return false;
-
-    const int bad = ccw ? -1 : 1;
-    const double px = CGAL::to_double(p.x()), py = CGAL::to_double(p.y());
-    for (int i = 0; i < n; ++i) {
-        const double ax = CGAL::to_double(poly[i].x()), ay = CGAL::to_double(poly[i].y());
-        const double bx = CGAL::to_double(poly[(i + 1) % n].x()), by = CGAL::to_double(poly[(i + 1) % n].y());
-        const double t1 = (bx - ax) * (py - ay);
-        const double t2 = (by - ay) * (px - ax);
-        const double det = t1 - t2;
-        const double bound = 8.0 * std::numeric_limits<double>::epsilon() *
-                             (std::abs(t1) + std::abs(t2));
-        int s;
-        if (det >  bound)      s =  1;
-        else if (det < -bound) s = -1;
-        else {
-            if (point_on_segment(poly[i], poly[(i + 1) % n], p)) return false;
-            switch (CGAL::orientation(poly[i], poly[(i + 1) % n], p)) {
-                case CGAL::LEFT_TURN:  s =  1; break;
-                case CGAL::RIGHT_TURN: s = -1; break;
-                default:               s =  0; break;
-            }
-        }
-        if (s != 1) return false;
-    }
-    return true;
-}
-
 // First intersection of the ray p->dir with the working bbox, in doubles.
 inline std::optional<Point> ray_hit_bbox(const Point& p, const Point& dir) {
     double px = CGAL::to_double(p.x()), py = CGAL::to_double(p.y());
@@ -392,13 +347,12 @@ inline void configure_bbox(const std::vector<Point>& stream, double EPSILON, dou
     BMAX = max_coord + padding;
 }
 
-// All distinct grid corners within radius R of p (the delta-disk sample set).
-// Updates expected_frechet_squared with the farthest corner offset seen.
-inline std::vector<Point> get_points_from_grid(const Point& p, double EPSILON, double DELTA, int multiplier = 1) {
-    const double px = CGAL::to_double(p.x());
-    const double py = CGAL::to_double(p.y());
+// Integer grid-corner indices (ji, ki) of every distinct corner inside the
+// delta-disk around the origin.  Also updates expected_frechet_squared.
+inline std::vector<std::pair<int, int>> disk_corner_coords_at_origin(
+    double EPSILON, double DELTA, int multiplier = 1) {
     const double GRID = GRID_val(EPSILON, DELTA, multiplier);
-    if (DELTA == 0) return std::vector<Point>{p};
+    if (DELTA == 0) return {{0, 0}};
 
     const double r = R_val(EPSILON, DELTA);
     const double r2 = r * r;
@@ -408,9 +362,6 @@ inline std::vector<Point> get_points_from_grid(const Point& p, double EPSILON, d
     const int cell_count = j_max - j_min + 1;
     const int corner_count = cell_count + 1;
 
-    // Adjacent cells share corners, so deduplicate them in a corner-sized
-    // buffer. Cell indices end at j_max, but their upper corners reach
-    // j_max + 1 on each axis.
     std::vector<uint8_t> seen(size_t(corner_count) * corner_count, 0);
     std::vector<std::pair<int, int>> corner_coords;
     corner_coords.reserve(size_t(corner_count) * corner_count);
@@ -427,7 +378,6 @@ inline std::vector<Point> get_points_from_grid(const Point& p, double EPSILON, d
         corner_coords.push_back({ji, ki});
     };
 
-    // Collect all corners within the disk
     for (int k = j_min; k <= j_max; ++k) {
         const double y0 = k * GRID, y1 = (k + 1) * GRID;
         for (int j = j_min; j <= j_max; ++j) {
@@ -442,19 +392,74 @@ inline std::vector<Point> get_points_from_grid(const Point& p, double EPSILON, d
         }
     }
 
-    // Sort corners in row-major order: top-to-bottom (descending y), then left-to-right (ascending x)
+    return corner_coords;
+}
+
+// Row/column extrema of the disk grid: per horizontal line, leftmost and
+// rightmost corners; per vertical line, bottommost and topmost corners.
+inline std::vector<std::pair<int, int>> boundary_corner_coords_from_disk(
+    const std::vector<std::pair<int, int>>& corner_coords) {
+    if (corner_coords.empty()) return {};
+
+    std::unordered_map<int, std::pair<int, int>> row_extrema; // ki -> (min ji, max ji)
+    std::unordered_map<int, std::pair<int, int>> col_extrema; // ji -> (min ki, max ki)
+    row_extrema.reserve(corner_coords.size());
+    col_extrema.reserve(corner_coords.size());
+
+    for (const auto& [ji, ki] : corner_coords) {
+        auto row_it = row_extrema.find(ki);
+        if (row_it == row_extrema.end()) row_extrema.emplace(ki, std::pair{ji, ji});
+        else {
+            row_it->second.first = std::min(row_it->second.first, ji);
+            row_it->second.second = std::max(row_it->second.second, ji);
+        }
+
+        auto col_it = col_extrema.find(ji);
+        if (col_it == col_extrema.end()) col_extrema.emplace(ji, std::pair{ki, ki});
+        else {
+            col_it->second.first = std::min(col_it->second.first, ki);
+            col_it->second.second = std::max(col_it->second.second, ki);
+        }
+    }
+
+    std::set<std::pair<int, int>> boundary;
+    for (const auto& [ki, mm] : row_extrema) {
+        boundary.insert({mm.first, ki});
+        boundary.insert({mm.second, ki});
+    }
+    for (const auto& [ji, mm] : col_extrema) {
+        boundary.insert({ji, mm.first});
+        boundary.insert({ji, mm.second});
+    }
+
+    std::vector<std::pair<int, int>> out(boundary.begin(), boundary.end());
+    std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) {
+        if (a.second != b.second) return a.second > b.second;
+        return a.first < b.first;
+    });
+    return out;
+}
+
+// All distinct grid corners within radius R of p (the delta-disk sample set).
+// Updates expected_frechet_squared with the farthest corner offset seen.
+inline std::vector<Point> get_points_from_grid(const Point& p, double EPSILON, double DELTA, int multiplier = 1) {
+    const double px = CGAL::to_double(p.x());
+    const double py = CGAL::to_double(p.y());
+    const double GRID = GRID_val(EPSILON, DELTA, multiplier);
+    if (DELTA == 0) return std::vector<Point>{p};
+
+    std::vector<std::pair<int, int>> corner_coords =
+        disk_corner_coords_at_origin(EPSILON, DELTA, multiplier);
+
     std::sort(corner_coords.begin(), corner_coords.end(), [](const auto& a, const auto& b) {
-        if (a.second != b.second) return a.second > b.second; // y descending (top first)
-        return a.first < b.first; // x ascending (left to right)
+        if (a.second != b.second) return a.second > b.second;
+        return a.first < b.first;
     });
 
-    // Build the final points vector
     std::vector<Point> points;
     points.reserve(corner_coords.size());
     for (const auto& [ji, ki] : corner_coords) {
-        const double corner_x = ji * GRID;
-        const double corner_y = ki * GRID;
-        points.emplace_back(px + corner_x, py + corner_y);
+        points.emplace_back(px + ji * GRID, py + ki * GRID);
     }
 
     return points;
@@ -497,9 +502,9 @@ inline std::vector<Point> get_conv_from_grid(const Point& p, double EPSILON, dou
     return conv;
 }
 
-// Boundary anchors for P: every grid sample on the convex-hull boundary.
-// CGAL's hull keeps extreme vertices only; flat hull edges still contain
-// collinear grid corners that must remain candidate anchors.
+// Boundary anchors for P: row/column extrema of the delta-disk grid samples.
+// Each horizontal grid line contributes its leftmost and rightmost corner;
+// each vertical grid line contributes its bottommost and topmost corner.
 inline std::vector<Point> get_boundary_points_from_grid(const Point& p, double EPSILON, double DELTA, int multiplier = 1) {
     thread_local double cached_eps   = std::numeric_limits<double>::quiet_NaN();
     thread_local double cached_delta = std::numeric_limits<double>::quiet_NaN();
@@ -507,34 +512,16 @@ inline std::vector<Point> get_boundary_points_from_grid(const Point& p, double E
     thread_local std::vector<std::array<double, 2>> boundary_offsets;
 
     if (EPSILON != cached_eps || DELTA != cached_delta || multiplier != cached_mult) {
-        const std::vector<Point> all = get_points_from_grid(Point(0, 0), EPSILON, DELTA, multiplier);
-        std::vector<Point> hull;
-        if (all.size() <= 2) {
-            hull = all;
-        } else {
-            CGAL::convex_hull_2(all.begin(), all.end(), std::back_inserter(hull));
-        }
-
-        std::vector<Point> boundary;
-        boundary.reserve(all.size());
-        if (hull.size() < 3) {
-            boundary = all;
-        } else {
-            for (const Point& q : all) {
-                if (!strictly_inside_convex(q, hull)) boundary.push_back(q);
-            }
-        }
-
-        std::sort(boundary.begin(), boundary.end(), [](const Point& a, const Point& b) {
-            const double ay = CGAL::to_double(a.y()), by = CGAL::to_double(b.y());
-            if (ay != by) return ay > by;
-            return CGAL::to_double(a.x()) < CGAL::to_double(b.x());
-        });
+        const double GRID = GRID_val(EPSILON, DELTA, multiplier);
+        const std::vector<std::pair<int, int>> corner_coords =
+            disk_corner_coords_at_origin(EPSILON, DELTA, multiplier);
+        const std::vector<std::pair<int, int>> boundary_coords =
+            boundary_corner_coords_from_disk(corner_coords);
 
         boundary_offsets.clear();
-        boundary_offsets.reserve(boundary.size());
-        for (const auto& q : boundary)
-            boundary_offsets.push_back({CGAL::to_double(q.x()), CGAL::to_double(q.y())});
+        boundary_offsets.reserve(boundary_coords.size());
+        for (const auto& [ji, ki] : boundary_coords)
+            boundary_offsets.push_back({ji * GRID, ki * GRID});
         cached_eps   = EPSILON;
         cached_delta = DELTA;
         cached_mult  = multiplier;

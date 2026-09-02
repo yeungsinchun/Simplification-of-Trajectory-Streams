@@ -83,14 +83,29 @@
     display: inline-flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 6px;
+    gap: 8px;
   }
   .params-metric-label {
     color: inherit;
+    flex-shrink: 0;
+  }
+  .params-metric-value {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 5.5em;
+    flex-shrink: 0;
+  }
+  .params-metric-value--time {
+    min-width: 7.5em;
+  }
+  .params-metric-value--frechet {
+    min-width: 5.5em;
   }
   .params-metric-body b {
     color: #22D3EE;
     font-weight: 600;
+    font-variant-numeric: tabular-nums;
   }
   .params-spinner {
     width: 12px;
@@ -895,7 +910,7 @@
       min-height: 52px;
     }
     body.trace-loaded-mobile .params {
-      min-height: 20px;
+      min-height: 40px;
     }
     .mobile-layers-toggle {
       width: 100%;
