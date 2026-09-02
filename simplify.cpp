@@ -302,6 +302,8 @@ std::vector<Point> simplify_web(const std::vector<Point>& stream,
     std::ostream* stream_out = nullptr;
     if (json_stream_flag && json_output_path.empty()) {
         stream_out = &std::cout;
+        if (!stream.empty())
+            get_boundary_points_from_grid(stream[0], EPSILON, DELTA);
         webtrace::write_stream_header(*stream_out, EPSILON, DELTA, stream);
         stream_out->flush();
     }
