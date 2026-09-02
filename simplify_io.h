@@ -25,6 +25,7 @@ inline std::filesystem::path repo_root;
 inline bool out_flag = false;
 inline bool dist_flag = false;
 inline bool web_server_flag = false;
+inline bool json_stream_flag = false;
 inline bool help_flag = false;
 inline std::string json_output_path = "";
 
@@ -43,6 +44,7 @@ inline void print_help(const char* prog) {
                  "intersect() to data/<id>/intersect_pairs.txt\n"
               << "  --web-server     Emit a machine-readable JSON trace of the algorithm to "
                  "stdout for the web visualizer (suppresses all other stdout text)\n"
+              << "  --json-stream    With --web-server, emit NDJSON (header, one prefix per line, done)\n"
               << "  --json-output <path>  Write JSON trace to file instead of stdout (use with --web-server)\n"
               << "  -h               Show this help and exit\n"
               << "\n"
@@ -54,6 +56,7 @@ inline int parse_arguments(int argc, char** argv, int& test_case_no) {
         if (strcmp(argv[i],"--out") == 0) out_flag = true;
         else if (strcmp(argv[i],"--dist") == 0) dist_flag = true;
         else if (strcmp(argv[i],"--web-server") == 0) web_server_flag = true;
+        else if (strcmp(argv[i],"--json-stream") == 0) json_stream_flag = true;
         else if (strcmp(argv[i],"--json-output") == 0 && i+1 < argc) {
             json_output_path = argv[++i];
         }

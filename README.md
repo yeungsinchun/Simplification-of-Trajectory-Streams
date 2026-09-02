@@ -55,15 +55,14 @@ julia -e 'using Pkg; Pkg.add("FrechetDist")'
 
 ## Quick start
 
-From the repository root, configure and build in an ignored out-of-source
-directory:
+From the repository root, run
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ```
 
-The build produces these main targets:
+The build produces these main targets within the `build` directory:
 
 | Target | Purpose |
 | --- | --- |
