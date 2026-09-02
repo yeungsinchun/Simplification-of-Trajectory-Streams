@@ -10,7 +10,6 @@
 #include <cassert>
 #include <cmath>
 #include <cstdint>
-#include <iostream>
 #include <iterator>
 #include <limits>
 #include <optional>
@@ -244,6 +243,53 @@ inline bool point_in_convex(const Point& p, const std::vector<Point>& poly, bool
     return true;
 }
 
+// True when q lies on the closed segment ab (within GEOM_TOL).
+inline bool point_on_segment(const Point& a, const Point& b, const Point& q) {
+    const double ax = CGAL::to_double(a.x()), ay = CGAL::to_double(a.y());
+    const double bx = CGAL::to_double(b.x()), by = CGAL::to_double(b.y());
+    const double qx = CGAL::to_double(q.x()), qy = CGAL::to_double(q.y());
+    const double t1 = (bx - ax) * (qy - ay);
+    const double t2 = (by - ay) * (qx - ax);
+    const double det = t1 - t2;
+    const double bound = 8.0 * std::numeric_limits<double>::epsilon() *
+                         (std::abs(t1) + std::abs(t2));
+    if (std::abs(det) > bound) return false;
+    if (CGAL::orientation(a, b, q) != CGAL::COLLINEAR) return false;
+    return qx >= std::min(ax, bx) - GEOM_TOL && qx <= std::max(ax, bx) + GEOM_TOL &&
+           qy >= std::min(ay, by) - GEOM_TOL && qy <= std::max(ay, by) + GEOM_TOL;
+}
+
+// Strict interior of a CCW convex polygon; boundary and exterior return false.
+inline bool strictly_inside_convex(const Point& p, const std::vector<Point>& poly, bool ccw = true) {
+    const int n = static_cast<int>(poly.size());
+    if (n < 3) return false;
+
+    const int bad = ccw ? -1 : 1;
+    const double px = CGAL::to_double(p.x()), py = CGAL::to_double(p.y());
+    for (int i = 0; i < n; ++i) {
+        const double ax = CGAL::to_double(poly[i].x()), ay = CGAL::to_double(poly[i].y());
+        const double bx = CGAL::to_double(poly[(i + 1) % n].x()), by = CGAL::to_double(poly[(i + 1) % n].y());
+        const double t1 = (bx - ax) * (py - ay);
+        const double t2 = (by - ay) * (px - ax);
+        const double det = t1 - t2;
+        const double bound = 8.0 * std::numeric_limits<double>::epsilon() *
+                             (std::abs(t1) + std::abs(t2));
+        int s;
+        if (det >  bound)      s =  1;
+        else if (det < -bound) s = -1;
+        else {
+            if (point_on_segment(poly[i], poly[(i + 1) % n], p)) return false;
+            switch (CGAL::orientation(poly[i], poly[(i + 1) % n], p)) {
+                case CGAL::LEFT_TURN:  s =  1; break;
+                case CGAL::RIGHT_TURN: s = -1; break;
+                default:               s =  0; break;
+            }
+        }
+        if (s != 1) return false;
+    }
+    return true;
+}
+
 // First intersection of the ray p->dir with the working bbox, in doubles.
 inline std::optional<Point> ray_hit_bbox(const Point& p, const Point& dir) {
     double px = CGAL::to_double(p.x()), py = CGAL::to_double(p.y());
@@ -449,6 +495,58 @@ inline std::vector<Point> get_conv_from_grid(const Point& p, double EPSILON, dou
     for (const auto& off : hull_offsets)
         conv.emplace_back(px + off[0], py + off[1]);
     return conv;
+}
+
+// Boundary anchors for P: every grid sample on the convex-hull boundary.
+// CGAL's hull keeps extreme vertices only; flat hull edges still contain
+// collinear grid corners that must remain candidate anchors.
+inline std::vector<Point> get_boundary_points_from_grid(const Point& p, double EPSILON, double DELTA, int multiplier = 1) {
+    thread_local double cached_eps   = std::numeric_limits<double>::quiet_NaN();
+    thread_local double cached_delta = std::numeric_limits<double>::quiet_NaN();
+    thread_local int cached_mult = 0;
+    thread_local std::vector<std::array<double, 2>> boundary_offsets;
+
+    if (EPSILON != cached_eps || DELTA != cached_delta || multiplier != cached_mult) {
+        const std::vector<Point> all = get_points_from_grid(Point(0, 0), EPSILON, DELTA, multiplier);
+        std::vector<Point> hull;
+        if (all.size() <= 2) {
+            hull = all;
+        } else {
+            CGAL::convex_hull_2(all.begin(), all.end(), std::back_inserter(hull));
+        }
+
+        std::vector<Point> boundary;
+        boundary.reserve(all.size());
+        if (hull.size() < 3) {
+            boundary = all;
+        } else {
+            for (const Point& q : all) {
+                if (!strictly_inside_convex(q, hull)) boundary.push_back(q);
+            }
+        }
+
+        std::sort(boundary.begin(), boundary.end(), [](const Point& a, const Point& b) {
+            const double ay = CGAL::to_double(a.y()), by = CGAL::to_double(b.y());
+            if (ay != by) return ay > by;
+            return CGAL::to_double(a.x()) < CGAL::to_double(b.x());
+        });
+
+        boundary_offsets.clear();
+        boundary_offsets.reserve(boundary.size());
+        for (const auto& q : boundary)
+            boundary_offsets.push_back({CGAL::to_double(q.x()), CGAL::to_double(q.y())});
+        cached_eps   = EPSILON;
+        cached_delta = DELTA;
+        cached_mult  = multiplier;
+    }
+
+    const double px = CGAL::to_double(p.x());
+    const double py = CGAL::to_double(p.y());
+    std::vector<Point> out;
+    out.reserve(boundary_offsets.size());
+    for (const auto& off : boundary_offsets)
+        out.emplace_back(px + off[0], py + off[1]);
+    return out;
 }
 
 // The two tangent (supporting) vertices from external point p to convex
