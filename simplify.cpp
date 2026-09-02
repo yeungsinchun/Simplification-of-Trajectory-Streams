@@ -61,11 +61,12 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
 //
 // Mirrors get_longest_stab/simplify exactly, but instead of only emitting the
 // final two-point segment per prefix, it records every intermediate value the
-// paper's construction produces (the candidate anchors P, the delta-disk hull
+// paper's construction produces (the boundary anchors P, the delta-disk hull
 // Gi, the free-space wedge F(S,p), and the resulting stab region S) at every
-// step of every prefix.  The whole trace is then serialized as one JSON
-// object to stdout for the web visualizer.  No human-readable text is ever
-// written in this mode so stdout stays valid JSON.
+// step of every prefix.  With --json-stream (used by the Flask server), stdout
+// is NDJSON: header line, one prefix per line, then done.  Without it, the
+// whole trace is one JSON object.  No human-readable text is ever written in
+// this mode so stdout stays machine-readable.
 namespace webtrace {
 
 struct Candidate {

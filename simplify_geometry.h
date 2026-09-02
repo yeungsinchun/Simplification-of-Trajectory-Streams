@@ -499,7 +499,7 @@ inline std::vector<Point> get_conv_from_grid(const Point& p, double EPSILON, dou
 
 // Boundary anchors for P: every grid sample on the convex-hull boundary.
 // CGAL's hull keeps extreme vertices only; flat hull edges still contain
-// collinear grid corners that must remain candidate anchors.
+// collinear grid corners that must remain boundary anchors.
 inline std::vector<Point> get_boundary_points_from_grid(const Point& p, double EPSILON, double DELTA, int multiplier = 1) {
     thread_local double cached_eps   = std::numeric_limits<double>::quiet_NaN();
     thread_local double cached_delta = std::numeric_limits<double>::quiet_NaN();
