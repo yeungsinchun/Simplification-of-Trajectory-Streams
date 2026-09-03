@@ -176,7 +176,7 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
                      MultiViewer* viewer = nullptr) {
     const Point& p0 = stream[cur];
     std::vector<Point> P;
-    P = get_points_from_grid(p0, epsilon, delta);
+    P = get_boundary_points_from_grid(p0, epsilon, delta);
 
     if (viewer) {
         viewer->markP0(p0);

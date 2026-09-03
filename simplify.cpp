@@ -14,7 +14,7 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
                      std::vector<Point>& simplified,
                      double EPSILON, double DELTA) {
     const Point& p0 = stream[cur];
-    std::vector<Point> P = get_points_from_grid(p0, EPSILON, DELTA);
+    std::vector<Point> P = get_boundary_points_from_grid(p0, EPSILON, DELTA);
     std::array<Point, 2> buffer = {p0, p0};
     const int Pn = (int)P.size();
     std::vector<std::vector<Point>> S(Pn);
@@ -61,11 +61,12 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
 //
 // Mirrors get_longest_stab/simplify exactly, but instead of only emitting the
 // final two-point segment per prefix, it records every intermediate value the
-// paper's construction produces (the candidate anchors P, the delta-disk hull
+// paper's construction produces (the boundary anchors P, the delta-disk hull
 // Gi, the free-space wedge F(S,p), and the resulting stab region S) at every
-// step of every prefix.  The whole trace is then serialized as one JSON
-// object to stdout for the web visualizer.  No human-readable text is ever
-// written in this mode so stdout stays valid JSON.
+// step of every prefix.  With --json-stream (used by the Flask server), stdout
+// is NDJSON: header line, one prefix per line, then done.  Without it, the
+// whole trace is one JSON object.  No human-readable text is ever written in
+// this mode so stdout stays machine-readable.
 namespace webtrace {
 
 struct Candidate {
@@ -88,7 +89,7 @@ struct PrefixTrace {
     Point p0{0, 0};
     int p0_idx = 0;            // index of p0 in the full stream
     int end_idx = 0;           // stream index of the last point consumed (output[1] comes from here)
-    std::vector<Point> P;      // delta-disk grid candidate anchors for this prefix
+    std::vector<Point> P;      // boundary (hull) anchors of the delta-disk grid samples for this prefix
     std::vector<StepTrace> steps;
     std::array<Point, 2> output{Point(0, 0), Point(0, 0)};
 };
@@ -119,6 +120,70 @@ inline void write_points(std::ostream& os, const std::vector<Point>& pts) {
     os << ']';
 }
 
+inline void write_prefix(std::ostream& os, const PrefixTrace& p) {
+    os << "{\"p0\":";       write_point(os, p.p0); os << ',';
+    os << "\"p0_idx\":"  << p.p0_idx << ',';
+    os << "\"end_idx\":" << p.end_idx << ',';
+    os << "\"P\":";    write_points(os, p.P);   os << ',';
+    os << "\"output\":["; write_point(os, p.output[0]); os << ','; write_point(os, p.output[1]); os << "],";
+    os << "\"steps\":[";
+    for (std::size_t si = 0; si < p.steps.size(); ++si) {
+        if (si) os << ',';
+        const StepTrace& s = p.steps[si];
+        os << "{\"stream_idx\":" << s.stream_idx << ',';
+        os << "\"pi\":"; write_point(os, s.pi); os << ',';
+        os << "\"Gi\":"; write_points(os, s.Gi); os << ',';
+        os << "\"buffer\":["; write_point(os, s.buffer[0]); os << ','; write_point(os, s.buffer[1]); os << "],";
+        os << "\"candidates\":[";
+        for (std::size_t ci = 0; ci < s.candidates.size(); ++ci) {
+            if (ci) os << ',';
+            const Candidate& c = s.candidates[ci];
+            os << "{\"idx\":" << c.grid_pt_idx
+               << ",\"alive\":" << (c.alive ? "true" : "false") << ',';
+            os << "\"F\":"; write_points(os, c.F); os << ',';
+            os << "\"F_Si\":"; write_points(os, c.F_Si); os << ',';
+            os << "\"S\":"; write_points(os, c.S);
+            os << "}";
+        }
+        os << "]}";
+    }
+    os << "]}";
+}
+
+inline void write_stream_header(std::ostream& os, double EPSILON, double DELTA,
+                                const std::vector<Point>& stream) {
+    os << std::setprecision(17);
+    os << "{\"type\":\"header\",";
+    os << "\"eps\":";       write_num(os, EPSILON);                       os << ',';
+    os << "\"delta\":";     write_num(os, DELTA);                         os << ',';
+    os << "\"grid_val\":";  write_num(os, GRID_val(EPSILON, DELTA));      os << ',';
+    os << "\"r_val\":";     write_num(os, R_val(EPSILON, DELTA));         os << ',';
+    os << "\"expected_frechet\":"; write_num(os, std::sqrt(expected_frechet_squared)); os << ',';
+    os << "\"bbox\":[";
+    write_num(os, BMIN); os << ','; write_num(os, BMIN); os << ',';
+    write_num(os, BMAX); os << ','; write_num(os, BMAX);
+    os << "],";
+    os << "\"stream\":"; write_points(os, stream);
+    os << "}\n";
+}
+
+inline void write_stream_prefix(std::ostream& os, const PrefixTrace& p) {
+    os << std::setprecision(17);
+    os << "{\"type\":\"prefix\",\"data\":";
+    write_prefix(os, p);
+    os << "}\n";
+}
+
+inline void write_stream_done(std::ostream& os, double time_ms,
+                              const std::vector<Point>& simplified) {
+    os << std::setprecision(17);
+    os << "{\"type\":\"done\",";
+    os << "\"time_ms\":"; write_num(os, time_ms); os << ',';
+    os << "\"simplified\":"; write_points(os, simplified); os << ',';
+    os << "\"frechet_distance\":null";
+    os << "}\n";
+}
+
 inline void write_json(std::ostream& os, double EPSILON, double DELTA, double time_ms,
                        const std::vector<Point>& stream,
                        const std::vector<Point>& simplified,
@@ -140,34 +205,7 @@ inline void write_json(std::ostream& os, double EPSILON, double DELTA, double ti
     os << "\"prefixes\":[";
     for (std::size_t pi = 0; pi < prefixes.size(); ++pi) {
         if (pi) os << ',';
-        const PrefixTrace& p = prefixes[pi];
-        os << "{\"p0\":";       write_point(os, p.p0); os << ',';
-        os << "\"p0_idx\":"  << p.p0_idx << ',';
-        os << "\"end_idx\":" << p.end_idx << ',';
-        os << "\"P\":";    write_points(os, p.P);   os << ',';
-        os << "\"output\":["; write_point(os, p.output[0]); os << ','; write_point(os, p.output[1]); os << "],";
-        os << "\"steps\":[";
-        for (std::size_t si = 0; si < p.steps.size(); ++si) {
-            if (si) os << ',';
-            const StepTrace& s = p.steps[si];
-            os << "{\"stream_idx\":" << s.stream_idx << ',';
-            os << "\"pi\":"; write_point(os, s.pi); os << ',';
-            os << "\"Gi\":"; write_points(os, s.Gi); os << ',';
-            os << "\"buffer\":["; write_point(os, s.buffer[0]); os << ','; write_point(os, s.buffer[1]); os << "],";
-            os << "\"candidates\":[";
-            for (std::size_t ci = 0; ci < s.candidates.size(); ++ci) {
-                if (ci) os << ',';
-                const Candidate& c = s.candidates[ci];
-                os << "{\"idx\":" << c.grid_pt_idx
-                   << ",\"alive\":" << (c.alive ? "true" : "false") << ',';
-                os << "\"F\":"; write_points(os, c.F); os << ',';
-                os << "\"F_Si\":"; write_points(os, c.F_Si); os << ',';
-                os << "\"S\":"; write_points(os, c.S);
-                os << "}";
-            }
-            os << "]}";
-        }
-        os << "]}";
+        write_prefix(os, prefixes[pi]);
     }
     os << "]}\n";
 }
@@ -181,7 +219,7 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
                          double EPSILON, double DELTA,
                          std::vector<webtrace::PrefixTrace>& prefixes) {
     const Point& p0 = stream[cur];
-    std::vector<Point> P = get_points_from_grid(p0, EPSILON, DELTA);
+    std::vector<Point> P = get_boundary_points_from_grid(p0, EPSILON, DELTA);
     std::array<Point, 2> buffer = {p0, p0};
     const int Pn = (int)P.size();
     std::vector<std::vector<Point>> S(Pn);
@@ -261,25 +299,44 @@ std::vector<Point> simplify_web(const std::vector<Point>& stream,
     std::vector<Point> simplified;
     std::vector<webtrace::PrefixTrace> prefixes;
     configure_bbox(stream, EPSILON, DELTA);
-    auto t0 = std::chrono::high_resolution_clock::now();
+
+    std::ostream* stream_out = nullptr;
+    if (json_stream_flag && json_output_path.empty()) {
+        stream_out = &std::cout;
+        if (!stream.empty())
+            get_boundary_points_from_grid(stream[0], EPSILON, DELTA);
+        webtrace::write_stream_header(*stream_out, EPSILON, DELTA, stream);
+        stream_out->flush();
+    }
+
+    double core_ms = 0;
     int cur = 0;
-    while (cur != int(stream.size()))
+    while (cur != int(stream.size())) {
+        auto t0 = std::chrono::high_resolution_clock::now();
         cur = get_longest_stab_web(stream, cur, simplified, EPSILON, DELTA, prefixes);
-    double ms = std::chrono::duration<double, std::milli>(
-        std::chrono::high_resolution_clock::now() - t0).count();
+        core_ms += std::chrono::duration<double, std::milli>(
+            std::chrono::high_resolution_clock::now() - t0).count();
+        if (stream_out) {
+            webtrace::write_stream_prefix(*stream_out, prefixes.back());
+            stream_out->flush();
+        }
+    }
     
-    std::cerr << "SIMPLIFY_CORE_MS: " << std::fixed << std::setprecision(4) << ms << '\n';
+    std::cerr << "SIMPLIFY_CORE_MS: " << std::fixed << std::setprecision(4) << core_ms << '\n';
     
-    if (!json_output_path.empty()) {
+    if (stream_out) {
+        webtrace::write_stream_done(*stream_out, core_ms, simplified);
+        stream_out->flush();
+    } else if (!json_output_path.empty()) {
         std::ofstream ofs(json_output_path);
         if (!ofs) {
             std::cerr << "Failed to open output file: " << json_output_path << '\n';
             return simplified;
         }
-        webtrace::write_json(ofs, EPSILON, DELTA, ms, stream, simplified, prefixes);
+        webtrace::write_json(ofs, EPSILON, DELTA, core_ms, stream, simplified, prefixes);
         ofs.close();
     } else {
-        webtrace::write_json(std::cout, EPSILON, DELTA, ms, stream, simplified, prefixes);
+        webtrace::write_json(std::cout, EPSILON, DELTA, core_ms, stream, simplified, prefixes);
     }
     return simplified;
 }

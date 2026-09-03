@@ -9,7 +9,7 @@ on:
 
 jobs:
   correctness-vs-prev:
-    name: New build frechet distance must not regress
+    name: New build frechet distance and #points must not regress
     runs-on: ubuntu-latest
 
     env:
