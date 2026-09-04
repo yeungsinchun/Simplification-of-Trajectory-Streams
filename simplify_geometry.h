@@ -657,13 +657,13 @@ inline std::vector<int> find_tangent_idx(const Point& p, const std::vector<Point
  * cases return false and fall through to the exact clip. Never drops a
  * candidate that exact intersection would keep.
  *
- * When the prune does not fire, @p tangent_out (if non-null) receives the two
- * tangent indices so find_F can reuse them instead of scanning S again.
+ * When the prune does not fire and two supporting vertices were found,
+ * @p tangent_out (if non-null) holds those indices so find_F can reuse them
+ * instead of scanning S again.
  *
  * Early exits (return false = "not proven disjoint"):
  *   |S|<3, p ∈ S, no two tangents, or degenerate cone (orient == 0).
  */
-
 inline bool wedge_gi_disjoint(const Point& p, const std::vector<Point>& S,
                               const std::vector<Point>& Gi,
                               std::vector<int>* tangent_out = nullptr) {
