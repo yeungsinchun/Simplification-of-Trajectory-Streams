@@ -979,7 +979,7 @@
     }
     .upload-form label,
     .upload-form span { font-size: 11px; }
-    .upload-form select,
+    .upload-form select:not(.visually-hidden),
     .upload-form button,
     .upload-form input[type="number"] {
       width: 100%;
@@ -996,7 +996,6 @@
     .upload-form .header-baseline .baseline-field--inline input {
       width: 80px;
     }
-    .upload-form #traceSelect { max-width: none; }
     .upload-form .or-divider { text-align: center; }
     .params { margin-left: 0; width: 100%; justify-content: center; }
     .params b { color: var(--text); font-weight: 600; }
@@ -1449,12 +1448,14 @@
   /* ---------- Preloaded trace picker ---------- */
   .visually-hidden {
     position: absolute !important;
-    width: 1px; height: 1px;
-    padding: 0; margin: -1px;
-    overflow: hidden;
-    clip: rect(0,0,0,0);
-    white-space: nowrap;
-    border: 0;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
   }
 
   .preloaded-row {
@@ -1595,10 +1596,15 @@
   }
 
   @media (max-width: 720px) {
-    /* On mobile, hide the real <select> and show the trigger button. */
+    /* On mobile, clip the real <select> and show the trigger button. */
     .preloaded-row { width: 100%; }
     .preloaded-trigger { display: flex; }
-    #traceSelect.visually-hidden-mobile { display: none; }
+    #traceSelect.visually-hidden {
+      width: 1px !important;
+      max-width: 1px !important;
+      height: 1px !important;
+      padding: 0 !important;
+    }
   }
   @media (min-width: 721px) {
     /* On desktop, show the native select inline — width set to fit longest option. */

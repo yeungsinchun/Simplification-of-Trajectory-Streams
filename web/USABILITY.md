@@ -75,9 +75,22 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture: `web/usability/canvas-loading-hud.html`
 - Fixture screenshot (1280px): `web/usability/canvas-loading-hud.png`
 
+### Hidden native select caused 390px start-screen overflow
+
+**Where:** 390px start form, `#traceSelect.visually-hidden` in `.preloaded-row`.
+
+**Problem:** Mobile hides the native `<select>` with `.visually-hidden` and shows a custom Preloaded trigger. `.upload-form select { width: 100% }` beat `.visually-hidden { width: 1px }`, so the control was about 390px wide starting at x=26. `documentElement.scrollWidth` was 416, and the start screen could pan sideways.
+
+**Fix:** `.visually-hidden` box metrics now use `!important`, and the mobile form width rule skips `.visually-hidden` selects. The native control stays in the accessibility tree at 1px. Desktop (`min-width: 721px`) still shows the native select.
+
+**Evidence:**
+
+- Mobile live start screen (390px): `web/usability/mobile-select-overflow-live.png`
+- Before/after markup fixture (390px): `web/usability/mobile-select-overflow.png`
+- Markup fixture used for that screenshot: `web/usability/mobile-select-overflow.html`
+
 ## Still open
 
 These were noticed while checking desktop and mobile and are not fixed here:
 
-- On the 390px start screen `#traceSelect.visually-hidden` still causes horizontal overflow (`scrollWidth` 416 vs 390). The native select is `position: absolute` but `.upload-form select { width: 100% }` overrides `.visually-hidden { width: 1px }`, so the control is about 390px wide starting at x=26.
 - On mobile, the playback dock appears as soon as Load Trace starts, while the canvas still has no geometry. The buttons are disabled, but Play still looks tappable over the empty canvas.
