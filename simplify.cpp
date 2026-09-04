@@ -4,19 +4,27 @@
 
 #include "simplify_geometry.h"
 #include "simplify_io.h"
+#include "timer.h"
 
 // ===========================================================================
-//  Core algorithm — bare (no instrumentation)
+//  Core algorithm
 // ===========================================================================
 
 
 int get_longest_stab(const std::vector<Point>& stream, int cur,
                      std::vector<Point>& simplified,
                      double EPSILON, double DELTA) {
+    TIMER("get_longest_stab");
     const Point& p0 = stream[cur];
-    std::vector<Point> P = get_boundary_points_from_grid(p0, EPSILON, DELTA);
+    std::vector<Point> P;
+    {
+        TIMER("get_boundary_points");
+        P = get_boundary_points_from_grid(p0, EPSILON, DELTA);
+    }
     std::array<Point, 2> buffer = {p0, p0};
     const int Pn = (int)P.size();
+    if (timer_detail::enabled())
+        timer_detail::counters()["boundary_candidates"] += Pn;
     std::vector<std::vector<Point>> S(Pn);
     for (int i = 0; i < Pn; ++i) S[i] = {P[i]};
     int dead_cnt = 0;
@@ -24,16 +32,48 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
     std::vector<std::vector<Point>> new_S(Pn);
     std::vector<std::vector<Point>> F(Pn);
     std::vector<Point> Gi;
+    std::vector<int> tangents;
+    tangents.reserve(2);
 
     cur++;
     while (cur < int(stream.size())) {
-        Gi = get_conv_from_grid(stream[cur], EPSILON, DELTA);
+        if (timer_detail::enabled())
+            timer_detail::counters()["stab_steps"]++;
+        {
+            TIMER("get_conv_from_grid");
+            Gi = get_conv_from_grid(stream[cur], EPSILON, DELTA);
+        }
         for (int i = 0; i < Pn; ++i) {
             if (dead[i]) continue;
-            
-            find_F(P[i], S[i], F[i]);
+            if (timer_detail::enabled())
+                timer_detail::counters()["alive_candidate_iters"]++;
 
-            if (!intersect(F[i], Gi, new_S[i])) {
+            // Conservative Frechet-safe prune: if Gi is robustly outside the
+            // tangent cone of S at P[i], F n Gi is empty and the candidate dies
+            // without building F or running the clip.  On a miss, reuse the
+            // tangents already computed for find_F.
+            tangents.clear();
+            if (wedge_gi_disjoint(P[i], S[i], Gi, &tangents)) {
+                if (timer_detail::enabled())
+                    timer_detail::counters()["wedge_prune_hits"]++;
+                dead[i] = true;
+                dead_cnt++;
+                continue;
+            }
+
+            {
+                TIMER("find_F");
+                const std::vector<int>* tan_ptr =
+                    (tangents.size() == 2) ? &tangents : nullptr;
+                find_F(P[i], S[i], F[i], tan_ptr);
+            }
+
+            bool hit;
+            {
+                TIMER("intersect");
+                hit = intersect(F[i], Gi, new_S[i]);
+            }
+            if (!hit) {
                 dead[i] = true;
                 dead_cnt++;
             }
@@ -46,8 +86,11 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
             has_candidate = true;
         }
         if (!has_candidate || dead_cnt == Pn) break;
-        for (int i = 0; i < Pn; ++i)
-            if (!dead[i]) S[i].swap(new_S[i]);
+        {
+            TIMER("update_S");
+            for (int i = 0; i < Pn; ++i)
+                if (!dead[i]) S[i].swap(new_S[i]);
+        }
         cur++;
     }
     simplified.emplace_back(buffer[0]);
@@ -229,6 +272,8 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
     std::vector<std::vector<Point>> new_S(Pn);
     std::vector<std::vector<Point>> F(Pn);
     std::vector<Point> Gi;
+    std::vector<int> tangents;
+    tangents.reserve(2);
 
     webtrace::PrefixTrace trace;
     trace.p0 = p0;
@@ -253,10 +298,20 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
                 step.candidates.push_back(std::move(cand));
                 continue;
             }
-            
-            find_F(P[i], S[i], F[i]);
+
+            tangents.clear();
+            if (wedge_gi_disjoint(P[i], S[i], Gi, &tangents)) {
+                dead[i] = true;
+                dead_cnt++;
+                cand.alive = false;
+                step.candidates.push_back(std::move(cand));
+                continue;
+            }
+
+            find_F(P[i], S[i], F[i],
+                   (tangents.size() == 2) ? &tangents : nullptr);
             cand.F = F[i];
-            
+
             if (!intersect(F[i], Gi, new_S[i])) {
                 dead[i] = true;
                 dead_cnt++;
@@ -344,16 +399,37 @@ std::vector<Point> simplify_web(const std::vector<Point>& stream,
 std::vector<Point> simplify(const std::vector<Point>& stream,
                             double EPSILON, double DELTA) {
     std::vector<Point> simplified;
-    configure_bbox(stream, EPSILON, DELTA);
-    auto t0 = std::chrono::high_resolution_clock::now();
-    int cur = 0;
-    while (cur != int(stream.size()))
-        cur = get_longest_stab(stream, cur, simplified, EPSILON, DELTA);
-    double ms = std::chrono::duration<double, std::milli>(
-        std::chrono::high_resolution_clock::now() - t0).count();
-    
+    double ms = 0.0;
+    {
+        TIMER("total");
+        configure_bbox(stream, EPSILON, DELTA);
+        auto t0 = std::chrono::high_resolution_clock::now();
+        {
+            TIMER("simplify");
+            int cur = 0;
+            while (cur != int(stream.size()))
+                cur = get_longest_stab(stream, cur, simplified, EPSILON, DELTA);
+        }
+        ms = std::chrono::duration<double, std::milli>(
+            std::chrono::high_resolution_clock::now() - t0).count();
+    }
+
     std::cerr << "SIMPLIFY_CORE_MS: " << std::fixed << std::setprecision(4) << ms << '\n';
-    
+    if (time_flag) {
+        // Extra counters that are not TIMER scopes: emit as KEY: value lines
+        // so the benchmark harness can scrape them without parsing the tree.
+        std::cerr << "BOUNDARY_CANDIDATES_SUM: "
+                  << timer_detail::counters()["boundary_candidates"] << '\n';
+        std::cerr << "STAB_STEPS: "
+                  << timer_detail::counters()["stab_steps"] << '\n';
+        std::cerr << "ALIVE_CANDIDATE_ITERS: "
+                  << timer_detail::counters()["alive_candidate_iters"] << '\n';
+        std::cerr << "WEDGE_PRUNE_HITS: "
+                  << timer_detail::counters()["wedge_prune_hits"] << '\n';
+        std::cerr << "SIMPLIFIED_POINTS: " << simplified.size() << '\n';
+        print_timing_summary();
+    }
+
     return simplified;
 }
 
@@ -363,7 +439,7 @@ std::vector<Point> simplify(const std::vector<Point>& stream,
 
 int main(int argc, char** argv) {
     std::ios::sync_with_stdio(false);
-    
+
     int test_case_no = -1;
     int code = get_repo_root(argv, repo_root);
     if (code != 0) {
@@ -374,6 +450,7 @@ int main(int argc, char** argv) {
     if (code != 0) {
         return code;
     }
+    if (time_flag) timer_detail::enabled() = true;
 
     std::vector<Point> stream;
     if (help_flag) {
