@@ -133,6 +133,20 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture: `web/usability/mobile-dock-sidebar.html`
 - Fixture screenshot: `web/usability/mobile-dock-sidebar.png`
 
+### Mobile Instructions listed keyboard shortcuts
+
+**Where:** 390px loaded-trace sidebar, `#sidebar` Instructions card (`body.trace-loaded-mobile.playback-ready`).
+
+**Problem:** The card told phone users to press arrows, Shift, Space, and C / X. Those keys are not available, and playback is the bottom dock (Step, Candidate, Play). Desktop still needs the keyboard table.
+
+**Fix:** At max-width 720px the card describes the dock buttons and touch gestures (Step, Candidate, Play, drag, pinch, Hide / Controls). Desktop (`min-width: 721px`) still shows the keyboard shortcut table.
+
+**Evidence:**
+
+- Mobile live Instructions (390px): `web/usability/mobile-instructions-shortcuts-live.png`
+- Before/after markup fixture: `web/usability/mobile-instructions-shortcuts.html`
+- Fixture screenshot: `web/usability/mobile-instructions-shortcuts.png`
+
 ## Still open
 
-The mobile Instructions card still lists keyboard shortcuts (arrows, Shift, Space, C / X) that a phone user cannot use. A 390px start-screen pass after this change still has scrollWidth 390, and the loading HUD still fills the viewport with the sidebar hidden.
+The mobile dock still has no previous / next simplified-segment control (desktop Shift+arrows). A 390px pass after this change shows the touch Instructions table (`display: table`) and hides the keyboard table (`display: none`); desktop 1280px is the reverse.

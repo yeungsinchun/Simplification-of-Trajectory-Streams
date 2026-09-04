@@ -929,6 +929,7 @@
     padding-right: 10px;
     color: var(--text);
   }
+  .mobile-shortcuts { display: none; }
   kbd {
     background: #1e2330;
     border: 1px solid var(--panel-border);
@@ -1432,6 +1433,8 @@
       font-size: 13px;
       min-height: 52px;
     }
+    .desktop-shortcuts { display: none; }
+    .mobile-shortcuts { display: table; }
     .mobile-layers-toggle {
       width: 100%;
       min-height: 44px;
@@ -2022,7 +2025,7 @@
 
       <div class="section">
         <h2>Instructions</h2>
-        <table class="shortcuts-table">
+        <table class="shortcuts-table desktop-shortcuts">
           <tbody>
             <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Previous / next step</td></tr>
             <tr><td><kbd>Shift</kbd>+<kbd>←</kbd>/<kbd>→</kbd></td><td>Previous / next simplified segment</td></tr>
@@ -2030,6 +2033,16 @@
             <tr><td><kbd>C</kbd> / <kbd>X</kbd></td><td>Cycle through alive candidates forward / backward</td></tr>
             <tr><td>Drag</td><td>Pan the view</td></tr>
             <tr><td>Scroll / pinch</td><td>Zoom in / out</td></tr>
+          </tbody>
+        </table>
+        <table class="shortcuts-table mobile-shortcuts">
+          <tbody>
+            <tr><td>Step ← / →</td><td>Previous / next step on the bottom bar</td></tr>
+            <tr><td>Candidate ‹ / ›</td><td>Previous / next candidate</td></tr>
+            <tr><td>Play</td><td>Play / pause auto-advance</td></tr>
+            <tr><td>Drag</td><td>Pan the view</td></tr>
+            <tr><td>Pinch</td><td>Zoom in / out</td></tr>
+            <tr><td>Hide / Controls</td><td>Hide or show Status and layers</td></tr>
           </tbody>
         </table>
       </div>
