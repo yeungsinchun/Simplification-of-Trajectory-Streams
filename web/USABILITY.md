@@ -192,6 +192,22 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture: `web/usability/playback-end-stop.html`
 - Fixture screenshot: `web/usability/playback-end-stop.png`
 
+### Desktop layers formula overflowed the sidebar
+
+**Where:** desktop `#sidebar` Layers list, especially at 900px where the panel is 280px.
+
+**Problem:** Layer labels are a nowrap flex row (checkbox + swatch + MathJax). The single \(S_i[p] = \mathrm{conv}(G_{v_i}) \cap F(S_{i-1}[p], p)\) equation was about 231px after the checkbox, so it painted past the 280px sidebar and 13px past the 900px window. `#sidebar` only set `overflow-y: auto`, so the overflow was visible instead of clipped.
+
+**Fix:** The equation splits at the equals sign so it can wrap. Layer labels wrap, stay `max-width: 100%`, and clip leftover MathJax assistive boxes. The sidebar uses `overflow-x: hidden`. At 900px the visible formula ends at 882px (inside the panel). 390px open layers already fit.
+
+**Evidence:**
+
+- Desktop live 900px: `web/usability/desktop-layers-overflow-live.png`
+- Desktop live 1280px: `web/usability/desktop-layers-overflow-1280-live.png`
+- Mobile live open layers (390px): `web/usability/mobile-layers-open-live.png`
+- Before/after markup fixture: `web/usability/desktop-layers-overflow.html`
+- Fixture screenshot: `web/usability/desktop-layers-overflow.png`
+
 ## Still open
 
-A loaded-trace Play pass at 4× on 1280px and 390px found this end-of-playback stuck-Pause issue and no further layout, spinner, or overflow issues on those screens. A later pass can look at other loaded-trace chrome (layers overflow, desktop playback-bar wrap) if it still shows up.
+A 900/1024/1280 and 390px loaded-trace pass found this layers overflow and no further page-level overflow or spinner issues. Desktop playback-bar height grew from 91px (1280) to about 108px (1024/900) because the bar wraps; the 900px live shot still showed every stepper, Play, and speed control, so a later pass can treat wrap as a problem only if a control is clipped or untappable.

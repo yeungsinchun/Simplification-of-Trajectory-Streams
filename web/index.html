@@ -764,6 +764,7 @@
     background: var(--panel);
     border-left: 1px solid var(--panel-border);
     padding: 14px;
+    overflow-x: hidden;
     overflow-y: auto;
     display: none;
     flex-direction: column;
@@ -837,14 +838,29 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    min-width: 0;
     padding: 3px 0;
   }
   .toggle-row label {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 6px 8px;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
     cursor: pointer;
     font-size: 12.5px;
+  }
+  #layersSection mjx-container {
+    max-width: 100%;
+  }
+  #layersSection mjx-assistive-mml {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    clip: rect(1px, 1px, 1px, 1px);
   }
   .swatch {
     width: 12px; height: 12px;
@@ -2036,7 +2052,7 @@
                 <label><input type="checkbox" id="toggle-F-Si" /><span class="swatch" style="background:#22d3ee"></span>\(F(S_i[p], p)\)</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-S" checked /><span class="swatch" style="background:#a78bfa"></span>\(S_i[p] = \mathrm{conv}(G_{v_i}) \cap F(S_{i-1}[p], p)\)</label>
+                <label><input type="checkbox" id="toggle-S" checked /><span class="swatch" style="background:#a78bfa"></span>\(S_i[p]\) = \(\mathrm{conv}(G_{v_i}) \cap F(S_{i-1}[p], p)\)</label>
               </div>
               <div class="toggle-row">
                 <label><input type="checkbox" id="toggle-P" checked /><span class="swatch" style="background:#ff9f43"></span>\(P\) (boundary anchors in \(G_{v_0}\) )</label>
