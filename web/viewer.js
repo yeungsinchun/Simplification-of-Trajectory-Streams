@@ -932,17 +932,16 @@
   function renderParamsBarPreview() {
     if (!isMobileUI()) return;
     paramsBar.innerHTML = `
-      ${paramsBlueMetric("Simplification time", "", true)}`;
+      ${paramsBlueMetric("Computed Fréchet distance", "", true, "frechet")}
+      ${paramsBlueMetric("Simplification time", "", true, "time")}`;
   }
 
-  function paramsBlueMetric(label, value, loading) {
-    const spinner = loading
-      ? `<span class="button-spinner params-spinner" aria-hidden="true"></span><span class="visually-hidden">Loading</span>`
-      : "";
-    const valueHtml = !loading && value
-      ? `<b>${value}</b>`
-      : "";
-    return `<span class="params-metric params-metric--blue"><span class="params-metric-body">${spinner}<span class="params-metric-label">${label}</span>${valueHtml ? ` ${valueHtml}` : ""}</span></span>`;
+  function paramsBlueMetric(label, value, loading, kind) {
+    const kindClass = kind ? ` params-metric--${kind}` : "";
+    const valueSlot = loading
+      ? `<span class="params-metric-value params-metric-value--loading" aria-live="polite"><span class="button-spinner params-spinner" aria-hidden="true"></span><span class="visually-hidden">Loading</span></span>`
+      : `<b class="params-metric-value">${value || ""}</b>`;
+    return `<span class="params-metric params-metric--blue${kindClass}"><span class="params-metric-body"><span class="params-metric-label">${label}</span>${valueSlot}</span></span>`;
   }
 
   function showTraceLoading() {
@@ -1636,20 +1635,17 @@
     if (!t) { paramsBar.innerHTML = ""; return; }
     const fmt = (v) => (typeof v === "number" ? (Math.abs(v) >= 1000 ? v.toFixed(1) : v.toFixed(4)) : v);
 
-    const frechetCanCompute = t.simplified != null;
     const frechetLoading = state.computingFrechet
-      || (frechetCanCompute && state.computedFrechet == null && !state.frechetError);
-    const showComputedFrechet = frechetLoading || state.computedFrechet != null || state.frechetError;
+      || (state.computedFrechet == null && !state.frechetError);
     const computedFrechetValue = !state.computingFrechet && state.computedFrechet != null
       ? fmt(state.computedFrechet)
       : (!state.computingFrechet && state.frechetError ? "failed" : "");
-    const computedFrechetDisplay = showComputedFrechet
-      ? paramsBlueMetric(
-        "Computed Fréchet distance",
-        computedFrechetValue,
-        frechetLoading,
-      )
-      : "";
+    const computedFrechetDisplay = paramsBlueMetric(
+      "Computed Fréchet distance",
+      computedFrechetValue,
+      frechetLoading,
+      "frechet",
+    );
 
     const frechetDisplay = t.frechet_distance != null
       ? `<span style="color: #C4612F; font-weight: 600;">Actual Fr&eacute;chet distance <b style="color: #A94E22;">${fmt(t.frechet_distance)}</b></span>`
@@ -1667,7 +1663,7 @@
 
     paramsBar.innerHTML = `
       ${computedFrechetDisplay}
-      ${paramsBlueMetric("Simplification time", timeValue, timeLoading)}
+      ${paramsBlueMetric("Simplification time", timeValue, timeLoading, "time")}
       <span>\\(\\varepsilon\\) <b>${fmt(t.eps)}</b></span>
       <span>\\(\\delta\\) <b>${fmt(t.delta)}</b></span>
       <span>\\(\\text{len}_\\text{grid}\\) <b>${fmt(t.grid_val)}</b></span>
