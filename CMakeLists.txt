@@ -25,8 +25,14 @@ target_link_libraries(simplify
 )
 
 # Baseline binaries used by the web compare pane (no Qt).
-add_executable(dp traj-compression/batch/DP/DP_adapted.cpp)
-add_executable(squish traj-compression/online/SQUISH/SQUISH_adapted.cpp)
+set(DP_SRC "${CMAKE_CURRENT_SOURCE_DIR}/traj-compression/batch/DP/DP_adapted.cpp")
+set(SQUISH_SRC "${CMAKE_CURRENT_SOURCE_DIR}/traj-compression/online/SQUISH/SQUISH_adapted.cpp")
+if(EXISTS "${DP_SRC}")
+  add_executable(dp "${DP_SRC}")
+endif()
+if(EXISTS "${SQUISH_SRC}")
+  add_executable(squish "${SQUISH_SRC}")
+endif()
 
 if(BUILD_GUI)
   # Qt-only builds need AUTOMOC for the Q_OBJECT types in the GUI target.

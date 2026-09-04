@@ -31,7 +31,6 @@ bool showS = false;
 bool keep_polygons = false;
 bool show_simplified = true;
 bool show_labels = false;
-bool show_dots = true;
 bool help_flag = false;
 
 // ===========================================================================
@@ -46,14 +45,12 @@ static void print_help() {
               << "  --keep           Do not clear F/G/S polygons between steps\n"
               << "  --no-simp        Do not show the simplified curve in GUI\n"
               << "  --labels         Show vertex labels (indices) in GUI\n"
-              << "  --no-dots        Do not overlay data/<id>/dots_simplified.txt when present\n"
               << "  -F/-G/-S         Show F, G, or S debug polygons in GUI\n"
               << "  -d <delta>       Override DELTA (default " << DELTA << ")\n"
               << "  -e <epsilon>     Override EPSILON (default " << EPSILON << ")\n"
               << "  -h               Show this help and exit\n"
               << "\n"
-              << "Shorthand: simplify_with_gui <id> [flags] is equivalent to '--in <id> --out [flags]'\n"
-              << "If data/<id>/dots_simplified.txt (or DOTS.txt) exists, it is overlaid as a DOTS curve.\n";
+              << "Shorthand: simplify_with_gui <id> [flags] is equivalent to '--in <id> --out [flags]'\n";
 }
 
 int parse_arguments(int argc, char** argv, int& test_case_no) {
@@ -63,7 +60,6 @@ int parse_arguments(int argc, char** argv, int& test_case_no) {
         else if (std::strcmp(argv[i], "--keep") == 0) keep_polygons = true;
         else if (std::strcmp(argv[i], "--no-simp") == 0) show_simplified = false;
         else if (std::strcmp(argv[i], "--labels") == 0) show_labels = true;
-        else if (std::strcmp(argv[i], "--no-dots") == 0) show_dots = false;
         else if (std::strcmp(argv[i], "-F") == 0) showF = true;
         else if (std::strcmp(argv[i], "-G") == 0) showG = true;
         else if (std::strcmp(argv[i], "-S") == 0) showS = true;
@@ -171,47 +167,6 @@ int out_stream(int test_case_no, const std::vector<Point>& stream) {
     }
     std::cout << "Output Written\n";
     return 0;
-}
-
-// Load N\\n x y polyline files written by dots / simplify / benchmarks.
-bool load_polyline_file(const std::filesystem::path& path, std::vector<Point>& out) {
-    std::ifstream fin(path);
-    if (!fin) return false;
-    int count = 0;
-    if (!(fin >> count) || count < 0) return false;
-    out.clear();
-    out.reserve(count);
-    for (int i = 0; i < count; ++i) {
-        double x, y;
-        if (!(fin >> x >> y)) return false;
-        out.emplace_back(x, y);
-    }
-    return !out.empty();
-}
-
-// Overlay DOTS (or other named baseline) when its output file is present.
-void maybe_overlay_baseline(MultiViewer& viewer, int test_case_no) {
-    if (!show_dots || test_case_no == -1) return;
-    const std::filesystem::path dir = repo_root / "data" / std::to_string(test_case_no);
-    const std::filesystem::path candidates[] = {
-        dir / "dots_simplified.txt",
-        dir / "DOTS.txt",
-    };
-    std::vector<Point> dots;
-    std::filesystem::path used;
-    for (const auto& path : candidates) {
-        if (load_polyline_file(path, dots)) {
-            used = path;
-            break;
-        }
-    }
-    if (used.empty()) {
-        std::cout << "No DOTS overlay found under " << dir.string() << '\n';
-        return;
-    }
-    // Hot pink matches the web compare layer (#f472b6).
-    viewer.addCurve(dots, QColor(244, 114, 182), QStringLiteral("DOTS"));
-    std::cout << "Overlaid DOTS (" << dots.size() << " points) from " << used.string() << '\n';
 }
 
 // ===========================================================================
@@ -358,9 +313,6 @@ int main(int argc, char** argv) {
         viewer.addSimplifiedPoints(stream);
         viewer_process_events();
     }
-
-    maybe_overlay_baseline(viewer, test_case_no);
-    viewer_process_events();
 
     if (out_flag) {
         code = out_stream(test_case_no, stream);

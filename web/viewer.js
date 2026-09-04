@@ -295,6 +295,7 @@
       };
     }
     state.compare.layers[algo] = hit.layers;
+    state.resultVisible[algo] = true;
     if (hit.metrics) state.compare.metricsByAlgo[algo] = hit.metrics;
     state.compare.frechet = state.compare.frechet || { simplify: null, byAlgo: {} };
     state.compare.frechet.byAlgo = state.compare.frechet.byAlgo || {};
@@ -549,16 +550,21 @@
       if (data.metrics.simplify_core_ms != null) state.compare.metrics.simplify_core_ms = data.metrics.simplify_core_ms;
     }
     if (algo && algo !== "none") {
-      const pts = layersIn[algo] || layersIn.baseline;
+      const failed = !!(data.baseline_error || data.dots_error);
+      const pts = failed ? null : (layersIn[algo] || layersIn.baseline);
       if (Array.isArray(pts) && pts.length) {
         const copy = pts.map((p) => [p[0], p[1]]);
         if (isSampleTraceId()) copy.forEach((p) => { p[1] += 500; });
         state.compare.layers[algo] = copy;
+        state.resultVisible[algo] = true;
+      } else if (failed) {
+        delete state.compare.layers[algo];
+        state.resultVisible[algo] = false;
       }
       state.compare.metricsByAlgo[algo] = {
         label: data.metrics?.baseline_label || baselineAlgoLabel(algo),
-        points: data.metrics?.baseline_points ?? state.compare.layers[algo]?.length ?? null,
-        core_ms: data.metrics?.baseline_core_ms ?? null,
+        points: failed ? null : (data.metrics?.baseline_points ?? state.compare.layers[algo]?.length ?? null),
+        core_ms: failed ? null : (data.metrics?.baseline_core_ms ?? null),
         error: data.baseline_error || data.dots_error || null,
       };
     }

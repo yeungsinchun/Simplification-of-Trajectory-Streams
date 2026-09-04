@@ -8,6 +8,7 @@ the trace as NDJSON (header, one prefix per line, done).
 """
 import os
 import subprocess
+import time
 import uuid
 import shutil
 import json
@@ -265,25 +266,6 @@ def get_original_trace(trace_id):
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/trace/<int:trace_id>/layers', methods=['GET'])
-def get_trace_layers(trace_id):
-    """
-    GET /api/trace/<id>/layers
-    Returns available compare polylines from data/<id>/ (original, simplify, dots).
-    Missing files are omitted from `layers`.
-    """
-    trace_dir = DATA_DIR / str(trace_id)
-    if not trace_dir.exists() or not (trace_dir / 'original.txt').exists():
-        return jsonify({'error': f'Trace {trace_id} not found'}), 404
-    layers, sources = load_trace_layers(trace_id)
-    return jsonify({
-        'trace_id': trace_id,
-        'layers': layers,
-        'sources': sources,
-        'available': sorted(layers.keys()),
-    })
-
-
 @app.route('/api/trace/<int:trace_id>/compare', methods=['GET'])
 def get_trace_compare(trace_id):
     """
@@ -303,10 +285,6 @@ def get_trace_compare(trace_id):
     if algorithm in ('', 'none', 'null'):
         algorithm = 'none'
     run = request.args.get('run', '0') in ('1', 'true', 'yes')
-    # Back-compat with earlier clients.
-    if request.args.get('run_dots', '0') in ('1', 'true', 'yes'):
-        algorithm = 'dots'
-        run = True
 
     if algorithm not in ('none',) and algorithm not in BASELINE_ALGOS:
         return jsonify({'error': f'Unknown algorithm: {algorithm}'}), 400
@@ -353,6 +331,7 @@ def get_trace_compare(trace_id):
                 cmd = [str(binary), str(original), str(squish_ratio), str(out_path)]
                 cwd = REPO_ROOT
             try:
+                started = time.perf_counter()
                 result = subprocess.run(
                     cmd,
                     cwd=cwd,
@@ -360,17 +339,21 @@ def get_trace_compare(trace_id):
                     text=True,
                     timeout=120,
                 )
+                elapsed_ms = (time.perf_counter() - started) * 1000.0
                 out = (result.stdout or '') + (result.stderr or '')
-                m = re.search(meta['core_ms_re'], out)
-                if m:
-                    baseline_core_ms = float(m.group(1))
-                if result.returncode != 0 and baseline_core_ms is None:
+                if result.returncode != 0:
                     baseline_error = (result.stderr or result.stdout or f'{algorithm} failed').strip()
+                else:
+                    m = re.search(meta['core_ms_re'], out)
+                    baseline_core_ms = float(m.group(1)) if m else elapsed_ms
             except Exception as e:
                 baseline_error = str(e)
 
     layers, sources = load_trace_layers(trace_id)
-    if algorithm in BASELINE_ALGOS and algorithm in layers:
+    if algorithm in BASELINE_ALGOS and run and baseline_error:
+        layers.pop(algorithm, None)
+        sources.pop(algorithm, None)
+    elif algorithm in BASELINE_ALGOS and algorithm in layers:
         layers['baseline'] = layers[algorithm]
         sources['baseline'] = sources.get(algorithm)
 
@@ -424,8 +407,6 @@ def frechet_existing_curve(trace_id, curve):
         'dots': ('dots_simplified.txt', 'DOTS.txt'),
         'dp': ('dp_simplified.txt', 'DP.txt'),
         'squish': ('squish_simplified.txt', 'SQUISH.txt'),
-        'baseline': ('dots_simplified.txt', 'DOTS.txt', 'dp_simplified.txt', 'DP.txt',
-                     'squish_simplified.txt', 'SQUISH.txt'),
     }
     if curve not in name_map:
         return jsonify({'error': f'Unknown curve {curve}'}), 400

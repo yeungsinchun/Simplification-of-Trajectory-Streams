@@ -4,16 +4,22 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
     libcgal-dev \
+    git \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy source code
 WORKDIR /build
 COPY simplify.cpp simplify_geometry.h simplify_io.h timer.h CMakeLists.txt ./
 
-# Build the headless simplify binary only. BUILD_GUI=OFF skips the Qt viewer
-# and the DOTS baseline so the resulting image has no Qt6 dependency.
+# Pin traj-compression to the gitlink SHA. The Docker context excludes .git
+# (and Cloud Run uploads exclude the submodule), so dp/squish sources are
+# fetched here. BUILD_GUI=OFF skips the Qt viewer and DOTS.
+RUN git clone https://github.com/yeungsinchun/traj-compression.git traj-compression && \
+    git -C traj-compression checkout 11bc791c966f99836464d6f3c1198aa167654af5
+
 RUN cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF && \
-    cmake --build build --target simplify
+    cmake --build build --target simplify dp squish
 
 # Final stage: Python runtime on Ubuntu
 FROM ubuntu:22.04
@@ -51,8 +57,10 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 &
 
 WORKDIR /app
 
-# Copy the compiled binary from builder
+# Copy the compiled binaries from builder
 COPY --from=builder /build/build/simplify /app/build/simplify
+COPY --from=builder /build/build/dp /app/build/dp
+COPY --from=builder /build/build/squish /app/build/squish
 
 # Copy web application files
 COPY web/ /app/web/
