@@ -809,6 +809,27 @@
   button.iconbtn { width: 30px; padding: 5px 0; text-align: center; }
   button.primary { background: var(--accent-dim); border-color: var(--accent); }
   button.primary:hover { background: #345f8f; }
+  #loadBtn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  #loadBtn .button-spinner {
+    position: absolute;
+    opacity: 0;
+  }
+  #loadBtn[aria-busy="true"] .button-spinner {
+    opacity: 1;
+  }
+  #loadBtn[aria-busy="true"] .load-btn-label {
+    visibility: hidden;
+  }
+  button#loadBtn:disabled[aria-busy="true"] {
+    opacity: 1;
+    cursor: progress;
+  }
   .button-spinner {
     display: inline-block;
     width: 14px;
@@ -1809,7 +1830,10 @@
               <span class="baseline-field-unit" title="Percent">%</span>
             </label>
           </div>
-          <button id="loadBtn" class="primary">Load Trace</button>
+          <button id="loadBtn" class="primary">
+            <span class="button-spinner" aria-hidden="true"></span>
+            <span class="load-btn-label">Load Trace</span>
+          </button>
           <span class="sub" id="uploadStatus"></span>
         </div>
       </div>

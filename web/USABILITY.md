@@ -224,11 +224,26 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture: `web/usability/desktop-loading-params.html`
 - Fixture screenshot: `web/usability/desktop-loading-params.png`
 
+### Desktop Load Trace button collapsed while computing
+
+**Where:** desktop header `#loadBtn`, from Load Trace until the stream finishes (`min-width: 721px`).
+
+**Problem:** `setLoadButtonBusy(true)` replaced the `Load Trace` label with a 14px spinner. The control shrank from about 82px to 36px, so `Computing trace…` and the rest of the header row jumped left. Mobile already stretches `#loadBtn` to the full form column, so the collapse was a desktop layout shift.
+
+**Fix:** The idle `Load Trace` label stays in the button and keeps its width (`flex-shrink: 0`). The spinner is centered in that reserved slot (`visibility: hidden` on the label, `aria-busy` on the control). The busy button is not dimmed to 0.35 so the in-slot spinner stays readable. Idle and busy both measure 82px at 1280 and 900.
+
+**Evidence:**
+
+- Desktop live loading (1280px): `web/usability/desktop-load-btn-width-live.png`
+- Desktop live loading (900px): `web/usability/desktop-load-btn-width-900-live.png`
+- Mobile live loading regression (390px): `web/usability/mobile-load-btn-width-regression-live.png`
+- Before/after markup fixture: `web/usability/desktop-load-btn-width.html`
+- Fixture screenshot: `web/usability/desktop-load-btn-width.png`
+
 ## Still open
 
-A 1280/900/390 loading pass now shows the two metric slots on desktop. Remaining items for a later pass:
+A 1280/900/390 loading pass now keeps the Load Trace control at its idle width. Remaining items for a later pass:
 
-- The desktop Load Trace control still collapses from an 82px label to a 36px spinner-only button while `Computing trace…` is shown.
 - After geometry arrives, the rest of the desktop param chips still wrap a second params row (header 79px to 110px at 1280, 113px to 144px at 900). The two metric chips stay in place.
 - At 900px the wrapped \(S_i[p]\) second line can still paint about 10px past the window (MathJax `conv(G_{v_i})` box). A 1280-only pass misses it.
 - Desktop playback-bar height still grows from 91px (1280) to about 108px (1024/900) because the bar wraps; treat wrap as a problem only if a control is clipped or untappable.

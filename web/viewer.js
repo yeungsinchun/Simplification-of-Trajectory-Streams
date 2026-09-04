@@ -105,9 +105,6 @@
   function setLoadButtonBusy(isBusy) {
     loadBtn.disabled = isBusy;
     loadBtn.setAttribute("aria-busy", String(isBusy));
-    loadBtn.innerHTML = isBusy
-      ? '<span class="button-spinner" aria-hidden="true"></span><span class="visually-hidden">Loading</span>'
-      : "Load Trace";
   }
 
   // Speed presets
