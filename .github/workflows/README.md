@@ -39,6 +39,11 @@ GCP setup already applied for this repo (`yeungsinchun/Simplification-of-Traject
 
 Service flags match the former local `deploy.sh`: 4 GiB RAM, 2 CPU, 300s timeout, max 10 instances, `--no-cpu-throttling` (needed so background Julia Fréchet work keeps CPU after `/api/frechet` returns), `--allow-unauthenticated`.
 
+## Local Testing
+
+To run the same Frechet, point-count, and performance checks locally, use
+`scripts/local_ci_gate.py`. See that script's module docstring and `--help`.
+
 ## Local deploy
 
 Keep a machine-local `deploy.sh` (gitignored) or run the same `gcloud run deploy` command from `deploy.yml`.
