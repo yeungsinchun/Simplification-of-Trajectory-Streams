@@ -60,9 +60,24 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture (390px): `web/usability/mobile-delta-field.png`
 - Markup fixture used for that screenshot: `web/usability/mobile-delta-field.html`
 
+### Canvas stayed blank while a trace was computing
+
+**Where:** `#traceLoadingHud` over `#canvasContainer`, after Load Trace and before stream geometry arrives.
+
+**Problem:** The HUD existed in markup but CSS forced `#traceLoadingHud { display: none !important; }`, and viewer logic never toggled it. Load Trace hid `#dropHint` immediately, so desktop and the mobile loaded canvas were empty until the first header/geometry message. Progress lived only in the header (`Computing trace…` / metric slots), not where the trajectory would appear.
+
+**Fix:** The HUD is a centered overlay on the canvas. It is shown from `showTraceLoading()` and hidden when geometry arrives (`initTraceUI`) or the load fails/finishes. A failed load also restores the drop hint so desktop is not left on a blank canvas.
+
+**Evidence:**
+
+- Desktop live loading (1280px): `web/usability/desktop-canvas-loading-hud-live.png`
+- Mobile live loading (390px): `web/usability/mobile-canvas-loading-hud-live.png`
+- Before/after markup fixture: `web/usability/canvas-loading-hud.html`
+- Fixture screenshot (1280px): `web/usability/canvas-loading-hud.png`
+
 ## Still open
 
 These were noticed while checking desktop and mobile and are not fixed here:
 
-- Canvas `#traceLoadingHud` (`Loading details…`) is forced off with `display: none !important`, so after Load Trace the drop hint disappears and the canvas stays blank until geometry arrives. Progress is only in the header (upload status / metric slots).
-- On the 390px start screen `#traceSelect.visually-hidden` still extends past the viewport (`scrollWidth` 416 vs 390), so the page can scroll horizontally even though the custom preloaded trigger is the visible control.
+- On the 390px start screen `#traceSelect.visually-hidden` still causes horizontal overflow (`scrollWidth` 416 vs 390). The native select is `position: absolute` but `.upload-form select { width: 100% }` overrides `.visually-hidden { width: 1px }`, so the control is about 390px wide starting at x=26.
+- On mobile, the playback dock appears as soon as Load Trace starts, while the canvas still has no geometry. The buttons are disabled, but Play still looks tappable over the empty canvas.

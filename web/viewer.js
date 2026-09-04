@@ -944,6 +944,13 @@
     return `<span class="params-metric params-metric--blue${kindClass}"><span class="params-metric-body"><span class="params-metric-label">${label}</span>${valueSlot}</span></span>`;
   }
 
+  function setCanvasLoadingHud(visible) {
+    const hud = el("traceLoadingHud");
+    if (!hud) return;
+    hud.classList.toggle("visible", Boolean(visible));
+    hud.setAttribute("aria-hidden", visible ? "false" : "true");
+  }
+
   function showTraceLoading() {
     stopPlaying();
     state.trace = null;
@@ -952,15 +959,18 @@
     state.candidateIdx = 0;
     resetFrechetState();
     dropHint.style.display = "none";
+    canvas.classList.remove("has-trace");
     enterMobileTraceLayout();
     document.body.classList.add("trace-loading");
     document.body.classList.remove("trace-loading-error");
+    setCanvasLoadingHud(true);
     setTopBarTraceStatus("Computing trace…");
     render();
   }
 
   function hideTraceLoading() {
     document.body.classList.remove("trace-loading", "trace-loading-error");
+    setCanvasLoadingHud(false);
   }
 
   function failTraceLoading(message) {
@@ -969,6 +979,9 @@
     paramsBar.innerHTML = "";
     statusIndices.innerHTML = "";
     statusGrid.innerHTML = "";
+    canvas.classList.remove("has-trace");
+    dropHint.style.display = "";
+    setCanvasLoadingHud(false);
     clearTopBarTraceStatus();
     uploadStatus.textContent = message;
     uploadStatus.style.color = "#ff5f6d";
@@ -980,6 +993,7 @@
     el("sidebar").style.display = "flex";
     el("resizer").style.display = "block";
     canvas.classList.add("has-trace");
+    setCanvasLoadingHud(false);
     document.body.classList.add("trace-loaded-mobile");
     if (playbackBar) playbackBar.classList.add("visible");
     if (playbackToggle) playbackToggle.classList.add("visible");
