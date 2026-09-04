@@ -20,9 +20,21 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Mobile (390px): `web/usability/mobile-params-metrics.png`
 - Markup fixture used for those screenshots: `web/usability/params-metric-states.html`
 
+### Mobile loaded header hid Fréchet distance and simplification time
+
+**Where:** mobile trace screen (`max-width: 720px`) after `body.trace-loaded-mobile`.
+
+**Problem:** The compact loaded header hid all of `.headerBody`, and `#paramsBar` lives inside that node. Computed Fréchet distance and Simplification time were in the DOM with in-slot spinners, but users only saw Back and the title.
+
+**Fix:** The loaded header still hides file controls and start instructions, but keeps `#paramsBar` as a second row under Back / title. On mobile that row shows only Computed Fréchet distance and Simplification time, so the metrics stay on screen while they load and after values arrive.
+
+**Evidence:**
+
+- Mobile (390px): `web/usability/mobile-loaded-params.png`
+- Markup fixture used for that screenshot: `web/usability/mobile-loaded-params.html`
+
 ## Still open
 
-These were noticed while reproducing the spinner issue and are not fixed here:
+These were noticed while checking desktop and mobile and are not fixed here:
 
-- On viewports `max-width: 720px`, `headerBody` (which contains `#paramsBar`) is hidden after a trace loads, so Fréchet distance and simplification time are not visible on the mobile trace screen.
 - Desktop drop-hint heading is misspelled as "Intruction".

@@ -1661,6 +1661,13 @@
       <span>ratio <b>${streamLen ? (100 * simpLen / streamLen).toFixed(1) : "—"}%</b></span>`
       : `<span style="color:var(--text-dim)">|simplified| <b>…</b></span>`;
 
+    if (isMobileUI()) {
+      paramsBar.innerHTML = `
+        ${computedFrechetDisplay}
+        ${paramsBlueMetric("Simplification time", timeValue, timeLoading, "time")}`;
+      return;
+    }
+
     paramsBar.innerHTML = `
       ${computedFrechetDisplay}
       ${paramsBlueMetric("Simplification time", timeValue, timeLoading, "time")}

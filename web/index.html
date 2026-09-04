@@ -1037,6 +1037,7 @@
     .mobile-back svg { width: 17px; height: 17px; }
     body.trace-loaded-mobile header {
       flex-direction: row;
+      flex-wrap: wrap;
       align-items: center;
       padding: 10px 12px;
     }
@@ -1047,7 +1048,29 @@
       font-size: 14px;
     }
     body.trace-loaded-mobile .mobile-back { display: inline-flex; }
-    body.trace-loaded-mobile .headerBody { display: none; }
+    body.trace-loaded-mobile .headerBody {
+      display: flex;
+      width: 100%;
+      flex-basis: 100%;
+      order: 10;
+      padding: 8px 0 0;
+      margin: 0;
+      gap: 8px;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+    }
+    body.trace-loaded-mobile .headerBody .file-controls,
+    body.trace-loaded-mobile .headerBody .mobile-start-help {
+      display: none;
+    }
+    body.trace-loaded-mobile .params {
+      padding-top: 0;
+      border-top: none;
+      width: 100%;
+      min-height: 20px;
+      justify-content: flex-start;
+    }
     .headerToggle {
       display: none !important;
     }
@@ -1319,9 +1342,6 @@
       padding: 0 4px;
       font-size: 13px;
       min-height: 52px;
-    }
-    body.trace-loaded-mobile .params {
-      min-height: 20px;
     }
     .mobile-layers-toggle {
       width: 100%;
