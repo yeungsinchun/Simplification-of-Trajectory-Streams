@@ -32,6 +32,7 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
     std::vector<std::vector<Point>> new_S(Pn);
     std::vector<std::vector<Point>> F(Pn);
     std::vector<Point> Gi;
+    std::vector<std::array<double, 2>> Gi_xy;
     std::vector<int> tangents;
     tangents.reserve(2);
 
@@ -42,6 +43,7 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
         {
             TIMER("get_conv_from_grid");
             Gi = get_conv_from_grid(stream[cur], EPSILON, DELTA);
+            sh_double::prepare_convex_xy(Gi, Gi_xy);
         }
         for (int i = 0; i < Pn; ++i) {
             if (dead[i]) continue;
@@ -71,7 +73,7 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
             bool hit;
             {
                 TIMER("intersect");
-                hit = intersect(F[i], Gi, new_S[i]);
+                hit = intersect_prepared(F[i], Gi_xy, new_S[i]);
             }
             if (!hit) {
                 dead[i] = true;
@@ -272,6 +274,7 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
     std::vector<std::vector<Point>> new_S(Pn);
     std::vector<std::vector<Point>> F(Pn);
     std::vector<Point> Gi;
+    std::vector<std::array<double, 2>> Gi_xy;
     std::vector<int> tangents;
     tangents.reserve(2);
 
@@ -283,6 +286,7 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
     cur++;
     while (cur < int(stream.size())) {
         Gi = get_conv_from_grid(stream[cur], EPSILON, DELTA);
+        sh_double::prepare_convex_xy(Gi, Gi_xy);
 
         webtrace::StepTrace step;
         step.stream_idx = cur;
@@ -312,7 +316,7 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
                    (tangents.size() == 2) ? &tangents : nullptr);
             cand.F = F[i];
 
-            if (!intersect(F[i], Gi, new_S[i])) {
+            if (!intersect_prepared(F[i], Gi_xy, new_S[i])) {
                 dead[i] = true;
                 dead_cnt++;
                 cand.alive = false;

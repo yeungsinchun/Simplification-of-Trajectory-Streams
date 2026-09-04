@@ -132,6 +132,26 @@ inline ReusableClipBuffers& reusable_clip_buffers() {
     return buffers;
 }
 
+// Convert a convex Point polygon to CCW doubles once (e.g. conv(G_i) at the
+// start of a stab step) so every candidate can clip against the same buffer.
+inline void prepare_convex_xy(const std::vector<Point>& pts,
+                              std::vector<Vec2>& xy) {
+    assign_ccw_doubles(pts, xy);
+}
+
+inline void crop_by_ccw_halfplanes(std::vector<Vec2>& current_polygon,
+                                   const std::vector<Vec2>& cropping_polygon,
+                                   std::vector<Vec2>& cropped_polygon) {
+    const int num_halfplanes = static_cast<int>(cropping_polygon.size());
+    for (int e = 0; e < num_halfplanes && current_polygon.size() >= 3; ++e) {
+        const Vec2& edge_start = cropping_polygon[e];
+        const Vec2& edge_end   = next_ccw_vertex(cropping_polygon, e);
+        crop_to_left_of_edge(current_polygon, edge_start, edge_end,
+                             cropped_polygon);
+        current_polygon.swap(cropped_polygon);
+    }
+}
+
 // Crop current_polygon by each left half-plane of CCW convex cropping_polygon.
 // O(n·m). Returned reference is valid until the next clip() on this thread.
 inline const std::vector<Point>& clip(const std::vector<Point>& current_polygon,
@@ -145,15 +165,8 @@ inline const std::vector<Point>& clip(const std::vector<Point>& current_polygon,
 
     assign_ccw_doubles(current_polygon, buffers.current_polygon);
     assign_ccw_doubles(cropping_polygon, buffers.cropping_polygon);
-
-    const int num_halfplanes = static_cast<int>(buffers.cropping_polygon.size());
-    for (int e = 0; e < num_halfplanes && buffers.current_polygon.size() >= 3; ++e) {
-        const Vec2& edge_start = buffers.cropping_polygon[e];
-        const Vec2& edge_end   = next_ccw_vertex(buffers.cropping_polygon, e);
-        crop_to_left_of_edge(buffers.current_polygon, edge_start, edge_end,
-                             buffers.cropped_polygon);
-        buffers.current_polygon.swap(buffers.cropped_polygon);
-    }
+    crop_by_ccw_halfplanes(buffers.current_polygon, buffers.cropping_polygon,
+                           buffers.cropped_polygon);
 
     if (buffers.current_polygon.size() < 3) {
         buffers.intersection.clear();
@@ -162,6 +175,32 @@ inline const std::vector<Point>& clip(const std::vector<Point>& current_polygon,
     assign_points(buffers.current_polygon, buffers.intersection);
     return buffers.intersection;
 }
+
+// Same clip as clip(), but the crop polygon is already CCW doubles (prepared
+// conv(G_i)), so per-candidate Point conversion / make_ccw work is skipped.
+inline const std::vector<Point>& clip_against_xy(
+    const std::vector<Point>& current_polygon,
+    const std::vector<Vec2>& cropping_xy) {
+    auto& buffers = reusable_clip_buffers();
+
+    if (current_polygon.size() < 3 || cropping_xy.size() < 3) {
+        buffers.intersection.clear();
+        return buffers.intersection;
+    }
+
+    assign_ccw_doubles(current_polygon, buffers.current_polygon);
+    buffers.cropping_polygon = cropping_xy;
+    crop_by_ccw_halfplanes(buffers.current_polygon, buffers.cropping_polygon,
+                           buffers.cropped_polygon);
+
+    if (buffers.current_polygon.size() < 3) {
+        buffers.intersection.clear();
+        return buffers.intersection;
+    }
+    assign_points(buffers.current_polygon, buffers.intersection);
+    return buffers.intersection;
+}
+
 
 }  // namespace sh_double
 
@@ -220,6 +259,22 @@ inline bool intersect(const std::vector<Point>& P_in,
 
     // clip's thread-local buffer is distinct from result, so this is safe.
     dedup_into(sh_double::clip(P_verts, Q_verts), result);
+    if (result.size() < 3) {
+        result.clear();
+        return false;
+    }
+    return true;
+}
+
+// intersect() against a conv(G_i) that was prepared once for the stab step.
+// Skips the per-candidate Q dedup / Point-to-double / make_ccw work; the clip
+// math is otherwise identical.  P (the free-space wedge) is still deduped.
+inline bool intersect_prepared(const std::vector<Point>& F_in,
+                               const std::vector<std::array<double, 2>>& Gi_xy,
+                               std::vector<Point>& result) {
+    thread_local std::vector<Point> F_verts;
+    dedup_into(F_in, F_verts);
+    dedup_into(sh_double::clip_against_xy(F_verts, Gi_xy), result);
     if (result.size() < 3) {
         result.clear();
         return false;
