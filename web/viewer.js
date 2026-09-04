@@ -1996,38 +1996,55 @@
     }
   });
 
-  function advance() {
+  function playbackHasNext() {
     const pfx = currentPrefix();
-    if (!pfx) return;
+    if (!state.trace || !pfx) return false;
     const step = currentStep();
-    
-    // First, try to cycle through candidates at current step
+    if (step && step.candidates.length > 1) {
+      const nextCandidateIdx = (state.candidateIdx + 1) % step.candidates.length;
+      if (nextCandidateIdx !== 0) return true;
+    }
+    if (state.stepIdx < pfx.steps.length - 1) return true;
+    return state.prefixIdx < state.trace.prefixes.length - 1;
+  }
+
+  function advancePlayback() {
+    const pfx = currentPrefix();
+    if (!pfx) return false;
+    const step = currentStep();
+
     if (step && step.candidates.length > 1) {
       const nextCandidateIdx = (state.candidateIdx + 1) % step.candidates.length;
       if (nextCandidateIdx !== 0) {
-        // Still more candidates to show at this step
         state.candidateIdx = nextCandidateIdx;
         render();
-        return;
+        return true;
       }
     }
-    
-    // All candidates shown, advance to next step
+
     if (state.stepIdx < pfx.steps.length - 1) {
       goToStep(state.stepIdx + 1);
-    } else {
-      // Reuse goToStep's all-dead-pause logic.
-      goToStep(pfx.steps.length); // one past the end
+      return true;
     }
+    if (state.prefixIdx < state.trace.prefixes.length - 1) {
+      goToStep(pfx.steps.length);
+      return true;
+    }
+    return false;
   }
 
   function startPlaying() {
     if (!state.trace || state.playing) return;
     state.playing = true;
     updatePlayButton();
-    const baseDelay = 280; // Base delay in ms
+    const baseDelay = 280;
     const tick = () => {
-      advance();
+      if (!state.playing) return;
+      if (!advancePlayback()) {
+        stopPlaying();
+        return;
+      }
+      if (!state.playing) return;
       const delay = baseDelay / currentSpeedMultiplier;
       state.playTimer = setTimeout(tick, delay);
     };
@@ -2039,19 +2056,16 @@
     if (state.playTimer) clearTimeout(state.playTimer);
     state.playTimer = null;
   }
-  playBtn.addEventListener("click", () => {
-    if (state.playing) {
-      stopPlaying();
-    } else {
-      // If at the end, restart from beginning
-      const pfx = currentPrefix();
-      if (pfx && state.prefixIdx === state.trace.prefixes.length - 1 && 
-          state.stepIdx === pfx.steps.length - 1) {
-        goToPrefix(0);
-        goToStep(0);
-      }
-      startPlaying();
+  function beginPlayback() {
+    if (!playbackHasNext()) {
+      goToPrefix(0);
+      goToStep(0);
     }
+    startPlaying();
+  }
+  playBtn.addEventListener("click", () => {
+    if (state.playing) stopPlaying();
+    else beginPlayback();
   });
 
   el("stepBackBtn").addEventListener("click", () => {
@@ -2169,18 +2183,8 @@
     if (e.key === " ") { 
       console.log("Space pressed - toggling playback");
       e.preventDefault(); 
-      if (state.playing) {
-        stopPlaying();
-      } else {
-        // If at the end, restart from beginning
-        const pfx = currentPrefix();
-        if (pfx && state.prefixIdx === state.trace.prefixes.length - 1 && 
-            state.stepIdx === pfx.steps.length - 1) {
-          goToPrefix(0);
-          goToStep(0);
-        }
-        startPlaying();
-      }
+      if (state.playing) stopPlaying();
+      else beginPlayback();
       return;
     }
     if (e.key === "ArrowRight") {

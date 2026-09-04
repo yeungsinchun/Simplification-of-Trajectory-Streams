@@ -177,6 +177,21 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture: `web/usability/mobile-dock-speed.html`
 - Fixture screenshot: `web/usability/mobile-dock-speed.png`
 
+### Play did not stop at the last frame
+
+**Where:** desktop `#playBtn` and 390px `#mobilePlayBtn`, after a loaded trace reaches the last prefix and last step.
+
+**Problem:** Auto-advance called `goToStep` one past the end. On the last frame that is a no-op, but the play timer kept scheduling ticks and Play stayed on Pause. Tapping 4× only shortened the leftover delay. Clicking Play on the last step also restarted even when later candidates on that step were still unplayed.
+
+**Fix:** Playback asks whether a next candidate, step, or segment exists. If none does, the timer clears and both Play controls return to Play on the last frame. Play / Space only restarts from the first segment when nothing is left to advance.
+
+**Evidence:**
+
+- Desktop live stopped-at-end (1280px): `web/usability/desktop-playback-end-live.png`
+- Mobile live stopped-at-end (390px): `web/usability/mobile-playback-end-live.png`
+- Before/after markup fixture: `web/usability/playback-end-stop.html`
+- Fixture screenshot: `web/usability/playback-end-stop.png`
+
 ## Still open
 
-A 390px start-screen and playback-ready pass, plus 1280px empty desktop, found no further layout, spinner, or overflow issues after the speed row. Status, Instructions, and closed-panel Controls stay above the dock. A later pass should load a real trace to watch Play at a non-1× rate.
+A loaded-trace Play pass at 4× on 1280px and 390px found this end-of-playback stuck-Pause issue and no further layout, spinner, or overflow issues on those screens. A later pass can look at other loaded-trace chrome (layers overflow, desktop playback-bar wrap) if it still shows up.
