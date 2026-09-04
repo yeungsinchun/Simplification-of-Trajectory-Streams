@@ -24,6 +24,10 @@ target_link_libraries(simplify
   CGAL::CGAL
 )
 
+# Baseline binaries used by the web compare pane (no Qt).
+add_executable(dp traj-compression/batch/DP/DP_adapted.cpp)
+add_executable(squish traj-compression/online/SQUISH/SQUISH_adapted.cpp)
+
 if(BUILD_GUI)
   # Qt-only builds need AUTOMOC for the Q_OBJECT types in the GUI target.
   set(CMAKE_AUTOMOC ON)

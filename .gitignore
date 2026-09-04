@@ -91,3 +91,5 @@ ui_*.h
 /normalize
 
 *.log
+
+/.lavish
