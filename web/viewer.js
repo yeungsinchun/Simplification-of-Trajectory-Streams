@@ -939,7 +939,6 @@
   }
 
   function renderParamsBarPreview() {
-    if (!isMobileUI()) return;
     paramsBar.innerHTML = `
       ${paramsBlueMetric("Computed Fréchet distance", "", true, "frechet")}
       ${paramsBlueMetric("Simplification time", "", true, "time")}`;
@@ -984,6 +983,7 @@
     statusGrid.innerHTML = "";
     setPlaybackChromeVisible(false);
     enterMobileTraceLayout();
+    renderParamsBarPreview();
     document.body.classList.add("trace-loading");
     document.body.classList.remove("trace-loading-error");
     setCanvasLoadingHud(true);

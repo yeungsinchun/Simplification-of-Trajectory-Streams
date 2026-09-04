@@ -208,6 +208,27 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture: `web/usability/desktop-layers-overflow.html`
 - Fixture screenshot: `web/usability/desktop-layers-overflow.png`
 
+### Desktop loading hid Fréchet distance and simplification time
+
+**Where:** desktop header `#paramsBar`, from Load Trace until the first stream header/geometry message (`min-width: 721px`).
+
+**Problem:** `renderParamsBarPreview()` returned immediately on desktop, so the params bar stayed empty while the canvas HUD and `Computing trace…` ran. Computed Fréchet distance and Simplification time only appeared in `initTraceUI`, which grew the 1280px header from 48px to 110px and the 900px header from 81px to 144px. Mobile already reserved those two chips with in-slot spinners.
+
+**Fix:** Loading always writes the two metric chips into `#paramsBar`. Desktop CSS puts a non-empty params bar on its own full-width row so the chips start at the same left edge they keep after values arrive. Mobile 390px behavior is unchanged.
+
+**Evidence:**
+
+- Desktop live loading (1280px): `web/usability/desktop-loading-params-live.png`
+- Desktop live loading (900px): `web/usability/desktop-loading-params-900-live.png`
+- Mobile live loading regression (390px): `web/usability/mobile-loading-params-regression-live.png`
+- Before/after markup fixture: `web/usability/desktop-loading-params.html`
+- Fixture screenshot: `web/usability/desktop-loading-params.png`
+
 ## Still open
 
-A 900/1024/1280 and 390px loaded-trace pass found this layers overflow and no further page-level overflow or spinner issues. Desktop playback-bar height grew from 91px (1280) to about 108px (1024/900) because the bar wraps; the 900px live shot still showed every stepper, Play, and speed control, so a later pass can treat wrap as a problem only if a control is clipped or untappable.
+A 1280/900/390 loading pass now shows the two metric slots on desktop. Remaining items for a later pass:
+
+- The desktop Load Trace control still collapses from an 82px label to a 36px spinner-only button while `Computing trace…` is shown.
+- After geometry arrives, the rest of the desktop param chips still wrap a second params row (header 79px to 110px at 1280, 113px to 144px at 900). The two metric chips stay in place.
+- At 900px the wrapped \(S_i[p]\) second line can still paint about 10px past the window (MathJax `conv(G_{v_i})` box). A 1280-only pass misses it.
+- Desktop playback-bar height still grows from 91px (1280) to about 108px (1024/900) because the bar wraps; treat wrap as a problem only if a control is clipped or untappable.

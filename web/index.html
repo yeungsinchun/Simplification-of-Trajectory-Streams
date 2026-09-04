@@ -1542,6 +1542,11 @@
     .headerBody { display: contents; }
     .playbackBody { display: contents; }
     #playbackBar .playback-handle { display: none; }
+    .params:not(:empty) {
+      flex: 1 1 100%;
+      margin-left: 0;
+      width: 100%;
+    }
   }
 
   @media (max-width: 480px) {
