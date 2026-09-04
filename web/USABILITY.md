@@ -147,6 +147,21 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture: `web/usability/mobile-instructions-shortcuts.html`
 - Fixture screenshot: `web/usability/mobile-instructions-shortcuts.png`
 
+### Mobile dock had no simplified-segment control
+
+**Where:** 390px loaded-trace screen, `#mobileTransport` after `body.trace-loaded-mobile.playback-ready`.
+
+**Problem:** Desktop can jump previous / next simplified segment with Shift+arrows and the playback-bar prefix buttons. The phone dock only had Step, Candidate, and Play, so that jump had no touch equivalent.
+
+**Fix:** The dock keeps the five existing controls on the first row and adds Segment « / » on a second row (half-width each, so labels stay readable at 390px). Those buttons click the same prefix controls as desktop. Sidebar padding and the closed-panel Controls offset grew with the taller dock. The mobile Instructions table now names Segment.
+
+**Evidence:**
+
+- Mobile live playback-ready dock (390px): `web/usability/mobile-dock-segment-live.png`
+- Mobile live Instructions (390px): `web/usability/mobile-dock-segment-instructions-live.png`
+- Before/after markup fixture: `web/usability/mobile-dock-segment.html`
+- Fixture screenshot: `web/usability/mobile-dock-segment.png`
+
 ## Still open
 
-The mobile dock still has no previous / next simplified-segment control (desktop Shift+arrows). A 390px pass after this change shows the touch Instructions table (`display: table`) and hides the keyboard table (`display: none`); desktop 1280px is the reverse.
+Mobile Play has no speed control. Desktop `#playbackBar` has 0.25×-4× presets, but that bar is `display: none` below 720px, so the dock always plays at 1×.

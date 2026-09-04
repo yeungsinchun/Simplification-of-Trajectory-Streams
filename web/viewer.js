@@ -81,6 +81,17 @@
   const mobilePlayBtn = el("mobilePlayBtn");
   const mobileCandidateForwardBtn = el("mobileCandidateForwardBtn");
   const mobileStepForwardBtn = el("mobileStepForwardBtn");
+  const mobileSegmentBackBtn = el("mobileSegmentBackBtn");
+  const mobileSegmentForwardBtn = el("mobileSegmentForwardBtn");
+  const mobileTransportButtons = [
+    mobileStepBackBtn,
+    mobileCandidateBackBtn,
+    mobilePlayBtn,
+    mobileCandidateForwardBtn,
+    mobileStepForwardBtn,
+    mobileSegmentBackBtn,
+    mobileSegmentForwardBtn,
+  ];
 
   const stepInput = el("stepInput");
   const segmentInput = el("segmentInput");
@@ -1554,6 +1565,12 @@
   if (mobileStepForwardBtn) {
     mobileStepForwardBtn.addEventListener("click", () => el("stepForwardBtn").click());
   }
+  if (mobileSegmentBackBtn) {
+    mobileSegmentBackBtn.addEventListener("click", () => el("prefixBackBtn").click());
+  }
+  if (mobileSegmentForwardBtn) {
+    mobileSegmentForwardBtn.addEventListener("click", () => el("prefixForwardBtn").click());
+  }
 
   // Populate dropdown on page load
   (async () => {
@@ -2490,7 +2507,7 @@
     const traceLoading = document.body.classList.contains("trace-loading");
     if (!t) {
       if (isMobileUI()) {
-        for (const btn of [mobileStepBackBtn, mobileCandidateBackBtn, mobilePlayBtn, mobileCandidateForwardBtn, mobileStepForwardBtn]) {
+        for (const btn of mobileTransportButtons) {
           if (btn) btn.disabled = true;
         }
       }
@@ -2532,6 +2549,13 @@
     if (mobileCandidateBackBtn) mobileCandidateBackBtn.disabled = traceNotReady || !hasCandidates;
     if (mobileCandidateForwardBtn) mobileCandidateForwardBtn.disabled = traceNotReady || !hasCandidates;
     if (mobilePlayBtn) mobilePlayBtn.disabled = traceNotReady;
+    const prefixCount = t.prefixes.length;
+    if (mobileSegmentBackBtn) {
+      mobileSegmentBackBtn.disabled = traceNotReady || state.prefixIdx <= 0;
+    }
+    if (mobileSegmentForwardBtn) {
+      mobileSegmentForwardBtn.disabled = traceNotReady || state.prefixIdx >= prefixCount - 1;
+    }
 
     // 1. Full input stream (faint polyline + small filled dots).
     const showOriginal = toggles.stream
