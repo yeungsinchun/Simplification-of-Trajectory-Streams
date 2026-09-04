@@ -16,6 +16,8 @@ dependencies.
 - `scripts/prepare_dataset.py`: download T-Drive and normalize it into the canonical curve format.
 - `scripts/benchmark.py`: long-running comparison against the DOTS baseline.
 - `scripts/frechet.jl`: Julia wrapper for continuous Frechet distance.
+- `scripts/local_ci_gate.py`: local Frechet, point-count, and performance gate matching CI.
+- `scripts/profile_hotspots.py`: epsilon/delta hotspot sweep driven by `simplify --time`.
 - `traj-compression/`: vendored baseline source used by the benchmark.
 - `algorithms/`: legacy baseline sources, when present in a checkout.
 - `papers/` paper references.
@@ -102,7 +104,7 @@ x y
 
 This reads `data/1/original.txt` and writes `data/1/simplify.txt`. The
 shorthand `./build/simplify 1` is equivalent to `--in 1 --out`. Useful options
-include `-d DELTA`, `-e EPSILON`, `--dist`, and `--gui` on the GUI target.
+include `-d DELTA`, `-e EPSILON`, `--dist`, `--time` (hot-path timing on stderr), and `--gui` on the GUI target.
 
 ### Visualize output
 

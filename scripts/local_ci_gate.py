@@ -7,7 +7,6 @@ Mirrors .github/workflows/correctness.yml and benchmark.yml:
   - Perf:    new_ms <= orig_ms * SLOWDOWN_LIMIT  (when orig_ms >= MIN_BENCH_MS)
 
 Uses the same CI params (EPSILON=299, DELTA=1) by default.
-Also supports a 'profile' mode with e=0.5 d=200 for hotspot-relevant checks.
 """
 from __future__ import annotations
 

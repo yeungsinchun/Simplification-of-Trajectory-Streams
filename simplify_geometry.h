@@ -608,8 +608,9 @@ inline std::vector<int> find_tangent_idx(const Point& p, const std::vector<Point
 // F(S,p), so the caller can skip the expensive clip and declare the candidate
 // dead without computing F at all.
 //
-// When the prune does not fire, `tangent_out` (if non-null) receives the two
-// tangent indices so find_F can reuse them instead of scanning S again.
+// When the prune does not fire and two supporting vertices were found,
+// `tangent_out` (if non-null) holds those indices so find_F can reuse them
+// instead of scanning S again.
 //
 // F(S,p) is always contained in the cone with apex p bounded by the two tangent
 // rays p->S[t0] and p->S[t1] (all of S, its arc, and the bbox hits lie inside
