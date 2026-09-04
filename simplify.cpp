@@ -31,7 +31,6 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
     std::vector<int> dead(Pn);
     std::vector<std::vector<Point>> new_S(Pn);
     std::vector<std::vector<Point>> F(Pn);
-    std::vector<Point> Gi;
     std::vector<std::array<double, 2>> Gi_xy;
     std::vector<int> tangents;
     tangents.reserve(2);
@@ -42,8 +41,7 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
             timer_detail::counters()["stab_steps"]++;
         {
             TIMER("get_conv_from_grid");
-            Gi = get_conv_from_grid(stream[cur], EPSILON, DELTA);
-            sh_double::prepare_convex_xy(Gi, Gi_xy);
+            get_conv_xy_from_grid(stream[cur], EPSILON, DELTA, Gi_xy);
         }
         for (int i = 0; i < Pn; ++i) {
             if (dead[i]) continue;
@@ -55,7 +53,12 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
             // without building F or running the clip.  On a miss, reuse the
             // tangents already computed for find_F.
             tangents.clear();
-            if (wedge_gi_disjoint(P[i], S[i], Gi, &tangents)) {
+            bool pruned;
+            {
+                TIMER("wedge_gi_disjoint");
+                pruned = wedge_gi_disjoint(P[i], S[i], Gi_xy, &tangents);
+            }
+            if (pruned) {
                 if (timer_detail::enabled())
                     timer_detail::counters()["wedge_prune_hits"]++;
                 dead[i] = true;
@@ -285,8 +288,10 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
 
     cur++;
     while (cur < int(stream.size())) {
-        Gi = get_conv_from_grid(stream[cur], EPSILON, DELTA);
-        sh_double::prepare_convex_xy(Gi, Gi_xy);
+        get_conv_xy_from_grid(stream[cur], EPSILON, DELTA, Gi_xy);
+        Gi.clear();
+        Gi.reserve(Gi_xy.size());
+        for (const auto& q : Gi_xy) Gi.emplace_back(q[0], q[1]);
 
         webtrace::StepTrace step;
         step.stream_idx = cur;
@@ -304,7 +309,7 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
             }
 
             tangents.clear();
-            if (wedge_gi_disjoint(P[i], S[i], Gi, &tangents)) {
+            if (wedge_gi_disjoint(P[i], S[i], Gi_xy, &tangents)) {
                 dead[i] = true;
                 dead_cnt++;
                 cand.alive = false;
