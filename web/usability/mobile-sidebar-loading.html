@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mobile status sidebar during Load Trace</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+    --accent: #4f9dff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+  }
+  h1 { font-size: 16px; margin: 0 0 6px; }
+  p { margin: 0 0 14px; color: var(--text-dim); font-size: 12px; }
+  section { padding: 16px; }
+  .label {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .callout { margin-top: 8px; font-size: 12px; color: #ffb4bc; }
+  .ok { color: #3ddc97; }
+  .phone {
+    position: relative;
+    width: 390px;
+    height: 640px;
+    overflow: hidden;
+    background: var(--bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--panel-border);
+  }
+  header h2 {
+    flex: 1;
+    width: auto;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: right;
+  }
+  .mobile-back {
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    background: #1e2330;
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+  }
+  .mobile-back svg { width: 17px; height: 17px; }
+  .headerBody {
+    display: flex;
+    width: 100%;
+    flex-basis: 100%;
+    order: 10;
+    padding: 8px 0 0;
+    margin: 0;
+    gap: 8px;
+  }
+  .params {
+    display: flex;
+    gap: 8px 14px;
+    width: 100%;
+    color: var(--text-dim);
+    font-size: 12px;
+    flex-wrap: wrap;
+  }
+  .params-metric--blue { color: #38BDF8; font-weight: 600; white-space: nowrap; }
+  .params-metric-body {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .params-metric-value {
+    display: inline-flex;
+    min-height: 14px;
+    color: #22D3EE;
+  }
+  .canvas {
+    position: relative;
+    height: 280px;
+    background: var(--bg);
+    flex-shrink: 0;
+  }
+  .fix .canvas { flex: 1; height: auto; }
+  .traceLoadingHud {
+    display: flex;
+    position: absolute;
+    inset: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 500;
+    background: rgba(15, 17, 21, 0.28);
+  }
+  .button-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(255,255,255,0.35);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: none;
+    transform: rotate(40deg);
+  }
+  .traceLoadingHud .button-spinner {
+    width: 22px;
+    height: 22px;
+    color: var(--accent);
+  }
+  .sidebar {
+    padding: 18px 10px 10px;
+    border-top: 1px solid var(--panel-border);
+  }
+  .section {
+    padding: 12px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+  }
+  .section h3 {
+    margin: 0 0 10px;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .status-indices {
+    display: flex;
+    overflow: hidden;
+    margin-bottom: 10px;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+  }
+  .status-idx-block {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 6px;
+  }
+  .idx-label { font-size: 11px; }
+  .idx-num { font-size: 22px; font-weight: 700; }
+  .status-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 12px;
+    padding: 0 4px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .status-grid b { color: var(--text); }
+</style>
+</head>
+<body>
+<section>
+  <h1>Mobile status sidebar while loading</h1>
+  <p>Evidence that bootstrap Status values stay off the 390px loaded screen until stream geometry arrives. Placeholder p #0 / v_i #1 / step 1 looks like real playback state.</p>
+
+  <div class="label">Problem: sidebar opens as soon as Load Trace starts</div>
+  <div class="phone">
+    <header>
+      <button type="button" class="mobile-back">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Back
+      </button>
+      <h2>Trajectory Simplification Visualizer</h2>
+      <div class="headerBody">
+        <div class="params">
+          <span class="params-metric params-metric--blue">
+            <span class="params-metric-body">
+              <span>Computed Fréchet distance</span>
+              <span class="params-metric-value"><span class="button-spinner"></span></span>
+            </span>
+          </span>
+        </div>
+      </div>
+    </header>
+    <div class="canvas">
+      <div class="traceLoadingHud">
+        <span class="button-spinner"></span>
+        <span>Loading details…</span>
+      </div>
+    </div>
+    <div class="sidebar">
+      <div class="section">
+        <h3>Status</h3>
+        <div class="status-indices">
+          <div class="status-idx-block">
+            <span class="idx-label" style="color:#ff9f43">p (start)</span>
+            <span class="idx-num" style="color:#ff9f43">#0</span>
+          </div>
+          <div class="status-idx-block">
+            <span class="idx-label" style="color:#ff7ae8">v_i (current)</span>
+            <span class="idx-num" style="color:#ff7ae8">#1</span>
+          </div>
+        </div>
+        <div class="status-grid">
+          <span>step</span><span><b>1</b></span>
+          <span>alive</span><span><b>…</b></span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="callout">The canvas HUD is honest, but the Status panel under it already claims p #0, v_i #1, and step 1 before any geometry exists.</p>
+
+  <div class="label" style="margin-top:20px">Fix: hide the sidebar until geometry exists</div>
+  <div class="phone fix">
+    <header>
+      <button type="button" class="mobile-back">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Back
+      </button>
+      <h2>Trajectory Simplification Visualizer</h2>
+      <div class="headerBody">
+        <div class="params">
+          <span class="params-metric params-metric--blue">
+            <span class="params-metric-body">
+              <span>Computed Fréchet distance</span>
+              <span class="params-metric-value"><span class="button-spinner"></span></span>
+            </span>
+          </span>
+        </div>
+      </div>
+    </header>
+    <div class="canvas">
+      <div class="traceLoadingHud">
+        <span class="button-spinner"></span>
+        <span>Loading details…</span>
+      </div>
+    </div>
+  </div>
+  <p class="ok">The canvas HUD is the only panel on the empty loaded screen. Status appears after initTraceUI, when stream geometry is on screen.</p>
+</section>
+</body>
+</html>

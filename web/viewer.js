@@ -880,9 +880,7 @@
   function enterMobileTraceLayout() {
     if (!isMobileUI()) return;
     document.body.classList.add("trace-loaded-mobile");
-    el("sidebar").style.display = "flex";
     if (headerBody && headerBody.classList.contains("open")) closeHeader();
-    renderBootstrapStatus(null);
     renderParamsBarPreview();
     resizeCanvas();
   }
@@ -970,6 +968,9 @@
     resetFrechetState();
     dropHint.style.display = "none";
     canvas.classList.remove("has-trace");
+    el("sidebar").style.display = "none";
+    statusIndices.innerHTML = "";
+    statusGrid.innerHTML = "";
     setPlaybackChromeVisible(false);
     enterMobileTraceLayout();
     document.body.classList.add("trace-loading");
@@ -1723,12 +1724,8 @@
   function renderStatus() {
     const t = state.trace;
     if (!t) {
-      if (document.body.classList.contains("trace-loading")) {
-        renderBootstrapStatus(null);
-      } else {
-        statusIndices.innerHTML = "";
-        statusGrid.innerHTML = "";
-      }
+      statusIndices.innerHTML = "";
+      statusGrid.innerHTML = "";
       return;
     }
 

@@ -103,8 +103,20 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture (390px): `web/usability/mobile-playback-dock-loading.png`
 - Markup fixture used for that screenshot: `web/usability/mobile-playback-dock-loading.html`
 
+### Mobile status sidebar appeared before canvas geometry
+
+**Where:** 390px loaded-trace screen, `#sidebar` Status panel, from Load Trace until the first stream header/geometry message.
+
+**Problem:** `enterMobileTraceLayout()` showed the sidebar immediately and filled it with bootstrap values (`p #0`, `v_i #1`, `step 1`). The canvas HUD was honest, but the panel under it looked like real playback state. Desktop already kept `#sidebar` at `display: none` until `initTraceUI`.
+
+**Fix:** Status chrome stays hidden from `showTraceLoading()` (and a reload clears any previous inline `display: flex`). Bootstrap numbers are not written until stream geometry exists. On mobile the canvas also fills the leftover viewport so hiding the panel does not leave a 52vh stub with empty space below. The sidebar returns in `initTraceUI` with `playback-ready`.
+
+**Evidence:**
+
+- Mobile live loading (390px): `web/usability/mobile-sidebar-loading-live.png`
+- Before/after markup fixture (390px): `web/usability/mobile-sidebar-loading.png`
+- Markup fixture used for that screenshot: `web/usability/mobile-sidebar-loading.html`
+
 ## Still open
 
-These were noticed while checking desktop and mobile and are not fixed here:
-
-- On mobile, Load Trace still opens the sidebar under the canvas with bootstrap Status values (`p #0`, `v_i #1`, `step 1`) before any geometry exists. The loading HUD is on the canvas, but the placeholder panel looks like real playback state.
+A 390px start-screen pass, a 390px Load Trace pass, a header-arrives pass, and a 1280px empty/loading pass did not turn up another layout, spinner-placement, or overflow issue to fix next.

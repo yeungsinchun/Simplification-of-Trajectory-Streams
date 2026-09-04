@@ -1300,6 +1300,18 @@
       min-height: 52vh;
       height: 52vh;
     }
+    body.trace-loaded-mobile:not(.playback-ready) #sidebar,
+    body.trace-loaded-mobile:not(.playback-ready) .mobile-panel-open {
+      display: none !important;
+    }
+    body.trace-loaded-mobile:not(.playback-ready) #app {
+      height: 100svh;
+      min-height: 100svh;
+    }
+    body.trace-loaded-mobile:not(.playback-ready) #canvasContainer {
+      height: auto;
+      min-height: 0;
+    }
     body.trace-loaded-mobile #sidebar {
       position: relative;
       gap: 10px;
