@@ -1144,6 +1144,38 @@
     .mobile-transport .mobile-segment {
       grid-column: span 5;
     }
+    .mobile-transport .speed-preset {
+      grid-column: span 2;
+      min-height: 44px;
+      min-width: 0 !important;
+      padding: 4px 2px !important;
+      background: #242a39;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      color: var(--text);
+      font-size: 12px !important;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .mobile-transport .speed-preset.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #061018;
+    }
+    .mobile-transport .speed-preset:active:not(:disabled),
+    .mobile-transport .speed-preset:focus,
+    .mobile-transport .speed-preset:focus-visible {
+      background: #343d53;
+      border-color: var(--accent);
+      color: #ffffff;
+    }
+    .mobile-transport .speed-preset.active:active:not(:disabled),
+    .mobile-transport .speed-preset.active:focus,
+    .mobile-transport .speed-preset.active:focus-visible {
+      background: #7ec0ff;
+      border-color: #ffffff;
+      color: #061018;
+    }
     .mobile-transport button span {
       color: #b8c0d0;
       font-size: 9px;
@@ -1203,7 +1235,7 @@
       box-sizing: border-box;
     }
     body.trace-loaded-mobile.playback-ready #sidebar {
-      padding-bottom: calc(148px + env(safe-area-inset-bottom));
+      padding-bottom: calc(197px + env(safe-area-inset-bottom));
     }
     body.trace-loaded-mobile.playback-ready.mobile-panel-closed {
       height: 100%;
@@ -1225,10 +1257,10 @@
       min-height: 0;
     }
     body.trace-loaded-mobile.playback-ready.mobile-panel-closed #canvasWrap {
-      padding-bottom: calc(136px + env(safe-area-inset-bottom));
+      padding-bottom: calc(185px + env(safe-area-inset-bottom));
     }
     body.trace-loaded-mobile.playback-ready.mobile-panel-closed .mobile-panel-open {
-      bottom: calc(136px + env(safe-area-inset-bottom));
+      bottom: calc(185px + env(safe-area-inset-bottom));
     }
 
     .headerBody {
@@ -1346,6 +1378,10 @@
     body.trace-loaded-mobile #canvasContainer {
       min-height: 52vh;
       height: 52vh;
+    }
+    body.trace-loaded-mobile.playback-ready #canvasContainer {
+      height: 38vh;
+      min-height: 38vh;
     }
     body.trace-loaded-mobile:not(.playback-ready) #sidebar,
     body.trace-loaded-mobile:not(.playback-ready) .mobile-panel-open {
@@ -2045,6 +2081,7 @@
             <tr><td>Segment « / »</td><td>Previous / next simplified segment</td></tr>
             <tr><td>Candidate ‹ / ›</td><td>Previous / next candidate</td></tr>
             <tr><td>Play</td><td>Play / pause auto-advance</td></tr>
+            <tr><td>Speed 0.25×-4×</td><td>Playback speed on the bottom bar</td></tr>
             <tr><td>Drag</td><td>Pan the view</td></tr>
             <tr><td>Pinch</td><td>Zoom in / out</td></tr>
             <tr><td>Hide / Controls</td><td>Hide or show Status and layers</td></tr>
@@ -2105,6 +2142,11 @@
     »
     <span>Segment</span>
   </button>
+  <button type="button" class="speed-preset" data-speed="0.25" aria-label="Playback speed 0.25×">0.25×</button>
+  <button type="button" class="speed-preset" data-speed="0.5" aria-label="Playback speed 0.5×">0.5×</button>
+  <button type="button" class="speed-preset active" data-speed="1" aria-label="Playback speed 1×">1×</button>
+  <button type="button" class="speed-preset" data-speed="2" aria-label="Playback speed 2×">2×</button>
+  <button type="button" class="speed-preset" data-speed="4" aria-label="Playback speed 4×">4×</button>
 </nav>
 
 <!-- Mobile playback FAB (opens bottom sheet) -->

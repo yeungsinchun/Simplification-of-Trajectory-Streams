@@ -2090,13 +2090,14 @@
     }
   });
 
-  // Speed preset buttons
+  // Speed preset buttons (desktop playback bar and mobile dock)
   speedPresets.forEach((btn) => {
     btn.addEventListener("click", () => {
       const speed = parseFloat(btn.dataset.speed);
       currentSpeedMultiplier = speed;
-      speedPresets.forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
+      speedPresets.forEach((b) => {
+        b.classList.toggle("active", parseFloat(b.dataset.speed) === speed);
+      });
       // If already playing, restart with new speed
       if (state.playing) {
         stopPlaying();

@@ -162,6 +162,21 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture: `web/usability/mobile-dock-segment.html`
 - Fixture screenshot: `web/usability/mobile-dock-segment.png`
 
+### Mobile dock had no playback speed control
+
+**Where:** 390px loaded-trace screen, `#mobileTransport` after `body.trace-loaded-mobile.playback-ready`.
+
+**Problem:** Desktop `#playbackBar` has 0.25×-4× speed presets. That bar is `display: none` below 720px, so the phone dock could Play / Pause but auto-advance stayed at 1×.
+
+**Fix:** The dock keeps Step / Candidate / Play and Segment on the first two rows and adds the same five speed presets on a third row. Tapping a rate marks it active on both the dock and the desktop bar. The playback-ready canvas is 38vh so Status still sits above the taller dock. Sidebar padding and the closed-panel Controls offset grew with the extra row. The mobile Instructions table now names Speed.
+
+**Evidence:**
+
+- Mobile live playback-ready dock (390px): `web/usability/mobile-dock-speed-live.png`
+- Mobile live Instructions (390px): `web/usability/mobile-dock-speed-instructions-live.png`
+- Before/after markup fixture: `web/usability/mobile-dock-speed.html`
+- Fixture screenshot: `web/usability/mobile-dock-speed.png`
+
 ## Still open
 
-Mobile Play has no speed control. Desktop `#playbackBar` has 0.25×-4× presets, but that bar is `display: none` below 720px, so the dock always plays at 1×.
+A 390px start-screen and playback-ready pass, plus 1280px empty desktop, found no further layout, spinner, or overflow issues after the speed row. Status, Instructions, and closed-panel Controls stay above the dock. A later pass should load a real trace to watch Play at a non-1× rate.
