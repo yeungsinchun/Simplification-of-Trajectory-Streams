@@ -25,12 +25,18 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
     const int Pn = (int)P.size();
     if (timer_detail::enabled())
         timer_detail::counters()["boundary_candidates"] += Pn;
-    std::vector<std::vector<Point>> S(Pn);
-    for (int i = 0; i < Pn; ++i) S[i] = {P[i]};
+    // Stab regions stay as CCW doubles so prune / find_F / clip never
+    // convert Point <-> xy on the per-candidate path.
+    std::vector<std::array<double, 2>> P_xy(Pn);
+    std::vector<std::vector<std::array<double, 2>>> S(Pn);
+    for (int i = 0; i < Pn; ++i) {
+        P_xy[i] = {CGAL::to_double(P[i].x()), CGAL::to_double(P[i].y())};
+        S[i] = {P_xy[i]};
+    }
     int dead_cnt = 0;
     std::vector<int> dead(Pn);
-    std::vector<std::vector<Point>> new_S(Pn);
-    std::vector<std::vector<Point>> F(Pn);
+    std::vector<std::vector<std::array<double, 2>>> new_S(Pn);
+    std::vector<std::vector<std::array<double, 2>>> F(Pn);
     std::vector<std::array<double, 2>> Gi_xy;
     std::vector<int> tangents;
     tangents.reserve(2);
@@ -56,7 +62,7 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
             bool pruned;
             {
                 TIMER("wedge_gi_disjoint");
-                pruned = wedge_gi_disjoint(P[i], S[i], Gi_xy, &tangents);
+                pruned = wedge_gi_disjoint_xy(P_xy[i][0], P_xy[i][1], S[i], Gi_xy, &tangents);
             }
             if (pruned) {
                 if (timer_detail::enabled())
@@ -70,13 +76,13 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
                 TIMER("find_F");
                 const std::vector<int>* tan_ptr =
                     (tangents.size() == 2) ? &tangents : nullptr;
-                find_F(P[i], S[i], F[i], tan_ptr);
+                find_F_xy(P_xy[i][0], P_xy[i][1], S[i], F[i], tan_ptr);
             }
 
             bool hit;
             {
                 TIMER("intersect");
-                hit = intersect_prepared(F[i], Gi_xy, new_S[i]);
+                hit = intersect_prepared_xy(F[i], Gi_xy, new_S[i]);
             }
             if (!hit) {
                 dead[i] = true;
@@ -87,7 +93,7 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
         for (int i = Pn - 1; i >= 0 && !has_candidate; --i) {
             if (dead[i] || new_S[i].empty()) continue;
             buffer[0] = P[i];
-            buffer[1] = new_S[i].front();
+            buffer[1] = Point(new_S[i].front()[0], new_S[i].front()[1]);
             has_candidate = true;
         }
         if (!has_candidate || dead_cnt == Pn) break;
@@ -270,12 +276,16 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
     std::vector<Point> P = get_boundary_points_from_grid(p0, EPSILON, DELTA);
     std::array<Point, 2> buffer = {p0, p0};
     const int Pn = (int)P.size();
-    std::vector<std::vector<Point>> S(Pn);
-    for (int i = 0; i < Pn; ++i) S[i] = {P[i]};
+    std::vector<std::array<double, 2>> P_xy(Pn);
+    std::vector<std::vector<std::array<double, 2>>> S(Pn);
+    for (int i = 0; i < Pn; ++i) {
+        P_xy[i] = {CGAL::to_double(P[i].x()), CGAL::to_double(P[i].y())};
+        S[i] = {P_xy[i]};
+    }
     int dead_cnt = 0;
     std::vector<int> dead(Pn);
-    std::vector<std::vector<Point>> new_S(Pn);
-    std::vector<std::vector<Point>> F(Pn);
+    std::vector<std::vector<std::array<double, 2>>> new_S(Pn);
+    std::vector<std::vector<std::array<double, 2>>> F(Pn);
     std::vector<Point> Gi;
     std::vector<std::array<double, 2>> Gi_xy;
     std::vector<int> tangents;
@@ -309,7 +319,7 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
             }
 
             tangents.clear();
-            if (wedge_gi_disjoint(P[i], S[i], Gi_xy, &tangents)) {
+            if (wedge_gi_disjoint_xy(P_xy[i][0], P_xy[i][1], S[i], Gi_xy, &tangents)) {
                 dead[i] = true;
                 dead_cnt++;
                 cand.alive = false;
@@ -317,20 +327,26 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
                 continue;
             }
 
-            find_F(P[i], S[i], F[i],
-                   (tangents.size() == 2) ? &tangents : nullptr);
-            cand.F = F[i];
+            find_F_xy(P_xy[i][0], P_xy[i][1], S[i], F[i],
+                      (tangents.size() == 2) ? &tangents : nullptr);
+            cand.F.clear();
+            cand.F.reserve(F[i].size());
+            for (const auto& q : F[i]) cand.F.emplace_back(q[0], q[1]);
 
-            if (!intersect_prepared(F[i], Gi_xy, new_S[i])) {
+            if (!intersect_prepared_xy(F[i], Gi_xy, new_S[i])) {
                 dead[i] = true;
                 dead_cnt++;
                 cand.alive = false;
             } else {
                 cand.alive = true;
-                cand.S = new_S[i];
-                std::vector<Point> F_Si_temp;
-                find_F(P[i], new_S[i], F_Si_temp);
-                cand.F_Si = F_Si_temp;
+                cand.S.clear();
+                cand.S.reserve(new_S[i].size());
+                for (const auto& q : new_S[i]) cand.S.emplace_back(q[0], q[1]);
+                std::vector<std::array<double, 2>> F_Si_temp;
+                find_F_xy(P_xy[i][0], P_xy[i][1], new_S[i], F_Si_temp);
+                cand.F_Si.clear();
+                cand.F_Si.reserve(F_Si_temp.size());
+                for (const auto& q : F_Si_temp) cand.F_Si.emplace_back(q[0], q[1]);
             }
             step.candidates.push_back(std::move(cand));
         }
@@ -339,7 +355,7 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
         for (int i = Pn - 1; i >= 0 && !has_candidate; --i) {
             if (dead[i] || new_S[i].empty()) continue;
             buffer[0] = P[i];
-            buffer[1] = new_S[i].front();
+            buffer[1] = Point(new_S[i].front()[0], new_S[i].front()[1]);
             has_candidate = true;
         }
         step.buffer = buffer;
