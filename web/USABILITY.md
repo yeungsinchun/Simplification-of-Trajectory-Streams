@@ -33,8 +33,22 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Mobile (390px): `web/usability/mobile-loaded-params.png`
 - Markup fixture used for that screenshot: `web/usability/mobile-loaded-params.html`
 
+### Desktop drop-hint heading was misspelled
+
+**Where:** empty-state `#dropHint` panel, `.desktop-instructions h2` (desktop only; the panel is hidden below 720px).
+
+**Problem:** The heading was written as `Intruction`. The stylesheet uppercases it (`text-transform: uppercase`), so the first thing a desktop visitor saw in the instructions card was `INTRUCTION`. Mobile start-help and the sidebar already used `Instructions`.
+
+**Fix:** The heading is now `Instructions`, so the card reads `INSTRUCTIONS`.
+
+**Evidence:**
+
+- Desktop (1280px): `web/usability/desktop-drop-hint-heading.png`
+- Markup fixture used for that screenshot: `web/usability/desktop-drop-hint-heading.html`
+
 ## Still open
 
 These were noticed while checking desktop and mobile and are not fixed here:
 
-- Desktop drop-hint heading is misspelled as "Intruction".
+- Canvas `#traceLoadingHud` (`Loading details…`) is forced off with `display: none !important`, so after Load Trace the drop hint disappears and the canvas stays blank until geometry arrives. Progress is only in the header (upload status / metric slots).
+- On the 390px start screen the δ number field can hide its value (default 500) because the input is `min-width: 0` in a two-column grid next to the spinner arrows.
