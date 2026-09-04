@@ -16,7 +16,8 @@ dependencies.
 - `scripts/prepare_dataset.py`: download T-Drive and normalize it into the canonical curve format.
 - `scripts/benchmark.py`: long-running comparison against the DOTS baseline.
 - `scripts/frechet.jl`: Julia wrapper for continuous Frechet distance.
-- `traj-compression/`: vendored baseline source used by the benchmark.
+- `traj-compression/`: vendored baseline source used by the benchmark and the web compare pane.
+- `web/`: Flask visualizer and baseline comparison UI.
 - `algorithms/`: legacy baseline sources, when present in a checkout.
 - `papers/` paper references.
 - `results/`: selected historical results and plots.
@@ -32,8 +33,9 @@ Required for the headless program:
 - Qt 6 Core (used by the vendored DOTS target)
 
 The Qt viewer additionally needs the CGAL Qt6 component and Qt 6 Widgets. The
-Frechet wrapper and benchmark additionally need Julia, `FrechetDist.jl`, and
-Python 3 with `psutil`.
+web visualizer additionally needs Flask (`web/requirements.txt`). The Frechet
+wrapper and benchmark additionally need Julia, `FrechetDist.jl`, and Python 3
+with `psutil`.
 
 On macOS with Homebrew:
 
@@ -68,7 +70,9 @@ The build produces these main targets within the `build` directory:
 | --- | --- |
 | `simplify` | Headless streaming simplifier |
 | `simplify_with_gui` | Qt viewer and simplifier |
-| `dots` | DOTS baseline used by `benchmark.py` |
+| `dots` | DOTS baseline used by `benchmark.py` and the web compare pane (`BUILD_GUI=ON`) |
+| `dp` | DP baseline used by the web compare pane (when the submodule source is present) |
+| `squish` | SQUISH baseline used by the web compare pane (when the submodule source is present) |
 
 ### Download and prepare data
 
@@ -115,6 +119,21 @@ The optional `plot_curve` viewer from older local builds may be unavailable in
 the current CMake configuration; use `simplify_with_gui` for the supported GUI
 workflow.
 
+### Compare baselines in the web visualizer
+
+The Flask app in `web/` overlays this project's output against DOTS, DP, and
+SQUISH on a prepared trace (`data/<id>/original.txt`):
+
+```bash
+python3 -m pip install -r web/requirements.txt
+python3 web/server.py
+```
+
+Open the printed URL, load a trace, pick a baseline, and run it. `dp` and
+`squish` are produced whenever their `traj-compression` sources exist, including
+with `-DBUILD_GUI=OFF`. The `dots` binary still needs the Qt-enabled DOTS
+target. If `dp` or `squish` is missing, initialize the submodule and rebuild.
+
 ## Benchmarking
 
 The full benchmark is optional and can take hours. It requires the complete
@@ -131,7 +150,8 @@ timeouts, worker settings, and resume behavior.
 ## Baselines and attribution
 
 The benchmark uses the vendored DOTS implementation under
-`traj-compression/`. The `algorithms/` directory contains legacy OPERB,
+`traj-compression/`. The web visualizer also runs DP and SQUISH from that
+submodule. The `algorithms/` directory contains legacy OPERB,
 OPERBA, FBQS, and related baseline code when included by the checkout. Please
 keep the attribution and license notices shipped with those third-party sources
 when redistributing them.

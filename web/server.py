@@ -4,7 +4,8 @@ Flask backend for the trajectory simplification web visualizer.
 
 Accepts an uploaded original.txt trajectory file + epsilon/delta params,
 runs the C++ simplify binary with --web-server --json-stream, and streams
-the trace as NDJSON (header, one prefix per line, done).
+the trace as NDJSON (header, one prefix per line, done). Preloaded traces
+can be compared against DOTS, DP, or SQUISH via GET /api/trace/<id>/compare.
 """
 import os
 import subprocess
@@ -61,7 +62,7 @@ BASELINE_ALGOS = {
 
 
 def read_xy_polyline(path: Path):
-    """Parse N\\n x y files used by simplify/dots. Returns list[[x,y]] or None."""
+    """Parse N\\n x y files used by simplify and baseline outputs. Returns list[[x,y]] or None."""
     if not path.exists():
         return None
     try:
@@ -399,7 +400,7 @@ def frechet_existing_curve(trace_id, curve):
     """
     GET /api/trace/<id>/frechet/<curve>
     Frechet distance between original.txt and an existing result file.
-    curve: simplify | dots
+    curve: simplify | dots | dp | squish
     """
     curve = curve.lower()
     name_map = {
