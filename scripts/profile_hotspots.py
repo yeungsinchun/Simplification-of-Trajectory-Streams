@@ -24,7 +24,8 @@ OUT_TXT = REPO / "results" / "profile_summary.txt"
 
 CORE_RE = re.compile(r"SIMPLIFY_CORE_MS:\s*([\d.]+)")
 COUNTER_RE = re.compile(
-    r"^(BOUNDARY_CANDIDATES_SUM|STAB_STEPS|ALIVE_CANDIDATE_ITERS|SIMPLIFIED_POINTS):\s*(\d+)"
+    r"^(BOUNDARY_CANDIDATES_SUM|STAB_STEPS|ALIVE_CANDIDATE_ITERS|"
+    r"WEDGE_PRUNE_HITS|SIMPLIFIED_POINTS):\s*(\d+)"
 )
 # Matches a timing-summary data line: name, wall, self, calls, %total, %parent
 TIMING_RE = re.compile(
@@ -34,6 +35,7 @@ TIMING_RE = re.compile(
 HOTSPOTS = [
     "intersect",
     "find_F",
+    "wedge_gi_disjoint",
     "get_longest_stab",
     "get_boundary_points",
     "get_conv_from_grid",
@@ -141,6 +143,7 @@ def main() -> int:
                     "simplified_points": ctr.get("SIMPLIFIED_POINTS", -1),
                     "stab_steps": ctr.get("STAB_STEPS", -1),
                     "alive_iters": ctr.get("ALIVE_CANDIDATE_ITERS", -1),
+                    "wedge_prune_hits": ctr.get("WEDGE_PRUNE_HITS", -1),
                     "boundary_candidates_sum": ctr.get("BOUNDARY_CANDIDATES_SUM", -1),
                 }
                 for name in HOTSPOTS:
@@ -157,6 +160,7 @@ def main() -> int:
                     f"core={row['core_ms']:8.2f} ms  "
                     f"intersect={row.get('intersect_pct', -1):5.1f}%  "
                     f"find_F={row.get('find_F_pct', -1):5.1f}%  "
+                    f"wedge={row.get('wedge_gi_disjoint_pct', -1):5.1f}%  "
                     f"simp={row['simplified_points']:4d}  [{row['status']}]"
                 )
 
@@ -275,6 +279,16 @@ def main() -> int:
                 f"  estimated avg boundary candidates |P|: "
                 f"median={statistics.median(pn_est):.0f}  "
                 f"max={max(pn_est):.0f}"
+            )
+        prune_rates = [
+            r["wedge_prune_hits"] / r["alive_iters"]
+            for r in ok if r["alive_iters"] > 0 and r["wedge_prune_hits"] >= 0
+        ]
+        if prune_rates:
+            lines.append(
+                f"  wedge prune hit rate: "
+                f"median={100 * statistics.median(prune_rates):.1f}%  "
+                f"max={100 * max(prune_rates):.1f}%"
             )
     lines.append("")
     lines.append(f"Raw CSV: {OUT_CSV}")

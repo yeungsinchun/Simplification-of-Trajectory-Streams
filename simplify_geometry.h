@@ -63,6 +63,8 @@ inline void make_ccw(std::vector<Vec2>& polygon) {
     if (twice_area < 0.0) std::reverse(polygon.begin(), polygon.end());
 }
 
+inline void to_ccw(std::vector<Vec2>& polygon) { make_ccw(polygon); }
+
 inline Vec2 to_vec2(const Point& p) {
     return {CGAL::to_double(p.x()), CGAL::to_double(p.y())};
 }
@@ -552,16 +554,10 @@ inline std::vector<Point> get_points_from_grid(const Point& p, double EPSILON, d
     return points;
 }
 
-// Convex hull of the delta-disk grid samples around p (the region conv(G_i)).
-//
-// The grid-corner offsets depend only on (EPSILON, DELTA), never on p: every
-// call to get_points_from_grid(p, ...) yields the same corner set merely
-// translated by p.  Convex hull is translation-equivariant, so conv(G_i) has
-// an identical shape for every point in the stream and only its position
-// changes.  We therefore build the origin-centred hull once per (EPSILON,
-// DELTA) and translate that cached template by p on each call, turning a
-// per-step O(m log m) hull build into an O(h) copy-with-offset.
-inline std::vector<Point> get_conv_from_grid(const Point& p, double EPSILON, double DELTA, int multiplier = 1) {
+// Origin-centred conv(G) vertex offsets, stored CCW.  Shared by the Point and
+// double translators so the hull is built (and wound) once per (eps, delta).
+inline const std::vector<std::array<double, 2>>& conv_hull_offsets(
+    double EPSILON, double DELTA, int multiplier = 1) {
     thread_local double cached_eps   = std::numeric_limits<double>::quiet_NaN();
     thread_local double cached_delta = std::numeric_limits<double>::quiet_NaN();
     thread_local int cached_mult = 0;
@@ -575,11 +571,25 @@ inline std::vector<Point> get_conv_from_grid(const Point& p, double EPSILON, dou
         hull_offsets.reserve(conv.size());
         for (const auto& q : conv)
             hull_offsets.push_back({CGAL::to_double(q.x()), CGAL::to_double(q.y())});
+        sh_double::to_ccw(hull_offsets);
         cached_eps   = EPSILON;
         cached_delta = DELTA;
         cached_mult  = multiplier;
     }
+    return hull_offsets;
+}
 
+// Convex hull of the delta-disk grid samples around p (the region conv(G_i)).
+//
+// The grid-corner offsets depend only on (EPSILON, DELTA), never on p: every
+// call to get_points_from_grid(p, ...) yields the same corner set merely
+// translated by p.  Convex hull is translation-equivariant, so conv(G_i) has
+// an identical shape for every point in the stream and only its position
+// changes.  We therefore build the origin-centred hull once per (EPSILON,
+// DELTA) and translate that cached template by p on each call, turning a
+// per-step O(m log m) hull build into an O(h) copy-with-offset.
+inline std::vector<Point> get_conv_from_grid(const Point& p, double EPSILON, double DELTA, int multiplier = 1) {
+    const auto& hull_offsets = conv_hull_offsets(EPSILON, DELTA, multiplier);
     const double px = CGAL::to_double(p.x());
     const double py = CGAL::to_double(p.y());
     std::vector<Point> conv;
@@ -587,6 +597,19 @@ inline std::vector<Point> get_conv_from_grid(const Point& p, double EPSILON, dou
     for (const auto& off : hull_offsets)
         conv.emplace_back(px + off[0], py + off[1]);
     return conv;
+}
+
+// Same hull as get_conv_from_grid, written as CCW doubles.  The stab loop
+// clips and prunes against this buffer; it does not need Epick points.
+inline void get_conv_xy_from_grid(const Point& p, double EPSILON, double DELTA,
+                                  std::vector<std::array<double, 2>>& xy,
+                                  int multiplier = 1) {
+    const auto& hull_offsets = conv_hull_offsets(EPSILON, DELTA, multiplier);
+    const double px = CGAL::to_double(p.x());
+    const double py = CGAL::to_double(p.y());
+    xy.resize(hull_offsets.size());
+    for (size_t i = 0; i < hull_offsets.size(); ++i)
+        xy[i] = {px + hull_offsets[i][0], py + hull_offsets[i][1]};
 }
 
 // Boundary anchors for P: leftmost and rightmost grid sample on every y-row,
@@ -641,41 +664,30 @@ inline std::vector<Point> get_boundary_points_from_grid(const Point& p, double E
 }
 
 /**
- * @brief Indices of the two supporting (tangent) vertices from p to convex S.
+ * @brief Indices of the two supporting (tangent) vertices from p to convex S,
+ *        given as already-converted doubles.
  *
  * @pre p lies outside convex S. Then all of S sits in a <180° angular wedge
  *      from p, so bearing is a total order.
- * @param p External query point.
- * @param S Convex polygon vertices.
  * @param out Cleared then filled with 0 or 2 indices {min_idx, max_idx}
  *            of the most-CW and most-CCW vertices (empty if both coincide).
  *
  * Algorithm: O(n) scan; keep argmin / argmax of orientation(p, S[i], S[j])
  * in pure doubles. Collinear ties: either vertex is a valid support.
  */
-inline void find_tangent_idx(const Point& p, const std::vector<Point>& S,
-                             std::vector<int>& out) {
+inline void find_tangent_idx_from_xy(double px, double py,
+                                     const std::vector<double>& sx,
+                                     const std::vector<double>& sy,
+                                     int n,
+                                     std::vector<int>& out) {
     out.clear();
-
-    const int n = static_cast<int>(S.size());
     if (n < 1) return;
-
-    // Cache p and S coordinates as doubles once (S is scanned 2n times).
-    thread_local std::vector<double> sx, sy;
-    sx.resize(n);
-    sy.resize(n);
-    for (int i = 0; i < n; ++i) {
-        sx[i] = CGAL::to_double(S[i].x());
-        sy[i] = CGAL::to_double(S[i].y());
-    }
-    const double pdx = CGAL::to_double(p.x());
-    const double pdy = CGAL::to_double(p.y());
 
     // Sign of orientation(p, S[i], S[j]) in pure doubles.
     // (+1 left, -1 right, 0 collinear.)
     auto orient = [&](int i, int j) -> int {
-        const double ux = sx[i] - pdx, uy = sy[i] - pdy;
-        const double wx = sx[j] - pdx, wy = sy[j] - pdy;
+        const double ux = sx[i] - px, uy = sy[i] - py;
+        const double wx = sx[j] - px, wy = sy[j] - py;
         const double det = ux * wy - uy * wx;
         if (det > 0.0) return  1;
         if (det < 0.0) return -1;
@@ -693,6 +705,20 @@ inline void find_tangent_idx(const Point& p, const std::vector<Point>& S,
     }
 }
 
+inline void find_tangent_idx(const Point& p, const std::vector<Point>& S,
+                             std::vector<int>& out) {
+    const int n = static_cast<int>(S.size());
+    thread_local std::vector<double> sx, sy;
+    sx.resize(n);
+    sy.resize(n);
+    for (int i = 0; i < n; ++i) {
+        sx[i] = CGAL::to_double(S[i].x());
+        sy[i] = CGAL::to_double(S[i].y());
+    }
+    find_tangent_idx_from_xy(CGAL::to_double(p.x()), CGAL::to_double(p.y()),
+                             sx, sy, n, out);
+}
+
 inline std::vector<int> find_tangent_idx(const Point& p, const std::vector<Point>& S) {
     std::vector<int> tangent;
     tangent.reserve(2);
@@ -701,7 +727,8 @@ inline std::vector<int> find_tangent_idx(const Point& p, const std::vector<Point
 }
 
 /**
- * @brief Conservative prune: true ⇒ Gi is provably disjoint from F(S,p).
+ * @brief Conservative prune: true ⇒ Gi (prepared CCW doubles) is provably
+ *        disjoint from F(S,p).
  *
  * Lets the stab loop skip find_F + clip when separation is robust.
  *
@@ -720,24 +747,49 @@ inline std::vector<int> find_tangent_idx(const Point& p, const std::vector<Point
  *   |S|<3, p ∈ S, no two tangents, or degenerate cone (orient == 0).
  */
 inline bool wedge_gi_disjoint(const Point& p, const std::vector<Point>& S,
-                              const std::vector<Point>& Gi,
+                              const std::vector<std::array<double, 2>>& Gi_xy,
                               std::vector<int>* tangent_out = nullptr) {
     const int sn = static_cast<int>(S.size());
     if (sn < 3) return false;                    // single point / degenerate: F = bbox
-    if (point_in_convex(p, S)) return false;     // p inside S: F = whole bbox
+
+    // Convert S once: AABB (to skip the exact inside test), tangents, and
+    // the supporting-ray vectors all share this buffer.
+    thread_local std::vector<double> sx, sy;
+    sx.resize(sn);
+    sy.resize(sn);
+    double minx =  std::numeric_limits<double>::infinity();
+    double miny =  std::numeric_limits<double>::infinity();
+    double maxx = -std::numeric_limits<double>::infinity();
+    double maxy = -std::numeric_limits<double>::infinity();
+    for (int i = 0; i < sn; ++i) {
+        const double x = CGAL::to_double(S[i].x());
+        const double y = CGAL::to_double(S[i].y());
+        sx[i] = x;
+        sy[i] = y;
+        if (x < minx) minx = x;
+        if (x > maxx) maxx = x;
+        if (y < miny) miny = y;
+        if (y > maxy) maxy = y;
+    }
+    const double px = CGAL::to_double(p.x()), py = CGAL::to_double(p.y());
+    // GEOM_TOL keeps a converted interior apex from falling just outside the
+    // AABB of the converted vertices and skipping the exact inside test.
+    const bool may_be_inside =
+        px >= minx - GEOM_TOL && px <= maxx + GEOM_TOL &&
+        py >= miny - GEOM_TOL && py <= maxy + GEOM_TOL;
+    if (may_be_inside && point_in_convex(p, S)) return false;  // p inside S: F = bbox
 
     // Prefer writing tangents straight into the caller's buffer to avoid an
     // extra allocation on the hot miss path.
     thread_local std::vector<int> local_tangent;
     std::vector<int>& tangent = tangent_out ? *tangent_out : local_tangent;
-    find_tangent_idx(p, S, tangent);
+    find_tangent_idx_from_xy(px, py, sx, sy, sn, tangent);
     if (tangent.size() != 2) return false;       // find_F bails here anyway
 
-    const double px = CGAL::to_double(p.x()), py = CGAL::to_double(p.y());
-    const double t0x = CGAL::to_double(S[tangent[0]].x()) - px;
-    const double t0y = CGAL::to_double(S[tangent[0]].y()) - py;
-    const double t1x = CGAL::to_double(S[tangent[1]].x()) - px;
-    const double t1y = CGAL::to_double(S[tangent[1]].y()) - py;
+    const double t0x = sx[tangent[0]] - px;
+    const double t0y = sy[tangent[0]] - py;
+    const double t1x = sx[tangent[1]] - px;
+    const double t1y = sy[tangent[1]] - py;
 
     // orient = cross(t0, t1); its sign tells which side of each ray is interior
     // (the side containing the other ray).
@@ -746,12 +798,12 @@ inline bool wedge_gi_disjoint(const Point& p, const std::vector<Point>& S,
     const bool ccw = orient > 0.0;               // t1 is CCW of t0
 
     constexpr double K = 8.0 * std::numeric_limits<double>::epsilon();
-    const int m = static_cast<int>(Gi.size());
+    const int m = static_cast<int>(Gi_xy.size());
 
     bool sep0 = true, sep1 = true;
     for (int k = 0; k < m && (sep0 || sep1); ++k) {
-        const double qx = CGAL::to_double(Gi[k].x()) - px;
-        const double qy = CGAL::to_double(Gi[k].y()) - py;
+        const double qx = Gi_xy[k][0] - px;
+        const double qy = Gi_xy[k][1] - py;
         if (sep0) {
             const double a = t0x * qy, b = t0y * qx;   // cross(t0, q) = a - b
             const double c0 = a - b;
