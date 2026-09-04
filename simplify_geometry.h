@@ -66,8 +66,13 @@ inline ClipWorkspace& get_clip_workspace() {
 // duplicate) in Epick points, or an empty vector when the intersection is
 // degenerate (<3 vertices).  The returned reference is valid until the next
 // clip() call on the same thread.
+//
+// When `assume_ccw` is true (the default), both inputs are already CCW and
+// the signed-area orientation fix is skipped (F from find_F and conv(G)
+// from CGAL are CCW).
 inline const std::vector<Point>& clip(const std::vector<Point>& P_verts,
-                                      const std::vector<Point>& Q_verts) {
+                                      const std::vector<Point>& Q_verts,
+                                      bool assume_ccw = true) {
     // Reuse thread-local workspace to avoid allocations
     ClipWorkspace& ws = get_clip_workspace();
 
@@ -83,8 +88,10 @@ inline const std::vector<Point>& clip(const std::vector<Point>& P_verts,
         ws.subj.push_back({CGAL::to_double(p.x()), CGAL::to_double(p.y())});
     for (const auto& q : Q_verts)
         ws.clipv.push_back({CGAL::to_double(q.x()), CGAL::to_double(q.y())});
-    to_ccw(ws.subj);
-    to_ccw(ws.clipv);
+    if (!assume_ccw) {
+        to_ccw(ws.subj);
+        to_ccw(ws.clipv);
+    }
 
     // subj is not read after this; swap avoids copying the subject polygon.
     ws.out.swap(ws.subj);
@@ -168,21 +175,31 @@ inline std::vector<Point> dedup_consecutive(const std::vector<Point>& poly) {
     return out;
 }
 
-// Convex-convex intersection of P_in and Q_in.  Deduplicates both inputs,
-// runs the Sutherland-Hodgman clip, and returns true with the CCW result in
-// `result` when the intersection is a non-degenerate polygon (>=3 vertices).
+// Convex-convex intersection of P_in and Q_in.  Deduplicates P_in, then
+// (unless `q_pre_deduped`) Q_in, runs clip(), and returns true with the CCW
+// result in `result` when the intersection is a non-degenerate polygon
+// (>=3 vertices).
+//
+// When `q_pre_deduped` is true, Q_in is assumed already free of consecutive
+// near-duplicates (e.g. Gi deduped once per stab step) and is not scanned
+// again.  Orientation follows clip()'s assume_ccw default (true).
 inline bool intersect(const std::vector<Point>& P_in,
                       const std::vector<Point>& Q_in,
-                      std::vector<Point>& result) {
+                      std::vector<Point>& result,
+                      bool q_pre_deduped = false) {
     // Thread-local scratch for the deduplicated inputs; reused across calls so
     // the steady state performs no heap allocation here.
     thread_local std::vector<Point> P_verts, Q_verts;
     dedup_into(P_in, P_verts);
-    dedup_into(Q_in, Q_verts);
+    const std::vector<Point>* Q_ptr = &Q_in;
+    if (!q_pre_deduped) {
+        dedup_into(Q_in, Q_verts);
+        Q_ptr = &Q_verts;
+    }
 
     // clip returns a reference to its own thread-local buffer, distinct from
     // `result`, so deduping straight into `result` is safe.
-    dedup_into(sh_double::clip(P_verts, Q_verts), result);
+    dedup_into(sh_double::clip(P_verts, *Q_ptr), result);
     if (result.size() < 3) {
         result.clear();
         return false;

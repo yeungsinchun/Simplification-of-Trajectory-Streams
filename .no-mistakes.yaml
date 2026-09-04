@@ -1,0 +1,40 @@
+# Trusted default-branch no-mistakes config for this repo.
+#
+# Note on PR bodies: no-mistakes always assembles
+#   ## Intent (from --intent) + ## What Changed (1-3 bullets) + Risk/Testing/Pipeline.
+# There is no pr.instructions key to replace that template. For algorithm PRs,
+# drivers must follow .cursor/skills/algo-pr-description/SKILL.md:
+#   1) pass a numbered stab-loop --intent
+#   2) rewrite the forge PR body after the PR step into the Summary / 4-step form.
+#
+# Fields below are trusted-default-branch-only (must land on main to take effect).
+
+auto_fix:
+  review: 0
+
+document:
+  instructions: |
+    Algorithm and performance behavior of the streaming simplifier is owned by
+    the code in simplify.cpp / simplify_geometry.h and by PR descriptions that
+    follow .cursor/skills/algo-pr-description/SKILL.md. README and workflow docs
+    own build/run/CI usage, not the stab-loop semantics. Do not duplicate a full
+    algorithm walkthrough into README; link to PRs or papers when needed.
+
+review:
+  path_instructions:
+    - path: "simplify*.cpp"
+      instructions: |
+        For algorithm or performance diffs, verify the PR (or the change intent)
+        states clearly: what is pruned/skipped, how it fits the stab loop
+        (P anchors, S[i], Gi, F ∩ Gi, dead candidates), and Frechet/points/perf
+        regression stance. Prefer findings that ask for that clarity over
+        restating the raw intent paragraph.
+    - path: "simplify_geometry.h"
+      instructions: |
+        Geometry hot-path changes (intersect, find_F, wedge prune, grid) must
+        keep Frechet safety explicit. Conservative one-sided prunes are OK;
+        incorrectly dropping a candidate the exact clip would keep is not.
+    - path: "scripts/*.py"
+      instructions: |
+        Benchmark/profile harnesses must not be treated as correctness proofs
+        by themselves; CI Frechet/points/perf gates remain authoritative.
