@@ -935,10 +935,66 @@
     state.frechetError = null;
   }
 
+  function formatTraceNumber(value) {
+    if (typeof value !== "number" || Number.isNaN(value)) {
+      return typeof value === "number" ? "…" : value;
+    }
+    return Math.abs(value) >= 1000 ? value.toFixed(1) : value.toFixed(4);
+  }
+
+  function desktopTraceParamChips(trace) {
+    const epsilonValue = trace && trace.eps != null
+      ? formatTraceNumber(trace.eps)
+      : formatTraceNumber(parseFloat(epsilonInput.value));
+    const deltaValue = trace && trace.delta != null
+      ? formatTraceNumber(trace.delta)
+      : formatTraceNumber(parseFloat(deltaInput.value));
+    const gridLength = trace && trace.grid_val != null ? formatTraceNumber(trace.grid_val) : "…";
+    const diskRadius = trace && trace.r_val != null ? formatTraceNumber(trace.r_val) : "…";
+    const expectedFrechet = trace && trace.expected_frechet != null
+      ? formatTraceNumber(trace.expected_frechet)
+      : "…";
+    const actualFrechet = trace && trace.frechet_distance != null
+      ? formatTraceNumber(trace.frechet_distance)
+      : "…";
+    const streamLen = trace && trace.stream ? trace.stream.length : "…";
+    const simplifiedLen = trace && trace.simplified ? trace.simplified.length : null;
+    const ratio = simplifiedLen != null
+      ? (typeof streamLen === "number" && streamLen ? `${(100 * simplifiedLen / streamLen).toFixed(1)}%` : "-")
+      : "…";
+    const pendingStyle = simplifiedLen == null ? ` style="color:var(--text-dim)"` : "";
+
+    return `
+      <span>\\(\\varepsilon\\) <b>${epsilonValue}</b></span>
+      <span>\\(\\delta\\) <b>${deltaValue}</b></span>
+      <span>\\(\\text{len}_\\text{grid}\\) <b>${gridLength}</b></span>
+      <span>\\(R\\) (disk radius) <b>${diskRadius}</b></span>
+      <span>a-priori Fréchet bound <b>${expectedFrechet}</b></span>
+      <span style="color: #C4612F; font-weight: 600;">Actual Fr&eacute;chet distance <b style="color: #A94E22;">${actualFrechet}</b></span>
+      <span>|stream| <b>${streamLen}</b></span>
+      <span${pendingStyle}>|simplified| <b>${simplifiedLen != null ? simplifiedLen : "…"}</b></span>
+      <span${pendingStyle}>ratio <b>${ratio}</b></span>
+    `;
+  }
+
+  function typesetParamsBar() {
+    if (window.MathJax) {
+      MathJax.typesetPromise([paramsBar]).catch(() => {});
+    }
+  }
+
   function renderParamsBarPreview() {
-    paramsBar.innerHTML = `
+    const loadingMetrics = `
       ${paramsBlueMetric("Computed Fréchet distance", "", true, "frechet")}
       ${paramsBlueMetric("Simplification time", "", true, "time")}`;
+    if (isMobileUI()) {
+      paramsBar.innerHTML = loadingMetrics;
+      return;
+    }
+    paramsBar.innerHTML = `
+      ${loadingMetrics}
+      ${desktopTraceParamChips(null)}`;
+    typesetParamsBar();
   }
 
   function paramsBlueMetric(label, value, loading, kind) {
@@ -1047,9 +1103,7 @@
     const stepBackBtn = el("stepBackBtn");
     stepBackBtn.disabled = (state.prefixIdx === 0 && state.stepIdx === 0);
     startFrechetComputation();
-    if (window.MathJax) {
-      MathJax.typesetPromise([paramsBar]).catch(() => {});
-    }
+    typesetParamsBar();
     // Fire-and-forget: Results strip + DOTS metrics after the live simplify trace.
     loadCompare().then(() => render());
   }
@@ -1672,12 +1726,11 @@
   function renderParamsBar() {
     const t = state.trace;
     if (!t) { paramsBar.innerHTML = ""; return; }
-    const fmt = (v) => (typeof v === "number" ? (Math.abs(v) >= 1000 ? v.toFixed(1) : v.toFixed(4)) : v);
 
     const frechetLoading = state.computingFrechet
       || (state.computedFrechet == null && !state.frechetError);
     const computedFrechetValue = !state.computingFrechet && state.computedFrechet != null
-      ? fmt(state.computedFrechet)
+      ? formatTraceNumber(state.computedFrechet)
       : (!state.computingFrechet && state.frechetError ? "failed" : "");
     const computedFrechetDisplay = paramsBlueMetric(
       "Computed Fréchet distance",
@@ -1686,19 +1739,8 @@
       "frechet",
     );
 
-    const frechetDisplay = t.frechet_distance != null
-      ? `<span style="color: #C4612F; font-weight: 600;">Actual Fr&eacute;chet distance <b style="color: #A94E22;">${fmt(t.frechet_distance)}</b></span>`
-      : '';
-
-    const streamLen = t.stream ? t.stream.length : 0;
-    const simpLen = t.simplified ? t.simplified.length : null;
     const timeLoading = t.time_ms == null;
-    const timeValue = t.time_ms != null ? `${fmt(t.time_ms)} ms` : "";
-
-    const simpDisplay = simpLen != null
-      ? `<span>|simplified| <b>${simpLen}</b></span>
-      <span>ratio <b>${streamLen ? (100 * simpLen / streamLen).toFixed(1) : "—"}%</b></span>`
-      : `<span style="color:var(--text-dim)">|simplified| <b>…</b></span>`;
+    const timeValue = t.time_ms != null ? `${formatTraceNumber(t.time_ms)} ms` : "";
 
     if (isMobileUI()) {
       paramsBar.innerHTML = `
@@ -1710,18 +1752,9 @@
     paramsBar.innerHTML = `
       ${computedFrechetDisplay}
       ${paramsBlueMetric("Simplification time", timeValue, timeLoading, "time")}
-      <span>\\(\\varepsilon\\) <b>${fmt(t.eps)}</b></span>
-      <span>\\(\\delta\\) <b>${fmt(t.delta)}</b></span>
-      <span>\\(\\text{len}_\\text{grid}\\) <b>${fmt(t.grid_val)}</b></span>
-      <span>\\(R\\) (disk radius) <b>${fmt(t.r_val)}</b></span>
-      <span>a-priori Fréchet bound <b>${fmt(t.expected_frechet)}</b></span>
-      ${frechetDisplay}
-      <span>|stream| <b>${streamLen}</b></span>
-      ${simpDisplay}
+      ${desktopTraceParamChips(t)}
     `;
-    if (window.MathJax) {
-      MathJax.typesetPromise([paramsBar]).catch(() => {});
-    }
+    typesetParamsBar();
   }
 
   function currentPrefix() {

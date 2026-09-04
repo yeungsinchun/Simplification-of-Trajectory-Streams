@@ -240,10 +240,28 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture: `web/usability/desktop-load-btn-width.html`
 - Fixture screenshot: `web/usability/desktop-load-btn-width.png`
 
+### Desktop loading grew the header when the remaining param chips arrived
+
+**Where:** desktop header `#paramsBar`, from Load Trace until stream geometry arrives (`min-width: 721px`).
+
+**Problem:** Loading reserved only Computed Fréchet distance and Simplification time. Those two chips filled one params row (header about 79px at 1280, 113px at 900). When geometry arrived, ε, δ, grid length, disk radius, Fréchet bound, stream counts, and ratio wrapped a second row and grew the header by about 31px (110px at 1280, 144px at 900). The two metric chips stayed put, but the canvas jumped.
+
+**Fix:** Desktop loading writes the same secondary chips as the loaded bar. ε and δ use the form values immediately. The other chips keep ellipsis slots, including Actual Fréchet distance and ratio, so the params row is already two lines. Filling numbers later keeps header height at 110px at 1280. Mobile 390px still shows only the two metric chips.
+
+**Evidence:**
+
+- Desktop live loading (1280px): `web/usability/desktop-loading-params-wrap-live.png`
+- Desktop live loaded (1280px): `web/usability/desktop-loading-params-wrap-loaded-live.png`
+- Desktop live loading (900px): `web/usability/desktop-loading-params-wrap-900-live.png`
+- Desktop live loaded (900px): `web/usability/desktop-loading-params-wrap-900-loaded-live.png`
+- Mobile live loading regression (390px): `web/usability/mobile-loading-params-wrap-regression-live.png`
+- Before/after markup fixture: `web/usability/desktop-loading-params-wrap.html`
+- Fixture screenshot: `web/usability/desktop-loading-params-wrap.png`
+
 ## Still open
 
-A 1280/900/390 loading pass now keeps the Load Trace control at its idle width. Remaining items for a later pass:
+A 1280 loading-to-loaded pass now keeps the params bar at two rows and 110px. Remaining items for a later pass:
 
-- After geometry arrives, the rest of the desktop param chips still wrap a second params row (header 79px to 110px at 1280, 113px to 144px at 900). The two metric chips stay in place.
-- At 900px the wrapped \(S_i[p]\) second line can still paint about 10px past the window (MathJax `conv(G_{v_i})` box). A 1280-only pass misses it.
+- At 900px the first header row is still about 14px taller while Computing trace… is shown (158px vs 144px loaded). Params height stays 46px; the leftover is the status text wrapping, not the chips.
+- At 900px a nested MathJax assistive `mjx-container` for \(S_i[p]\) still has a bounding box about 10px past the window. The visible formula ends at 882px, `#sidebar` clips overflow-x, and `documentElement.scrollWidth` stays 900.
 - Desktop playback-bar height still grows from 91px (1280) to about 108px (1024/900) because the bar wraps; treat wrap as a problem only if a control is clipped or untappable.
