@@ -306,6 +306,11 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
 
             tangents.clear();
             if (wedge_gi_disjoint(P[i], S[i], Gi, &tangents)) {
+                // Still build F for the web viewer: justDied styling keys off
+                // F having >=3 vertices. The CLI hot path skips this work.
+                find_F(P[i], S[i], F[i],
+                       (tangents.size() == 2) ? &tangents : nullptr);
+                cand.F = F[i];
                 dead[i] = true;
                 dead_cnt++;
                 cand.alive = false;

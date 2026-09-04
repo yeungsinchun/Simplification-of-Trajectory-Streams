@@ -1,0 +1,29 @@
+Performance comparison: P0 (wedge prune) vs P0+P1 (Gi dedup + skip to_ccw)
+IDs 1-50, repeats=3 (median)
+
+e=0.5 d=200.0
+  n=50
+  mean_ratio=0.9351
+  median_ratio=0.9377
+  geomean_ratio=0.9269
+  stdev=0.1230  min=0.6442  max=1.2373
+  pct_faster(<0.98)=64.0%
+  pct_slower(>1.02)=24.0%
+  pct_flat=[0.98,1.02]=12.0%
+  total_base_ms=4386.79
+  total_opt_ms=4023.14
+  total_saved_ms=363.65
+
+e=299.0 d=1.0
+  n=50
+  mean_ratio=0.9475
+  median_ratio=0.9419
+  geomean_ratio=0.9417
+  stdev=0.1074  min=0.6851  max=1.2456
+  pct_faster(<0.98)=78.0%
+  pct_slower(>1.02)=14.0%
+  pct_flat=[0.98,1.02]=8.0%
+  total_base_ms=737.41
+  total_opt_ms=721.05
+  total_saved_ms=16.36
+
