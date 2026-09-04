@@ -32,6 +32,7 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
     std::vector<std::vector<Point>> new_S(Pn);
     std::vector<std::vector<Point>> F(Pn);
     std::vector<Point> Gi;
+    std::vector<Point> Gi_dedup;
     std::vector<int> tangents;
     tangents.reserve(2);
 
@@ -43,6 +44,7 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
             TIMER("get_conv_from_grid");
             Gi = get_conv_from_grid(stream[cur], EPSILON, DELTA);
         }
+        dedup_into(Gi, Gi_dedup);
         for (int i = 0; i < Pn; ++i) {
             if (dead[i]) continue;
             if (timer_detail::enabled())
@@ -71,7 +73,8 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
             bool hit;
             {
                 TIMER("intersect");
-                hit = intersect(F[i], Gi, new_S[i]);
+                // Gi_dedup is shared across candidates for this stream step.
+                hit = intersect(F[i], Gi_dedup, new_S[i], /*q_pre_deduped=*/true);
             }
             if (!hit) {
                 dead[i] = true;
@@ -272,6 +275,7 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
     std::vector<std::vector<Point>> new_S(Pn);
     std::vector<std::vector<Point>> F(Pn);
     std::vector<Point> Gi;
+    std::vector<Point> Gi_dedup;
     std::vector<int> tangents;
     tangents.reserve(2);
 
@@ -283,6 +287,7 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
     cur++;
     while (cur < int(stream.size())) {
         Gi = get_conv_from_grid(stream[cur], EPSILON, DELTA);
+        dedup_into(Gi, Gi_dedup);
 
         webtrace::StepTrace step;
         step.stream_idx = cur;
@@ -312,7 +317,7 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
                    (tangents.size() == 2) ? &tangents : nullptr);
             cand.F = F[i];
 
-            if (!intersect(F[i], Gi, new_S[i])) {
+            if (!intersect(F[i], Gi_dedup, new_S[i], /*q_pre_deduped=*/true)) {
                 dead[i] = true;
                 dead_cnt++;
                 cand.alive = false;
