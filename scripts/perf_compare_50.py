@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Compare baseline vs optimized simplify core_ms over many taxi IDs.
+"""Compare two simplify binaries' core_ms over many taxi IDs.
 
-Fixed (epsilon, delta) pairs. Writes CSV + PNG plots under results/.
+Generic harness: --baseline-bin vs --opt-bin at fixed (epsilon, delta) pairs.
+Writes CSV + PNG under --out-dir. Recorded P1 vs P0 numbers live in
+results/p1_vs_p0/.
 """
 from __future__ import annotations
 

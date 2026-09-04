@@ -67,8 +67,9 @@ inline ClipWorkspace& get_clip_workspace() {
 // degenerate (<3 vertices).  The returned reference is valid until the next
 // clip() call on the same thread.
 //
-// When `assume_ccw` is true, both inputs are already CCW and the signed-area
-// orientation fix is skipped (F from find_F and conv(G) from CGAL are CCW).
+// When `assume_ccw` is true (the default), both inputs are already CCW and
+// the signed-area orientation fix is skipped (F from find_F and conv(G)
+// from CGAL are CCW).
 inline const std::vector<Point>& clip(const std::vector<Point>& P_verts,
                                       const std::vector<Point>& Q_verts,
                                       bool assume_ccw = true) {
@@ -174,13 +175,14 @@ inline std::vector<Point> dedup_consecutive(const std::vector<Point>& poly) {
     return out;
 }
 
-// Convex-convex intersection of P_in and Q_in.  Deduplicates both inputs,
-// runs the Sutherland-Hodgman clip, and returns true with the CCW result in
-// `result` when the intersection is a non-degenerate polygon (>=3 vertices).
+// Convex-convex intersection of P_in and Q_in.  Deduplicates P_in, then
+// (unless `q_pre_deduped`) Q_in, runs clip(), and returns true with the CCW
+// result in `result` when the intersection is a non-degenerate polygon
+// (>=3 vertices).
 //
 // When `q_pre_deduped` is true, Q_in is assumed already free of consecutive
 // near-duplicates (e.g. Gi deduped once per stab step) and is not scanned
-// again.
+// again.  Orientation follows clip()'s assume_ccw default (true).
 inline bool intersect(const std::vector<Point>& P_in,
                       const std::vector<Point>& Q_in,
                       std::vector<Point>& result,

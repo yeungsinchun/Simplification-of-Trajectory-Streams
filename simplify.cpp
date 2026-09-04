@@ -44,6 +44,7 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
             TIMER("get_conv_from_grid");
             Gi = get_conv_from_grid(stream[cur], EPSILON, DELTA);
         }
+        // Dedup conv(G) once per stream step; intersect reuses Gi_dedup.
         dedup_into(Gi, Gi_dedup);
         for (int i = 0; i < Pn; ++i) {
             if (dead[i]) continue;
@@ -73,7 +74,6 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
             bool hit;
             {
                 TIMER("intersect");
-                // Gi_dedup is shared across candidates for this stream step.
                 hit = intersect(F[i], Gi_dedup, new_S[i], /*q_pre_deduped=*/true);
             }
             if (!hit) {
@@ -287,6 +287,7 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
     cur++;
     while (cur < int(stream.size())) {
         Gi = get_conv_from_grid(stream[cur], EPSILON, DELTA);
+        // Dedup conv(G) once per stream step; intersect reuses Gi_dedup.
         dedup_into(Gi, Gi_dedup);
 
         webtrace::StepTrace step;
