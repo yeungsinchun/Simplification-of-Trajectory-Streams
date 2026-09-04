@@ -24,6 +24,7 @@ inline double EPSILON = 0.5;
 inline std::filesystem::path repo_root;
 inline bool out_flag = false;
 inline bool dist_flag = false;
+inline bool time_flag = false;
 inline bool web_server_flag = false;
 inline bool json_stream_flag = false;
 inline bool help_flag = false;
@@ -40,6 +41,7 @@ inline void print_help(const char* prog) {
               << "  --dist           After output, compute Frechet distance by invoking 'julia scripts/frechet.jl' with --in <id> --path <simplify.txt>" << '\n'
               << "  -d <delta>       Override DELTA (default " << DELTA << ")\n"
               << "  -e <epsilon>     Override EPSILON (default " << EPSILON << ")\n"
+              << "  --time           Print a hierarchical timing summary of the hot path to stderr\n"
               << "  --dump-intersect Dump every (F_poly, Gi_poly) pair fed to "
                  "intersect() to data/<id>/intersect_pairs.txt\n"
               << "  --web-server     Emit a machine-readable JSON trace of the algorithm to "
@@ -55,6 +57,7 @@ inline int parse_arguments(int argc, char** argv, int& test_case_no) {
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i],"--out") == 0) out_flag = true;
         else if (strcmp(argv[i],"--dist") == 0) dist_flag = true;
+        else if (strcmp(argv[i],"--time") == 0) time_flag = true;
         else if (strcmp(argv[i],"--web-server") == 0) web_server_flag = true;
         else if (strcmp(argv[i],"--json-stream") == 0) json_stream_flag = true;
         else if (strcmp(argv[i],"--json-output") == 0 && i+1 < argc) {

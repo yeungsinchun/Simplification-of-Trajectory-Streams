@@ -555,10 +555,13 @@ inline std::vector<Point> get_boundary_points_from_grid(const Point& p, double E
 // keeping the most-clockwise and most-counterclockwise vertices finds both
 // tangents in O(n).  The orientation sign is pure-double: on a collinear tie
 // either vertex is an equally valid supporting vertex.
-inline std::vector<int> find_tangent_idx(const Point& p, const std::vector<Point>& S) {
-    std::vector<int> tangent;
-    tangent.reserve(2);
+//
+// Writes 0 or 2 indices into `out` (cleared first).
+inline void find_tangent_idx(const Point& p, const std::vector<Point>& S,
+                             std::vector<int>& out) {
+    out.clear();
     const int n = static_cast<int>(S.size());
+    if (n < 1) return;
 
     // Cache p and S coordinates as doubles once (S is scanned 2n times).
     thread_local std::vector<double> sx, sy;
@@ -588,9 +591,15 @@ inline std::vector<int> find_tangent_idx(const Point& p, const std::vector<Point
         if (orient(lt, j) > 0) lt = j;   // S[j] strictly left  of p->S[lt]
     }
     if (rt != lt) {
-        tangent.push_back(std::min(rt, lt));
-        tangent.push_back(std::max(rt, lt));
+        out.push_back(std::min(rt, lt));
+        out.push_back(std::max(rt, lt));
     }
+}
+
+inline std::vector<int> find_tangent_idx(const Point& p, const std::vector<Point>& S) {
+    std::vector<int> tangent;
+    tangent.reserve(2);
+    find_tangent_idx(p, S, tangent);
     return tangent;
 }
 
@@ -598,6 +607,10 @@ inline std::vector<int> find_tangent_idx(const Point& p, const std::vector<Point
 // the delta-disk region Gi is *provably* disjoint from the free-space wedge
 // F(S,p), so the caller can skip the expensive clip and declare the candidate
 // dead without computing F at all.
+//
+// When the prune does not fire and two supporting vertices were found,
+// `tangent_out` (if non-null) holds those indices so find_F can reuse them
+// instead of scanning S again.
 //
 // F(S,p) is always contained in the cone with apex p bounded by the two tangent
 // rays p->S[t0] and p->S[t1] (all of S, its arc, and the bbox hits lie inside
@@ -613,11 +626,17 @@ inline std::vector<int> find_tangent_idx(const Point& p, const std::vector<Point
 // guarantee is preserved (a wrongly-kept candidate is impossible; a wrongly
 // dropped one cannot occur because we only prune on robust separation).
 inline bool wedge_gi_disjoint(const Point& p, const std::vector<Point>& S,
-                              const std::vector<Point>& Gi) {
+                              const std::vector<Point>& Gi,
+                              std::vector<int>* tangent_out = nullptr) {
     const int sn = static_cast<int>(S.size());
     if (sn < 3) return false;                    // single point / degenerate: F = bbox
     if (point_in_convex(p, S)) return false;     // p inside S: F = whole bbox
-    std::vector<int> tangent = find_tangent_idx(p, S);
+
+    // Prefer writing tangents straight into the caller's buffer to avoid an
+    // extra allocation on the hot miss path.
+    thread_local std::vector<int> local_tangent;
+    std::vector<int>& tangent = tangent_out ? *tangent_out : local_tangent;
+    find_tangent_idx(p, S, tangent);
     if (tangent.size() != 2) return false;       // find_F bails here anyway
 
     const double px = CGAL::to_double(p.x()), py = CGAL::to_double(p.y());
@@ -663,23 +682,39 @@ inline bool wedge_gi_disjoint(const Point& p, const std::vector<Point>& S,
 // is a single point) every bbox point is reachable, so F is the whole bbox;
 // otherwise F is bounded by the two tangent rays from p to S, the arc of S
 // between the tangent vertices, and the bbox boundary between the two ray hits.
+//
+// Optional `tangent_in`: when non-null and size==2, skips find_tangent_idx
+// (caller already computed the supporting vertices, e.g. during a prune miss).
 inline void find_F(const Point& p, const std::vector<Point>& S,
-                   std::vector<Point>& F) {
+                   std::vector<Point>& F,
+                   const std::vector<int>* tangent_in = nullptr) {
     F.clear();
     assert(S.size() != 2);
-    bool p_in_S = point_in_convex(p, S);
-    if (S.size() == 1 || p_in_S) {
+
+    // Precomputed tangents imply p is outside S (prune already established that).
+    if (!(tangent_in && tangent_in->size() == 2)) {
+        bool p_in_S = point_in_convex(p, S);
+        if (S.size() == 1 || p_in_S) {
+            F = current_bbox();
+            return;
+        }
+    } else if (S.size() == 1) {
         F = current_bbox();
         return;
     }
 
-    std::vector<int> tangent = find_tangent_idx(p, S);
-    if (tangent.size() != 2) {
+    std::vector<int> tangent_storage;
+    const std::vector<int>* tangent = tangent_in;
+    if (!tangent || tangent->size() != 2) {
+        find_tangent_idx(p, S, tangent_storage);
+        tangent = &tangent_storage;
+    }
+    if (tangent->size() != 2) {
         return;
     }
 
-    auto hit1 = ray_hit_bbox(p, S[tangent[0]]);
-    auto hit2 = ray_hit_bbox(p, S[tangent[1]]);
+    auto hit1 = ray_hit_bbox(p, S[(*tangent)[0]]);
+    auto hit2 = ray_hit_bbox(p, S[(*tangent)[1]]);
     if (!hit1 || !hit2) {
         F = current_bbox();
         return;
@@ -694,23 +729,23 @@ inline void find_F(const Point& p, const std::vector<Point>& S,
 
     int n = int(S.size());
     assert(n >= 3);
-    assert(tangent[1] - tangent[0] - 1 >= 1 || tangent[0] + n - tangent[1] - 1 >= 1);
+    assert((*tangent)[1] - (*tangent)[0] - 1 >= 1 || (*tangent)[0] + n - (*tangent)[1] - 1 >= 1);
 
     F.reserve(n + 4);
     // Raw-double right_turn: sign((S[t1] - p) x (S[t2] - p))
-    const double ax = CGAL::to_double(S[tangent[0]].x() - p.x()),
-                  ay = CGAL::to_double(S[tangent[0]].y() - p.y());
-    const double bx = CGAL::to_double(S[tangent[1]].x() - p.x()),
-                  by = CGAL::to_double(S[tangent[1]].y() - p.y());
+    const double ax = CGAL::to_double(S[(*tangent)[0]].x() - p.x()),
+                  ay = CGAL::to_double(S[(*tangent)[0]].y() - p.y());
+    const double bx = CGAL::to_double(S[(*tangent)[1]].x() - p.x()),
+                  by = CGAL::to_double(S[(*tangent)[1]].y() - p.y());
     const bool is_right_turn = (ax * by - ay * bx) < 0;
     if (is_right_turn) {
-        std::copy(S.begin() + tangent[0], S.begin() + tangent[1] + 1, std::back_inserter(F));
+        std::copy(S.begin() + (*tangent)[0], S.begin() + (*tangent)[1] + 1, std::back_inserter(F));
         F.push_back(hit2.value());
         append_rect_pts(F, e2.value(), e1.value(), true);
         F.push_back(hit1.value());
     } else {
-        std::copy(S.begin() + tangent[1], S.end(), std::back_inserter(F));
-        std::copy(S.begin(), S.begin() + tangent[0] + 1, std::back_inserter(F));
+        std::copy(S.begin() + (*tangent)[1], S.end(), std::back_inserter(F));
+        std::copy(S.begin(), S.begin() + (*tangent)[0] + 1, std::back_inserter(F));
         F.push_back(hit1.value());
         append_rect_pts(F, e1.value(), e2.value(), true);
         F.push_back(hit2.value());
