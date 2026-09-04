@@ -951,6 +951,16 @@
     hud.setAttribute("aria-hidden", visible ? "false" : "true");
   }
 
+  function setPlaybackChromeVisible(visible) {
+    document.body.classList.toggle("playback-ready", Boolean(visible));
+    if (playbackBar) playbackBar.classList.toggle("visible", Boolean(visible));
+    if (playbackToggle) playbackToggle.classList.toggle("visible", Boolean(visible));
+    if (mobileTransport) {
+      mobileTransport.classList.toggle("visible", Boolean(visible));
+      mobileTransport.setAttribute("aria-hidden", visible ? "false" : "true");
+    }
+  }
+
   function showTraceLoading() {
     stopPlaying();
     state.trace = null;
@@ -960,6 +970,7 @@
     resetFrechetState();
     dropHint.style.display = "none";
     canvas.classList.remove("has-trace");
+    setPlaybackChromeVisible(false);
     enterMobileTraceLayout();
     document.body.classList.add("trace-loading");
     document.body.classList.remove("trace-loading-error");
@@ -982,6 +993,7 @@
     canvas.classList.remove("has-trace");
     dropHint.style.display = "";
     setCanvasLoadingHud(false);
+    setPlaybackChromeVisible(false);
     clearTopBarTraceStatus();
     uploadStatus.textContent = message;
     uploadStatus.style.color = "#ff5f6d";
@@ -995,8 +1007,7 @@
     canvas.classList.add("has-trace");
     setCanvasLoadingHud(false);
     document.body.classList.add("trace-loaded-mobile");
-    if (playbackBar) playbackBar.classList.add("visible");
-    if (playbackToggle) playbackToggle.classList.add("visible");
+    setPlaybackChromeVisible(true);
     renderParamsBar();
     setupSliders();
   }
@@ -1608,8 +1619,7 @@
       uploadStatus.textContent = "";
       dropHint.style.display = "flex";
       document.body.classList.remove("trace-loaded-mobile");
-      if (playbackBar) playbackBar.classList.remove("visible");
-      if (playbackToggle) playbackToggle.classList.remove("visible");
+      setPlaybackChromeVisible(false);
       syncPreloadedTrigger();
       return;
     }

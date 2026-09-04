@@ -1096,7 +1096,7 @@
     }
     .playbackToggle { display: none !important; }
 
-    body.trace-loaded-mobile .mobile-transport {
+    body.trace-loaded-mobile .mobile-transport.visible {
       display: grid;
       position: fixed;
       left: 10px;
@@ -1176,11 +1176,11 @@
     }
     body.trace-loading-error .mobile-transport { display: none; }
     .mobile-transport svg { width: 20px; height: 20px; }
-    body.trace-loaded-mobile #canvasWrap {
+    body.trace-loaded-mobile.playback-ready #canvasWrap {
       padding-bottom: calc(76px + env(safe-area-inset-bottom));
       box-sizing: border-box;
     }
-    body.trace-loaded-mobile.mobile-panel-closed .mobile-panel-open {
+    body.trace-loaded-mobile.playback-ready.mobile-panel-closed .mobile-panel-open {
       bottom: calc(76px + env(safe-area-inset-bottom));
     }
 
@@ -1997,7 +1997,7 @@
 <div id="tracePickerBackdrop" class="trace-picker-backdrop" aria-hidden="true"></div>
 
 <!-- Mobile touch controls for steps, candidates, and playback -->
-<nav id="mobileTransport" class="mobile-transport" aria-label="Playback navigation">
+<nav id="mobileTransport" class="mobile-transport" aria-label="Playback navigation" aria-hidden="true">
   <button type="button" id="mobileStepBackBtn" aria-label="Previous step">
     ←
     <span>Step</span>

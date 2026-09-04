@@ -89,8 +89,22 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture (390px): `web/usability/mobile-select-overflow.png`
 - Markup fixture used for that screenshot: `web/usability/mobile-select-overflow.html`
 
+### Mobile playback dock appeared before canvas geometry
+
+**Where:** 390px loaded-trace screen, `#mobileTransport`, from Load Trace until the first stream header/geometry message.
+
+**Problem:** `showTraceLoading()` entered the mobile loaded layout immediately (`body.trace-loaded-mobile`), and that class showed the bottom playback dock. Buttons were disabled, but Play still used the accent color over an empty canvas. Desktop `#playbackBar` already waited for `initTraceUI`; mobile did not.
+
+**Fix:** Playback chrome (mobile dock, desktop bar, and the extra canvas bottom padding) is hidden from `showTraceLoading()` and only shown in `initTraceUI`, when stream geometry exists. A failed or cleared load hides it again.
+
+**Evidence:**
+
+- Mobile live loading (390px): `web/usability/mobile-playback-dock-loading-live.png`
+- Before/after markup fixture (390px): `web/usability/mobile-playback-dock-loading.png`
+- Markup fixture used for that screenshot: `web/usability/mobile-playback-dock-loading.html`
+
 ## Still open
 
 These were noticed while checking desktop and mobile and are not fixed here:
 
-- On mobile, the playback dock appears as soon as Load Trace starts, while the canvas still has no geometry. The buttons are disabled, but Play still looks tappable over the empty canvas.
+- On mobile, Load Trace still opens the sidebar under the canvas with bootstrap Status values (`p #0`, `v_i #1`, `step 1`) before any geometry exists. The loading HUD is on the canvas, but the placeholder panel looks like real playback state.
