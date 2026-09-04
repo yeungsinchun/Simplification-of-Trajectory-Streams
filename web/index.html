@@ -50,6 +50,15 @@
     color: var(--text-dim);
     font-size: 12px;
   }
+  #uploadStatus {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-height: 26px;
+    line-height: 1.2;
+  }
   .file-controls {
     display: flex;
     align-items: center;
@@ -519,11 +528,7 @@
   body.results-panel-open .results-panel-open-btn { display: none; }
 
   #uploadStatus.upload-status-loading {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
     color: #4f9dff;
-    min-height: 14px;
   }
   main {
     flex: 1;
@@ -1568,6 +1573,24 @@
       margin-left: 0;
       width: 100%;
     }
+    .upload-form button,
+    #trajectoryFileName {
+      white-space: nowrap;
+    }
+    .upload-form label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    #uploadStatus {
+      min-width: 126px;
+    }
+  }
+
+  @media (min-width: 721px) and (max-width: 899px) {
+    .upload-form { flex-wrap: wrap; }
   }
 
   @media (max-width: 480px) {

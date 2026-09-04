@@ -258,10 +258,28 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture: `web/usability/desktop-loading-params-wrap.html`
 - Fixture screenshot: `web/usability/desktop-loading-params-wrap.png`
 
+### Desktop Computing status grew the first header row
+
+**Where:** desktop header `#uploadStatus` and `.upload-form` ε / δ labels, at 900px, from Load Trace until geometry arrives (`min-width: 721px`).
+
+**Problem:** `Computing trace…` plus its spinner wrapped to two lines (30px). That squeeze also stacked ε / δ under their symbols (35px). The controls row was 41px while loading and 26px after `✓ Loaded Trace 1`, so the header jumped from 158px to 144px. Params stayed 46px; the leftover was the status wrap, not the chips. 1280px already stayed 110px.
+
+**Fix:** `#uploadStatus` stays on one line in a reserved 126×26px slot. Desktop ε / δ labels stay an inline nowrap flex pair, and the upload / filename controls do not wrap. Between 721px and 899px the form wraps as a whole so those reserved widths do not clip. Loading and loaded both measure 144px at 900px and 110px at 1280. Mobile 390px is unchanged at 117px.
+
+**Evidence:**
+
+- Desktop live loading (900px): `web/usability/desktop-loading-status-wrap-900-live.png`
+- Desktop live loaded (900px): `web/usability/desktop-loading-status-wrap-900-loaded-live.png`
+- Desktop live loading regression (1280px): `web/usability/desktop-loading-status-wrap-1280-live.png`
+- Desktop live loaded regression (1280px): `web/usability/desktop-loading-status-wrap-1280-loaded-live.png`
+- Mobile live loading regression (390px): `web/usability/mobile-loading-status-wrap-regression-live.png`
+- Before/after markup fixture: `web/usability/desktop-loading-status-wrap.html`
+- Fixture screenshot: `web/usability/desktop-loading-status-wrap.png`
+
 ## Still open
 
-A 1280 loading-to-loaded pass now keeps the params bar at two rows and 110px. Remaining items for a later pass:
+A 900 / 1280 / 390 loading-to-loaded pass now keeps header height stable (144 / 110 / 117). Remaining items for a later pass:
 
-- At 900px the first header row is still about 14px taller while Computing trace… is shown (158px vs 144px loaded). Params height stays 46px; the leftover is the status text wrapping, not the chips.
+- At 721px the form row is stable at 61px, but filled param numbers wrap one more line than the ellipsis preview (header 178px loading vs 207px loaded).
 - At 900px a nested MathJax assistive `mjx-container` for \(S_i[p]\) still has a bounding box about 10px past the window. The visible formula ends at 882px, `#sidebar` clips overflow-x, and `documentElement.scrollWidth` stays 900.
 - Desktop playback-bar height still grows from 91px (1280) to about 108px (1024/900) because the bar wraps; treat wrap as a problem only if a control is clipped or untappable.
