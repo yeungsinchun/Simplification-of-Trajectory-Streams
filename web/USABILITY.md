@@ -46,9 +46,23 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Desktop (1280px): `web/usability/desktop-drop-hint-heading.png`
 - Markup fixture used for that screenshot: `web/usability/desktop-drop-hint-heading.html`
 
+### Mobile start-screen δ value was clipped
+
+**Where:** 390px start form, `#deltaInput` in the two-column ε / δ row.
+
+**Problem:** Each param label was a horizontal flex row (symbol + `input[type=number]`) with `min-width: 0`. Chrome's spinner arrows kept their width, so the default δ value `500` was clipped. ε `0.9` often still fit because it is narrower.
+
+**Fix:** On viewports max-width 720px each param stacks the symbol above a full-column number field and hides the unused spinner arrows (`appearance: textfield`). Desktop stays an inline 62px field.
+
+**Evidence:**
+
+- Mobile live start screen (390px): `web/usability/mobile-delta-field-live.png`
+- Before/after markup fixture (390px): `web/usability/mobile-delta-field.png`
+- Markup fixture used for that screenshot: `web/usability/mobile-delta-field.html`
+
 ## Still open
 
 These were noticed while checking desktop and mobile and are not fixed here:
 
 - Canvas `#traceLoadingHud` (`Loading details…`) is forced off with `display: none !important`, so after Load Trace the drop hint disappears and the canvas stays blank until geometry arrives. Progress is only in the header (upload status / metric slots).
-- On the 390px start screen the δ number field can hide its value (default 500) because the input is `min-width: 0` in a two-column grid next to the spinner arrows.
+- On the 390px start screen `#traceSelect.visually-hidden` still extends past the viewport (`scrollWidth` 416 vs 390), so the page can scroll horizontally even though the custom preloaded trigger is the visible control.

@@ -1201,8 +1201,9 @@
     }
     .upload-form label {
       display: flex;
-      align-items: center;
-      gap: 8px;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
       padding: 8px 10px;
       background: #1e2330;
       border: 1px solid var(--panel-border);
@@ -1217,9 +1218,19 @@
       border-radius: 8px;
     }
     .upload-form label input[type="number"] {
+      width: 100%;
       min-width: 0;
-      padding: 4px 6px;
+      padding: 8px 10px;
       text-align: right;
+      font-variant-numeric: tabular-nums;
+      -webkit-appearance: textfield;
+      appearance: textfield;
+    }
+    .upload-form label input[type="number"]::-webkit-outer-spin-button,
+    .upload-form label input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      appearance: none;
+      margin: 0;
     }
     .upload-form button {
       min-height: 44px;
