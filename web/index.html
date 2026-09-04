@@ -957,7 +957,13 @@
   }
 
   @media (max-width: 720px) {
-    html, body { font-size: 13px; overflow: auto; }
+    html, body {
+      font-size: 13px;
+      height: auto;
+      min-height: 100%;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
     #app { height: auto; min-height: 100vh; }
     main { min-height: 60vh; }
     header {
@@ -1176,9 +1182,45 @@
     }
     body.trace-loading-error .mobile-transport { display: none; }
     .mobile-transport svg { width: 20px; height: 20px; }
+    body.trace-loaded-mobile.playback-ready #app {
+      height: auto;
+      min-height: 100svh;
+    }
+    body.trace-loaded-mobile.playback-ready main,
+    body.trace-loaded-mobile.playback-ready #mainContent {
+      flex: none;
+      min-height: auto;
+      height: auto;
+    }
     body.trace-loaded-mobile.playback-ready #canvasWrap {
-      padding-bottom: calc(76px + env(safe-area-inset-bottom));
+      flex: none;
+      padding-bottom: 0;
       box-sizing: border-box;
+    }
+    body.trace-loaded-mobile.playback-ready #sidebar {
+      padding-bottom: calc(88px + env(safe-area-inset-bottom));
+    }
+    body.trace-loaded-mobile.playback-ready.mobile-panel-closed {
+      height: 100%;
+      overflow: hidden;
+    }
+    body.trace-loaded-mobile.playback-ready.mobile-panel-closed #app {
+      height: 100svh;
+      min-height: 100svh;
+    }
+    body.trace-loaded-mobile.playback-ready.mobile-panel-closed main,
+    body.trace-loaded-mobile.playback-ready.mobile-panel-closed #mainContent,
+    body.trace-loaded-mobile.playback-ready.mobile-panel-closed #canvasWrap {
+      flex: 1 1 auto;
+      min-height: 0;
+      height: auto;
+    }
+    body.trace-loaded-mobile.playback-ready.mobile-panel-closed #canvasContainer {
+      height: auto;
+      min-height: 0;
+    }
+    body.trace-loaded-mobile.playback-ready.mobile-panel-closed #canvasWrap {
+      padding-bottom: calc(76px + env(safe-area-inset-bottom));
     }
     body.trace-loaded-mobile.playback-ready.mobile-panel-closed .mobile-panel-open {
       bottom: calc(76px + env(safe-area-inset-bottom));
@@ -1303,6 +1345,10 @@
     body.trace-loaded-mobile:not(.playback-ready) #sidebar,
     body.trace-loaded-mobile:not(.playback-ready) .mobile-panel-open {
       display: none !important;
+    }
+    body.trace-loaded-mobile:not(.playback-ready) {
+      height: 100%;
+      overflow: hidden;
     }
     body.trace-loaded-mobile:not(.playback-ready) #app {
       height: 100svh;

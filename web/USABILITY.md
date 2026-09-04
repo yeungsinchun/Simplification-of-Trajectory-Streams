@@ -117,6 +117,22 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture (390px): `web/usability/mobile-sidebar-loading.png`
 - Markup fixture used for that screenshot: `web/usability/mobile-sidebar-loading.html`
 
+### Mobile playback dock covered Status and blocked scrolling
+
+**Where:** 390px loaded-trace screen after stream geometry arrives (`body.trace-loaded-mobile.playback-ready`), `#sidebar` Status panel and `#mobileTransport`.
+
+**Problem:** The fixed playback dock sat on the Status numbers. `#canvasWrap` used 76px of bottom padding meant for the canvas, which opened a gap between the map and Status instead of clearing the dock. `#app` / `main` stayed viewport-sized with `min-height: 0`, so `scrollHeight` matched the 390x844 viewport and Layers / View / Instructions were clipped with no way to reach them.
+
+**Fix:** The loaded mobile page grows and scrolls. Dock clearance moved to `#sidebar` padding. The empty canvas gap is gone, so Status (p #0, v_i #1, step, alive) sits above the dock at rest. Scrolling to the end keeps Instructions above the dock. Hiding Status (`mobile-panel-closed`) grows the canvas to the leftover viewport above the dock.
+
+**Evidence:**
+
+- Mobile live playback-ready (390px): `web/usability/mobile-dock-sidebar-live.png`
+- Mobile live scrolled to Instructions (390px): `web/usability/mobile-dock-sidebar-scrolled-live.png`
+- Mobile live with Status hidden (390px): `web/usability/mobile-dock-sidebar-panel-closed-live.png`
+- Before/after markup fixture: `web/usability/mobile-dock-sidebar.html`
+- Fixture screenshot: `web/usability/mobile-dock-sidebar.png`
+
 ## Still open
 
-A 390px start-screen pass, a 390px Load Trace pass, a header-arrives pass, and a 1280px empty/loading pass did not turn up another layout, spinner-placement, or overflow issue to fix next.
+The mobile Instructions card still lists keyboard shortcuts (arrows, Shift, Space, C / X) that a phone user cannot use. A 390px start-screen pass after this change still has scrollWidth 390, and the loading HUD still fills the viewport with the sidebar hidden.
