@@ -88,6 +88,17 @@
   .params-metric-label {
     color: inherit;
   }
+  .params-metric-value {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 14px;
+    color: #22D3EE;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .params-metric--frechet .params-metric-value { min-width: 7ch; }
+  .params-metric--time .params-metric-value { min-width: 11ch; }
   .params-metric-body b {
     color: #22D3EE;
     font-weight: 600;
