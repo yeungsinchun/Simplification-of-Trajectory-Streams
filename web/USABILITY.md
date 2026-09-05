@@ -521,13 +521,26 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Wide desktop form still led with Greek ε / δ (resolved)
+
+**Where:** start-screen `#epsilonInput` / `#deltaInput` labels at ≥900px (and the shared base form CSS used on every viewport).
+
+**Problem:** Narrow desktop and phones already showed plain `Match` / `Grid`, and help / tour / chips used the same words, but wide desktop still painted Greek-first `ε match` / `δ grid`. Skip-tour users on a typical laptop saw a different vocabulary than Instructions.
+
+**Fix:** Base CSS now hides `.param-symbol` and capitalizes Match / Grid on every viewport (ε / δ remain in titles). Narrow-desktop still shrinks the number inputs so Load stays one row. Fixture `scrollWidth` stays within 1280.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/wide-match-grid-labels.html`
+- Fixture screenshot (1280px): `web/usability/wide-match-grid-labels.png`
+
 ### Start help / tour / alerts still led with Greek ε / δ (resolved)
 
 **Where:** mobile and desktop start Instructions, empty-canvas drop hint, Accuracy tour step, invalid Match/Grid alert, server timeout / invalid-εδ JSON, DP Compare tooltips, search-circle layer tooltips; mobile form labels at max-width 720px.
 
 **Problem:** After loaded params chips and 721–899px fields preferred plain `Match` / `Grid`, start help, the first-visit Accuracy tour, validation alerts, and server errors still led with Greek `ε match` / `δ grid`. Phones also kept Greek symbols above the stacked number fields, so skip-tour users saw a different vocabulary than the chips.
 
-**Fix:** Instructions, tour, alerts, and server copy now lead with `Match` / `Grid`. Mobile form CSS hides Greek symbols and capitalizes the glosses (same idea as 721–899px). Wider desktop still shows `ε match` / `δ grid` on the form; ε / δ remain only in tooltips elsewhere. Fixture `scrollWidth` stays within 390.
+**Fix:** Instructions, tour, alerts, and server copy now lead with `Match` / `Grid`. Form labels on every viewport (including phones and wide desktop) hide Greek symbols and capitalize the glosses. ε / δ remain only in tooltips. Fixture `scrollWidth` stays within 390.
 
 **Evidence:**
 
@@ -540,7 +553,7 @@ No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
 **Problem:** To keep Load on one row, the 721–899px rule hid `.param-gloss`, leaving bare Greek `ε` / `δ`. Skip-tour users (and anyone who forgot the tour) could not tell what the fields meant without hovering tooltips. Loaded params chips also led with `ε match` / `δ grid`.
 
-**Fix:** At 721–899px the form now hides the Greek symbols and keeps capitalized Match / Grid glosses, with slightly narrower number inputs so Load stays on the same row (`scrollWidth` 820 / 900). Loaded params chips read `Match` / `Grid` with ε / δ only in tooltips. Wider desktop still shows `ε match` / `δ grid`.
+**Fix:** At 721–899px the form keeps capitalized Match / Grid glosses (now the default on every viewport) and slightly narrower number inputs so Load stays on the same row (`scrollWidth` 820 / 900). Loaded params chips read `Match` / `Grid` with ε / δ only in tooltips.
 
 **Evidence:**
 

@@ -96,14 +96,15 @@
     gap: 4px;
     white-space: nowrap;
   }
+  /* Prefer plain Match / Grid on every viewport; ε / δ stay in titles/aria. */
   .upload-form .param-symbol {
-    color: var(--text);
-    font-weight: 600;
+    display: none;
   }
   .upload-form .param-gloss {
-    color: var(--text-dim);
-    font-weight: 500;
+    color: var(--text);
+    font-weight: 600;
     letter-spacing: 0.01em;
+    text-transform: capitalize;
   }
   .params {
     display: flex;
@@ -1526,14 +1527,6 @@
       appearance: none;
       margin: 0;
     }
-    /* Prefer plain Match / Grid over Greek ε / δ on phones (same idea as 721–899px). */
-    .upload-form .param-symbol { display: none; }
-    .upload-form .param-gloss {
-      display: inline;
-      color: var(--text);
-      font-weight: 600;
-      text-transform: capitalize;
-    }
     .upload-form button {
       min-height: 44px;
       border-radius: 8px;
@@ -1832,15 +1825,8 @@
     .params:not(:empty) {
       min-height: 76px;
     }
-    /* Prefer plain Match / Grid over bare ε / δ. Hide the Greek symbols and
-       shrink the number fields so Load stays on the same control row. */
-    .upload-form .param-symbol { display: none; }
-    .upload-form .param-gloss {
-      display: inline;
-      color: var(--text);
-      font-weight: 600;
-      text-transform: capitalize;
-    }
+    /* Narrower number fields so Load stays on the same control row
+       (Match / Grid labels are the default on every viewport). */
     .upload-form label input[type="number"] {
       width: 50px;
     }
@@ -2207,13 +2193,13 @@
           <span class="or-divider" style="color: var(--text-dim); font-size: 12px; margin: 0 8px;">or</span>
           <button id="uploadBtn" class="primary" title="Upload a plain-text trajectory: first line is the point count N, then N lines of x y coordinates.">Upload trajectory</button>
           <input type="file" id="trajectoryInput" accept=".txt,text/plain" />
-          <label title="How closely the simplified path must match the original. Smaller keeps more detail.">
+          <label title="Match tolerance (ε): how closely the simplified path must match the original. Smaller keeps more detail.">
             <span class="param-label"><span class="param-symbol">&epsilon;</span> <span class="param-gloss">match</span></span>
-            <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" aria-label="Match tolerance (epsilon)" />
+            <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" aria-label="Match tolerance" />
           </label>
-          <label title="Grid spacing used while searching for the simplified path. Preloaded trajectories set a good default.">
+          <label title="Grid spacing (δ) used while searching for the simplified path. Preloaded trajectories set a good default.">
             <span class="param-label"><span class="param-symbol">&delta;</span> <span class="param-gloss">grid</span></span>
-            <input type="number" id="deltaInput" value="500" step="10" min="1" aria-label="Search grid spacing (delta)" />
+            <input type="number" id="deltaInput" value="500" step="10" min="1" aria-label="Search grid spacing" />
           </label>
           <button id="loadBtn" class="primary" title="Load trajectory and run simplification" aria-label="Load trajectory and run simplification">
             <span class="button-spinner" aria-hidden="true"></span>
