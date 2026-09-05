@@ -2209,8 +2209,8 @@
           <div class="header-baseline" aria-label="Optional methods to compare against">
             <span class="header-baseline-label" title="Optional. Pick other methods to score against after Load. Skip for a first run.">Compare:</span>
             <div class="baseline-algo-row" id="headerBaselineAlgoRow" role="group" aria-label="Compare methods">
-              <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" aria-label="DOTS as-you-go" title="DOTS: shortens the path as points arrive (as-you-go). Needs a preloaded trajectory.">DOTS<span class="pill-gloss">as-you-go</span></button>
-              <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP all-at-once" title="DP: shortens the whole path in one pass (all-at-once), dropping points within a match limit. Needs a preloaded trajectory.">DP<span class="pill-gloss">all-at-once</span></button>
+              <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" aria-label="DOTS as-you-go" title="DOTS: builds a shorter green path as Gray path points arrive (as-you-go). Needs a preloaded trajectory.">DOTS<span class="pill-gloss">as-you-go</span></button>
+              <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP all-at-once" title="DP: builds a shorter green path from the whole Gray path in one pass (all-at-once), dropping points within a match limit. Needs a preloaded trajectory.">DP<span class="pill-gloss">all-at-once</span></button>
               <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" aria-label="SQUISH keep percent" title="SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.">SQUISH<span class="pill-gloss">keep %</span></button>
             </div>
             <label class="baseline-field baseline-field--inline" id="headerBaselineLssdField" hidden title="DOTS budget. Entered in thousands (1000 means 1,000,000). Larger keeps fewer points.">
@@ -2260,8 +2260,8 @@
             <p class="results-section-label" title="Optional methods to compare against this run">Compare methods</p>
             <div class="baseline-controls">
               <div class="baseline-algo-row" id="baselineAlgoRow" role="group" aria-label="Compare methods">
-                <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" aria-label="DOTS as-you-go" title="DOTS: shortens the path as points arrive (as-you-go). Needs a preloaded trajectory.">DOTS<span class="pill-gloss">as-you-go</span></button>
-                <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP all-at-once" title="DP: shortens the whole path in one pass (all-at-once), dropping points within a match limit. Needs a preloaded trajectory.">DP<span class="pill-gloss">all-at-once</span></button>
+                <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" aria-label="DOTS as-you-go" title="DOTS: builds a shorter green path as Gray path points arrive (as-you-go). Needs a preloaded trajectory.">DOTS<span class="pill-gloss">as-you-go</span></button>
+                <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP all-at-once" title="DP: builds a shorter green path from the whole Gray path in one pass (all-at-once), dropping points within a match limit. Needs a preloaded trajectory.">DP<span class="pill-gloss">all-at-once</span></button>
                 <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" aria-label="SQUISH keep percent" title="SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.">SQUISH<span class="pill-gloss">keep %</span></button>
               </div>
               <div id="baselineParamFields" class="baseline-param-fields">

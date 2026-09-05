@@ -255,8 +255,8 @@
   }
 
   const COMPARE_PILL_TITLES = {
-    dots: "DOTS: shortens the path as points arrive (as-you-go). Needs a preloaded trajectory.",
-    dp: "DP: shortens the whole path in one pass (all-at-once), dropping points within a match limit. Needs a preloaded trajectory.",
+    dots: "DOTS: builds a shorter green path as Gray path points arrive (as-you-go). Needs a preloaded trajectory.",
+    dp: "DP: builds a shorter green path from the whole Gray path in one pass (all-at-once), dropping points within a match limit. Needs a preloaded trajectory.",
     squish: "SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.",
   };
   const COMPARE_PILL_UPLOAD_TITLE =
@@ -3270,7 +3270,7 @@
   const startTourSteps = [
     {
       title: "Welcome",
-      body: "This visualizer shortens a GPS-style path while keeping its shape. A short tour shows the controls you need to load your first trajectory.",
+      body: "This visualizer builds a shorter green path from a GPS-style Gray path while keeping its shape. A short tour shows the controls you need to load your first trajectory.",
       targets: [],
     },
     {

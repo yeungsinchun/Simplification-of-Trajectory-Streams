@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Compare tips still said shortens the path (resolved)
+
+**Where:** Compare DOTS / DP pill titles in `web/index.html` and `COMPARE_PILL_TITLES` / welcome tour in `web/viewer.js`.
+
+**Problem:** After as-you-go / all-at-once glosses landed, DOTS and DP titles (and the welcome tour) still said `shortens the path` / `shortens a GPS-style path`. Skip-tour users and phone long-press could not map those tips to the Gray path / green path vocabulary used elsewhere.
+
+**Fix:** Tips and welcome tour say `builds a shorter green path` and name `Gray path`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-builds-green-path.html`
+- Fixture screenshot (900px): `web/usability/compare-builds-green-path.png`
+
 ### Desktop Compare help still said bare methods (resolved)
 
 **Where:** desktop empty-canvas `#dropHint` subline and Instructions in `web/index.html`, and Compare selection status labels in `web/viewer.js`.
