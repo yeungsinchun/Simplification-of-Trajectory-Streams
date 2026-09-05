@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Map overlays said Next landing zone (resolved)
+
+**Where:** Map overlays `#toggle-S` label/tooltip, Still-allowed tooltip, and playback Map overlays tour copy.
+
+**Problem:** After Option / Options near current / Option markers shared next-point vocabulary, the purple overlap toggle still said `Next landing zone`. Skip-tour users could not tell that zone is the same next-point idea as Option on the playback bar.
+
+**Fix:** Label reads `Next-point zone` with a tooltip that names Options near current, Still-allowed area, and Option on the playback bar. Still-allowed and tour copy use the same name. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/next-point-zone.html`
+- Fixture screenshot (900px): `web/usability/next-point-zone.png`
+
 ### Map overlays said Paths & search (resolved)
 
 **Where:** Map overlays accordion `#accordionSimplify` summary and playback Map overlays tour copy.
