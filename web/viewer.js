@@ -1018,6 +1018,28 @@
     return "Point number on the original trajectory (0 = first point)";
   }
 
+  // Same pool as the Candidate playback control: still-open + just-rejected options.
+  function candidateCycleInfo(step) {
+    if (!step || !step.candidates || step.candidates.length === 0) {
+      return { displayIdx: 0, total: 0, stillOpen: 0 };
+    }
+    const statusOf = (c) =>
+      c.alive ? "alive" : (c.F && c.F.length >= 3 ? "justDied" : "dead");
+    const cyclePool = step.candidates.filter((c) => statusOf(c) !== "dead");
+    const stillOpen = step.candidates.filter((c) => c.alive).length;
+    const displayIdx = cyclePool.length > 0
+      ? (state.candidateIdx % cyclePool.length) + 1
+      : 0;
+    return { displayIdx, total: cyclePool.length, stillOpen };
+  }
+
+  function candidateStatusTitle(stillOpen) {
+    const openBit = Number.isFinite(stillOpen)
+      ? ` ${stillOpen} still being considered.`
+      : "";
+    return `Cycles next-point options the search considered.${openBit} Same idea as Candidate on the playback bar.`;
+  }
+
   function renderBootstrapStatus(trace) {
     const labels = statusIndexLabels();
     const startPoint = trace && trace.stream && trace.stream[0] ? trace.stream[0] : null;
@@ -1039,7 +1061,7 @@
     statusGrid.innerHTML = `
       <span title="Jumps between pieces of the simplified path">Segment</span><span class="mono"><b>1 / …</b></span>
       <span title="Walks along original points for the current simplified piece">Step</span><span class="mono"><b>1 / …</b></span>
-      <span title="Next-point options still being considered for this segment">Candidates</span><span class="mono"><b>…</b></span>`;
+      <span title="${candidateStatusTitle()}">Candidate</span><span class="mono"><b>… / …</b></span>`;
     typesetStatus(statusIndices);
     typesetStatus(statusGrid);
   }
@@ -1955,9 +1977,9 @@
 
     // Detail rows — present-state only, no future end vertex
     const rows = [];
-    const alive = step.candidates.filter((c) => c.alive).length;
     const stepTotal = pfx.steps.length;
     const segmentTotal = t.prefixes.length;
+    const cand = candidateCycleInfo(step);
     rows.push([
       "Segment",
       `${state.prefixIdx + 1} / ${segmentTotal}`,
@@ -1969,9 +1991,11 @@
       "Walks along original points for the current simplified piece",
     ]);
     rows.push([
-      "Candidates",
-      `<b style="color:#3ddc97">${alive}</b> still open`,
-      "Next-point options still being considered for this segment",
+      "Candidate",
+      cand.total
+        ? `${cand.displayIdx} / ${cand.total}`
+        : "0 / 0",
+      candidateStatusTitle(cand.stillOpen),
     ]);
 
     statusGrid.innerHTML = rows
@@ -2723,17 +2747,11 @@
     const n = pfx ? pfx.steps.length : 0;
     stepInput.value = n ? `${state.stepIdx + 1} / ${n}` : "0 / 0";
     
-    // For candidate display, show position in the cycle pool (alive + justDied candidates)
-    if (step && step.candidates.length > 0) {
-      const statusOf = (c) =>
-        c.alive ? 'alive' : (c.F && c.F.length >= 3 ? 'justDied' : 'dead');
-      const allCandidates = step.candidates.map((c, i) => ({ ...c, originalIdx: i }));
-      const cyclePool = allCandidates.filter(c => statusOf(c) !== 'dead');
-      const displayIdx = cyclePool.length > 0 ? (state.candidateIdx % cyclePool.length) + 1 : 0;
-      candidateInput.value = `${displayIdx} / ${cyclePool.length}`;
-    } else {
-      candidateInput.value = `0 / 0`;
-    }
+    // Candidate display matches Status: position in the cycle pool (still-open + just-rejected)
+    const cand = candidateCycleInfo(step);
+    candidateInput.value = cand.total
+      ? `${cand.displayIdx} / ${cand.total}`
+      : "0 / 0";
     if (mobileStepBackBtn) {
       mobileStepBackBtn.disabled = traceNotReady || (state.prefixIdx === 0 && state.stepIdx === 0);
     }

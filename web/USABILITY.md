@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Status Candidates did not match playback Candidate (resolved)
+
+**Where:** sidebar Status `#statusGrid` Candidates row after Load.
+
+**Problem:** Segment and Step already used `N / total` like the playback bar, but Status still showed `Candidates 3 still open`. Skip-tour users mapping Status to Candidate on the dock could not tell which option was selected or how many options existed.
+
+**Fix:** Status labels the row `Candidate` and shows the same `current / total` as the playback Candidate control (still-open + just-rejected cycle pool). The still-open count moves into the tooltip. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/status-candidate-total.html`
+- Fixture screenshot (900px): `web/usability/status-candidate-total.png`
+
 ### Status omitted Segment and used # point indices (resolved)
 
 **Where:** sidebar Status `#statusGrid` / `#statusIndices` after Load.
