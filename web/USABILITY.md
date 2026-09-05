@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Grid still said search spacing (resolved)
+
+**Where:** Grid form title/aria-label, mobile and desktop start Instructions, invalid-input alert, Accuracy tour, and desktop `#paramsBar` grid cell tip.
+
+**Problem:** Map overlays already dropped opaque `the search` wording, but Grid help still said `search spacing` / `searching for` / `Search grid spacing`. Skip-tour users mapping Grid to the Grid chip could not tell those tips meant Grid spacing used while finding the green path.
+
+**Fix:** Tips and help say `spacing` / `finding the green path` / `Grid spacing`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/grid-not-search-spacing.html`
+- Fixture screenshot (900px): `web/usability/grid-not-search-spacing.png`
+
 ### Rejected options still said the search already ruled out (resolved)
 
 **Where:** Map overlays `#toggle-dead-candidates` / `#toggle-Gi` / `#toggle-P` tips, Status Option open-count tip, and Map overlays This run accordion tip.

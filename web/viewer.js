@@ -1185,7 +1185,7 @@
     return [
       paramChip("Match", epsilonValue, "Match tolerance (ε): how closely the green path must follow the Gray path. Smaller keeps more detail."),
       paramChip("Grid", deltaValue, "Grid spacing (δ) used while finding the green path."),
-      paramChip("grid cell", gridLength, "Length of one Grid cell used while searching for the green path."),
+      paramChip("grid cell", gridLength, "Length of one Grid cell used while finding the green path."),
       paramChip("circle radius", diskRadius, "Radius of the Start-point circle and Current-point circle overlays while looking for the next green-path point."),
       paramChip("match limit", expectedFrechet, "Upper Match limit for this run: how far the green path may drift from the Gray path. Same idea as the Match field."),
       paramChip(
@@ -1532,7 +1532,7 @@
     const eps = parseFloat(epsilonInput.value);
     const delta = parseFloat(deltaInput.value);
     if (isNaN(eps) || eps <= 0 || isNaN(delta) || delta <= 0) {
-      alert("Please enter positive numbers for Match (accuracy) and Grid (search spacing).");
+      alert("Please enter positive numbers for Match (accuracy) and Grid (spacing).");
       return;
     }
 
@@ -3264,7 +3264,7 @@
     },
     {
       title: "Accuracy controls",
-      body: "<b>Match</b> is how closely the green path must match the Gray path (smaller keeps more detail). <b>Grid</b> is search spacing. Defaults are fine for a first run.",
+      body: "<b>Match</b> is how closely the green path must match the Gray path (smaller keeps more detail). <b>Grid</b> is spacing used while finding the green path. Defaults are fine for a first run.",
       targets: ["#epsilonInput", "#deltaInput"],
     },
     {

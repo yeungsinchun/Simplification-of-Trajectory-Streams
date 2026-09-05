@@ -2197,9 +2197,9 @@
             <span class="param-label"><span class="param-symbol">&epsilon;</span> <span class="param-gloss">match</span></span>
             <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" aria-label="Match tolerance" />
           </label>
-          <label title="Grid spacing (δ) used while searching for the green path. Preloaded trajectories set a good default.">
+          <label title="Grid spacing (δ) used while finding the green path. Preloaded trajectories set a good default.">
             <span class="param-label"><span class="param-symbol">&delta;</span> <span class="param-gloss">grid</span></span>
-            <input type="number" id="deltaInput" value="500" step="10" min="1" aria-label="Search grid spacing" />
+            <input type="number" id="deltaInput" value="500" step="10" min="1" aria-label="Grid spacing" />
           </label>
           <button id="loadBtn" class="primary" title="Load trajectory and build the green path" aria-label="Load trajectory and build the green path">
             <span class="button-spinner" aria-hidden="true"></span>
@@ -2236,7 +2236,7 @@
         <h2>Instructions</h2>
         <ul>
           <li>Select a preloaded trajectory.</li>
-          <li>Optionally adjust <b>Match</b> (accuracy) and <b>Grid</b> (search spacing), then tap <b>Load</b>.</li>
+          <li>Optionally adjust <b>Match</b> (accuracy) and <b>Grid</b> (spacing), then tap <b>Load</b>.</li>
           <li>Optionally pick <b>Compare</b> (DOTS / DP / SQUISH) above. After <b>Load</b>, open <b>Results</b> for scores and tap <b>Run compare</b>.</li>
           <li>Drag the visualization to pan and pinch to zoom.</li>
           <li>Use <b>Controls</b> for status and map overlays.</li>
@@ -2348,7 +2348,7 @@
               <h2>Instructions</h2>
               <ul>
                 <li>Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>.</li>
-                <li>Optionally adjust <b>Match</b> (accuracy) and <b>Grid</b> (search spacing), then press <b>Load</b>.</li>
+                <li>Optionally adjust <b>Match</b> (accuracy) and <b>Grid</b> (spacing), then press <b>Load</b>.</li>
                 <li>After load, open <b>Results</b> for scores. With a preloaded trajectory you can pick optional <b>Compare</b> algorithms and press <b>Run</b> (or <b>Run compare</b> in Results). Uploads show scores only.</li>
                 <li><b>Drag</b> to pan and <b>scroll</b> to zoom. Keyboard shortcuts for Step / Segment / Option live in the right-side Instructions after load.</li>
               </ul>
