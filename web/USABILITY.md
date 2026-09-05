@@ -483,6 +483,23 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after fixture: `web/usability/compare-param-glosses.html`
 - Fixture screenshot (900px): `web/usability/compare-param-glosses.png`
 
+### Upload button and mobile Compare path used opaque / unreachable wording
+
+**Where:** `#uploadBtn`, `#dropHint` start copy, mobile `.mobile-start-help`, and the post-load Results tour step.
+
+**Problem:** The primary upload control said `Upload original.txt`, which assumes repository sample filenames. Mobile Instructions told novices to pick Compare and tap `Run` after load, but `body.trace-loaded-mobile` hides `.file-controls` (including the header Compare strip and `Run`). The Results tour also led with “header Run” even though phones only keep `Run compare` inside Results.
+
+**Fix:** The button reads `Upload trajectory` with a plain-text format tooltip; drop hint and start-tour copy match. Mobile Instructions send users to Results → Run compare after Load Trace. The Results tour puts Results / Run compare first and mentions header Run only for wider screens. The 900px fixture strip stays one row with no page overflow.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/upload-trajectory-label.html`
+- Fixture screenshot (900px): `web/usability/upload-trajectory-label.png`
+- Desktop fixture (1280px): `web/usability/upload-trajectory-label-1280.png`
+- Mobile fixture (390px): `web/usability/upload-trajectory-label-390.png`
+- Desktop live start (1280px): `web/usability/upload-trajectory-label-1280-live.png`
+- Mobile live start (390px): `web/usability/upload-trajectory-label-390-live.png`
+
 ## Still open
 
 No open layout or novice-copy items from this pass. First live Cloud Run publish still needs a successful `main` merge of [PR #11](https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/pull/11) (or a `workflow_dispatch` once Deploy is on `main`). Until then GitHub only lists Benchmark and Correctness.

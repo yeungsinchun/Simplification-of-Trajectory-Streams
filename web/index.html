@@ -2126,7 +2126,7 @@
             </select>
           </div>
           <span class="or-divider" style="color: var(--text-dim); font-size: 12px; margin: 0 8px;">or</span>
-          <button id="uploadBtn" class="primary">Upload original.txt</button>
+          <button id="uploadBtn" class="primary" title="Upload a plain-text trajectory (first line N, then N lines of x y). Same format as the sample original.txt files.">Upload trajectory</button>
           <input type="file" id="trajectoryInput" accept=".txt,text/plain" />
           <label title="How closely the simplified path must match the original. Smaller keeps more detail.">
             <span class="param-label"><span class="param-symbol">&epsilon;</span> <span class="param-gloss">match</span></span>
@@ -2172,9 +2172,9 @@
         <ul>
           <li>Select a preloaded trajectory.</li>
           <li>Optionally adjust <b>&epsilon; match</b> (accuracy) and <b>&delta; grid</b> (search spacing), then tap <b>Load Trace</b>.</li>
-          <li>After load, optionally pick <b>Compare</b> (DOTS / DP / SQUISH) and tap <b>Run</b> to score other algorithms.</li>
+          <li>After <b>Load Trace</b>, open <b>Results</b> to pick optional <b>Compare</b> algorithms and tap <b>Run compare</b> for scores.</li>
           <li>Drag the visualization to pan and pinch to zoom.</li>
-          <li>Use <b>Controls</b> for status and layers; open <b>Results</b> for scores.</li>
+          <li>Use <b>Controls</b> for status and layers.</li>
           <li>Tap <b>Back</b> to choose another trajectory.</li>
         </ul>
       </div>
@@ -2273,7 +2273,7 @@
             </div>
             <div class="big">Upload a trajectory to get started</div>
             <div class="dropHint-sub">
-              Click <b>Upload original.txt</b> or select a <b>preloaded trace</b>, optionally pick <b>Compare</b> algorithms, leave <b>&epsilon; match</b> / <b>&delta; grid</b> at defaults (or tweak them), then <b>Load Trace</b>
+              Click <b>Upload trajectory</b> or select a <b>preloaded trace</b>, optionally pick <b>Compare</b> algorithms, leave <b>&epsilon; match</b> / <b>&delta; grid</b> at defaults (or tweak them), then <b>Load Trace</b>
             </div>
             <div class="dropHint-format">
               Format: first line <code>N</code>, then <code>N</code> lines of <code>"x y"</code>

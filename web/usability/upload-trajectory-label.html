@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Upload trajectory label and mobile Compare copy</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+    --accent: #4f9dff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+  }
+  section { padding: 16px 0; border-bottom: 1px solid var(--panel-border); }
+  .label {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin: 0 16px 8px;
+  }
+  .callout {
+    background: rgba(255,95,109,0.08);
+    border: 1px solid rgba(255,95,109,0.35);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text-dim);
+    font-size: 12px;
+    margin: 0 16px 12px;
+  }
+  .ok {
+    background: rgba(61,220,151,0.08);
+    border: 1px solid rgba(61,220,151,0.35);
+  }
+  .row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    margin: 0 16px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    overflow-x: auto;
+  }
+  .btn {
+    border: 1px solid var(--accent);
+    background: #2a4a72;
+    color: var(--text);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .ghost {
+    color: var(--text-dim);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .help {
+    margin: 12px 16px 0;
+    padding: 12px;
+    background: rgba(79,157,255,0.06);
+    border: 1px solid rgba(79,157,255,0.2);
+    border-radius: 10px;
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1.55;
+    max-width: 360px;
+  }
+  .help b { color: var(--text); font-weight: 600; }
+  .hint {
+    margin: 10px 16px 0;
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1.5;
+    max-width: 640px;
+  }
+  .hint b { color: var(--text); font-weight: 500; }
+</style>
+</head>
+<body>
+  <section style="width:900px;margin:0 auto;">
+    <div class="label">Before - filename jargon + mobile Run that is hidden after load</div>
+    <div class="callout">
+      The button said <b>Upload original.txt</b>, which assumes repo file names.
+      Mobile Instructions said to pick Compare and tap <b>Run</b> after load, but the
+      header Compare strip (including Run) is hidden once a trace is loaded on phones.
+    </div>
+    <div class="row">
+      <span class="ghost">Select trace…</span>
+      <span class="ghost">or</span>
+      <button class="btn" type="button">Upload original.txt</button>
+      <span class="ghost">ε match</span>
+      <span class="ghost">δ grid</span>
+      <button class="btn" type="button">Load Trace</button>
+    </div>
+    <div class="hint">
+      Click <b>Upload original.txt</b> or select a <b>preloaded trace</b>…
+    </div>
+    <div class="help">
+      After load, optionally pick <b>Compare</b> (DOTS / DP / SQUISH) and tap <b>Run</b> to score other algorithms.
+    </div>
+  </section>
+
+  <section style="width:900px;margin:0 auto;">
+    <div class="label">After - plain upload label + Results-first mobile Compare path</div>
+    <div class="callout ok">
+      Button reads <b>Upload trajectory</b> with a format tooltip.
+      Mobile Instructions send novices to <b>Results → Run compare</b> after Load Trace,
+      which is the control that stays available on phones.
+    </div>
+    <div class="row" id="afterRow">
+      <span class="ghost">Select trace…</span>
+      <span class="ghost">or</span>
+      <button class="btn" type="button" id="uploadAfter" title="Upload a plain-text trajectory (first line N, then N lines of x y). Same format as the sample original.txt files.">Upload trajectory</button>
+      <span class="ghost">ε match</span>
+      <span class="ghost">δ grid</span>
+      <button class="btn" type="button">Load Trace</button>
+    </div>
+    <div class="hint">
+      Click <b>Upload trajectory</b> or select a <b>preloaded trace</b>…
+    </div>
+    <div class="help">
+      After <b>Load Trace</b>, open <b>Results</b> to pick optional <b>Compare</b> algorithms and tap <b>Run compare</b> for scores.
+    </div>
+  </section>
+  <script>
+    const row = document.getElementById("afterRow");
+    const meta = document.createElement("pre");
+    meta.style.cssText = "margin:12px 16px;color:#8b93a3;font-size:11px;";
+    meta.textContent = [
+      `afterRow.scrollWidth=${row.scrollWidth}`,
+      `afterRow.clientWidth=${row.clientWidth}`,
+      `documentElement.scrollWidth=${document.documentElement.scrollWidth}`,
+      `innerWidth=${window.innerWidth}`,
+    ].join("\n");
+    document.body.appendChild(meta);
+  </script>
+</body>
+</html>

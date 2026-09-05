@@ -3039,7 +3039,7 @@
     },
     {
       title: "Choose a trajectory",
-      body: "Pick a <b>preloaded trace</b>, or on desktop upload your own <b>original.txt</b>. Preloaded samples already include sensible settings.",
+      body: "Pick a <b>preloaded trace</b>, or on desktop tap <b>Upload trajectory</b> for your own file (plain text: first line N, then N lines of x y). Preloaded samples already include sensible settings.",
       targets: [".preloaded-row", "#preloadedTrigger", "#traceSelect", "#uploadBtn"],
     },
     {
@@ -3078,7 +3078,7 @@
     },
     {
       title: "Results and Compare",
-      body: "Open the left-edge <b>Results</b> tab to see scores. To compare other algorithms after load, pick DOTS / DP / SQUISH in the header and press the nearby <b>Run</b> button (or use Run compare inside Results). Skip Compare if you only want the green simplified path.",
+      body: "Open the left-edge <b>Results</b> tab to see scores. To score other algorithms, pick DOTS / DP / SQUISH and press <b>Run compare</b> inside Results (on wider screens you can also use <b>Run</b> beside Compare in the header). Skip Compare if you only want the green simplified path.",
       targets: ["#resultsPanelOpen"],
     },
   ];
