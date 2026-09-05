@@ -376,7 +376,7 @@
     letter-spacing: 0.02em;
     cursor: pointer;
   }
-  .baseline-algo-pill:hover {
+  .baseline-algo-pill:hover:not(:disabled) {
     border-color: var(--accent);
     color: var(--text);
   }
@@ -384,6 +384,10 @@
     background: var(--accent-dim, #2a4a72);
     border-color: var(--accent);
     color: var(--text);
+  }
+  .baseline-algo-pill:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
   .header-baseline {
     display: inline-flex;
@@ -2144,9 +2148,9 @@
           <div class="header-baseline" aria-label="Optional algorithms to compare against">
             <span class="header-baseline-label" title="Optional. Pick other algorithms to score against after Load Trace. Skip for a first run.">Compare:</span>
             <div class="baseline-algo-row" id="headerBaselineAlgoRow" role="group" aria-label="Compare algorithms">
-              <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" title="DOTS: another streaming simplifier to score against. Optional; skip for a first run.">DOTS</button>
-              <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Optional compare.">DP</button>
-              <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" title="SQUISH: keeps about this percent of the original points. Optional compare.">SQUISH</button>
+              <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" title="DOTS: another streaming simplifier to score against. Needs a preloaded trace.">DOTS</button>
+              <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Needs a preloaded trace.">DP</button>
+              <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" title="SQUISH: keeps about this percent of the original points. Needs a preloaded trace.">SQUISH</button>
             </div>
             <label class="baseline-field baseline-field--inline" id="headerBaselineLssdField" hidden title="DOTS distance limit in thousands (K). Larger keeps fewer points.">
               <span><span class="baseline-param-owner owner-dots">DOTS</span> limit</span>
@@ -2172,7 +2176,7 @@
         <ul>
           <li>Select a preloaded trajectory.</li>
           <li>Optionally adjust <b>&epsilon; match</b> (accuracy) and <b>&delta; grid</b> (search spacing), then tap <b>Load Trace</b>.</li>
-          <li>After <b>Load Trace</b>, open <b>Results</b> to pick optional <b>Compare</b> algorithms and tap <b>Run compare</b> for scores.</li>
+          <li>After <b>Load Trace</b>, open <b>Results</b> for scores. With a <b>preloaded</b> trace you can pick optional <b>Compare</b> algorithms and tap <b>Run compare</b>. Uploaded files show Simplify scores only.</li>
           <li>Drag the visualization to pan and pinch to zoom.</li>
           <li>Use <b>Controls</b> for status and layers.</li>
           <li>Tap <b>Back</b> to choose another trajectory.</li>
@@ -2195,9 +2199,9 @@
             <p class="results-section-label" title="Optional algorithms to compare against the Simplify result">Compare algorithms</p>
             <div class="baseline-controls">
               <div class="baseline-algo-row" id="baselineAlgoRow" role="group" aria-label="Compare algorithms">
-                <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" title="DOTS: another streaming simplifier to score against. Optional; skip for a first run.">DOTS</button>
-                <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Optional compare.">DP</button>
-                <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" title="SQUISH: keeps about this percent of the original points. Optional compare.">SQUISH</button>
+                <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" title="DOTS: another streaming simplifier to score against. Needs a preloaded trace.">DOTS</button>
+                <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Needs a preloaded trace.">DP</button>
+                <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" title="SQUISH: keeps about this percent of the original points. Needs a preloaded trace.">SQUISH</button>
               </div>
               <div id="baselineParamFields" class="baseline-param-fields">
                 <label class="baseline-field" id="baselineLssdField" hidden title="DOTS distance limit in thousands (K). Larger keeps fewer points.">
@@ -2235,7 +2239,7 @@
                 </tr>
               </thead>
               <tbody id="compareMetricsBody">
-                <tr><td colspan="2" class="compare-metrics-empty">Load a trace to see scores. Optional: run Compare above.</td></tr>
+                <tr><td colspan="2" class="compare-metrics-empty">Load a trace to see scores. Optional: run Compare above (preloaded traces).</td></tr>
               </tbody>
             </table>
             </div>
@@ -2273,7 +2277,7 @@
             </div>
             <div class="big">Upload a trajectory to get started</div>
             <div class="dropHint-sub">
-              Click <b>Upload trajectory</b> or select a <b>preloaded trace</b>, optionally pick <b>Compare</b> algorithms, leave <b>&epsilon; match</b> / <b>&delta; grid</b> at defaults (or tweak them), then <b>Load Trace</b>
+              Click <b>Upload trajectory</b> or select a <b>preloaded trace</b>, optionally pick <b>Compare</b> (preloaded only), leave <b>&epsilon; match</b> / <b>&delta; grid</b> at defaults (or tweak them), then <b>Load Trace</b>
             </div>
             <div class="dropHint-format">
               Format: first line <code>N</code>, then <code>N</code> lines of <code>"x y"</code>
@@ -2424,7 +2428,7 @@
             <summary id="accordionBaselineSummary">Compare</summary>
             <div class="layer-acc-body">
               <div id="baselineLayerToggles"></div>
-              <p id="baselineLayerHint" class="baseline-layer-hint">Open Results, pick Compare algorithms, then press Run compare to enable these layers. On wider screens you can also use Run beside Compare in the header.</p>
+              <p id="baselineLayerHint" class="baseline-layer-hint">Compare works with preloaded traces. Open Results, pick DOTS / DP / SQUISH, then press Run compare (on wider screens, Run beside Compare also works). Uploaded files show Simplify scores only.</p>
             </div>
           </details>
         </div>
@@ -2545,6 +2549,6 @@
   </div>
 </div>
 
-<script src="viewer.js?v=eps-delta-gloss-1"></script>
+<script src="viewer.js?v=compare-preloaded-only-1"></script>
 </body>
 </html>

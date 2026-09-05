@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Compare looked available after Upload trajectory (resolved)
+
+**Where:** header / Results Compare pills, `#baselineStatus`, `#baselineLayerHint`, start Instructions, and the load / Results tour steps after choosing Upload trajectory.
+
+**Problem:** Compare only runs against preloaded traces (`/api/trace/<id>/compare`). After Upload trajectory, pills stayed clickable and status still said “Load a preloaded trace…”, which reads like the upload did not count even though Simplify scores already appear in Results.
+
+**Fix:** Choosing an upload clears Compare selection, disables the DOTS / DP / SQUISH pills with a plain tooltip, and sets status / Layers hint / Results empty copy to “Compare needs a preloaded trace. Uploaded files show Simplify scores only.” Tour and mobile Instructions say the same. Picking a preloaded trace re-enables the pills.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-upload-preloaded-only.html`
+- Fixture screenshot (900px): `web/usability/compare-upload-preloaded-only.png`
+
 ### Cloud Run Deploy landed on main (resolved)
 
 **Where:** `.github/workflows/deploy.yml` on `main`, GitHub Actions Deploy workflow, Cloud Run service `simplify-viewer`.

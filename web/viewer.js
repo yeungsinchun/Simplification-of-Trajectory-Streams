@@ -215,8 +215,24 @@
     if (algo === "dots") return "DOTS";
     if (algo === "dp") return "DP";
     if (algo === "squish") return "SQUISH";
-    return "Baseline";
+    return "Compare";
   }
+
+  function canRunCompare() {
+    return !!currentTraceId;
+  }
+
+  function compareBlockedByUpload() {
+    return !!currentFile && !currentTraceId;
+  }
+
+  const COMPARE_PILL_TITLES = {
+    dots: "DOTS: another streaming simplifier to score against. Needs a preloaded trace.",
+    dp: "DP: classic point-to-edge simplifier (Douglas-Peucker style). Needs a preloaded trace.",
+    squish: "SQUISH: keeps about this percent of the original points. Needs a preloaded trace.",
+  };
+  const COMPARE_PILL_UPLOAD_TITLE =
+    "Compare needs a preloaded trace. Uploaded files show Simplify scores only in Results.";
 
   function selectedBaselineAlgos() {
     return BASELINE_ORDER.filter((a) => state.baselineAlgos.includes(a));
@@ -231,17 +247,54 @@
 
   function syncBaselinePills() {
     const selected = new Set(state.baselineAlgos);
+    const blocked = compareBlockedByUpload();
     for (const row of baselineAlgoRows()) {
       for (const btn of row.querySelectorAll(".baseline-algo-pill")) {
-        const on = selected.has(btn.dataset.algo);
+        const algo = btn.dataset.algo;
+        const on = selected.has(algo);
         btn.classList.toggle("active", on);
         btn.setAttribute("aria-pressed", String(on));
+        btn.disabled = blocked;
+        btn.title = blocked
+          ? COMPARE_PILL_UPLOAD_TITLE
+          : (COMPARE_PILL_TITLES[algo] || "Optional compare algorithm. Needs a preloaded trace.");
       }
+    }
+  }
+
+  function compareSelectionStatus(labels) {
+    if (!labels.length) {
+      return compareBlockedByUpload()
+        ? "Compare needs a preloaded trace. Uploaded files show Simplify scores only."
+        : "";
+    }
+    if (compareBlockedByUpload()) {
+      return `Selected ${labels.join(", ")}. Compare needs a preloaded trace - choose one and press Load Trace. Uploaded files show Simplify scores only.`;
+    }
+    if (currentTraceId) {
+      return `Selected ${labels.join(", ")}. Press Run compare (on wider screens, Run beside Compare also works).`;
+    }
+    return `Selected ${labels.join(", ")}. Load a preloaded trace to run the compare.`;
+  }
+
+  function updateCompareAvailabilityCopy() {
+    if (baselineLayerHint && !baselineLayerHint.hidden) {
+      baselineLayerHint.textContent = compareBlockedByUpload()
+        ? "Compare needs a preloaded trace. Your upload still shows Simplify scores in Results; pick a preloaded trace to enable DOTS / DP / SQUISH layers."
+        : "Compare works with preloaded traces. Open Results, pick DOTS / DP / SQUISH, then press Run compare (on wider screens, Run beside Compare also works). Uploaded files show Simplify scores only.";
     }
   }
 
   function toggleBaselineAlgo(algo) {
     if (!BASELINE_ORDER.includes(algo)) return;
+    if (compareBlockedByUpload()) {
+      setBaselineStatus(
+        "Compare needs a preloaded trace. Uploaded files show Simplify scores only.",
+        "error"
+      );
+      syncBaselinePills();
+      return;
+    }
     const i = state.baselineAlgos.indexOf(algo);
     if (i >= 0) {
       state.baselineAlgos.splice(i, 1);
@@ -250,13 +303,7 @@
       state.baselineAlgos.push(algo);
     }
     const labels = selectedBaselineAlgos().map(baselineAlgoLabel);
-    setBaselineStatus(
-      labels.length
-        ? (currentTraceId
-          ? `Selected ${labels.join(", ")}. Press Run compare (on wider screens, Run beside Compare also works).`
-          : `Selected ${labels.join(", ")}. Load a preloaded trace to run the compare.`)
-        : ""
-    );
+    setBaselineStatus(compareSelectionStatus(labels));
     syncBaselinePills();
     syncBaselineParamFields();
     renderBaselineLayerToggles();
@@ -351,7 +398,7 @@
       squishDisplayFromRaw(state.baselineSquishRatio)
     );
     const busy = compareRunButtons().some((btn) => btn.dataset.busy === "1");
-    const canRun = !!currentTraceId && selected.size > 0 && !busy;
+    const canRun = canRunCompare() && selected.size > 0 && !busy;
     const traceReady = document.body.classList.contains("results-available");
     for (const btn of compareRunButtons()) {
       btn.disabled = !canRun;
@@ -362,7 +409,14 @@
         // Before that, Load Trace auto-runs any selected Compare algorithms.
         btn.hidden = !traceReady;
       }
+      if (!isHeader && compareBlockedByUpload()) {
+        btn.title = COMPARE_PILL_UPLOAD_TITLE;
+      } else if (!isHeader) {
+        btn.title = "Run the selected Compare algorithms";
+      }
     }
+    syncBaselinePills();
+    updateCompareAvailabilityCopy();
   }
 
   function setCompareRunBusy(busy) {
@@ -373,7 +427,10 @@
   }
 
   function emptyCompareMessage(colspan) {
-    return `<tr><td colspan="${colspan}" class="compare-metrics-empty">Load a trace to see scores. Optional: run Compare above.</td></tr>`;
+    const msg = compareBlockedByUpload()
+      ? "Simplify scores appear after Load Trace. Compare needs a preloaded trace."
+      : "Load a trace to see scores. Optional: run Compare above (preloaded traces).";
+    return `<tr><td colspan="${colspan}" class="compare-metrics-empty">${msg}</td></tr>`;
   }
 
   function clearCompare(options = {}) {
@@ -423,6 +480,7 @@
         </label>
       </div>`).join("");
     if (baselineLayerHint) baselineLayerHint.hidden = ready.length > 0;
+    updateCompareAvailabilityCopy();
     if (accordionBaselineSummary) {
       accordionBaselineSummary.textContent = ready.length
         ? ready.map(baselineAlgoLabel).join(" / ")
@@ -608,6 +666,12 @@
     clearCompare({ hideChrome: false });
     if (!currentTraceId) {
       if (state.trace) showResultsPanel(false);
+      if (compareBlockedByUpload()) {
+        setBaselineStatus(
+          "Compare needs a preloaded trace. Uploaded files show Simplify scores only.",
+        );
+      }
+      syncBaselineParamFields();
       return;
     }
     try {
@@ -633,7 +697,12 @@
 
   async function runSelectedBaseline() {
     if (!currentTraceId) {
-      setBaselineStatus("Load a preloaded trace first.", "error");
+      setBaselineStatus(
+        compareBlockedByUpload()
+          ? "Compare needs a preloaded trace. Uploaded files show Simplify scores only."
+          : "Load a preloaded trace first.",
+        "error"
+      );
       return;
     }
     const algos = selectedBaselineAlgos();
@@ -1319,7 +1388,12 @@
 
     currentFile = f;
     currentTraceId = null;
+    state.baselineAlgos = [];
     clearCompare();
+    setBaselineStatus(
+      "Compare needs a preloaded trace. Uploaded files show Simplify scores only."
+    );
+    syncBaselineParamFields();
     traceSelect.value = "";
     syncPreloadedTrigger();
     uploadStatus.textContent = "";
@@ -1717,6 +1791,7 @@
       currentFile = null;
       currentTraceId = null;
       clearCompare();
+      syncBaselineParamFields();
       render();
       uploadStatus.textContent = "";
       dropHint.style.display = "flex";
@@ -1728,6 +1803,8 @@
 
     currentTraceId = traceId;
     currentFile = null;
+    setBaselineStatus("");
+    syncBaselineParamFields();
     syncPreloadedTrigger();
     if (headerBody && headerBody.classList.contains("open")) closeHeader();
 
@@ -3049,7 +3126,7 @@
     },
     {
       title: "Load the trace",
-      body: "Optional: tap <b>Compare</b> (DOTS / DP / SQUISH) to score other algorithms later - or skip them. Press <b>Load Trace</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Candidate, Layers, and Results.",
+      body: "Optional: with a <b>preloaded</b> trace, tap <b>Compare</b> (DOTS / DP / SQUISH) to score other algorithms later - or skip. Uploaded files show Simplify scores only. Press <b>Load Trace</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Candidate, Layers, and Results.",
       targets: ["#loadBtn", ".header-baseline"],
     },
   ];
@@ -3078,7 +3155,7 @@
     },
     {
       title: "Results and Compare",
-      body: "Open the left-edge <b>Results</b> tab to see scores. To score other algorithms, pick DOTS / DP / SQUISH and press <b>Run compare</b> inside Results (on wider screens you can also use <b>Run</b> beside Compare in the header). Skip Compare if you only want the green simplified path.",
+      body: "Open the left-edge <b>Results</b> tab to see scores. On a <b>preloaded</b> trace, pick DOTS / DP / SQUISH and press <b>Run compare</b> inside Results (on wider screens you can also use <b>Run</b> beside Compare in the header). Uploaded files show Simplify scores only - skip Compare if that is enough.",
       targets: ["#resultsPanelOpen"],
     },
   ];
