@@ -1648,20 +1648,25 @@
       overflow-x: auto;
     }
     .params:not(:empty) {
-      flex: 1 1 100%;
+      /* Full-width second header row. flex-basis 100% only works when header
+         may wrap; shrink 0 so the chips are not crushed beside Load Trace. */
+      flex: 1 0 100%;
       margin-left: 0;
       width: 100%;
     }
-    /* Keep title + controls on one header row. Compare params must not wrap
-       the title onto its own line and shift Load Trace down. */
+    /* Title + controls stay on row 1 (file-controls shrinks). Params uses the
+       wrap row below so chips are not squeezed into a ~160px side column. */
     header {
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
     }
     header h1 {
       flex-shrink: 0;
     }
+    .ui-tour-relaunch {
+      flex-shrink: 0;
+    }
     .file-controls {
-      flex: 1 1 auto;
+      flex: 1 1 0;
       min-width: 0;
     }
     .upload-form {
@@ -2200,7 +2205,7 @@
             </table>
             </div>
             <p class="compare-metrics-footer">
-              Frechet is the discrete Fréchet distance of each simplified curve against the original trajectory.
+              Match error is how far each simplified path drifts from the original (discrete Fréchet distance). Lower is better.
               <a href="https://en.wikipedia.org/wiki/Fr%C3%A9chet_distance" target="_blank" rel="noopener noreferrer">What is Fréchet distance?</a>
             </p>
             <p id="compareFrechetNote" class="compare-frechet-note" hidden></p>

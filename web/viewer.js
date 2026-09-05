@@ -490,19 +490,22 @@
       if (tiny) {
         compareFrechetNote.hidden = false;
         compareFrechetNote.textContent =
-          "A compare Fréchet value is tiny but not exact zero; that can happen when the compare path keeps most of the original points.";
+          "A compare match-error value is tiny but not exact zero; that can happen when the compare path keeps most of the original points.";
       } else {
         compareFrechetNote.hidden = true;
         compareFrechetNote.textContent = "";
       }
     }
 
+    const matchErrorLabel =
+      '<td title="How far each simplified path drifts from the original (discrete Fréchet). Lower is better.">Match error</td>';
+
     if (!algos.length) {
       compareMetricsBody.innerHTML = `
       <tr><td>Simplified points</td>${cell(nSimp ?? "—", false)}</tr>
       <tr><td>Compression</td>${cell(pct(nSimp, nOrig), false)}</tr>
-      <tr><td>time (ms)</td>${cell(numOrDash(simpMs, 4), false)}</tr>
-      <tr><td>Frechet</td>${cell(frSimpCell, false)}</tr>`;
+      <tr><td>Time (ms)</td>${cell(numOrDash(simpMs, 4), false)}</tr>
+      <tr>${matchErrorLabel}${cell(frSimpCell, false)}</tr>`;
       return;
     }
 
@@ -518,12 +521,12 @@
         ${algos.map((_, i) => cell(pct(basePts[i], nOrig), winClass(ptsAll, i + 1))).join("")}
       </tr>
       <tr>
-        <td>time (ms)</td>
+        <td>Time (ms)</td>
         ${cell(numOrDash(simpMs, 4), winClass(msAll, 0))}
         ${algos.map((_, i) => cell(numOrDash(baseMs[i], 4), winClass(msAll, i + 1))).join("")}
       </tr>
       <tr>
-        <td>Frechet</td>
+        ${matchErrorLabel}
         ${cell(frSimpCell, winClass(frAll, 0))}
         ${algos.map((_, i) => cell(frBaseCells[i], winClass(frAll, i + 1))).join("")}
       </tr>
@@ -946,6 +949,12 @@
     return Math.abs(value) >= 1000 ? value.toFixed(1) : value.toFixed(4);
   }
 
+  function paramChip(label, value, title, extraStyle) {
+    const titleAttr = title ? ` title="${String(title).replace(/"/g, "&quot;")}"` : "";
+    const styleAttr = extraStyle ? ` style="${extraStyle}"` : "";
+    return `<span${titleAttr}${styleAttr}>${label} <b>${value}</b></span>`;
+  }
+
   function desktopTraceParamChips(trace) {
     const epsilonValue = trace && trace.eps != null
       ? formatTraceNumber(trace.eps)
@@ -966,19 +975,24 @@
     const ratio = simplifiedLen != null
       ? (typeof streamLen === "number" && streamLen ? `${(100 * simplifiedLen / streamLen).toFixed(1)}%` : "-")
       : "…";
-    const pendingStyle = simplifiedLen == null ? ` style="color:var(--text-dim)"` : "";
+    const pendingStyle = simplifiedLen == null ? "color:var(--text-dim)" : "";
 
-    return `
-      <span>\\(\\varepsilon\\) <b>${epsilonValue}</b></span>
-      <span>\\(\\delta\\) <b>${deltaValue}</b></span>
-      <span>\\(\\text{len}_\\text{grid}\\) <b>${gridLength}</b></span>
-      <span>\\(R\\) (disk radius) <b>${diskRadius}</b></span>
-      <span>a-priori Fréchet bound <b>${expectedFrechet}</b></span>
-      <span style="color: #C4612F; font-weight: 600;">Actual Fr&eacute;chet distance <b style="color: #A94E22;">${actualFrechet}</b></span>
-      <span>|stream| <b>${streamLen}</b></span>
-      <span${pendingStyle}>|simplified| <b>${simplifiedLen != null ? simplifiedLen : "…"}</b></span>
-      <span${pendingStyle}>ratio <b>${ratio}</b></span>
-    `;
+    return [
+      paramChip("ε", epsilonValue, "Match tolerance: how closely the simplified path must follow the original. Smaller keeps more detail."),
+      paramChip("δ", deltaValue, "Search-grid spacing used while finding the simplified path."),
+      paramChip("grid step", gridLength, "Length of one search-grid cell (derived from δ)."),
+      paramChip("radius", diskRadius, "Search-circle radius around path points while looking for the next simplified point."),
+      paramChip("error budget", expectedFrechet, "Upper bound on how far the simplified path may drift from the original (Fréchet)."),
+      paramChip(
+        "trace error",
+        actualFrechet,
+        "Match error recorded in this preloaded trace (Fréchet distance).",
+        "color:#C4612F;font-weight:600",
+      ),
+      paramChip("original", streamLen, "Number of points on the original trajectory."),
+      paramChip("kept", simplifiedLen != null ? simplifiedLen : "…", "Number of points kept on the simplified path.", pendingStyle),
+      paramChip("kept %", ratio, "Simplified points as a percent of the original.", pendingStyle),
+    ].join("");
   }
 
   function typesetParamsBar() {
@@ -989,8 +1003,8 @@
 
   function renderParamsBarPreview() {
     const loadingMetrics = `
-      ${paramsBlueMetric("Computed Fréchet distance", "", true, "frechet")}
-      ${paramsBlueMetric("Simplification time", "", true, "time")}`;
+      ${paramsBlueMetric("Match error", "", true, "frechet", "How far the simplified path drifts from the original (discrete Fréchet). Lower is better.")}
+      ${paramsBlueMetric("Time", "", true, "time", "How long the simplification run took.")}`;
     if (isMobileUI()) {
       paramsBar.innerHTML = loadingMetrics;
       return;
@@ -998,15 +1012,15 @@
     paramsBar.innerHTML = `
       ${loadingMetrics}
       ${desktopTraceParamChips(null)}`;
-    typesetParamsBar();
   }
 
-  function paramsBlueMetric(label, value, loading, kind) {
+  function paramsBlueMetric(label, value, loading, kind, title) {
     const kindClass = kind ? ` params-metric--${kind}` : "";
+    const titleAttr = title ? ` title="${String(title).replace(/"/g, "&quot;")}"` : "";
     const valueSlot = loading
       ? `<span class="params-metric-value params-metric-value--loading" aria-live="polite"><span class="button-spinner params-spinner" aria-hidden="true"></span><span class="visually-hidden">Loading</span></span>`
       : `<b class="params-metric-value">${value || ""}</b>`;
-    return `<span class="params-metric params-metric--blue${kindClass}"><span class="params-metric-body"><span class="params-metric-label">${label}</span>${valueSlot}</span></span>`;
+    return `<span class="params-metric params-metric--blue${kindClass}"${titleAttr}><span class="params-metric-body"><span class="params-metric-label">${label}</span>${valueSlot}</span></span>`;
   }
 
   function setCanvasLoadingHud(visible) {
@@ -1741,10 +1755,11 @@
       ? formatTraceNumber(state.computedFrechet)
       : (!state.computingFrechet && state.frechetError ? "failed" : "");
     const computedFrechetDisplay = paramsBlueMetric(
-      "Computed Fréchet distance",
+      "Match error",
       computedFrechetValue,
       frechetLoading,
       "frechet",
+      "How far the simplified path drifts from the original (discrete Fréchet). Lower is better.",
     );
 
     const timeLoading = t.time_ms == null;
@@ -1753,16 +1768,15 @@
     if (isMobileUI()) {
       paramsBar.innerHTML = `
         ${computedFrechetDisplay}
-        ${paramsBlueMetric("Simplification time", timeValue, timeLoading, "time")}`;
+        ${paramsBlueMetric("Time", timeValue, timeLoading, "time", "How long the simplification run took.")}`;
       return;
     }
 
     paramsBar.innerHTML = `
       ${computedFrechetDisplay}
-      ${paramsBlueMetric("Simplification time", timeValue, timeLoading, "time")}
+      ${paramsBlueMetric("Time", timeValue, timeLoading, "time", "How long the simplification run took.")}
       ${desktopTraceParamChips(t)}
     `;
-    typesetParamsBar();
   }
 
   function currentPrefix() {

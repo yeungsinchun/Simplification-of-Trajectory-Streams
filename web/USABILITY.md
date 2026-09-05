@@ -419,6 +419,22 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Desktop live Layers step (1280px): `web/usability/layers-tour-1280-live.png`
 - Mobile live Layers step (390px): `web/usability/layers-tour-390-live.png`
 
+### Params bar and Results still used Fréchet / |stream| jargon
+
+**Where:** desktop `#paramsBar` chips after Load Trace, mobile Match error / Time metrics, and Results compare table.
+
+**Problem:** After the tours, novices still faced `Computed Fréchet distance`, `len_grid`, `R (disk radius)`, `a-priori Fréchet bound`, `|stream|`, `|simplified|`, `ratio`, and a Results row labeled `Frechet`. Those labels assume paper vocabulary and MathJax typesetting.
+
+**Fix:** Params chips use short plain labels with tooltips (`Match error`, `Time`, `grid step`, `radius`, `error budget`, `trace error`, `original`, `kept`, `kept %`). Results uses `Match error` / `Time (ms)` and a plain footer gloss. Desktop chips no longer need MathJax. Desktop `header` may wrap again so `#paramsBar` keeps `flex: 1 0 100%` on its own row (file-controls still shrinks beside the title); that stops the bar from being crushed into a ~160px side column at 721px after the Compare nowrap change.
+
+**Evidence:**
+
+- Before/after markup fixture: `web/usability/desktop-params-glosses.html`
+- Fixture screenshot: `web/usability/desktop-params-glosses.png`
+- Desktop live (1280px): `web/usability/desktop-params-glosses-1280-live.png`
+- Desktop live (900px): `web/usability/desktop-params-glosses-900-live.png`
+- Mobile live metrics (390px): `web/usability/desktop-params-glosses-390-live.png`
+
 ## Still open
 
-No open layout or novice-copy items from this pass. First live Cloud Run publish still needs a successful `main` push or `workflow_dispatch` run of `.github/workflows/deploy.yml`.
+No open layout or novice-copy items from this pass. First live Cloud Run publish still needs a successful `main` push or `workflow_dispatch` run of `.github/workflows/deploy.yml` (workflow is not on `main` yet; only Benchmark and Correctness are registered).
