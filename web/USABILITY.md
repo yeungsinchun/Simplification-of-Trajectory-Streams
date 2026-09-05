@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Option still said the search considered (resolved)
+
+**Where:** Status Option tooltip, desktop playback Option caption, Instructions gloss, playback tour Segment/Option step, and Map overlays Current-point circle tip.
+
+**Problem:** Options near current / Option markers already named next-point options near the current point, but Option tips still said `the search considered`, and Current-point circle said `being processed`. Skip-tour users mapping Option to Options near current and Status current point could not tell those tips meant the same options and point.
+
+**Fix:** Tips say `near the current point` / `Options near current` / `Gray path`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/option-near-current-not-search.html`
+- Fixture screenshot (900px): `web/usability/option-near-current-not-search.png`
+
 ### Match / Match error still said the original (resolved)
 
 **Where:** Match form/chip titles, Match error Scores footer and tips, match limit / kept % tips, Gray path overlay tip, Accuracy tour, and playback-tour intro.

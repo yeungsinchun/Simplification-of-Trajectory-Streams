@@ -1112,7 +1112,7 @@
     const openBit = Number.isFinite(stillOpen)
       ? ` ${stillOpen} still being considered.`
       : "";
-    return `Cycles next-point options the search considered.${openBit} Same idea as Option on the playback bar.`;
+    return `Cycles next-point options near the current point (same options as Options near current).${openBit} Same idea as Option on the playback bar.`;
   }
 
   function renderBootstrapStatus(trace) {
@@ -3287,7 +3287,7 @@
     },
     {
       title: "Segment and Option",
-      body: "<b>Segment</b> jumps between pieces of the green path. <b>Option</b> cycles possible next points the search considered. Press <b>Play</b> to auto-advance; pick a speed if you want it faster or slower.",
+      body: "<b>Segment</b> jumps between pieces of the green path. <b>Option</b> cycles next-point options near the current point (same options as Options near current). Press <b>Play</b> to auto-advance; pick a speed if you want it faster or slower.",
       targets: ["#segmentInput", "#candidateInput", "#playBtn", "#mobileSegmentForwardBtn", "#mobileCandidateForwardBtn", "#mobilePlayBtn"],
     },
     {
