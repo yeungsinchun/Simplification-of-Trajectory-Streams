@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Trajectory Simplification Visualizer</title>
+<title>Trajectory Simplifier</title>
 <script>
   // Assistive MathML copies keep full formula width and can report boxes past the
   // 280px sidebar at 900px even when overflow-x is hidden. Disable the render
@@ -57,6 +57,9 @@
     font-weight: 600;
     margin: 0;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
     color: var(--text);
   }
   header .sub {
@@ -1204,10 +1207,13 @@
       padding: 10px 12px;
     }
     body.trace-loaded-mobile header h1 {
-      flex: 1;
+      flex: 1 1 0;
       width: auto;
+      min-width: 0;
       text-align: right;
       font-size: 14px;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     body.trace-loaded-mobile .mobile-back { display: inline-flex; }
     body.trace-loaded-mobile .headerBody {
@@ -1690,7 +1696,9 @@
       flex-wrap: wrap;
     }
     header h1 {
-      flex-shrink: 0;
+      flex: 0 1 auto;
+      min-width: 0;
+      max-width: min(280px, 32vw);
     }
     .ui-tour-relaunch {
       flex-shrink: 0;
@@ -2109,7 +2117,7 @@
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Back
     </button>
-    <h1>Trajectory Simplification Visualizer</h1>
+    <h1 id="appTitle">Trajectory Simplifier</h1>
     <button type="button" id="uiTourRelaunch" class="ui-tour-relaunch" title="Replay the quick tour" aria-label="Replay the quick tour">?</button>
     <button type="button" id="headerToggle" class="headerToggle" aria-label="Show controls" aria-expanded="false" aria-controls="headerBody">
       <svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>

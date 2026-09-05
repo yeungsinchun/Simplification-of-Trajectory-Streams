@@ -1,5 +1,5 @@
 // ===========================================================================
-//  Trajectory Simplification Visualizer — viewer logic
+//  Trajectory Simplifier - viewer logic
 // ===========================================================================
 //
 // Consumes the NDJSON trace streamed by `simplify --web-server --json-stream`
@@ -71,6 +71,8 @@
   const playbackToggle = el("playbackToggle");
   const playbackBarEl = el("playbackBar");
   const mobileBackBtn = el("mobileBackBtn");
+  const APP_TITLE = "Trajectory Simplifier";
+  const appTitleEl = el("appTitle");
   const mobileLayersToggle = el("mobileLayersToggle");
   const layersSection = el("layersSection");
   const mobilePanelClose = el("mobilePanelClose");
@@ -972,6 +974,26 @@
     uploadStatus.className = "sub";
   }
 
+  function currentTrajectoryLabel() {
+    if (currentFile && currentFile.name) return currentFile.name;
+    const id = currentTraceId || (traceSelect && traceSelect.value) || "";
+    if (id && traceSelect) {
+      const opt = Array.from(traceSelect.options).find((o) => String(o.value) === String(id));
+      const label = opt && opt.textContent ? opt.textContent.trim() : "";
+      if (label) return label;
+    }
+    if (id) return `Trajectory ${id}`;
+    return "";
+  }
+
+  function setAppTitle(label) {
+    if (!appTitleEl) return;
+    const text = (label && String(label).trim()) || APP_TITLE;
+    appTitleEl.textContent = text;
+    if (text !== APP_TITLE) appTitleEl.title = text;
+    else appTitleEl.removeAttribute("title");
+  }
+
   function enterMobileTraceLayout() {
     if (!isMobileUI()) return;
     document.body.classList.add("trace-loaded-mobile");
@@ -1129,6 +1151,7 @@
     statusIndices.innerHTML = "";
     statusGrid.innerHTML = "";
     setPlaybackChromeVisible(false);
+    setAppTitle(currentTrajectoryLabel());
     enterMobileTraceLayout();
     renderParamsBarPreview();
     document.body.classList.add("trace-loading");
@@ -1153,6 +1176,7 @@
     dropHint.style.display = "";
     setCanvasLoadingHud(false);
     setPlaybackChromeVisible(false);
+    setAppTitle(null);
     clearTopBarTraceStatus();
     uploadStatus.textContent = message;
     uploadStatus.style.color = "#ff5f6d";
@@ -1166,6 +1190,7 @@
     canvas.classList.add("has-trace");
     setCanvasLoadingHud(false);
     document.body.classList.add("trace-loaded-mobile");
+    setAppTitle(currentTrajectoryLabel());
     setPlaybackChromeVisible(true);
     renderParamsBar();
     setupSliders();
@@ -1793,6 +1818,7 @@
       dropHint.style.display = "flex";
       document.body.classList.remove("trace-loaded-mobile");
       setPlaybackChromeVisible(false);
+      setAppTitle(null);
       syncPreloadedTrigger();
       return;
     }

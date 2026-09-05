@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Mobile loaded header kept the long product name (resolved)
+
+**Where:** mobile `#appTitle` / `header h1` after `body.trace-loaded-mobile` (Back + title + `?`).
+
+**Problem:** After Load, phones hide the trajectory picker, but the header still showed the long product name `Trajectory Simplification Visualizer` with `white-space: nowrap`. Beside Back and `?` that title needed more width than a 390px row, so the name clipped or risked horizontal scroll, and novices could not see which trajectory was loaded.
+
+**Fix:** Brand shortens to `Trajectory Simplifier`. On load / loading the header title becomes the selected trajectory label (or upload filename) with ellipsis (`min-width: 0`, `text-overflow: ellipsis`); failure or clear restores the brand. Fixture header width stays 390 with no page scroll.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/mobile-header-trajectory-title.html`
+- Fixture screenshot (390px): `web/usability/mobile-header-trajectory-title.png`
+
 ### Status / canvas / Layers still led with paper notation (resolved)
 
 **Where:** desktop `#statusIndices` labels; canvas `p` / `vN` overlays; Simplify layer toggle rows; loading / picker point-count copy.
