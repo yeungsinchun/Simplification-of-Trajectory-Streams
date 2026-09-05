@@ -220,6 +220,26 @@
     return "Compare";
   }
 
+  function baselineAlgoGloss(algo) {
+    if (algo === "dots") return "stream";
+    if (algo === "dp") return "classic";
+    if (algo === "squish") return "keep %";
+    return "";
+  }
+
+  function baselineAlgoOverlayTitle(algo) {
+    if (algo === "dots") {
+      return "DOTS path (streaming). Toggle the dashed overlay on the map.";
+    }
+    if (algo === "dp") {
+      return "DP path (classic point-to-edge). Toggle the dashed overlay on the map.";
+    }
+    if (algo === "squish") {
+      return "SQUISH path (keep %). Toggle the dashed overlay on the map.";
+    }
+    return "Compare path overlay on the map.";
+  }
+
   function canRunCompare() {
     return !!currentTraceId;
   }
@@ -474,13 +494,23 @@
   function renderBaselineLayerToggles() {
     if (!baselineLayerToggles) return;
     const ready = selectedBaselineAlgos().filter((a) => state.compare?.layers?.[a]?.length);
-    baselineLayerToggles.innerHTML = ready.map((a) => `
+    baselineLayerToggles.innerHTML = ready.map((a) => {
+      const gloss = baselineAlgoGloss(a);
+      const glossHtml = gloss
+        ? `<span class="layer-algo-gloss">${gloss}</span>`
+        : "";
+      const title = baselineAlgoOverlayTitle(a).replace(/"/g, "&quot;");
+      const aria = gloss
+        ? `${baselineAlgoLabel(a)} ${gloss}`
+        : baselineAlgoLabel(a);
+      return `
       <div class="toggle-row">
-        <label>
+        <label title="${title}" aria-label="${aria}">
           <input type="checkbox" data-baseline-algo="${a}" ${state.resultVisible[a] ? "checked" : ""} />
-          <span class="swatch" style="background:${BASELINE_COLORS[a]}"></span>${baselineAlgoLabel(a)}
+          <span class="swatch" style="background:${BASELINE_COLORS[a]}"></span>${baselineAlgoLabel(a)}${glossHtml}
         </label>
-      </div>`).join("");
+      </div>`;
+    }).join("");
     if (baselineLayerHint) baselineLayerHint.hidden = ready.length > 0;
     updateCompareAvailabilityCopy();
     if (accordionBaselineSummary) {
@@ -509,7 +539,15 @@
     if (compareMetricsHead) {
       compareMetricsHead.innerHTML =
         `<th>Metric</th><th title="Scores for this simplification run (the green path)">This run</th>` +
-        algos.map((a) => `<th>${baselineAlgoLabel(a)}</th>`).join("");
+        algos.map((a) => {
+          const gloss = baselineAlgoGloss(a);
+          const glossHtml = gloss
+            ? `<span class="th-algo-gloss">${gloss}</span>`
+            : "";
+          const title = (COMPARE_PILL_TITLES[a] || baselineAlgoOverlayTitle(a))
+            .replace(/"/g, "&quot;");
+          return `<th title="${title}">${baselineAlgoLabel(a)}${glossHtml}</th>`;
+        }).join("");
     }
 
     if (!t && !c) {

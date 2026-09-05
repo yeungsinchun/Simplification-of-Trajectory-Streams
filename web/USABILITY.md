@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Compare overlays / Scores headers lacked glosses (resolved)
+
+**Where:** Map overlays → Compare `#baselineLayerToggles` after Run compare; Results Scores `#compareMetricsHead` algorithm columns.
+
+**Problem:** Results Compare pills already showed `stream` / `classic` / `keep %`, but after a Compare run the Map overlays toggles and Scores table headers were bare `DOTS` / `DP` / `SQUISH`. Skip-tour users mapping dashed map paths or score columns to the pills lost the plain gloss.
+
+**Fix:** Overlay toggles show the same short glosses with map-path tooltips. Scores headers reuse those glosses under the acronym (accordion summary stays short `DOTS / DP / SQUISH`). Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-overlay-glosses.html`
+- Fixture screenshot (900px): `web/usability/compare-overlay-glosses.png`
+
 ### Outer Layers section still used GIS jargon (resolved)
 
 **Where:** sidebar `#layersSection` h2 / `#mobileLayersToggle`, playback tour step, mobile Instructions / start help after Load.
