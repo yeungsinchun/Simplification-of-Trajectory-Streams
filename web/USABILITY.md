@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Map overlays said Path so far (resolved)
+
+**Where:** Map overlays `#toggle-simplified` label/tooltip, Gray path / Full green path tooltips, and playback Map overlays tour copy.
+
+**Problem:** Gray path and Full green path already led with color, but the mid-playback green overlay still said `Path so far`. Skip-tour users mapping Map overlays to the gray/green vocabulary could not tell that toggle was the same green path.
+
+**Fix:** Label reads `Green path so far`. Related tooltips and the Map overlays tour use the same name. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/green-path-so-far.html`
+- Fixture screenshot (900px): `web/usability/green-path-so-far.png`
+
 ### Map overlays said Original path (resolved)
 
 **Where:** Map overlays `#toggle-stream` label/tooltip and playback Map overlays tour copy.
