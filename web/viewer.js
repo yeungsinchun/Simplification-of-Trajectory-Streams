@@ -358,12 +358,16 @@
     return `<tr><td colspan="${colspan}" class="compare-metrics-empty">Load a trace, then run a compare algorithm.</td></tr>`;
   }
 
-  function clearCompare() {
+  function clearCompare(options = {}) {
+    // hideChrome:false keeps the Results tab visible while compare data reloads.
+    const hideChrome = options.hideChrome !== false;
     state.compare = null;
     for (const a of BASELINE_ORDER) state.resultVisible[a] = false;
     closeResultsPanel();
-    document.body.classList.remove("results-available");
-    if (resultsPanel) resultsPanel.hidden = true;
+    if (hideChrome) {
+      document.body.classList.remove("results-available");
+      if (resultsPanel) resultsPanel.hidden = true;
+    }
     if (accordionBaselineSummary) accordionBaselineSummary.textContent = "Compare";
     if (baselineLayerHint) baselineLayerHint.hidden = false;
     if (compareFrechetNote) {
@@ -580,7 +584,7 @@
   }
 
   async function loadCompare() {
-    clearCompare();
+    clearCompare({ hideChrome: false });
     if (!currentTraceId) {
       if (state.trace) showResultsPanel(false);
       return;
@@ -1104,6 +1108,9 @@
     stepBackBtn.disabled = (state.prefixIdx === 0 && state.stepIdx === 0);
     startFrechetComputation();
     typesetParamsBar();
+    // Show the Results tab immediately so the playback tour can spotlight it
+    // without waiting for the compare API shell.
+    showResultsPanel(false);
     schedulePlaybackTour();
     // Fire-and-forget: Results strip + DOTS metrics after the live simplify trace.
     loadCompare().then(() => render());
@@ -3014,7 +3021,7 @@
     },
     {
       title: "Load the trace",
-      body: "Press <b>Load Trace</b> to run the simplification. When it finishes, a short follow-up explains Play / Step / Segment / Candidate.",
+      body: "Press <b>Load Trace</b> to run the simplification. When it finishes, a short follow-up explains Play / Step / Segment / Candidate and the Results tab.",
       targets: ["#loadBtn"],
     },
   ];
@@ -3034,6 +3041,11 @@
       title: "Segment and Candidate",
       body: "<b>Segment</b> jumps between pieces of the simplified path. <b>Candidate</b> cycles possible next points the search considered. Press <b>Play</b> to auto-advance; pick a speed if you want it faster or slower.",
       targets: ["#segmentInput", "#candidateInput", "#playBtn", "#mobileSegmentForwardBtn", "#mobileCandidateForwardBtn", "#mobilePlayBtn"],
+    },
+    {
+      title: "Results and Compare",
+      body: "Open the left-edge <b>Results</b> tab to see scores and optionally run <b>Compare</b> algorithms (DOTS / DP / SQUISH). Skip Compare if you only want the green simplified path.",
+      targets: ["#resultsPanelOpen"],
     },
   ];
 
@@ -3099,6 +3111,22 @@
     if (!anchorRect) {
       top = Math.max(margin, (window.innerHeight - cardHeight) / 2);
       left = Math.max(margin, (window.innerWidth - cardWidth) / 2);
+    } else if (anchorRect.left < 72 && anchorRect.width < 72) {
+      // Left-edge chrome (Results tab): place the card to the right of the spotlight.
+      left = Math.min(
+        window.innerWidth - cardWidth - margin,
+        Math.max(margin, anchorRect.right + 12)
+      );
+      top = Math.min(
+        Math.max(margin, anchorRect.top),
+        window.innerHeight - cardHeight - margin
+      );
+      // Keep clear of the fixed mobile playback dock.
+      const dock = document.getElementById("mobileTransport");
+      if (dock && isTourTargetVisible(dock)) {
+        const dockTop = dock.getBoundingClientRect().top;
+        top = Math.min(top, Math.max(margin, dockTop - cardHeight - 12));
+      }
     } else {
       left = Math.min(
         Math.max(margin, anchorRect.left),

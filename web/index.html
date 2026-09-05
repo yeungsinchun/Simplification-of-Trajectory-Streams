@@ -1208,6 +1208,16 @@
     }
     .playbackToggle { display: none !important; }
 
+    /* Keep Results above the fixed playback dock (dock z-index 900).
+       mainContent grows with Status/Layers, so absolute top/bottom miss the viewport. */
+    body.results-available.playback-ready .results-panel-open-btn {
+      position: fixed;
+      top: auto;
+      bottom: calc(188px + env(safe-area-inset-bottom, 0px));
+      transform: none;
+      z-index: 850;
+    }
+
     body.trace-loaded-mobile .mobile-transport.visible {
       display: grid;
       position: fixed;
@@ -2198,7 +2208,7 @@
         </div>
         <div id="resultsPanelResizer" class="results-panel-resizer" role="separator" aria-orientation="vertical" aria-label="Resize results panel"></div>
       </aside>
-      <button type="button" id="resultsPanelOpen" class="results-panel-open-btn" aria-controls="resultsPanel" aria-expanded="false" title="Open results panel">
+      <button type="button" id="resultsPanelOpen" class="results-panel-open-btn" aria-controls="resultsPanel" aria-expanded="false" title="Open Results: scores and optional Compare algorithms" aria-label="Open Results panel for scores and Compare">
         <span class="results-panel-open-arrow" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </span>
@@ -2366,7 +2376,7 @@
                 <label title="Boundary anchor points kept from the start-vertex candidate set"><input type="checkbox" id="toggle-P" checked /><span class="swatch" style="background:#ff9f43"></span>\(P\) (boundary anchors)</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-dead-candidates" checked /><span class="swatch" style="background:#ff3c3c"></span>Dead candidates</label>
+                <label title="Candidate points the search already ruled out (shown in red)"><input type="checkbox" id="toggle-dead-candidates" checked /><span class="swatch" style="background:#ff3c3c"></span>Rejected candidates</label>
               </div>
             </div>
           </details>
@@ -2495,6 +2505,6 @@
   </div>
 </div>
 
-<script src="viewer.js?v=layer-gloss-1"></script>
+<script src="viewer.js?v=results-tour-1"></script>
 </body>
 </html>

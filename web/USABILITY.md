@@ -389,6 +389,21 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture: `web/usability/playback-tour.html`
 - Fixture screenshot: `web/usability/playback-tour.png`
 
+### Results tab and Dead candidates stayed opaque after load
+
+**Where:** left-edge `#resultsPanelOpen`, Layers `#toggle-dead-candidates`, and the post-load playback tour.
+
+**Problem:** After Load Trace the Results tab appeared only when the compare API finished, and the playback tour never mentioned it. Novices who finished Step / Segment / Candidate guidance still did not know Results holds scores or optional Compare runs. Layers also labeled ruled-out points as Dead candidates with no gloss.
+
+**Fix:** Results chrome is shown as soon as the trace is ready (`showResultsPanel` before the playback tour; `clearCompare({ hideChrome: false })` while compare data reloads). Playback tour step 4/4 spotlights Results and explains optional Compare. On mobile the Results tab sits above the playback dock instead of under it. The layer toggle reads Rejected candidates with a plain-language tooltip; the Results button title / aria-label name scores and Compare.
+
+**Evidence:**
+
+- Before/after markup fixture: `web/usability/results-tour.html`
+- Fixture screenshot: `web/usability/results-tour.png`
+- Desktop live Results step (1280px): `web/usability/results-tour-1280-live.png`
+- Mobile live Results step (390px): `web/usability/results-tour-390-live.png`
+
 ## Still open
 
 No open layout or novice-copy items from this pass. First live Cloud Run publish still needs a successful `main` push or `workflow_dispatch` run of `.github/workflows/deploy.yml`.
