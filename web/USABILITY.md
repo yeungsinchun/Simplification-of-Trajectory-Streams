@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Server / Match error failures still said binary jargon (resolved)
+
+**Where:** `web/server.py` API error payloads (`type:error` stream messages, Compare `baseline_error`, Frechet / upload / missing-trajectory JSON); Match error chip in `viewer.js` `renderParamsBar`.
+
+**Problem:** After client load/stream copy was plain, server-authored failures still said `Binary execution failed`, `Trace N not found`, `Simplify failed`, `lssd must be positive`, and raw binary paths / stderr. The Match error chip also showed bare `failed`. Novices who hit a timeout, missing Compare binary, or Match error outage saw developer wording.
+
+**Fix:** Server responses now use plain trajectory / Compare / Match error guidance (technical detail stays in server logs). The client sanitizes residual technical `error` / `baseline_error` strings, and the Match error chip shows `unavailable` with a short tooltip. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/server-error-plain-copy.html`
+- Fixture screenshot (900px): `web/usability/server-error-plain-copy.png`
+
 ### Load/stream failures still said JSON / prefix jargon (resolved)
 
 **Where:** `loadTraceStream` / `loadTraceText` failure paths in `viewer.js` (status text and alerts when a response or fallback file cannot be read).

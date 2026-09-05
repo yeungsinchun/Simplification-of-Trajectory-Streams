@@ -700,7 +700,10 @@
         label: data.metrics?.baseline_label || baselineAlgoLabel(algo),
         points: failed ? null : (data.metrics?.baseline_points ?? state.compare.layers[algo]?.length ?? null),
         core_ms: failed ? null : (data.metrics?.baseline_core_ms ?? null),
-        error: data.baseline_error || data.dots_error || null,
+        error: (() => {
+          const raw = data.baseline_error || data.dots_error || null;
+          return raw ? plainUserError(raw) : null;
+        })(),
       };
     }
     return selectedBaselineAlgos().some((a) => Array.isArray(state.compare.layers[a]) && state.compare.layers[a].length > 0);
@@ -821,7 +824,9 @@
         if (!resp.ok) throw new Error(await apiErrorMessage(resp));
         const data = await resp.json();
         if (data.baseline_error || data.dots_error) {
-          errors.push(`${baselineAlgoLabel(algo)}: ${data.baseline_error || data.dots_error}`);
+          errors.push(
+            `${baselineAlgoLabel(algo)}: ${plainUserError(data.baseline_error || data.dots_error)}`
+          );
         } else {
           ran.push(algo);
         }
@@ -850,7 +855,7 @@
       }
     } catch (err) {
       console.warn("[Compare] Compare run failed:", err);
-      setBaselineStatus(err.message || "Compare run failed", "error");
+      setBaselineStatus(plainUserError(err.message) || "Compare run failed", "error");
     } finally {
       setCompareRunBusy(false);
     }
@@ -925,19 +930,51 @@
   // -------------------------------------------------------------------------
 
   async function apiErrorMessage(resp) {
-    const fallback = `Server error ${resp.status}`;
+    const fallback = "Something went wrong on the server. Try again in a moment.";
     try {
       const text = await resp.text();
       if (!text) return fallback;
       try {
         const data = JSON.parse(text);
-        return data.error || fallback;
+        return plainUserError(data.error || fallback);
       } catch {
-        return text.length <= 200 ? text : fallback;
+        return plainUserError(text.length <= 200 ? text : fallback);
       }
     } catch {
       return fallback;
     }
+  }
+
+  function plainUserError(message) {
+    const raw = String(message || "").trim();
+    if (!raw) return "Something went wrong. Try again in a moment.";
+    const lower = raw.toLowerCase();
+    if (
+      lower.includes("binary not found")
+      || lower.includes("binary execution")
+      || lower.includes("simplify failed")
+      || lower.includes("processing timeout")
+      || /\/(build|usr|tmp|var)\//.test(raw)
+      || /\.cpp|\.h\b|traceback|stderr|stack/.test(lower)
+    ) {
+      return "Could not finish this step. Try again, or pick another trajectory.";
+    }
+    if (/\btrace\b/.test(lower) && /not found/.test(lower)) {
+      return raw.replace(/\b[Tt]race\b/g, "Trajectory").replace(/ not found/i, " was not found.");
+    }
+    if (lower.includes("invalid epsilon") || lower.includes("invalid delta")) {
+      return "Match error (ε) and grid (δ) must be valid numbers.";
+    }
+    if (lower.includes("unknown curve") || lower.includes("unknown algorithm")) {
+      return "That Compare or Match error option is not available.";
+    }
+    if (lower.includes("lssd") || lower.includes("baseline parameter")) {
+      return "Compare settings must be valid numbers.";
+    }
+    if (lower === "failed" || lower === "unavailable") {
+      return "unavailable";
+    }
+    return raw;
   }
 
   function isSampleTraceId() {
@@ -1348,7 +1385,7 @@
         }
 
         if (msg.type === "error") {
-          throw new Error(msg.message || "Could not load trajectory");
+          throw new Error(plainUserError(msg.message || "Could not load trajectory"));
         }
         if (msg.type === "header") {
           applySampleTraceYOffset(msg);
@@ -1428,7 +1465,7 @@
         return;
       }
       if (msg.type === "error") {
-        throw new Error(msg.message || "Could not load trajectory");
+        throw new Error(plainUserError(msg.message || "Could not load trajectory"));
       }
     }
 
@@ -1531,10 +1568,10 @@
         uploadStatus.style.color = "#3ddc97";
         clearTopBarTraceStatus();
       } catch (err) {
-        uploadStatus.textContent = `Error: ${err.message}`;
+        uploadStatus.textContent = `Error: ${plainUserError(err.message)}`;
         uploadStatus.style.color = "#ff5f6d";
         clearTopBarTraceStatus();
-        failTraceLoading(err.message || "Could not load trajectory");
+        failTraceLoading(plainUserError(err.message) || "Could not load trajectory");
       } finally {
         setLoadButtonBusy(false);
       }
@@ -1561,10 +1598,10 @@
         uploadStatus.style.color = "#3ddc97";
         clearTopBarTraceStatus();
       } catch (err) {
-        uploadStatus.textContent = `Error: ${err.message}`;
+        uploadStatus.textContent = `Error: ${plainUserError(err.message)}`;
         uploadStatus.style.color = "#ff5f6d";
         clearTopBarTraceStatus();
-        failTraceLoading(err.message || "Could not load trajectory");
+        failTraceLoading(plainUserError(err.message) || "Could not load trajectory");
       } finally {
         setLoadButtonBusy(false);
       }
@@ -1931,15 +1968,19 @@
 
     const frechetLoading = state.computingFrechet
       || (state.computedFrechet == null && !state.frechetError);
+    const frechetUnavailable = !state.computingFrechet && !!state.frechetError;
     const computedFrechetValue = !state.computingFrechet && state.computedFrechet != null
       ? formatTraceNumber(state.computedFrechet)
-      : (!state.computingFrechet && state.frechetError ? "failed" : "");
+      : (frechetUnavailable ? "unavailable" : "");
+    const frechetTitle = frechetUnavailable
+      ? "Match error could not be computed for this run."
+      : "How far the simplified path drifts from the original. Lower is better.";
     const computedFrechetDisplay = paramsBlueMetric(
       "Match error",
       computedFrechetValue,
       frechetLoading,
       "frechet",
-      "How far the simplified path drifts from the original. Lower is better.",
+      frechetTitle,
     );
 
     const timeLoading = t.time_ms == null;
@@ -2415,7 +2456,7 @@
     } catch (e) {
       console.error('Fréchet computation error:', e);
       state.computingFrechet = false;
-      state.frechetError = e.message || "failed";
+      state.frechetError = "unavailable";
       renderParamsBar();
       renderCompareMetrics();
     }
