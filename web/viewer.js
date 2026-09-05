@@ -221,18 +221,18 @@
   }
 
   function baselineAlgoGloss(algo) {
-    if (algo === "dots") return "stream";
-    if (algo === "dp") return "classic";
+    if (algo === "dots") return "as-you-go";
+    if (algo === "dp") return "all-at-once";
     if (algo === "squish") return "keep %";
     return "";
   }
 
   function baselineAlgoOverlayTitle(algo) {
     if (algo === "dots") {
-      return "DOTS path (stream). Toggle the dashed overlay on the map.";
+      return "DOTS path (as-you-go). Toggle the dashed overlay on the map.";
     }
     if (algo === "dp") {
-      return "DP path (classic). Toggle the dashed overlay on the map.";
+      return "DP path (all-at-once). Toggle the dashed overlay on the map.";
     }
     if (algo === "squish") {
       return "SQUISH path (keep %). Toggle the dashed overlay on the map.";
@@ -249,8 +249,8 @@
   }
 
   const COMPARE_PILL_TITLES = {
-    dots: "DOTS: another stream path shortener to score against. Needs a preloaded trajectory.",
-    dp: "DP: classic path shortener that drops points within a match limit. Needs a preloaded trajectory.",
+    dots: "DOTS: shortens the path as points arrive (as-you-go). Needs a preloaded trajectory.",
+    dp: "DP: shortens the whole path in one pass (all-at-once), dropping points within a match limit. Needs a preloaded trajectory.",
     squish: "SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.",
   };
   const COMPARE_PILL_UPLOAD_TITLE =
@@ -1193,10 +1193,10 @@
     const pendingStyle = simplifiedLen == null ? "color:var(--text-dim)" : "";
 
     return [
-      paramChip("Match", epsilonValue, "Match (ε): how closely the green path must follow the Gray path. Smaller keeps more detail."),
+      paramChip("Match", epsilonValue, "Match (ε): how closely the green path must match the Gray path. Smaller keeps more detail."),
       paramChip("Grid", deltaValue, "Grid spacing (δ) used while finding the green path."),
       paramChip("grid cell", gridLength, "Length of one Grid cell used while finding the green path."),
-      paramChip("circle radius", diskRadius, "Radius of the Start-point circle and Current-point circle overlays while looking for the next green-path point."),
+      paramChip("circle radius", diskRadius, "Radius of the Start-point circle and Current-point circle overlays while finding the next green-path point."),
       paramChip("match limit", expectedFrechet, "Upper Match limit for this run: how far the green path may drift from the Gray path. Same idea as the Match field."),
       paramChip(
         "saved Match",
@@ -1358,7 +1358,7 @@
     }
 
     if (!resp.body) {
-      throw new Error("This browser cannot load streaming trajectories. Try a newer browser.");
+      throw new Error("This browser cannot load a trajectory as it builds. Try a newer browser.");
     }
 
     const reader = resp.body.getReader();

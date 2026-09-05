@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Compare still said stream / classic path shortener (resolved)
+
+**Where:** Compare DOTS / DP pill glosses and titles (header + Results), Map overlays Compare tip titles, desktop `#paramsBar` circle radius tip, and the rare streaming load-error string in `web/viewer.js`.
+
+**Problem:** After Gray path replaced input-stream wording, DOTS still said `stream` and DP said `classic` with `path shortener` tips, and circle radius still said `looking for`. Skip-tour users mapping Compare methods could not tell those glosses meant as-you-go vs all-at-once, and `stream` collided with the old stream vocabulary.
+
+**Fix:** Gloss/tips say `as-you-go` / `all-at-once` / `finding`; the rare load error says `as it builds`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-as-you-go-all-at-once.html`
+- Fixture screenshot (900px): `web/usability/compare-as-you-go-all-at-once.png`
+
 ### Server Match-error / Compare failures still said simplified path / algorithm (resolved)
 
 **Where:** `web/server.py` Match-error and stream failure messages, Compare API param metadata, and the Results tiny-Match-error note in `web/viewer.js`.
