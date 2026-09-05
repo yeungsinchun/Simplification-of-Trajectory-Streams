@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Compare DP still said match error / DOTS distance budget (resolved)
+
+**Where:** Results and header Compare param fields for DP / DOTS / SQUISH, plus client and server validation errors.
+
+**Problem:** Results DP field said `match error`, colliding with the Scores `Match error` metric, while the Match chip already used `match limit`. DOTS Results still said `distance budget` beside the shorter header `budget`, and SQUISH tips said `retain` instead of `keep`. Skip-tour users mapping Compare params to Match / Scores hit two different meanings of match error.
+
+**Fix:** DP labels/tips/errors say `match` / `match limit`; DOTS says `budget`; SQUISH tips say `keep`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-params-match-limit-budget.html`
+- Fixture screenshot (900px): `web/usability/compare-params-match-limit-budget.png`
+
 ### Compare still said algorithms / Match tolerance (resolved)
 
 **Where:** Results `Compare methods` section label, Compare aria-labels/titles, desktop start Instructions, Match field/chip tips, Compare status strings, and start/playback tour copy.

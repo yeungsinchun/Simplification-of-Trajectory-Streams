@@ -307,11 +307,11 @@ def get_trace_compare(trace_id):
         if request.args.get('lssd') is not None:
             lssd = float(request.args.get('lssd'))
             if lssd <= 0:
-                return jsonify({'error': 'DOTS distance budget must be a positive number.'}), 400
+                return jsonify({'error': 'DOTS budget must be a positive number.'}), 400
         if request.args.get('epsilon') is not None:
             dp_eps = float(request.args.get('epsilon'))
             if dp_eps <= 0:
-                return jsonify({'error': 'DP match error must be a positive number.'}), 400
+                return jsonify({'error': 'DP match limit must be a positive number.'}), 400
         if request.args.get('ratio') is not None:
             squish_ratio = float(request.args.get('ratio'))
             if squish_ratio <= 0 or squish_ratio > 1:
