@@ -256,7 +256,7 @@
 
   const COMPARE_PILL_TITLES = {
     dots: "DOTS: builds a shorter green path as Gray path points arrive (as-you-go). Needs a preloaded trajectory.",
-    dp: "DP: builds a shorter green path from the whole Gray path in one pass (all-at-once), dropping points within a match limit. Needs a preloaded trajectory.",
+    dp: "DP: builds a shorter green path from the whole Gray path in one pass (all-at-once), while staying within a match limit. Needs a preloaded trajectory.",
     squish: "SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.",
   };
   const COMPARE_PILL_UPLOAD_TITLE =

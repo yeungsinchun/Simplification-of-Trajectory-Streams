@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Compare tips still said dropping points / Larger keeps (resolved)
+
+**Where:** Compare DP pill titles and DOTS budget field titles in `web/index.html`, plus `COMPARE_PILL_TITLES` in `web/viewer.js`.
+
+**Problem:** After green-path Compare pill titles landed, DP still said `dropping points within a match limit`, and DOTS budget still said `Larger keeps fewer points`. Skip-tour users and phone long-press could not map those tips to Match / green path vocabulary used elsewhere.
+
+**Fix:** DP says `while staying within a match limit`; DOTS budget says `A larger budget builds a shorter green path (keeps fewer points)`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-match-limit-green-path-budget.html`
+- Fixture screenshot (900px): `web/usability/compare-match-limit-green-path-budget.png`
+
 ### Compare tips still said shortens the path (resolved)
 
 **Where:** Compare DOTS / DP pill titles in `web/index.html` and `COMPARE_PILL_TITLES` / welcome tour in `web/viewer.js`.
