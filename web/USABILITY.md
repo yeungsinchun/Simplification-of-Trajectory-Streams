@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Status and playback Candidate wording disagreed (resolved)
+
+**Where:** sidebar Status `path step` / `candidates` rows after Load; desktop `#playbackBar` Step / Segment / Candidate titles; mobile `#mobileTransport` aria-labels; Layers Anchor points tooltip.
+
+**Problem:** Instructions and the playback tour already explained Step / Segment / Candidate in plain language, but Status still said `path step` and showed `candidates 3 / 12` (alive over anchor count). That ratio looks like “3 of 12 candidates” and does not match the dock. Candidate tooltips still said “search boundary”.
+
+**Fix:** Status labels are `Step` / `Candidates` with `N still open`. Playback captions, button titles, and mobile aria-labels reuse the Instructions glosses (walk original points / jump simplified pieces / cycle next-point options). Anchor points drop “search boundary”. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/status-playback-gloss.html`
+- Fixture screenshot (900px): `web/usability/status-playback-gloss.png`
+
 ### Post-load Instructions were shortcut-only (resolved)
 
 **Where:** sidebar Instructions after Load (`#playbackInstructionsGloss`, desktop / mobile shortcut tables); View `#fitBtn`; Layers tour copy.
