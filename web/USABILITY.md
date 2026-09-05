@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Map overlays said Search circle (start/current point) (resolved)
+
+**Where:** Map overlays `#toggle-ball-p0` / `#toggle-ball-pi` labels/tooltips; desktop `#paramsBar` `circle radius` chip tooltip; playback Map overlays tour copy.
+
+**Problem:** Status already led with `start point` / `current point`, but the purple/pink toggles still said `Search circle (start point)` / `Search circle (current point)`. Skip-tour users opening Map overlays first saw algorithm-first naming instead of Status vocabulary, and the circle radius chip tip still said Search circle.
+
+**Fix:** Labels read `Start-point circle` and `Current-point circle`. Tooltips and the circle radius chip tip reuse those names; the Map overlays tour says start-point / current-point circles. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/start-point-circle.html`
+- Fixture screenshot (900px): `web/usability/start-point-circle.png`
+
 ### Map overlays said Full result path (resolved)
 
 **Where:** Map overlays `#toggle-final-simplify` label/tooltip.

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Start-point / Current-point circle labels</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+  }
+  * { box-sizing: border-box; }
+  html, body { width: 900px; max-width: 900px; overflow-x: hidden; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    padding: 16px;
+  }
+  h1 { font-size: 15px; margin: 0 0 6px; }
+  p { margin: 0 0 12px; color: var(--text-dim); font-size: 12px; max-width: 720px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .label {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: #1a1f2b;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    margin-bottom: 6px;
+  }
+  .swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .chip {
+    display: inline-block;
+    padding: 4px 8px;
+    margin-bottom: 8px;
+    background: #1a1f2b;
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    font-size: 12px;
+  }
+  .tour {
+    margin-top: 8px;
+    padding: 8px;
+    background: #12151c;
+    border-radius: 6px;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+  #check {
+    margin-top: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+  <h1>Search circle → Start-point / Current-point circle</h1>
+  <p>
+    Before: Map overlays said <b>Search circle (start point)</b> / <b>Search circle (current point)</b>
+    while Status already led with start point / current point.
+    After: labels lead with Status wording and keep <b>circle</b> for the circle radius chip.
+  </p>
+  <div class="grid">
+    <div class="frame" id="before">
+      <div class="label">Before</div>
+      <span class="chip" title="Radius of the Search circle overlays drawn around path points while looking for the next simplified point.">circle radius <b>707.1</b></span>
+      <div class="toggle-row" title="Purple search circle around the start point of the current Segment. Size matches the circle radius chip. Same start point as in Status.">
+        <span class="swatch" style="background:#c47aff"></span>Search circle (start point)
+      </div>
+      <div class="toggle-row" title="Pink search circle around the current point being processed. Size matches the circle radius chip. Same current point as in Status.">
+        <span class="swatch" style="background:#ff7ae8"></span>Search circle (current point)
+      </div>
+      <div class="tour">Tour: search circles, options near current, next-point zone</div>
+    </div>
+    <div class="frame" id="after">
+      <div class="label">After</div>
+      <span class="chip" id="circleChip" title="Radius of the Start-point circle and Current-point circle overlays while looking for the next simplified point.">circle radius <b>707.1</b></span>
+      <div class="toggle-row" id="startRow" title="Purple Start-point circle around the start point of the current Segment. Size matches the circle radius chip. Same start point as in Status.">
+        <span class="swatch" style="background:#c47aff"></span>Start-point circle
+      </div>
+      <div class="toggle-row" id="currRow" title="Pink Current-point circle around the current point being processed. Size matches the circle radius chip. Same current point as in Status.">
+        <span class="swatch" style="background:#ff7ae8"></span>Current-point circle
+      </div>
+      <div class="tour" id="tourCopy">Tour: start-point / current-point circles, options near current, next-point zone</div>
+    </div>
+  </div>
+  <div id="check"></div>
+  <script>
+    const before = document.getElementById("before").innerText;
+    const after = document.getElementById("after").innerText;
+    const startTip = document.getElementById("startRow").title;
+    const currTip = document.getElementById("currRow").title;
+    const chipTip = document.getElementById("circleChip").title;
+    const tour = document.getElementById("tourCopy").innerText;
+    const beforeOld = before.includes("Search circle (start point)")
+      && before.includes("Search circle (current point)")
+      && !before.includes("Start-point circle");
+    const afterNew = after.includes("Start-point circle")
+      && after.includes("Current-point circle")
+      && !after.includes("Search circle");
+    const tipOk = startTip.includes("Start-point circle")
+      && startTip.includes("start point")
+      && startTip.includes("circle radius")
+      && currTip.includes("Current-point circle")
+      && currTip.includes("current point")
+      && chipTip.includes("Start-point circle")
+      && chipTip.includes("Current-point circle")
+      && !chipTip.includes("Search circle");
+    const tourOk = tour.includes("start-point / current-point circles")
+      && !tour.toLowerCase().includes("search circle");
+    const scroll = document.documentElement.scrollWidth;
+    const ok = beforeOld && afterNew && tipOk && tourOk && scroll <= 900;
+    document.getElementById("check").textContent =
+      `ok=${ok} scrollWidth=${scroll} beforeOld=${beforeOld} afterNew=${afterNew} tipOk=${tipOk} tourOk=${tourOk}`;
+  </script>
+</body>
+</html>

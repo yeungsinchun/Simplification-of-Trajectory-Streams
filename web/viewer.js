@@ -1186,7 +1186,7 @@
       paramChip("Match", epsilonValue, "Match tolerance (ε): how closely the simplified path must follow the original. Smaller keeps more detail."),
       paramChip("Grid", deltaValue, "Search-grid spacing (δ) used while finding the simplified path."),
       paramChip("grid cell", gridLength, "Length of one Grid cell used while searching for the simplified path."),
-      paramChip("circle radius", diskRadius, "Radius of the Search circle overlays drawn around path points while looking for the next simplified point."),
+      paramChip("circle radius", diskRadius, "Radius of the Start-point circle and Current-point circle overlays while looking for the next simplified point."),
       paramChip("match limit", expectedFrechet, "Upper Match limit for this run: how far the simplified path may drift from the original. Same idea as the Match field."),
       paramChip(
         "saved Match",
@@ -3292,7 +3292,7 @@
     },
     {
       title: "Map overlays",
-      body: "In the sidebar, <b>Map overlays</b> toggles what the map draws (original path, path so far, search circles, options near current, next-point zone). Open <b>This run</b> for those toggles (same name as the Scores column), or <b>Compare</b> for other algorithms. Use <b>Fit view</b> in View if you pan or zoom away.",
+      body: "In the sidebar, <b>Map overlays</b> toggles what the map draws (original path, path so far, start-point / current-point circles, options near current, next-point zone). Open <b>This run</b> for those toggles (same name as the Scores column), or <b>Compare</b> for other algorithms. Use <b>Fit view</b> in View if you pan or zoom away.",
       targets: ["#layersSection > h2", "#mobileLayersToggle", "#toggle-stream", "#toggle-simplified"],
       prepare: prepareLayersTourStep,
     },
