@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Status / canvas / Layers still led with paper notation (resolved)
+
+**Where:** desktop `#statusIndices` labels; canvas `p` / `vN` overlays; Simplify layer toggle rows; loading / picker point-count copy.
+
+**Problem:** Mobile Status already said `start point` / `current point`, but desktop still prefixed MathJax `p` / `vᵢ`, the map drew `p` / `v42`, and Layers kept symbols first (`Bp`, `Si[p]`, …). Novices could not match Status wording to the map, and loading still said `Loading pts…`.
+
+**Fix:** Status uses plain `start point` / `current point` on every viewport. Canvas overlays say `start` / `cur` in the same colors. Layer rows lead with plain glosses (paper symbols only in tooltips). Progress and picker counts say `points` / `Loading points…`; load failures say `Could not load trajectory`.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/status-canvas-plain-labels.html`
+- Fixture screenshot (900px): `web/usability/status-canvas-plain-labels.png`
+
 ### Picker / load errors still said “trace” (resolved)
 
 **Where:** mobile `#tracePicker` divider and unlabeled items; desktop `#traceSelect` fallback option labels; NDJSON load error strings; invalid JSON-upload `alert`; Results panel `aria-label`.

@@ -791,7 +791,7 @@
         const ready = selectedBaselineAlgos().filter((a) => state.compare?.layers?.[a]?.length);
         const bits = ready.map((a) => {
           const n = state.compare.metricsByAlgo?.[a]?.points ?? state.compare.layers[a].length;
-          return `${baselineAlgoLabel(a)} (${n} pts)`;
+          return `${baselineAlgoLabel(a)} (${n} points)`;
         });
         const extra = skipped.length && !ran.length
           ? " Parameters unchanged; reused previous run."
@@ -981,15 +981,11 @@
   }
 
   function statusIndexLabels() {
-    if (isMobileUI()) {
-      return { p: "start point", vi: "current point" };
-    }
-    return { p: "\\(p\\) start point", vi: "\\(v_i\\) current point" };
+    return { p: "start point", vi: "current point" };
   }
 
-  function typesetStatus(el) {
-    if (!window.MathJax || isMobileUI()) return;
-    MathJax.typesetPromise([el]).catch(() => {});
+  function typesetStatus(_el) {
+    // Status uses plain labels only; no MathJax typesetting needed.
   }
 
   function renderBootstrapStatus(trace) {
@@ -1281,7 +1277,7 @@
           renderBootstrapStatus(state.trace);
           {
             const total = state.trace.stream?.length ?? 0;
-            setTopBarTraceStatus(total ? `Loading pts 0 / ${total}…` : "Loading pts…");
+            setTopBarTraceStatus(total ? `Loading points 0 / ${total}…` : "Loading points…");
           }
           render();
         } else if (msg.type === "prefix") {
@@ -1299,8 +1295,8 @@
             const loaded = Math.min((prefix.end_idx ?? 0) + 1, total || Infinity);
             setTopBarTraceStatus(
               total
-                ? `Loading pts ${loaded} / ${total}…`
-                : `Loading pts ${loaded}…`
+                ? `Loading points ${loaded} / ${total}…`
+                : `Loading points ${loaded}…`
             );
           }
           render();
@@ -1443,7 +1439,7 @@
         uploadStatus.textContent = `Error: ${err.message}`;
         uploadStatus.style.color = "#ff5f6d";
         clearTopBarTraceStatus();
-        failTraceLoading(err.message || "Could not load trace");
+        failTraceLoading(err.message || "Could not load trajectory");
       } finally {
         setLoadButtonBusy(false);
       }
@@ -1473,7 +1469,7 @@
         uploadStatus.textContent = `Error: ${err.message}`;
         uploadStatus.style.color = "#ff5f6d";
         clearTopBarTraceStatus();
-        failTraceLoading(err.message || "Could not load trace");
+        failTraceLoading(err.message || "Could not load trajectory");
       } finally {
         setLoadButtonBusy(false);
       }
@@ -1550,7 +1546,7 @@
       if (n != null) {
         const meta = document.createElement("span");
         meta.className = "trace-picker-item-meta";
-        meta.textContent = `${n.toLocaleString()} pts`;
+        meta.textContent = `${n.toLocaleString()} points`;
         btn.appendChild(meta);
       }
       btn.addEventListener("click", () => {
@@ -1763,7 +1759,7 @@
               opt.textContent = t.label;
             } else {
               opt.textContent = n != null
-                ? `Trajectory ${id}  (${n.toLocaleString()} pts)`
+                ? `Trajectory ${id}  (${n.toLocaleString()} points)`
                 : `Trajectory ${id}`;
             }
             traceSelect.appendChild(opt);
@@ -3042,14 +3038,13 @@
         }
       }
 
-      // 9. Small canvas labels — v_i with actual stream index in pink, and p in orange.
+      // 9. Small canvas labels — match Status "start point" / "current point" colors.
       if (state.currentStartPoint) {
-        // Add orange "p" label for the active anchor point
         const [pax, pay] = worldToScreen(state.currentStartPoint[0], state.currentStartPoint[1]);
         ctx.save();
         ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, sans-serif";
         ctx.fillStyle = "#ff9f43";
-        ctx.fillText(`p`, pax + 7, pay - 6);
+        ctx.fillText("start", pax + 7, pay - 6);
         ctx.restore();
       }
       if (step) {
@@ -3057,7 +3052,7 @@
         ctx.save();
         ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, sans-serif";
         ctx.fillStyle = "#ff7ae8";
-        ctx.fillText(`v${step.stream_idx}`, pix + 7, piy - 6);
+        ctx.fillText("cur", pix + 7, piy - 6);
         ctx.restore();
       }
     }
@@ -3149,7 +3144,7 @@
     },
     {
       title: "Layers",
-      body: "In the sidebar, <b>Layers</b> toggles what the map draws (original path, simplified path, search circles, candidate regions). Each row keeps a short symbol plus plain wording. Use <b>Fit to data</b> in View if you pan or zoom away.",
+      body: "In the sidebar, <b>Layers</b> toggles what the map draws (original path, simplified path, search circles, candidate regions). Labels use plain wording so you can match them to the map. Use <b>Fit to data</b> in View if you pan or zoom away.",
       targets: ["#layersSection > h2", "#mobileLayersToggle", "#toggle-stream", "#toggle-simplified"],
       prepare: prepareLayersTourStep,
     },
