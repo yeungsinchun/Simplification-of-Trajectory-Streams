@@ -126,8 +126,8 @@ namespace webtrace {
 struct Candidate {
     int grid_pt_idx = 0;
     bool alive = true;
-    std::vector<Point> F;      // free-space wedge F(S_{i-1}[p0], pi) fed to intersect() this step
-    std::vector<Point> F_Si;   // free-space wedge F(S_i[p0], pi) computed after intersect()
+    std::vector<Point> F;      // free-space wedge F(S_{i-1}[p0], pi) clipped against G_i this step
+    std::vector<Point> F_Si;   // free-space wedge F(S_i[p0], pi) after a successful clip
     std::vector<Point> S;      // resulting stab region (new_S[i]) after this step, if alive
 };
 
@@ -267,7 +267,8 @@ inline void write_json(std::ostream& os, double EPSILON, double DELTA, double ti
 }  // namespace webtrace
 
 // Web-trace twin of get_longest_stab: identical control flow, additionally
-// records P, Gi, F[i], new_S[i], alive/dead, and buffer at every step.
+// records P, Gi, alive/dead, buffer, and F/S when the clip path runs (prune
+// deaths omit F, matching the headless skip of find_F + clip).
 int get_longest_stab_web(const std::vector<Point>& stream, int cur,
                          std::vector<Point>& simplified,
                          double EPSILON, double DELTA,
