@@ -576,12 +576,14 @@
     }
 
     const matchErrorLabel =
-      '<td title="How far each simplified path drifts from the original (discrete Fréchet). Lower is better.">Match error</td>';
+      '<td title="How far each simplified path drifts from the original. Lower is better.">Match error</td>';
+    const keptPctLabel =
+      '<td title="Simplified points as a percent of the original. Same idea as kept % in the header.">Kept %</td>';
 
     if (!algos.length) {
       compareMetricsBody.innerHTML = `
       <tr><td>Simplified points</td>${cell(nSimp ?? "—", false)}</tr>
-      <tr><td>Compression</td>${cell(pct(nSimp, nOrig), false)}</tr>
+      <tr>${keptPctLabel}${cell(pct(nSimp, nOrig), false)}</tr>
       <tr><td>Time (ms)</td>${cell(numOrDash(simpMs, 4), false)}</tr>
       <tr>${matchErrorLabel}${cell(frSimpCell, false)}</tr>`;
       return;
@@ -594,7 +596,7 @@
         ${algos.map((_, i) => cell(basePts[i] ?? "—", winClass(ptsAll, i + 1))).join("")}
       </tr>
       <tr>
-        <td>Compression</td>
+        ${keptPctLabel}
         ${cell(pct(nSimp, nOrig), winClass(ptsAll, 0))}
         ${algos.map((_, i) => cell(pct(basePts[i], nOrig), winClass(ptsAll, i + 1))).join("")}
       </tr>
@@ -739,7 +741,7 @@
         squishDisplayFromRaw(state.baselineSquishRatio)
       );
       if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
-        setBaselineStatus("SQUISH ratio must be in (0, 100].", "error");
+        setBaselineStatus("SQUISH keep % must be greater than 0 and at most 100.", "error");
         return;
       }
       squishRatio = squishRawFromDisplay(pct);
@@ -1080,11 +1082,11 @@
       paramChip("δ grid", deltaValue, "Search-grid spacing used while finding the simplified path."),
       paramChip("grid step", gridLength, "Length of one search-grid cell (derived from δ)."),
       paramChip("radius", diskRadius, "Search-circle radius around path points while looking for the next simplified point."),
-      paramChip("error budget", expectedFrechet, "Upper bound on how far the simplified path may drift from the original (Fréchet)."),
+      paramChip("error budget", expectedFrechet, "Upper bound on how far the simplified path may drift from the original."),
       paramChip(
         "recorded",
         actualFrechet,
-        "Match error recorded in this preloaded trajectory (Fréchet distance).",
+        "Match error recorded in this preloaded trajectory file.",
         "color:#C4612F;font-weight:600",
       ),
       paramChip("original", streamLen, "Number of points on the original trajectory."),
@@ -1101,7 +1103,7 @@
 
   function renderParamsBarPreview() {
     const loadingMetrics = `
-      ${paramsBlueMetric("Match error", "", true, "frechet", "How far the simplified path drifts from the original (discrete Fréchet). Lower is better.")}
+      ${paramsBlueMetric("Match error", "", true, "frechet", "How far the simplified path drifts from the original. Lower is better.")}
       ${paramsBlueMetric("Time", "", true, "time", "How long the simplification run took.")}`;
     if (isMobileUI()) {
       paramsBar.innerHTML = loadingMetrics;
@@ -1457,7 +1459,7 @@
         const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
         console.log(`[Client] Trace upload completed in ${elapsed}s`);
         
-        uploadStatus.textContent = "✓ Generated";
+        uploadStatus.textContent = "✓ Loaded";
         uploadStatus.style.color = "#3ddc97";
         clearTopBarTraceStatus();
       } catch (err) {
@@ -1869,7 +1871,7 @@
       computedFrechetValue,
       frechetLoading,
       "frechet",
-      "How far the simplified path drifts from the original (discrete Fréchet). Lower is better.",
+      "How far the simplified path drifts from the original. Lower is better.",
     );
 
     const timeLoading = t.time_ms == null;

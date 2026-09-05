@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Results Scores still said Compression and led with Fréchet (resolved)
+
+**Where:** Results Scores table keep-share row; Match error footer / tooltips; upload success status; SQUISH keep validation.
+
+**Problem:** The keep-share metric was labeled `Compression` even though the value is points kept (same idea as header `kept %`), so a novice reading `12.4%` could think only 12% was removed. Match error help still led with “discrete Fréchet distance”. Upload success said `✓ Generated`, and the SQUISH keep error used interval notation `(0, 100]`.
+
+**Fix:** Scores row is `Kept %` with a plain tooltip. Match error footer / tooltips lead with drift-from-original wording and demote Fréchet to an optional technical link. Upload success is `✓ Loaded`. SQUISH validation says keep % must be greater than 0 and at most 100. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/scores-kept-pct.html`
+- Fixture screenshot (900px): `web/usability/scores-kept-pct.png`
+
 ### Compare algorithm names and canvas “cur” stayed opaque (resolved)
 
 **Where:** Results / header Compare pills (`DOTS` / `DP` / `SQUISH`); canvas overlay label beside the current path point; Status candidates tooltip; desktop keyboard shortcut for C/X; canvas loading HUD.
