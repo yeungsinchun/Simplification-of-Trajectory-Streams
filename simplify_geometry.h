@@ -134,8 +134,8 @@ inline ReusableClipBuffers& reusable_clip_buffers() {
     return buffers;
 }
 
-// Convert a convex Point polygon to CCW doubles once (e.g. conv(G_i) at the
-// start of a stab step) so every candidate can clip against the same buffer.
+// Convert a convex Point polygon to CCW doubles for reuse as a clip buffer.
+// The headless stab loop builds Gi via get_conv_xy_from_grid instead.
 inline void prepare_convex_xy(const std::vector<Point>& pts,
                               std::vector<Vec2>& xy) {
     assign_ccw_doubles(pts, xy);
@@ -295,9 +295,10 @@ inline bool intersect(const std::vector<Point>& P_in,
     return true;
 }
 
-// intersect() against a conv(G_i) that was prepared once for the stab step.
+// intersect() against a conv(G_i) already prepared as CCW doubles.
 // Skips the per-candidate Q dedup / Point-to-double / make_ccw work; the clip
 // math is otherwise identical.  P (the free-space wedge) is still deduped.
+// The headless stab loop uses intersect_prepared_xy instead.
 inline bool intersect_prepared(const std::vector<Point>& F_in,
                                const std::vector<std::array<double, 2>>& Gi_xy,
                                std::vector<Point>& result) {

@@ -36,14 +36,12 @@ inline std::string json_output_path = "";
 
 inline void print_help(const char* prog) {
     std::cout << "Usage: " << prog << " [options]\n"
-              << "  --in <id>        Read input from data/taxi/<id>.txt (resolved absolutely)\n"
-              << "  --out            Write output to data/<id>/original.txt & simplify.txt (resolved absolutely; requires --in <id>)\n"
+              << "  --in <id>        Read input from data/<id>/original.txt (resolved absolutely)\n"
+              << "  --out            Write simplified output to data/<id>/simplify.txt (resolved absolutely; requires --in <id>)\n"
               << "  --dist           After output, compute Frechet distance by invoking 'julia scripts/frechet.jl' with --in <id> --path <simplify.txt>" << '\n'
               << "  -d <delta>       Override DELTA (default " << DELTA << ")\n"
               << "  -e <epsilon>     Override EPSILON (default " << EPSILON << ")\n"
               << "  --time           Print a hierarchical timing summary of the hot path to stderr\n"
-              << "  --dump-intersect Dump every (F_poly, Gi_poly) pair fed to "
-                 "intersect() to data/<id>/intersect_pairs.txt\n"
               << "  --web-server     Emit a machine-readable JSON trace of the algorithm to "
                  "stdout for the web visualizer (suppresses all other stdout text)\n"
               << "  --json-stream    With --web-server, emit NDJSON (header, one prefix per line, done)\n"
