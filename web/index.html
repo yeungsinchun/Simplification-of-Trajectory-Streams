@@ -2148,14 +2148,14 @@
               <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Optional compare.">DP</button>
               <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" title="SQUISH: keeps about this percent of the original points. Optional compare.">SQUISH</button>
             </div>
-            <label class="baseline-field baseline-field--inline" id="headerBaselineLssdField" hidden title="DOTS distance threshold in thousands (K). Larger keeps fewer points.">
-              <span><span class="baseline-param-owner owner-dots">DOTS</span> thresh</span>
-              <input type="number" id="headerBaselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS threshold in thousands" />
+            <label class="baseline-field baseline-field--inline" id="headerBaselineLssdField" hidden title="DOTS distance limit in thousands (K). Larger keeps fewer points.">
+              <span><span class="baseline-param-owner owner-dots">DOTS</span> limit</span>
+              <input type="number" id="headerBaselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS distance limit in thousands" />
               <span class="baseline-field-unit" title="Thousand">K</span>
             </label>
-            <label class="baseline-field baseline-field--inline" id="headerBaselineDpEpsField" hidden title="DP allowed point-to-edge error (same idea as ε).">
-              <span><span class="baseline-param-owner owner-dp">DP</span> ε</span>
-              <input type="number" id="headerBaselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP error epsilon" />
+            <label class="baseline-field baseline-field--inline" id="headerBaselineDpEpsField" hidden title="DP allowed point-to-edge error (same idea as ε match).">
+              <span><span class="baseline-param-owner owner-dp">DP</span> match</span>
+              <input type="number" id="headerBaselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP match error" />
             </label>
             <label class="baseline-field baseline-field--inline" id="headerBaselineSquishRatioField" hidden title="SQUISH keep ratio: percent of original points to retain.">
               <span><span class="baseline-param-owner owner-squish">SQUISH</span> keep</span>
@@ -2171,10 +2171,10 @@
         <h2>Instructions</h2>
         <ul>
           <li>Select a preloaded trajectory.</li>
-          <li>Optionally tap <b>Compare</b> algorithms (DOTS / DP / SQUISH) to benchmark against.</li>
           <li>Optionally adjust <b>&epsilon; match</b> (accuracy) and <b>&delta; grid</b> (search spacing), then tap <b>Load Trace</b>.</li>
+          <li>After load, optionally pick <b>Compare</b> (DOTS / DP / SQUISH) and tap <b>Run</b> to score other algorithms.</li>
           <li>Drag the visualization to pan and pinch to zoom.</li>
-          <li>Use <b>Controls</b> to view status and toggle layers.</li>
+          <li>Use <b>Controls</b> for status and layers; open <b>Results</b> for scores.</li>
           <li>Tap <b>Back</b> to choose another trajectory.</li>
         </ul>
       </div>
@@ -2200,16 +2200,16 @@
                 <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" title="SQUISH: keeps about this percent of the original points. Optional compare.">SQUISH</button>
               </div>
               <div id="baselineParamFields" class="baseline-param-fields">
-                <label class="baseline-field" id="baselineLssdField" hidden title="DOTS distance threshold in thousands (K). Larger keeps fewer points.">
-                  <span><span class="baseline-param-owner owner-dots">DOTS</span> threshold</span>
+                <label class="baseline-field" id="baselineLssdField" hidden title="DOTS distance limit in thousands (K). Larger keeps fewer points.">
+                  <span><span class="baseline-param-owner owner-dots">DOTS</span> distance limit</span>
                   <div class="baseline-field-input-row">
-                    <input type="number" id="baselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS threshold in thousands" />
+                    <input type="number" id="baselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS distance limit in thousands" />
                     <span class="baseline-field-unit" title="Thousand">K</span>
                   </div>
                 </label>
-                <label class="baseline-field" id="baselineDpEpsField" hidden title="DP allowed point-to-edge error (same idea as ε).">
-                  <span><span class="baseline-param-owner owner-dp">DP</span> error ε</span>
-                  <input type="number" id="baselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP error epsilon" />
+                <label class="baseline-field" id="baselineDpEpsField" hidden title="DP allowed point-to-edge error (same idea as ε match).">
+                  <span><span class="baseline-param-owner owner-dp">DP</span> match error</span>
+                  <input type="number" id="baselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP match error" />
                 </label>
                 <label class="baseline-field" id="baselineSquishRatioField" hidden title="SQUISH keep ratio: percent of original points to retain.">
                   <span><span class="baseline-param-owner owner-squish">SQUISH</span> keep %</span>
@@ -2424,7 +2424,7 @@
             <summary id="accordionBaselineSummary">Compare</summary>
             <div class="layer-acc-body">
               <div id="baselineLayerToggles"></div>
-              <p id="baselineLayerHint" class="baseline-layer-hint">Run a compare from the Results panel to enable these layers.</p>
+              <p id="baselineLayerHint" class="baseline-layer-hint">Pick Compare algorithms, then press Run beside Compare (or Run compare in Results) to enable these layers.</p>
             </div>
           </details>
         </div>

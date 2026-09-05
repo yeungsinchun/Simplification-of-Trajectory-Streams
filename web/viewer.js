@@ -648,14 +648,14 @@
     if (algos.includes("dots")) {
       lssd = readBaselineLssdFromInputs();
       if (!Number.isFinite(lssd) || lssd <= 0) {
-        setBaselineStatus("DOTS threshold must be a positive number.", "error");
+        setBaselineStatus("DOTS distance limit must be a positive number.", "error");
         return;
       }
     }
     if (algos.includes("dp")) {
       dpEps = readPairedNumber(baselineDpEpsInput, headerBaselineDpEpsInput, state.baselineDpEps);
       if (!Number.isFinite(dpEps) || dpEps <= 0) {
-        setBaselineStatus("DP error ε must be a positive number.", "error");
+        setBaselineStatus("DP match error must be a positive number.", "error");
         return;
       }
       state.baselineDpEps = dpEps;

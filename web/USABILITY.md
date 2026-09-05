@@ -349,7 +349,7 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 **Problem:** Compare controls lived on the same form row as Load Trace. Choosing algorithms revealed LSSD / PED ε / Ratio fields that wrapped onto extra rows, moved Load Trace, and at wider desktop widths could make `header { flex-wrap: wrap }` put the title on its own line so the whole header jumped (for example 54px → 142px at 1280 with all three selected). Acronyms also had no plain-language help.
 
-**Fix:** Compare sits on its own full-width strip under Load Trace. Desktop keeps that strip `nowrap` with horizontal scroll if needed, and the header itself is `nowrap` with a shrinking `.file-controls` so the title stays beside the controls. Labels read `Compare:` with short param names (`thresh` / `ε` / `keep`) plus tooltips; Status uses `start point` / `current point` / `open` instead of bare `alive`. Selecting none → all three keeps header height at 88px (1280), 122px (900), and 123px (721) with Load Trace unmoved.
+**Fix:** Compare sits on its own full-width strip under Load Trace. Desktop keeps that strip `nowrap` with horizontal scroll if needed, and the header itself is `nowrap` with a shrinking `.file-controls` so the title stays beside the controls. Labels read `Compare:` with short param names (`limit` / `match` / `keep`) plus tooltips; Status uses `start point` / `current point` / `open` instead of bare `alive`. Selecting none → all three keeps header height at 88px (1280), 122px (900), and 123px (721) with Load Trace unmoved.
 
 **Evidence:**
 
@@ -470,6 +470,20 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Desktop live after load with DOTS + Run (1280px): `web/usability/desktop-compare-header-run-1280-live.png`
 - Desktop live narrow (900px): `web/usability/desktop-compare-header-run-900-live.png`
 
+### Compare params and Layers hint still used thresh / Results-only copy
+
+**Where:** `#headerBaseline` param labels, Results Compare fields, `#baselineLayerHint`, and mobile start Instructions.
+
+**Problem:** After the header `Run` control landed, Layers Compare still said “Run a compare from the Results panel…”, so novices who used the header path got contradictory guidance. Header fields also kept paper-ish `DOTS thresh` / `DP ε` while other chrome already used plain match/limit wording. Mobile start help mentioned Compare before Load Trace but never mentioned Run or Results.
+
+**Fix:** Header/Results fields read `DOTS limit`, `DP match` / `match error`, and `SQUISH keep`. Layers hint and error strings point at header `Run` or Results `Run compare`. Mobile Instructions put Compare + Run after Load Trace and mention Results for scores. The 900px fixture strip stays one row with no page overflow.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-param-glosses.html`
+- Fixture screenshot (900px): `web/usability/compare-param-glosses.png`
+
 ## Still open
 
-No open layout or novice-copy items from this pass. First live Cloud Run publish still needs a successful `main` push or `workflow_dispatch` run of `.github/workflows/deploy.yml` (workflow is not on `main` yet; only Benchmark and Correctness are registered).
+No open layout or novice-copy items from this pass. First live Cloud Run publish still needs a successful `main` merge of [PR #11](https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/pull/11) (or a `workflow_dispatch` once Deploy is on `main`). Until then GitHub only lists Benchmark and Correctness.
+

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Desktop Compare header Run control</title>
+<title>Compare param glosses and Layers hint</title>
 <style>
   :root {
     --bg: #0f1115;
@@ -21,13 +21,13 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     font-size: 13px;
   }
-  section { padding: 16px; border-bottom: 1px solid var(--panel-border); }
+  section { padding: 16px 0; border-bottom: 1px solid var(--panel-border); width: 900px; margin: 0 auto; }
   .label {
     font-size: 11px;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--text-dim);
-    margin-bottom: 8px;
+    margin: 0 16px 8px;
   }
   .callout {
     background: rgba(255,95,109,0.08);
@@ -36,7 +36,7 @@
     padding: 10px 12px;
     color: var(--text-dim);
     font-size: 12px;
-    margin-bottom: 12px;
+    margin: 0 16px 12px;
   }
   .ok {
     background: rgba(61,220,151,0.08);
@@ -53,22 +53,20 @@
     border: 1px solid var(--panel-border);
     border-radius: 8px;
     min-height: 33px;
+    width: calc(100% - 32px);
+    margin: 0 16px;
+    max-width: 868px;
   }
   .name { color: var(--text-dim); font-weight: 600; font-size: 12px; white-space: nowrap; }
   .pill {
-    border: 1px solid var(--panel-border);
-    background: #1a1f29;
-    color: var(--text-dim);
+    border: 1px solid var(--accent);
+    background: #2a4a72;
+    color: var(--text);
     border-radius: 999px;
     padding: 5px 12px;
     font-size: 11px;
     white-space: nowrap;
     flex-shrink: 0;
-  }
-  .pill.active {
-    border-color: var(--accent);
-    color: var(--text);
-    background: #2a4a72;
   }
   .field {
     display: inline-flex;
@@ -98,49 +96,65 @@
     font-weight: 650;
     white-space: nowrap;
   }
-  .run[disabled] { opacity: 0.45; }
-  .meta { margin-top: 8px; color: var(--text-dim); font-size: 12px; }
+  .hint {
+    margin: 10px 16px 0;
+    padding: 8px 10px;
+    background: #1a1f29;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    color: var(--text-dim);
+    font-size: 12px;
+    max-width: 420px;
+  }
+  .meta { margin: 8px 16px 0; color: var(--text-dim); font-size: 12px; }
 </style>
 </head>
 <body>
 <section>
-  <div class="label">Before - after Load Trace, Compare had no Run in the header</div>
+  <div class="label">Before - jargon params + Results-only Layers hint</div>
   <div class="callout">
-    Selecting DOTS / DP / SQUISH after load only updated hidden Results status copy
-    (“Click Run compare…”). Novices never saw a next step unless they opened Results.
+    Header fields said <b>DOTS thresh</b> / <b>DP ε</b>. Layers Compare still said
+    “Run a compare from the Results panel…” even after header <b>Run</b> existed.
   </div>
-  <div class="strip" id="before" style="width: 900px;">
+  <div class="strip">
     <span class="name">Compare:</span>
-    <span class="pill active">DOTS</span>
+    <span class="pill">DOTS</span>
     <span class="pill">DP</span>
     <span class="pill">SQUISH</span>
-    <label class="field"><span>DOTS limit</span><input value="1000" /><span>K</span></label>
-  </div>
-  <p class="meta">No Run control beside Compare. Results panel closed → stuck.</p>
-</section>
-<section>
-  <div class="label">After - compact Run sits on the same nowrap Compare strip</div>
-  <div class="callout ok">
-    After Load Trace, a compact <b>Run</b> appears beside the Compare pills. Selecting
-    algorithms enables it; pressing Run scores them and opens Results. Strip stays one row
-    with horizontal scroll if needed (no wrap / layout shift).
-  </div>
-  <div class="strip" id="after" style="width: 900px;">
-    <span class="name">Compare:</span>
-    <span class="pill active">DOTS</span>
-    <span class="pill">DP</span>
-    <span class="pill">SQUISH</span>
-    <label class="field"><span>DOTS limit</span><input value="1000" /><span>K</span></label>
+    <label class="field"><span>DOTS thresh</span><input value="1000" /><span>K</span></label>
+    <label class="field"><span>DP ε</span><input value="0.9" /></label>
+    <label class="field"><span>SQUISH keep</span><input value="20" /><span>%</span></label>
     <button type="button" class="run">Run</button>
   </div>
+  <p class="hint">Run a compare from the Results panel to enable these layers.</p>
+</section>
+<section>
+  <div class="label">After - plain limit / match labels + Run-aware Layers hint</div>
+  <div class="callout ok">
+    Fields read <b>DOTS limit</b> / <b>DP match</b> / <b>SQUISH keep</b>. Layers hint
+    points at header <b>Run</b> or Results <b>Run compare</b>. Strip stays one row at 900px.
+  </div>
+  <div class="strip" id="after">
+    <span class="name">Compare:</span>
+    <span class="pill">DOTS</span>
+    <span class="pill">DP</span>
+    <span class="pill">SQUISH</span>
+    <label class="field"><span>DOTS limit</span><input value="1000" /><span>K</span></label>
+    <label class="field"><span>DP match</span><input value="0.9" /></label>
+    <label class="field"><span>SQUISH keep</span><input value="20" /><span>%</span></label>
+    <button type="button" class="run">Run</button>
+  </div>
+  <p class="hint" id="hint">Pick Compare algorithms, then press Run beside Compare (or Run compare in Results) to enable these layers.</p>
   <p class="meta" id="measure"></p>
 </section>
 <script>
   const after = document.getElementById("after");
   const measure = document.getElementById("measure");
   const height = after.getBoundingClientRect().height;
-  const scroll = after.scrollWidth > after.clientWidth;
-  measure.textContent = `Strip height ${Math.round(height)}px; horizontal scroll ${scroll ? "available if needed" : "not required at 900px"}.`;
+  const scrollW = document.documentElement.scrollWidth;
+  measure.textContent =
+    `After strip height ${Math.round(height)}px; document scrollWidth ${scrollW}` +
+    (scrollW > 900 ? " (overflow)" : " (no page overflow at 900px).");
 </script>
 </body>
 </html>
