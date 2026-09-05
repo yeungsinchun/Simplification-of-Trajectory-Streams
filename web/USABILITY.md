@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Results metrics heading said Compare while scores appear without it (resolved)
+
+**Where:** Results panel `#resultsPanel` second section label; empty-canvas `#dropHint` headline.
+
+**Problem:** After Load Trace, Simplify Match error / Time / points already fill the metrics table with no Compare algorithm selected. The section was still labeled `Compare`, so novices who only wanted scores thought they had to pick DOTS / DP / SQUISH first. The empty canvas headline also led with `Upload a trajectory…`, which underplayed the primary preloaded path (and on phones Upload is hidden).
+
+**Fix:** The metrics block is labeled `Scores` with a tooltip that Compare adds columns when run. The drop hint reads `Choose a trajectory to get started` and lists preloaded before Upload.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/results-scores-label.html`
+- Fixture screenshot (900px): `web/usability/results-scores-label.png`
+
 ### Compare looked available after Upload trajectory (resolved)
 
 **Where:** header / Results Compare pills, `#baselineStatus`, `#baselineLayerHint`, start Instructions, and the load / Results tour steps after choosing Upload trajectory.

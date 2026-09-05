@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Results Scores label + drop hint</title>
+  <style>
+    :root {
+      --bg: #0f141d;
+      --panel: #171c27;
+      --panel-border: #2a3142;
+      --text: #e8ecf4;
+      --text-dim: #9aa3b5;
+      --accent: #3ddc97;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 14px/1.45 system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px;
+    }
+    h1 { font-size: 18px; margin: 0 0 8px; }
+    p { color: var(--text-dim); margin: 0 0 18px; max-width: 760px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      max-width: 980px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .label {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+    }
+    .section-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-dim);
+      margin: 0 0 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .hint {
+      margin: 0 0 12px;
+      color: var(--text-dim);
+      font-size: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      background: #0f131a;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--panel-border);
+    }
+    th { color: var(--text-dim); font-weight: 600; }
+    .big {
+      font-size: 18px;
+      font-weight: 700;
+      margin: 0 0 8px;
+    }
+    .sub { color: var(--text-dim); font-size: 13px; line-height: 1.5; }
+    .ok {
+      margin-top: 18px;
+      color: var(--accent);
+      font-size: 13px;
+      max-width: 760px;
+    }
+    .bad { color: #ff8a94; }
+  </style>
+</head>
+<body>
+  <h1>Results scores label and empty-canvas headline</h1>
+  <p>
+    After Load Trace, Simplify scores appear in Results even when no Compare algorithm runs.
+    Calling that block “Compare” made novices think scores require DOTS / DP / SQUISH.
+    The empty canvas also led with “Upload…”, which underplays the primary preloaded path.
+  </p>
+
+  <div class="grid">
+    <div class="card">
+      <div class="label">Before</div>
+      <p class="section-label">Compare algorithms</p>
+      <p class="hint">Pick DOTS / DP / SQUISH…</p>
+      <p class="section-label bad">Compare</p>
+      <table>
+        <thead><tr><th>Metric</th><th>Simplify</th></tr></thead>
+        <tbody><tr><td colspan="2">Load a trace to see scores…</td></tr></tbody>
+      </table>
+      <hr style="border:none;border-top:1px solid var(--panel-border);margin:16px 0;" />
+      <div class="big bad">Upload a trajectory to get started</div>
+      <div class="sub">Click <b>Upload trajectory</b> or select a <b>preloaded trace</b>…</div>
+    </div>
+
+    <div class="card">
+      <div class="label">After</div>
+      <p class="section-label">Compare algorithms</p>
+      <p class="hint">Pick DOTS / DP / SQUISH…</p>
+      <p class="section-label" style="color:var(--accent)" title="Scores for this Simplify run. Optional Compare algorithms add columns when you run them.">Scores</p>
+      <table>
+        <thead><tr><th>Metric</th><th>Simplify</th></tr></thead>
+        <tbody><tr><td colspan="2">Load a trace to see scores…</td></tr></tbody>
+      </table>
+      <hr style="border:none;border-top:1px solid var(--panel-border);margin:16px 0;" />
+      <div class="big" style="color:var(--accent)">Choose a trajectory to get started</div>
+      <div class="sub">Select a <b>preloaded trace</b> or click <b>Upload trajectory</b>…</div>
+    </div>
+  </div>
+
+  <p class="ok">
+    Results metrics heading is Scores (not a second Compare). Empty-canvas headline leads with Choose a trajectory and mentions preloaded first.
+  </p>
+</body>
+</html>
