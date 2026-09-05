@@ -2911,7 +2911,7 @@
       }
     }
 
-    // Final full-result curve (accordion: Paths & search → Full result path).
+    // Final full-result curve (accordion: This run → Full result path).
     if (state.resultVisible.simplify && t.simplified && t.simplified.length >= 2) {
       strokePath(t.simplified, "#3ddc97", 2.5);
       for (const p of t.simplified) dot(p, 1.7, "#3ddc97", null);
@@ -3292,7 +3292,7 @@
     },
     {
       title: "Map overlays",
-      body: "In the sidebar, <b>Map overlays</b> toggles what the map draws (original path, path so far, search circles, options near current, next landing zone). Open <b>Paths &amp; search</b> for those toggles, or <b>Compare</b> for other algorithms. Use <b>Fit view</b> in View if you pan or zoom away.",
+      body: "In the sidebar, <b>Map overlays</b> toggles what the map draws (original path, path so far, search circles, options near current, next landing zone). Open <b>This run</b> for those toggles (same name as the Scores column), or <b>Compare</b> for other algorithms. Use <b>Fit view</b> in View if you pan or zoom away.",
       targets: ["#layersSection > h2", "#mobileLayersToggle", "#toggle-stream", "#toggle-simplified"],
       prepare: prepareLayersTourStep,
     },

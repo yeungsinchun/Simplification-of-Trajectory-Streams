@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Map overlays said Paths & search (resolved)
+
+**Where:** Map overlays accordion `#accordionSimplify` summary and playback Map overlays tour copy.
+
+**Problem:** Results Scores already labeled the green-path column `This run`, but the Map overlays accordion for the same run still said `Paths & search`. Skip-tour users mapping Scores to overlay toggles saw two names for one run.
+
+**Fix:** Accordion summary reads `This run` with a Scores-aligned tooltip. Tour copy uses the same name and mentions the Scores column. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/this-run-overlays-accordion.html`
+- Fixture screenshot (900px): `web/usability/this-run-overlays-accordion.png`
+
 ### Playback and Status said Candidate (resolved)
 
 **Where:** Status Option row, desktop `#playbackBar` Option caption, mobile Option dock buttons, Instructions / tour / Map overlays tooltips that named Candidate.
