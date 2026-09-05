@@ -1110,7 +1110,7 @@
 
   function candidateStatusTitle(stillOpen) {
     const openBit = Number.isFinite(stillOpen)
-      ? ` ${stillOpen} still being considered.`
+      ? ` ${stillOpen} still open.`
       : "";
     return `Cycles next-point options near the current point (same options as Options near current).${openBit} Same idea as Option on the playback bar.`;
   }

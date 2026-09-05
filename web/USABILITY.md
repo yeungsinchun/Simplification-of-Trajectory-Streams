@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Rejected options still said the search already ruled out (resolved)
+
+**Where:** Map overlays `#toggle-dead-candidates` / `#toggle-Gi` / `#toggle-P` tips, Status Option open-count tip, and Map overlays This run accordion tip.
+
+**Problem:** Options near current / Option markers already named next-point options, but Rejected options still said `the search already ruled out`, related tips said `still being considered`, and This run said `search options`. Skip-tour users mapping Rejected options to Option markers could not tell those tips meant the same open/rejected pair without an opaque search agent.
+
+**Fix:** Tips say `already rejected` / `still open` / `next-point options`, and Rejected options names Option markers / Options near current. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/rejected-options-not-search.html`
+- Fixture screenshot (900px): `web/usability/rejected-options-not-search.png`
+
 ### Option still said the search considered (resolved)
 
 **Where:** Status Option tooltip, desktop playback Option caption, Instructions gloss, playback tour Segment/Option step, and Map overlays Current-point circle tip.

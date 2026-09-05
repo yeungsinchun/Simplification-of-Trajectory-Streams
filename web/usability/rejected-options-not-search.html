@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rejected options not the search</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+  }
+  * { box-sizing: border-box; }
+  html, body { width: 900px; max-width: 900px; overflow-x: hidden; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    padding: 16px;
+  }
+  h1 { font-size: 15px; margin: 0 0 6px; }
+  p { margin: 0 0 12px; color: var(--text-dim); font-size: 12px; max-width: 720px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .label {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .toggle-row, .tip {
+    display: block;
+    padding: 6px 10px;
+    background: #1a1f2b;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  #check {
+    margin-top: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+  <h1>the search already ruled out → already rejected / still open</h1>
+  <p>
+    Before: Rejected options said <b>the search already ruled out</b>, and Options near current /
+    Option markers / Status Option said <b>still being considered</b>. After: open/rejected wording
+    pairs with Options near current and Option markers (no opaque <b>the search</b>).
+  </p>
+  <div class="grid">
+    <div class="frame" id="before">
+      <div class="label">Before</div>
+      <div class="toggle-row" title="Yellow area covering next-point options still being considered near the current point. Same current point as in Status.">
+        <span class="swatch" style="background:#e8c547"></span>Options near current
+      </div>
+      <div class="toggle-row" title="Orange markers for next-point options still being considered (same options as Options near current; cycle them with Option on the playback bar). Pairs with Rejected options.">
+        <span class="swatch" style="background:#ff9f43"></span>Option markers
+      </div>
+      <div class="toggle-row" title="Next-point options the search already ruled out (shown in red). Pairs with Option markers.">
+        <span class="swatch" style="background:#ff3c3c"></span>Rejected options
+      </div>
+      <span class="tip" title="Cycles next-point options near the current point (same options as Options near current). 3 still being considered. Same idea as Option on the playback bar.">Status Option</span>
+      <span class="tip" title="Overlays for this run (the green path and search options). Same This run as in Results scores.">This run</span>
+    </div>
+    <div class="frame" id="after">
+      <div class="label">After</div>
+      <div class="toggle-row" id="optionsRow" title="Yellow area covering next-point options still open near the current point. Same current point as in Status.">
+        <span class="swatch" style="background:#e8c547"></span>Options near current
+      </div>
+      <div class="toggle-row" id="markersRow" title="Orange markers for next-point options still open (same options as Options near current; cycle them with Option on the playback bar). Pairs with Rejected options.">
+        <span class="swatch" style="background:#ff9f43"></span>Option markers
+      </div>
+      <div class="toggle-row" id="rejectedRow" title="Next-point options already rejected (shown in red). Pairs with Option markers; contrast with Options near current.">
+        <span class="swatch" style="background:#ff3c3c"></span>Rejected options
+      </div>
+      <span class="tip" id="statusOption" title="Cycles next-point options near the current point (same options as Options near current). 3 still open. Same idea as Option on the playback bar.">Status Option</span>
+      <span class="tip" id="thisRun" title="Overlays for this run (the green path and next-point options). Same This run as in Results scores.">This run</span>
+    </div>
+  </div>
+  <div id="check"></div>
+  <script>
+    const before = document.getElementById("before");
+    const beforeTips = [...before.querySelectorAll("[title]")].map((n) => n.getAttribute("title")).join(" ");
+    const optionsTip = document.getElementById("optionsRow").title;
+    const markersTip = document.getElementById("markersRow").title;
+    const rejectedTip = document.getElementById("rejectedRow").title;
+    const statusOption = document.getElementById("statusOption").title;
+    const thisRun = document.getElementById("thisRun").title;
+    const beforeOld = beforeTips.includes("the search already ruled out")
+      && beforeTips.includes("still being considered")
+      && beforeTips.includes("search options");
+    const afterOk = optionsTip.includes("still open")
+      && markersTip.includes("still open")
+      && markersTip.includes("Rejected options")
+      && rejectedTip.includes("already rejected")
+      && rejectedTip.includes("Option markers")
+      && rejectedTip.includes("Options near current")
+      && !rejectedTip.includes("the search")
+      && statusOption.includes("still open")
+      && !statusOption.includes("still being considered")
+      && thisRun.includes("next-point options")
+      && !thisRun.includes("search options")
+      && !optionsTip.includes("still being considered")
+      && !markersTip.includes("still being considered");
+    const scrollWidth = document.documentElement.scrollWidth;
+    const ok = beforeOld && afterOk && scrollWidth <= 900;
+    document.getElementById("check").textContent =
+      `ok=${ok} scrollWidth=${scrollWidth} beforeOld=${beforeOld} afterOk=${afterOk}`;
+  </script>
+</body>
+</html>
