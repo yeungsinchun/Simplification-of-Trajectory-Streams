@@ -395,7 +395,7 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 **Problem:** After Load Trace the Results tab appeared only when the compare API finished, and the playback tour never mentioned it. Novices who finished Step / Segment / Candidate guidance still did not know Results holds scores or optional Compare runs. Layers also labeled ruled-out points as Dead candidates with no gloss.
 
-**Fix:** Results chrome is shown as soon as the trace is ready (`showResultsPanel` before the playback tour; `clearCompare({ hideChrome: false })` while compare data reloads). Playback tour step 4/4 spotlights Results and explains optional Compare. On mobile the Results tab sits above the playback dock instead of under it. The layer toggle reads Rejected candidates with a plain-language tooltip; the Results button title / aria-label name scores and Compare.
+**Fix:** Results chrome is shown as soon as the trace is ready (`showResultsPanel` before the playback tour; `clearCompare({ hideChrome: false })` while compare data reloads). Playback tour step 5/5 spotlights Results and explains optional Compare. On mobile the Results tab sits above the playback dock instead of under it. The layer toggle reads Rejected candidates with a plain-language tooltip; the Results button title / aria-label name scores and Compare.
 
 **Evidence:**
 
@@ -403,6 +403,21 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Fixture screenshot: `web/usability/results-tour.png`
 - Desktop live Results step (1280px): `web/usability/results-tour-1280-live.png`
 - Mobile live Results step (390px): `web/usability/results-tour-390-live.png`
+
+### Layers stayed paper-jargon and were skipped by the post-load tour
+
+**Where:** sidebar `#layersSection` / `#fitBtn`, and the post-load playback tour.
+
+**Problem:** After Load Trace, layer rows still said reachability / δ-ball / vertex / boundary anchors, and the playback tour jumped from Segment / Candidate to Results. Novices could finish both tours without learning that Layers control map overlays or that Fit to data resets the view.
+
+**Fix:** Layer glosses and tooltips use plain wording (search circle, allowed area, anchor points). Playback tour inserts a Layers step (4/5) that opens the mobile Layers accordion, spotlights the Simplify toggles, and mentions Fit to data. Results / Compare remains the final step. Results empty copy no longer implies Compare is required before scores appear.
+
+**Evidence:**
+
+- Before/after markup fixture: `web/usability/layers-tour.html`
+- Fixture screenshot: `web/usability/layers-tour.png`
+- Desktop live Layers step (1280px): `web/usability/layers-tour-1280-live.png`
+- Mobile live Layers step (390px): `web/usability/layers-tour-390-live.png`
 
 ## Still open
 

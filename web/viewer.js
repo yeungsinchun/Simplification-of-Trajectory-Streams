@@ -355,7 +355,7 @@
   }
 
   function emptyCompareMessage(colspan) {
-    return `<tr><td colspan="${colspan}" class="compare-metrics-empty">Load a trace, then run a compare algorithm.</td></tr>`;
+    return `<tr><td colspan="${colspan}" class="compare-metrics-empty">Load a trace to see scores. Optional: run Compare above.</td></tr>`;
   }
 
   function clearCompare(options = {}) {
@@ -490,7 +490,7 @@
       if (tiny) {
         compareFrechetNote.hidden = false;
         compareFrechetNote.textContent =
-          "A baseline Frechet value is tiny but not exact zero; that can happen when the baseline keeps most of the original points.";
+          "A compare Fréchet value is tiny but not exact zero; that can happen when the compare path keeps most of the original points.";
       } else {
         compareFrechetNote.hidden = true;
         compareFrechetNote.textContent = "";
@@ -3021,7 +3021,7 @@
     },
     {
       title: "Load the trace",
-      body: "Press <b>Load Trace</b> to run the simplification. When it finishes, a short follow-up explains Play / Step / Segment / Candidate and the Results tab.",
+      body: "Press <b>Load Trace</b> to run the simplification. When it finishes, a short follow-up explains Play / Step / Segment / Candidate, Layers, and the Results tab.",
       targets: ["#loadBtn"],
     },
   ];
@@ -3043,6 +3043,12 @@
       targets: ["#segmentInput", "#candidateInput", "#playBtn", "#mobileSegmentForwardBtn", "#mobileCandidateForwardBtn", "#mobilePlayBtn"],
     },
     {
+      title: "Layers",
+      body: "In the sidebar, <b>Layers</b> toggles what the map draws (full stream, simplified path, search circles, candidate regions). Each row keeps a short symbol plus plain wording. Use <b>Fit to data</b> in View if you pan or zoom away.",
+      targets: ["#layersSection > h2", "#mobileLayersToggle", "#toggle-stream", "#toggle-simplified"],
+      prepare: prepareLayersTourStep,
+    },
+    {
       title: "Results and Compare",
       body: "Open the left-edge <b>Results</b> tab to see scores and optionally run <b>Compare</b> algorithms (DOTS / DP / SQUISH). Skip Compare if you only want the green simplified path.",
       targets: ["#resultsPanelOpen"],
@@ -3054,6 +3060,19 @@
   let tourIndex = 0;
   let tourActive = false;
   let playbackTourPending = false;
+
+  function prepareLayersTourStep() {
+    document.body.classList.remove("mobile-panel-closed");
+    if (layersSection) {
+      layersSection.classList.add("layers-open");
+      if (mobileLayersToggle) mobileLayersToggle.setAttribute("aria-expanded", "true");
+    }
+    const simplifyAcc = document.getElementById("accordionSimplify");
+    if (simplifyAcc) simplifyAcc.open = true;
+    if (layersSection && typeof layersSection.scrollIntoView === "function") {
+      layersSection.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+  }
 
   function isTourTargetVisible(node) {
     if (!node || !(node instanceof Element)) return false;
@@ -3149,6 +3168,26 @@
       finishTour();
       return;
     }
+
+    if (typeof step.prepare === "function") {
+      try {
+        step.prepare();
+      } catch (err) {
+        console.warn("[Tour] prepare failed:", err);
+      }
+      // Wait one frame so mobile layers-open / scroll layout is applied.
+      requestAnimationFrame(() => {
+        if (!tourActive || tourSteps[tourIndex] !== step) return;
+        paintTourStep(step);
+      });
+      return;
+    }
+
+    paintTourStep(step);
+  }
+
+  function paintTourStep(step) {
+    if (!uiTour || !tourActive || !step) return;
 
     const total = tourSteps.length;
     if (uiTourStepLabel) uiTourStepLabel.textContent = `${tourIndex + 1} / ${total}`;
