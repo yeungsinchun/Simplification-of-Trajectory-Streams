@@ -3228,7 +3228,7 @@
     },
     {
       title: "Load the trajectory",
-      body: "Optional: with a <b>preloaded</b> trajectory, tap <b>Compare</b> (DOTS / DP / SQUISH) to score other algorithms later - or skip. Uploaded files show scores only. Press <b>Load</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Candidate, Map overlays, and Results.",
+      body: "Optional: with a <b>preloaded</b> trajectory, tap <b>Compare</b> (DOTS / DP / SQUISH) to score other algorithms later - or skip. Press <b>Load</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Candidate, Map overlays, and Results.",
       targets: ["#loadBtn", ".header-baseline"],
     },
   ];
@@ -3257,7 +3257,7 @@
     },
     {
       title: "Results and Compare",
-      body: "Open the left-edge <b>Results</b> tab to see scores. On a <b>preloaded</b> trajectory, pick DOTS / DP / SQUISH and press <b>Run compare</b> inside Results (on wider screens you can also use <b>Run</b> beside Compare in the header). Uploaded files show scores only - skip Compare if that is enough.",
+      body: "Open the left-edge <b>Results</b> tab to see scores. With a <b>preloaded</b> trajectory, pick DOTS / DP / SQUISH and press <b>Run compare</b> inside Results (on wider screens you can also use <b>Run</b> beside Compare in the header). Skip Compare if scores for this run are enough.",
       targets: ["#resultsPanelOpen"],
     },
   ];

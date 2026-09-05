@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Mobile start help still mentioned Upload (resolved)
+
+**Where:** header `.mobile-start-help` Instructions (max-width 720px); start-tour Load step and playback Results tour copy in `viewer.js`.
+
+**Problem:** On phones, `#uploadBtn` / `.or-divider` are `display: none`, so Upload is unreachable. Start Instructions still said “Uploaded files show scores only” and over-qualified Compare as if Upload were an option. Tour Load / Results steps repeated that Upload dead-end language for every visitor.
+
+**Fix:** Mobile start help points at Compare above, then Results → Run compare, with no Upload wording. Start-tour Load and Results tour keep the preloaded Compare path but drop the “Uploaded files show scores only” aside (desktop Upload remains explained only in the Choose trajectory step). Fixture `scrollWidth` stays within 390.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/mobile-start-no-upload-copy.html`
+- Fixture screenshot (390px): `web/usability/mobile-start-no-upload-copy.png`
+
 ### Compare overlays / Scores headers lacked glosses (resolved)
 
 **Where:** Map overlays → Compare `#baselineLayerToggles` after Run compare; Results Scores `#compareMetricsHead` algorithm columns.
