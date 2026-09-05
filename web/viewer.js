@@ -279,7 +279,7 @@
         btn.disabled = blocked;
         btn.title = blocked
           ? COMPARE_PILL_UPLOAD_TITLE
-          : (COMPARE_PILL_TITLES[algo] || "Optional compare algorithm. Needs a preloaded trajectory.");
+          : (COMPARE_PILL_TITLES[algo] || "Optional compare method. Needs a preloaded trajectory.");
       }
     }
   }
@@ -434,7 +434,7 @@
       if (!isHeader && compareBlockedByUpload()) {
         btn.title = COMPARE_PILL_UPLOAD_TITLE;
       } else if (!isHeader) {
-        btn.title = "Run the selected Compare algorithms";
+        btn.title = "Run the selected Compare methods";
       }
     }
     syncBaselinePills();
@@ -731,10 +731,10 @@
       applyComparePayload(data);
       showResultsPanel(false);
       if (selectedBaselineAlgos().length) {
-        setBaselineStatus(`Running selected compare algorithm(s)…`);
+        setBaselineStatus(`Running selected compare method(s)…`);
         await runSelectedBaseline();
       } else {
-        setBaselineStatus("Choose one or more compare algorithms and press Run compare.");
+        setBaselineStatus("Choose one or more compare methods and press Run compare.");
       }
     } catch (err) {
       console.warn("[Compare] Failed to load compare shell:", err);
@@ -754,7 +754,7 @@
     }
     const algos = selectedBaselineAlgos();
     if (!algos.length) {
-      setBaselineStatus("Select a compare algorithm first.", "error");
+      setBaselineStatus("Select a compare method first.", "error");
       return;
     }
 
@@ -1183,7 +1183,7 @@
     const pendingStyle = simplifiedLen == null ? "color:var(--text-dim)" : "";
 
     return [
-      paramChip("Match", epsilonValue, "Match tolerance (ε): how closely the green path must follow the Gray path. Smaller keeps more detail."),
+      paramChip("Match", epsilonValue, "Match (ε): how closely the green path must follow the Gray path. Smaller keeps more detail."),
       paramChip("Grid", deltaValue, "Grid spacing (δ) used while finding the green path."),
       paramChip("grid cell", gridLength, "Length of one Grid cell used while finding the green path."),
       paramChip("circle radius", diskRadius, "Radius of the Start-point circle and Current-point circle overlays while looking for the next green-path point."),
@@ -3269,7 +3269,7 @@
     },
     {
       title: "Load the trajectory",
-      body: "Optional: with a <b>preloaded</b> trajectory, tap <b>Compare</b> (DOTS / DP / SQUISH) to score other algorithms later - or skip. Press <b>Load</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Option, Map overlays, and Results.",
+      body: "Optional: with a <b>preloaded</b> trajectory, tap <b>Compare</b> (DOTS / DP / SQUISH) to score other methods later - or skip. Press <b>Load</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Option, Map overlays, and Results.",
       targets: ["#loadBtn", ".header-baseline"],
     },
   ];
@@ -3277,7 +3277,7 @@
   const playbackTourSteps = [
     {
       title: "Replay how it was built",
-      body: "The green path is shorter than the Gray path. These controls walk through the algorithm so you can see each choice over time.",
+      body: "The green path is shorter than the Gray path. These controls walk through how the green path was built so you can see each choice over time.",
       targets: ["#playbackBar", "#mobileTransport"],
     },
     {
@@ -3292,7 +3292,7 @@
     },
     {
       title: "Map overlays",
-      body: "In the sidebar, <b>Map overlays</b> toggles what the map draws (gray path, green path so far, start-point / current-point circles, options near current, next-point zone). Open <b>This run</b> for those toggles (same name as the Scores column), or <b>Compare</b> for other algorithms. Use <b>Fit view</b> in View if you pan or zoom away.",
+      body: "In the sidebar, <b>Map overlays</b> toggles what the map draws (gray path, green path so far, start-point / current-point circles, options near current, next-point zone). Open <b>This run</b> for those toggles (same name as the Scores column), or <b>Compare</b> for other methods. Use <b>Fit view</b> in View if you pan or zoom away.",
       targets: ["#layersSection > h2", "#mobileLayersToggle", "#toggle-stream", "#toggle-simplified"],
       prepare: prepareLayersTourStep,
     },

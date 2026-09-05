@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Compare still said algorithms / Match tolerance (resolved)
+
+**Where:** Results `Compare methods` section label, Compare aria-labels/titles, desktop start Instructions, Match field/chip tips, Compare status strings, and start/playback tour copy.
+
+**Problem:** Compare already used plain DOTS / DP / SQUISH glosses, but help, Results, tour, and status still said `algorithms`, and Match tips still led with `Match tolerance`. Skip-tour users mapping Compare and Match to the controls hit leftover CS jargon instead of `methods` / `Match`.
+
+**Fix:** User-facing copy says `methods` / `Match (ε)` / `how the green path was built`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-methods-not-algorithms.html`
+- Fixture screenshot (900px): `web/usability/compare-methods-not-algorithms.png`
+
 ### Grid still said search spacing (resolved)
 
 **Where:** Grid form title/aria-label, mobile and desktop start Instructions, invalid-input alert, Accuracy tour, and desktop `#paramsBar` grid cell tip.

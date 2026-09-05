@@ -2193,9 +2193,9 @@
           <span class="or-divider" style="color: var(--text-dim); font-size: 12px; margin: 0 8px;">or</span>
           <button id="uploadBtn" class="primary" title="Upload a plain-text trajectory: first line is the point count N, then N lines of x y coordinates.">Upload trajectory</button>
           <input type="file" id="trajectoryInput" accept=".txt,text/plain" />
-          <label title="Match tolerance (ε): how closely the green path must match the Gray path. Smaller keeps more detail.">
+          <label title="Match (ε): how closely the green path must match the Gray path. Smaller keeps more detail.">
             <span class="param-label"><span class="param-symbol">&epsilon;</span> <span class="param-gloss">match</span></span>
-            <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" aria-label="Match tolerance" />
+            <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" aria-label="Match" />
           </label>
           <label title="Grid spacing (δ) used while finding the green path. Preloaded trajectories set a good default.">
             <span class="param-label"><span class="param-symbol">&delta;</span> <span class="param-gloss">grid</span></span>
@@ -2206,9 +2206,9 @@
             <span class="load-btn-label">Load</span>
           </button>
           <span class="sub" id="uploadStatus"></span>
-          <div class="header-baseline" aria-label="Optional algorithms to compare against">
-            <span class="header-baseline-label" title="Optional. Pick other algorithms to score against after Load. Skip for a first run.">Compare:</span>
-            <div class="baseline-algo-row" id="headerBaselineAlgoRow" role="group" aria-label="Compare algorithms">
+          <div class="header-baseline" aria-label="Optional methods to compare against">
+            <span class="header-baseline-label" title="Optional. Pick other methods to score against after Load. Skip for a first run.">Compare:</span>
+            <div class="baseline-algo-row" id="headerBaselineAlgoRow" role="group" aria-label="Compare methods">
               <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" aria-label="DOTS stream" title="DOTS: another stream path shortener to score against. Needs a preloaded trajectory.">DOTS<span class="pill-gloss">stream</span></button>
               <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP classic" title="DP: classic path shortener that drops points within a match limit. Needs a preloaded trajectory.">DP<span class="pill-gloss">classic</span></button>
               <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" aria-label="SQUISH keep percent" title="SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.">SQUISH<span class="pill-gloss">keep %</span></button>
@@ -2227,7 +2227,7 @@
               <input type="number" id="headerBaselineSquishRatioInput" value="20" step="1" min="0.01" max="100" aria-label="SQUISH keep percent" />
               <span class="baseline-field-unit" title="Percent">%</span>
             </label>
-            <button type="button" id="headerBaselineRunBtn" class="baseline-run-btn" hidden disabled title="Run the selected Compare algorithms and open scores in Results">Run</button>
+            <button type="button" id="headerBaselineRunBtn" class="baseline-run-btn" hidden disabled title="Run the selected Compare methods and open scores in Results">Run</button>
           </div>
         </div>
       </div>
@@ -2257,9 +2257,9 @@
         </div>
         <div class="results-panel-body">
           <div>
-            <p class="results-section-label" title="Optional algorithms to compare against this run">Compare algorithms</p>
+            <p class="results-section-label" title="Optional methods to compare against this run">Compare methods</p>
             <div class="baseline-controls">
-              <div class="baseline-algo-row" id="baselineAlgoRow" role="group" aria-label="Compare algorithms">
+              <div class="baseline-algo-row" id="baselineAlgoRow" role="group" aria-label="Compare methods">
                 <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" aria-label="DOTS stream" title="DOTS: another stream path shortener to score against. Needs a preloaded trajectory.">DOTS<span class="pill-gloss">stream</span></button>
                 <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP classic" title="DP: classic path shortener that drops points within a match limit. Needs a preloaded trajectory.">DP<span class="pill-gloss">classic</span></button>
                 <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" aria-label="SQUISH keep percent" title="SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.">SQUISH<span class="pill-gloss">keep %</span></button>
@@ -2289,7 +2289,7 @@
             </div>
           </div>
           <div>
-            <p class="results-section-label" title="Scores for this run. Optional Compare algorithms add columns when you run them.">Scores</p>
+            <p class="results-section-label" title="Scores for this run. Optional Compare methods add columns when you run them.">Scores</p>
             <p id="compareOriginalCount" class="compare-original-count" hidden></p>
             <div class="compare-metrics-wrap">
             <table class="compare-metrics-table" id="compareMetricsTable">
@@ -2314,7 +2314,7 @@
         </div>
         <div id="resultsPanelResizer" class="results-panel-resizer" role="separator" aria-orientation="vertical" aria-label="Resize results panel"></div>
       </aside>
-      <button type="button" id="resultsPanelOpen" class="results-panel-open-btn" aria-controls="resultsPanel" aria-expanded="false" title="Open Results: scores and optional Compare algorithms" aria-label="Open Results panel for scores and Compare">
+      <button type="button" id="resultsPanelOpen" class="results-panel-open-btn" aria-controls="resultsPanel" aria-expanded="false" title="Open Results: scores and optional Compare methods" aria-label="Open Results panel for scores and Compare">
         <span class="results-panel-open-arrow" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </span>
@@ -2349,7 +2349,7 @@
               <ul>
                 <li>Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>.</li>
                 <li>Optionally adjust <b>Match</b> (accuracy) and <b>Grid</b> (spacing), then press <b>Load</b>.</li>
-                <li>After load, open <b>Results</b> for scores. With a preloaded trajectory you can pick optional <b>Compare</b> algorithms and press <b>Run</b> (or <b>Run compare</b> in Results). Uploads show scores only.</li>
+                <li>After load, open <b>Results</b> for scores. With a preloaded trajectory you can pick optional <b>Compare</b> methods and press <b>Run</b> (or <b>Run compare</b> in Results). Uploads show scores only.</li>
                 <li><b>Drag</b> to pan and <b>scroll</b> to zoom. Keyboard shortcuts for Step / Segment / Option live in the right-side Instructions after load.</li>
               </ul>
             </div>
