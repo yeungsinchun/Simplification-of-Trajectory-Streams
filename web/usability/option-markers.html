@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Option markers overlay labels</title>
+<style>
+  html, body {
+    width: 900px;
+    max-width: 900px;
+    margin: 0 auto;
+    overflow-x: hidden;
+  }
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    padding: 16px;
+  }
+  h1 { font-size: 15px; margin: 0 0 6px; }
+  p { margin: 0 0 12px; color: var(--text-dim); font-size: 12px; max-width: 860px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: #1a1f2b;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    margin-bottom: 6px;
+  }
+  .swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  #check {
+    margin-top: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+  <h1>Candidate markers → Option markers</h1>
+  <p>
+    Before: after Options near current landed, markers still said <b>Candidate markers</b>
+    / <b>Rejected candidates</b>, and the cyan toggle said <b>Still-allowed (this candidate)</b>.
+    After: markers reuse Options vocabulary and link to Candidate playback.
+  </p>
+  <div class="grid">
+    <div class="frame" id="before">
+      <div class="label">Before</div>
+      <div class="toggle-row">
+        <span class="swatch" style="background:#e8c547"></span>Options near current
+      </div>
+      <div class="toggle-row" title="Cyan preview of the Still-allowed area if this Candidate becomes the next simplified point.">
+        <span class="swatch" style="background:#22d3ee"></span>Still-allowed (this candidate)
+      </div>
+      <div class="toggle-row" title="Orange markers for next-point options still being considered (pairs with Rejected candidates).">
+        <span class="swatch" style="background:#ff9f43"></span>Candidate markers
+      </div>
+      <div class="toggle-row" title="Next-point options the search already ruled out (shown in red).">
+        <span class="swatch" style="background:#ff3c3c"></span>Rejected candidates
+      </div>
+    </div>
+    <div class="frame" id="after">
+      <div class="label">After</div>
+      <div class="toggle-row">
+        <span class="swatch" style="background:#e8c547"></span>Options near current
+      </div>
+      <div class="toggle-row" id="allowedRow" title="Cyan preview of the Still-allowed area if this option (the selected Candidate) becomes the next simplified point.">
+        <span class="swatch" style="background:#22d3ee"></span>Still-allowed (this option)
+      </div>
+      <div class="toggle-row" id="markersRow" title="Orange markers for next-point options still being considered (same options as Options near current; cycle them with Candidate). Pairs with Rejected options.">
+        <span class="swatch" style="background:#ff9f43"></span>Option markers
+      </div>
+      <div class="toggle-row" id="rejectedRow" title="Next-point options the search already ruled out (shown in red). Pairs with Option markers.">
+        <span class="swatch" style="background:#ff3c3c"></span>Rejected options
+      </div>
+    </div>
+  </div>
+  <div id="check"></div>
+  <script>
+    const before = document.getElementById("before").innerText;
+    const after = document.getElementById("after").innerText;
+    const allowedTip = document.getElementById("allowedRow").title;
+    const markersTip = document.getElementById("markersRow").title;
+    const rejectedTip = document.getElementById("rejectedRow").title;
+    const beforeOld = before.includes("Candidate markers")
+      && before.includes("Rejected candidates")
+      && before.includes("Still-allowed (this candidate)")
+      && !before.includes("Option markers");
+    const afterNew = after.includes("Option markers")
+      && after.includes("Rejected options")
+      && after.includes("Still-allowed (this option)")
+      && !after.includes("Candidate markers")
+      && !after.includes("Rejected candidates")
+      && !after.includes("this candidate");
+    const tipOk = allowedTip.includes("selected Candidate")
+      && markersTip.includes("Options near current")
+      && markersTip.includes("Candidate")
+      && markersTip.includes("Rejected options")
+      && rejectedTip.includes("Option markers");
+    const scroll = document.documentElement.scrollWidth;
+    const ok = beforeOld && afterNew && tipOk && scroll <= 900;
+    document.getElementById("check").textContent =
+      `ok=${ok} scrollWidth=${scroll} beforeOld=${beforeOld} afterNew=${afterNew} tipOk=${tipOk}`;
+  </script>
+</body>
+</html>

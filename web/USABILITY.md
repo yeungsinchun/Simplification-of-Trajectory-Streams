@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Map overlays said Candidate markers (resolved)
+
+**Where:** Map overlays Paths & search toggles `#toggle-P` / `#toggle-dead-candidates` / `#toggle-F-Si`.
+
+**Problem:** After Options near current landed, orange/red marker toggles still said `Candidate markers` / `Rejected candidates`, and the cyan toggle said `Still-allowed (this candidate)`. Skip-tour users could not map those markers to Options near current, or tell that Candidate on the playback bar cycles the same options.
+
+**Fix:** Labels read `Option markers`, `Rejected options`, and `Still-allowed (this option)`. Tooltips link Options near current and Candidate playback. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/option-markers.html`
+- Fixture screenshot (900px): `web/usability/option-markers.png`
+
 ### Map overlays said Candidate region (resolved)
 
 **Where:** Map overlays Paths & search toggle `#toggle-Gi`, `#toggle-S` tooltip, and playback Map overlays tour copy.
