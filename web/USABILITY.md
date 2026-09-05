@@ -519,13 +519,20 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 ## Still open
 
-### Live Cloud Run still serves pre–PR #12 novice copy
+No open usability layout, novice-copy, or Cloud Run CI/CD gaps remain in this pass. Live site: https://simplify-viewer-522405269791.asia-east2.run.app (revision `simplify-viewer-00012-mkv` after merge of PR #12).
 
-**Where:** https://simplify-viewer-522405269791.asia-east2.run.app (last Deploy from merge of PR #11).
+### Live Cloud Run refreshed after PR #12 (resolved)
 
-**Problem:** Local usability work after PR #11 (Load / Match-Grid-first labels, green path / Gray path / Option / Map overlays vocabulary, Compare method glosses, smaller/outcome tips) was branch-only. The live site still shows older copy such as `Load Trace`, `algorithms`, and `Smaller keeps more detail`.
+**Where:** https://simplify-viewer-522405269791.asia-east2.run.app (Deploy on merge of PR #12).
 
-**Next step:** Merge https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/pull/12 so Deploy publishes a new revision. No layout or CI/CD wiring gaps remain in this pass.
+**Problem:** After PR #11, local novice-copy work (Load / Match-Grid-first labels, green path / Gray path / Option / Map overlays vocabulary, Compare method glosses, smaller/outcome tips) stayed branch-only, so live Cloud Run still showed older copy such as `Load Trace`, `algorithms`, and `Smaller keeps more detail`.
+
+**Fix:** Merged https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/pull/12 after green Benchmark/Correctness. Main Deploy published revision `simplify-viewer-00012-mkv`. Live HTML now has `Load`, Match/Grid, `as-you-go`, Map overlays, and `A smaller Match keeps a more detailed green path`, with zero `Load Trace` / `algorithms` / `Smaller keeps more detail`.
+
+**Evidence:**
+
+- Deploy run: https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/actions/runs/33993716783
+- Live HTTP 200 check: `Load Trace` count 0, `algorithms` count 0, `Smaller keeps more detail` count 0; Match/Grid, as-you-go, Map overlays, green-path tips present
 
 ### match limit chip tip lagged Match’s smaller/outcome guidance (resolved)
 
