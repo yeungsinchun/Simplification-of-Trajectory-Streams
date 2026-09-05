@@ -519,5 +519,13 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 ## Still open
 
-No open layout or novice-copy items from this pass. First live Cloud Run publish still needs a successful `main` merge of [PR #11](https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/pull/11) (or a `workflow_dispatch` once Deploy is on `main`). Until then GitHub only lists Benchmark and Correctness.
+No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
+
+### Cloud Run Deploy landed on main (resolved)
+
+**Where:** `.github/workflows/deploy.yml` on `main`, GitHub Actions Deploy workflow, Cloud Run service `simplify-viewer`.
+
+**Problem:** Deploy existed only on the usability branch, so GitHub listed only Benchmark and Correctness until a main merge.
+
+**Fix:** [PR #11](https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/pull/11) merged to `main`. The push registered Deploy and published revision `simplify-viewer-00011-lzj` via Workload Identity Federation ([run 33982295165](https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/actions/runs/33982295165)). Live URL: https://simplify-viewer-522405269791.asia-east2.run.app (HTTP 200).
 
