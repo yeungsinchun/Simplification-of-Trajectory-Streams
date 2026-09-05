@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Params chips still said cell size / file match (resolved)
+
+**Where:** desktop `#paramsBar` secondary chips after Load.
+
+**Problem:** After Match / Grid / match limit landed, chips still said `cell size` and `file match`. Skip-tour users could not tell that the first is a Grid-derived length, or that the second is a saved Match error (distinct from the live Match error chip).
+
+**Fix:** Chips read `grid cell` and `saved Match` with Grid- and Match-aligned tooltips. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/saved-match-grid-cell.html`
+- Fixture screenshot (900px): `web/usability/saved-match-grid-cell.png`
+
 ### Params chips still said max error / orig. points (resolved)
 
 **Where:** desktop `#paramsBar` secondary chips; SQUISH Compare field titles (header + Results).

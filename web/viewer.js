@@ -1185,13 +1185,13 @@
     return [
       paramChip("Match", epsilonValue, "Match tolerance (ε): how closely the simplified path must follow the original. Smaller keeps more detail."),
       paramChip("Grid", deltaValue, "Search-grid spacing (δ) used while finding the simplified path."),
-      paramChip("cell size", gridLength, "Length of one search-grid cell (from Grid / δ)."),
+      paramChip("grid cell", gridLength, "Length of one Grid cell used while searching for the simplified path."),
       paramChip("search radius", diskRadius, "Radius of the search circles drawn around path points while looking for the next simplified point."),
       paramChip("match limit", expectedFrechet, "Upper Match limit for this run: how far the simplified path may drift from the original. Same idea as the Match field."),
       paramChip(
-        "file match",
+        "saved Match",
         actualFrechet,
-        "Match error saved in this preloaded trajectory file (may differ slightly from the live Match error above).",
+        "Match error saved with this preloaded trajectory (may differ slightly from the live Match error above).",
         "color:#C4612F;font-weight:600",
       ),
       paramChip("original points", streamLen, "Number of points on the original trajectory."),
