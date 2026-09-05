@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Map overlays said Current search region (resolved)
+
+**Where:** Map overlays Paths & search toggle `#toggle-S`.
+
+**Problem:** After Candidate region / Allowed area / Search circle labels landed, the purple overlap toggle still said `Current search region`. Skip-tour users could not tell that the zone is where the next simplified point can land.
+
+**Fix:** Label reads `Next landing zone`. Tooltip leads with that purpose and mentions the candidate / still-allowed overlap. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/next-landing-zone.html`
+- Fixture screenshot (900px): `web/usability/next-landing-zone.png`
+
 ### Params chip said search radius instead of Search circle (resolved)
 
 **Where:** desktop `#paramsBar` `search radius` chip; Map overlays Search circle (start / current) tooltips.
