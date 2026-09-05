@@ -276,10 +276,43 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture: `web/usability/desktop-loading-status-wrap.html`
 - Fixture screenshot: `web/usability/desktop-loading-status-wrap.png`
 
+### Desktop 721px params grew a third row when numbers filled
+
+**Where:** desktop header `#paramsBar`, between 721px and 899px, from Load Trace until stream geometry arrives.
+
+**Problem:** Loading already reserved the secondary chips with ellipsis placeholders. At 721px those chips wrapped to two params rows (header about 184px). When geometry filled `159.0990`-style numbers, chips widened enough to wrap a third row and the header jumped to about 213px. The form row stayed at 67px; only the params bar grew. 900px and 1280px already stayed on two params rows.
+
+**Fix:** Between 721px and 899px, a non-empty `#paramsBar` keeps `min-height: 76px` (three wrap rows). Ellipsis still paints two rows inside that slot; filled numbers use the third row already reserved. Loading and loaded both measure 214px at 721px. 900px stays 150px, 1280px stays 116px, and mobile 390px stays 117px without the reserve.
+
+**Evidence:**
+
+- Desktop live loading (721px): `web/usability/desktop-721-params-wrap-live.png`
+- Desktop live loaded (721px): `web/usability/desktop-721-params-wrap-loaded-live.png`
+- Desktop live regression (900px): `web/usability/desktop-721-params-wrap-900-regression-live.png`
+- Desktop live regression (1280px): `web/usability/desktop-721-params-wrap-1280-regression-live.png`
+- Mobile live regression (390px): `web/usability/desktop-721-params-wrap-390-regression-live.png`
+- Before/after markup fixture: `web/usability/desktop-721-params-wrap.html`
+- Fixture screenshot: `web/usability/desktop-721-params-wrap.png`
+
+### First-visit visitors had no guided intro
+
+**Where:** start screen on desktop and mobile (`#uiTour`), before any trace is loaded.
+
+**Problem:** Novices saw ε / δ, Baseline, and Load Trace with no plain-language path through the first load. Existing Instructions copy assumed the visitor already knew what to do.
+
+**Fix:** A four-step popover tour starts once on first visit (`localStorage` key `simplify-viewer-tour-v1`). It explains the product, choosing a trajectory, what ε / δ mean, and Load Trace, with a spotlight on the live controls. Skip / Done remembers completion. A header `?` control relaunches the tour. ε / δ inputs also expose the same plain-language `title` tooltips.
+
+**Evidence:**
+
+- Desktop live step 2 (1280px): `web/usability/first-visit-tour-1280-live.png`
+- Mobile live step 2 (390px): `web/usability/first-visit-tour-390-live.png`
+- Before/after markup fixture: `web/usability/first-visit-tour.html`
+- Fixture screenshot: `web/usability/first-visit-tour.png`
+
 ## Still open
 
-A 900 / 1280 / 390 loading-to-loaded pass now keeps header height stable (144 / 110 / 117). Remaining items for a later pass:
+A 721 / 900 / 1280 / 390 loading-to-loaded pass now keeps header height stable (214 / 150 / 116 / 117). Remaining items for a later pass:
 
-- At 721px the form row is stable at 61px, but filled param numbers wrap one more line than the ellipsis preview (header 178px loading vs 207px loaded).
 - At 900px a nested MathJax assistive `mjx-container` for \(S_i[p]\) still has a bounding box about 10px past the window. The visible formula ends at 882px, `#sidebar` clips overflow-x, and `documentElement.scrollWidth` stays 900.
 - Desktop playback-bar height still grows from 91px (1280) to about 108px (1024/900) because the bar wraps; treat wrap as a problem only if a control is clipped or untappable.
+- Automatic gcloud / Cloud Run deploy via GitHub Actions is still missing (local `deploy.sh` was intentionally untracked; Dockerfile already targets Cloud Run).

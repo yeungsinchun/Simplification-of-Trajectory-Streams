@@ -2980,9 +2980,225 @@
   });
 
   // -------------------------------------------------------------------------
+  //  First-visit UI tour
+  // -------------------------------------------------------------------------
+
+  const TOUR_STORAGE_KEY = "simplify-viewer-tour-v1";
+  const uiTour = el("uiTour");
+  const uiTourSpotlight = el("uiTourSpotlight");
+  const uiTourCard = uiTour ? uiTour.querySelector(".ui-tour-card") : null;
+  const uiTourStepLabel = el("uiTourStepLabel");
+  const uiTourTitle = el("uiTourTitle");
+  const uiTourBody = el("uiTourBody");
+  const uiTourSkip = el("uiTourSkip");
+  const uiTourNext = el("uiTourNext");
+  const uiTourRelaunch = el("uiTourRelaunch");
+
+  const tourSteps = [
+    {
+      title: "Welcome",
+      body: "This visualizer shortens a GPS-style path while keeping its shape. A short tour shows the controls you need to load your first trace.",
+      targets: [],
+    },
+    {
+      title: "Choose a trajectory",
+      body: "Pick a <b>preloaded trace</b>, or on desktop upload your own <b>original.txt</b>. Preloaded samples already include sensible settings.",
+      targets: [".preloaded-row", "#preloadedTrigger", "#traceSelect", "#uploadBtn"],
+    },
+    {
+      title: "Accuracy controls",
+      body: "<b>ε</b> is how closely the simplified path must match the original (smaller keeps more detail). <b>δ</b> is the search-grid spacing. Defaults are fine for a first run.",
+      targets: ["#epsilonInput", "#deltaInput"],
+    },
+    {
+      title: "Load the trace",
+      body: "Press <b>Load Trace</b> to run the simplification. When it finishes, use Play / Step to walk through how the shorter path was built.",
+      targets: ["#loadBtn"],
+    },
+  ];
+
+  let tourIndex = 0;
+  let tourActive = false;
+
+  function isTourTargetVisible(node) {
+    if (!node || !(node instanceof Element)) return false;
+    if (node.classList.contains("visually-hidden")) return false;
+    const style = window.getComputedStyle(node);
+    if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") {
+      return false;
+    }
+    const rect = node.getBoundingClientRect();
+    return rect.width > 1 && rect.height > 1;
+  }
+
+  function resolveTourTargets(selectors) {
+    const nodes = [];
+    for (const selector of selectors) {
+      const raw = document.querySelector(selector);
+      if (!raw) continue;
+      const target = raw.closest("label") || raw;
+      if (!isTourTargetVisible(target)) continue;
+      if (!nodes.includes(target)) nodes.push(target);
+    }
+    return nodes;
+  }
+
+  function unionTourRect(nodes) {
+    let top = Infinity;
+    let left = Infinity;
+    let right = -Infinity;
+    let bottom = -Infinity;
+    for (const node of nodes) {
+      const rect = node.getBoundingClientRect();
+      top = Math.min(top, rect.top);
+      left = Math.min(left, rect.left);
+      right = Math.max(right, rect.right);
+      bottom = Math.max(bottom, rect.bottom);
+    }
+    if (!Number.isFinite(top)) return null;
+    const pad = 6;
+    return {
+      top: Math.max(8, top - pad),
+      left: Math.max(8, left - pad),
+      width: Math.min(window.innerWidth - 16, right - left + pad * 2),
+      height: Math.min(window.innerHeight - 16, bottom - top + pad * 2),
+    };
+  }
+
+  function placeTourCard(anchorRect) {
+    if (!uiTourCard) return;
+    const margin = 14;
+    const cardWidth = Math.min(340, window.innerWidth - 28);
+    const cardHeight = uiTourCard.offsetHeight || 160;
+    let top;
+    let left;
+
+    if (!anchorRect) {
+      top = Math.max(margin, (window.innerHeight - cardHeight) / 2);
+      left = Math.max(margin, (window.innerWidth - cardWidth) / 2);
+    } else {
+      left = Math.min(
+        Math.max(margin, anchorRect.left),
+        window.innerWidth - cardWidth - margin
+      );
+      top = anchorRect.top + anchorRect.height + 12;
+      if (top + cardHeight > window.innerHeight - margin) {
+        top = Math.max(margin, anchorRect.top - cardHeight - 12);
+      }
+    }
+
+    uiTourCard.style.top = `${Math.round(top)}px`;
+    uiTourCard.style.left = `${Math.round(left)}px`;
+  }
+
+  function renderTourStep() {
+    if (!uiTour || !tourActive) return;
+    const step = tourSteps[tourIndex];
+    if (!step) {
+      finishTour();
+      return;
+    }
+
+    const total = tourSteps.length;
+    if (uiTourStepLabel) uiTourStepLabel.textContent = `${tourIndex + 1} / ${total}`;
+    if (uiTourTitle) uiTourTitle.textContent = step.title;
+    if (uiTourBody) uiTourBody.innerHTML = step.body;
+    if (uiTourNext) {
+      uiTourNext.textContent = tourIndex === total - 1 ? "Done" : "Next";
+    }
+
+    const targets = resolveTourTargets(step.targets || []);
+    const rect = targets.length ? unionTourRect(targets) : null;
+
+    if (rect && uiTourSpotlight) {
+      uiTour.classList.add("has-spotlight");
+      uiTourSpotlight.hidden = false;
+      uiTourSpotlight.style.top = `${Math.round(rect.top)}px`;
+      uiTourSpotlight.style.left = `${Math.round(rect.left)}px`;
+      uiTourSpotlight.style.width = `${Math.round(rect.width)}px`;
+      uiTourSpotlight.style.height = `${Math.round(rect.height)}px`;
+      placeTourCard(rect);
+      requestAnimationFrame(() => placeTourCard(rect));
+    } else if (uiTourSpotlight) {
+      uiTour.classList.remove("has-spotlight");
+      uiTourSpotlight.hidden = true;
+      placeTourCard(null);
+      requestAnimationFrame(() => placeTourCard(null));
+    }
+  }
+
+  function openTour(fromStart) {
+    if (!uiTour) return;
+    tourActive = true;
+    tourIndex = fromStart ? 0 : tourIndex;
+    uiTour.hidden = false;
+    document.body.style.overflow = "hidden";
+    renderTourStep();
+    if (uiTourNext) uiTourNext.focus();
+  }
+
+  function finishTour() {
+    if (!uiTour) return;
+    tourActive = false;
+    uiTour.hidden = true;
+    uiTour.classList.remove("has-spotlight");
+    if (uiTourSpotlight) uiTourSpotlight.hidden = true;
+    document.body.style.overflow = "";
+    try {
+      localStorage.setItem(TOUR_STORAGE_KEY, "1");
+    } catch (_) {
+      /* ignore quota / private mode */
+    }
+  }
+
+  function advanceTour() {
+    if (tourIndex >= tourSteps.length - 1) {
+      finishTour();
+      return;
+    }
+    tourIndex += 1;
+    renderTourStep();
+  }
+
+  if (uiTourSkip) uiTourSkip.addEventListener("click", finishTour);
+  if (uiTourNext) uiTourNext.addEventListener("click", advanceTour);
+  if (uiTourRelaunch) {
+    uiTourRelaunch.addEventListener("click", () => {
+      tourIndex = 0;
+      openTour(true);
+    });
+  }
+
+  window.addEventListener("keydown", (event) => {
+    if (!tourActive) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      finishTour();
+    } else if (event.key === "Enter" || event.key === "ArrowRight") {
+      event.preventDefault();
+      advanceTour();
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    if (tourActive) renderTourStep();
+  });
+
+  // -------------------------------------------------------------------------
   //  Boot
   // -------------------------------------------------------------------------
 
   resizeCanvas();
   render();
+
+  let shouldStartTour = false;
+  try {
+    shouldStartTour = localStorage.getItem(TOUR_STORAGE_KEY) !== "1";
+  } catch (_) {
+    shouldStartTour = true;
+  }
+  if (shouldStartTour) {
+    // Wait one frame so header layout (including mobile start screen) is ready.
+    requestAnimationFrame(() => openTour(true));
+  }
 })();

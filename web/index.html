@@ -1591,6 +1591,11 @@
 
   @media (min-width: 721px) and (max-width: 899px) {
     .upload-form { flex-wrap: wrap; }
+    /* Ellipsis preview wraps to 2 rows here; filled numbers need 3. Reserve the
+       taller slot so Load Trace → geometry does not grow the header. */
+    .params:not(:empty) {
+      min-height: 76px;
+    }
   }
 
   @media (max-width: 480px) {
@@ -1798,6 +1803,127 @@
       field-sizing: content;
     }
   }
+
+  /* ---------- First-visit UI tour ---------- */
+  #uiTour {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    pointer-events: none;
+  }
+  #uiTour[hidden] { display: none !important; }
+  .ui-tour-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(8, 10, 14, 0.62);
+    pointer-events: auto;
+  }
+  #uiTour.has-spotlight .ui-tour-backdrop {
+    background: transparent;
+  }
+  .ui-tour-spotlight {
+    position: absolute;
+    border: 2px solid var(--accent);
+    border-radius: 10px;
+    box-shadow: 0 0 0 9999px rgba(8, 10, 14, 0.62);
+    background: transparent;
+    pointer-events: none;
+    transition: top 0.18s ease, left 0.18s ease, width 0.18s ease, height 0.18s ease;
+  }
+  .ui-tour-card {
+    position: absolute;
+    width: min(340px, calc(100vw - 28px));
+    padding: 14px 14px 12px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    pointer-events: auto;
+    color: var(--text);
+  }
+  .ui-tour-step {
+    margin: 0 0 6px;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .ui-tour-card h2 {
+    margin: 0 0 8px;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  .ui-tour-card p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--text-dim);
+  }
+  .ui-tour-card p b { color: var(--text); font-weight: 600; }
+  .ui-tour-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .ui-tour-actions button {
+    min-height: 34px;
+    padding: 6px 12px;
+    border-radius: 7px;
+    border: 1px solid var(--panel-border);
+    background: #1e2330;
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .ui-tour-actions button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0b0e14;
+    font-weight: 600;
+  }
+  .ui-tour-actions button:hover { filter: brightness(1.08); }
+  .ui-tour-relaunch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    margin-left: 4px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--panel-border);
+    background: #1e2330;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .ui-tour-relaunch:hover {
+    color: var(--accent);
+    border-color: var(--accent-dim);
+  }
+  body.trace-loaded-mobile .ui-tour-relaunch { display: none; }
+  @media (max-width: 720px) {
+    .ui-tour-card {
+      width: min(360px, calc(100vw - 24px));
+    }
+    body:not(.trace-loaded-mobile) header {
+      position: relative;
+    }
+    body:not(.trace-loaded-mobile) .ui-tour-relaunch {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 2;
+      width: 32px;
+      height: 32px;
+      font-size: 14px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -1808,6 +1934,7 @@
       Back
     </button>
     <h1>Trajectory Simplification Visualizer</h1>
+    <button type="button" id="uiTourRelaunch" class="ui-tour-relaunch" title="Replay the quick tour" aria-label="Replay the quick tour">?</button>
     <button type="button" id="headerToggle" class="headerToggle" aria-label="Show controls" aria-expanded="false" aria-controls="headerBody">
       <svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
     </button>
@@ -1829,8 +1956,8 @@
           <span class="or-divider" style="color: var(--text-dim); font-size: 12px; margin: 0 8px;">or</span>
           <button id="uploadBtn" class="primary">Upload original.txt</button>
           <input type="file" id="trajectoryInput" accept=".txt,text/plain" />
-          <label>&epsilon; <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" /></label>
-          <label>&delta; <input type="number" id="deltaInput" value="500" step="10" min="1" /></label>
+          <label title="How closely the simplified path must match the original. Smaller keeps more detail.">&epsilon; <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" /></label>
+          <label title="Grid spacing used while searching for the simplified path. Preloaded traces set a good default.">&delta; <input type="number" id="deltaInput" value="500" step="10" min="1" /></label>
           <div class="header-baseline" aria-label="Baseline algorithm to benchmark against">
             <span class="header-baseline-label">Baseline:</span>
             <div class="baseline-algo-row" id="headerBaselineAlgoRow" role="group" aria-label="Baseline algorithms">
@@ -2225,6 +2352,20 @@
   </svg>
 </button>
 
-<script src="viewer.js?v=baseline-hidden-1"></script>
+<div id="uiTour" hidden>
+  <div class="ui-tour-backdrop" id="uiTourBackdrop" aria-hidden="true"></div>
+  <div class="ui-tour-spotlight" id="uiTourSpotlight" hidden></div>
+  <div class="ui-tour-card" role="dialog" aria-modal="true" aria-labelledby="uiTourTitle" aria-describedby="uiTourBody">
+    <p class="ui-tour-step" id="uiTourStepLabel">1 / 4</p>
+    <h2 id="uiTourTitle">Welcome</h2>
+    <p id="uiTourBody"></p>
+    <div class="ui-tour-actions">
+      <button type="button" id="uiTourSkip">Skip</button>
+      <button type="button" id="uiTourNext" class="primary">Next</button>
+    </div>
+  </div>
+</div>
+
+<script src="viewer.js?v=first-visit-tour-1"></script>
 </body>
 </html>
