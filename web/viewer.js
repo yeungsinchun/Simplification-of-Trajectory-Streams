@@ -930,8 +930,8 @@
         <span class="idx-coord">${viPoint ? ptStr(viPoint) : ""}</span>
       </div>`;
     statusGrid.innerHTML = `
-      <span title="How far this simplified segment has walked along the original path">step</span><span class="mono"><b>1</b></span>
-      <span title="Candidate anchors still open for this segment">open</span><span class="mono"><b>…</b></span>`;
+      <span title="How far this simplified segment has walked along the original path">path step</span><span class="mono"><b>1</b></span>
+      <span title="Candidate anchors still open for this segment">candidates</span><span class="mono"><b>…</b></span>`;
     typesetStatus(statusIndices);
     typesetStatus(statusGrid);
   }
@@ -978,8 +978,8 @@
     const pendingStyle = simplifiedLen == null ? "color:var(--text-dim)" : "";
 
     return [
-      paramChip("ε", epsilonValue, "Match tolerance: how closely the simplified path must follow the original. Smaller keeps more detail."),
-      paramChip("δ", deltaValue, "Search-grid spacing used while finding the simplified path."),
+      paramChip("ε match", epsilonValue, "Match tolerance: how closely the simplified path must follow the original. Smaller keeps more detail."),
+      paramChip("δ grid", deltaValue, "Search-grid spacing used while finding the simplified path."),
       paramChip("grid step", gridLength, "Length of one search-grid cell (derived from δ)."),
       paramChip("radius", diskRadius, "Search-circle radius around path points while looking for the next simplified point."),
       paramChip("error budget", expectedFrechet, "Upper bound on how far the simplified path may drift from the original (Fréchet)."),
@@ -1319,7 +1319,7 @@
     const eps = parseFloat(epsilonInput.value);
     const delta = parseFloat(deltaInput.value);
     if (isNaN(eps) || eps <= 0 || isNaN(delta) || delta <= 0) {
-      alert("Invalid epsilon or delta");
+      alert("Please enter positive numbers for ε match (accuracy) and δ grid (search spacing).");
       return;
     }
 
@@ -1835,8 +1835,8 @@
     // Detail rows — present-state only, no future end vertex
     const rows = [];
     const alive = step.candidates.filter((c) => c.alive).length;
-    rows.push(["step", `${state.stepIdx + 1}`, "How far this simplified segment has walked along the original path"]);
-    rows.push(["open", `<b style="color:#3ddc97">${alive}</b> / ${pfx.P.length}`, "Candidate anchors still open for this segment"]);
+    rows.push(["path step", `${state.stepIdx + 1}`, "How far this simplified segment has walked along the original path"]);
+    rows.push(["candidates", `<b style="color:#3ddc97">${alive}</b> / ${pfx.P.length}`, "Candidate anchors still open for this segment"]);
 
     statusGrid.innerHTML = rows
       .map(([k, v, tip]) => `<span title="${tip}">${k}</span><span class="mono"><b>${v}</b></span>`)
@@ -3030,7 +3030,7 @@
     },
     {
       title: "Accuracy controls",
-      body: "<b>ε</b> is how closely the simplified path must match the original (smaller keeps more detail). <b>δ</b> is the search-grid spacing. Defaults are fine for a first run.",
+      body: "<b>ε match</b> is how closely the simplified path must match the original (smaller keeps more detail). <b>δ grid</b> is the search-grid spacing. Defaults are fine for a first run.",
       targets: ["#epsilonInput", "#deltaInput"],
     },
     {
@@ -3058,7 +3058,7 @@
     },
     {
       title: "Layers",
-      body: "In the sidebar, <b>Layers</b> toggles what the map draws (full stream, simplified path, search circles, candidate regions). Each row keeps a short symbol plus plain wording. Use <b>Fit to data</b> in View if you pan or zoom away.",
+      body: "In the sidebar, <b>Layers</b> toggles what the map draws (original path, simplified path, search circles, candidate regions). Each row keeps a short symbol plus plain wording. Use <b>Fit to data</b> in View if you pan or zoom away.",
       targets: ["#layersSection > h2", "#mobileLayersToggle", "#toggle-stream", "#toggle-simplified"],
       prepare: prepareLayersTourStep,
     },

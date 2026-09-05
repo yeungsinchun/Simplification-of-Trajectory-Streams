@@ -87,6 +87,21 @@
     font-size: 11px;
     color: var(--text-dim);
   }
+  .upload-form .param-label {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    white-space: nowrap;
+  }
+  .upload-form .param-symbol {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .upload-form .param-gloss {
+    color: var(--text-dim);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
   .params {
     display: flex;
     gap: 14px;
@@ -1737,6 +1752,8 @@
     .params:not(:empty) {
       min-height: 76px;
     }
+    /* Keep ε/δ + Load Trace on one row; tooltips and start copy still explain match/grid. */
+    .upload-form .param-gloss { display: none; }
   }
 
   @media (max-width: 480px) {
@@ -2100,8 +2117,14 @@
           <span class="or-divider" style="color: var(--text-dim); font-size: 12px; margin: 0 8px;">or</span>
           <button id="uploadBtn" class="primary">Upload original.txt</button>
           <input type="file" id="trajectoryInput" accept=".txt,text/plain" />
-          <label title="How closely the simplified path must match the original. Smaller keeps more detail.">&epsilon; <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" /></label>
-          <label title="Grid spacing used while searching for the simplified path. Preloaded traces set a good default.">&delta; <input type="number" id="deltaInput" value="500" step="10" min="1" /></label>
+          <label title="How closely the simplified path must match the original. Smaller keeps more detail.">
+            <span class="param-label"><span class="param-symbol">&epsilon;</span> <span class="param-gloss">match</span></span>
+            <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" aria-label="Match tolerance (epsilon)" />
+          </label>
+          <label title="Grid spacing used while searching for the simplified path. Preloaded traces set a good default.">
+            <span class="param-label"><span class="param-symbol">&delta;</span> <span class="param-gloss">grid</span></span>
+            <input type="number" id="deltaInput" value="500" step="10" min="1" aria-label="Search grid spacing (delta)" />
+          </label>
           <button id="loadBtn" class="primary">
             <span class="button-spinner" aria-hidden="true"></span>
             <span class="load-btn-label">Load Trace</span>
@@ -2137,7 +2160,7 @@
         <ul>
           <li>Select a preloaded trajectory.</li>
           <li>Optionally tap <b>Compare</b> algorithms (DOTS / DP / SQUISH) to benchmark against.</li>
-          <li>Adjust <b>&epsilon;</b> and <b>&delta;</b>, then tap <b>Load Trace</b>.</li>
+          <li>Optionally adjust <b>&epsilon; match</b> (accuracy) and <b>&delta; grid</b> (search spacing), then tap <b>Load Trace</b>.</li>
           <li>Drag the visualization to pan and pinch to zoom.</li>
           <li>Use <b>Controls</b> to view status and toggle layers.</li>
           <li>Tap <b>Back</b> to choose another trajectory.</li>
@@ -2238,7 +2261,7 @@
             </div>
             <div class="big">Upload a trajectory to get started</div>
             <div class="dropHint-sub">
-              Click <b>Upload original.txt</b> or select a <b>preloaded trace</b>, optionally pick <b>Compare</b> algorithms, set &epsilon;/&delta;, then <b>Load Trace</b>
+              Click <b>Upload original.txt</b> or select a <b>preloaded trace</b>, optionally pick <b>Compare</b> algorithms, leave <b>&epsilon; match</b> / <b>&delta; grid</b> at defaults (or tweak them), then <b>Load Trace</b>
             </div>
             <div class="dropHint-format">
               Format: first line <code>N</code>, then <code>N</code> lines of <code>"x y"</code>
@@ -2351,7 +2374,7 @@
             <summary>Simplify</summary>
             <div class="layer-acc-body">
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-stream" checked /><span class="swatch" style="background:#5a6272"></span>Full stream</label>
+                <label title="The original trajectory path before simplification"><input type="checkbox" id="toggle-stream" checked /><span class="swatch" style="background:#5a6272"></span>Original path</label>
               </div>
               <div class="toggle-row">
                 <label><input type="checkbox" id="toggle-simplified" checked /><span class="swatch" style="background:#3ddc97"></span>Simplified so far</label>
@@ -2510,6 +2533,6 @@
   </div>
 </div>
 
-<script src="viewer.js?v=layers-tour-1"></script>
+<script src="viewer.js?v=eps-delta-gloss-1"></script>
 </body>
 </html>

@@ -435,6 +435,26 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Desktop live (900px): `web/usability/desktop-params-glosses-900-live.png`
 - Mobile live metrics (390px): `web/usability/desktop-params-glosses-390-live.png`
 
+### ε/δ and Status still used opaque shorthand for novices
+
+**Where:** start-screen `#epsilonInput` / `#deltaInput`, drop hint / mobile start help, Status `#statusGrid`, Layers `#toggle-stream`.
+
+**Problem:** After Match error / tour work, novices who skipped or forgot the tour still saw bare `ε` / `δ` with no visible meaning, Status rows labeled `step` / `open`, Layers `Full stream`, and start copy that said “set ε/δ” without explaining the words.
+
+**Fix:** Inputs show short glosses (`ε match`, `δ grid`) with aria-labels; below 900px desktop the gloss text hides so Load Trace stays beside the fields (tooltips + start copy still explain). Drop hint and mobile instructions say `ε match` / `δ grid`. Status uses `path step` / `candidates`. Layers says `Original path`. Invalid-input alert uses the same plain wording.
+
+**Evidence:**
+
+- Before/after markup fixture: `web/usability/eps-delta-glosses.html`
+- Fixture screenshot: `web/usability/eps-delta-glosses.png`
+- Desktop live (1280px): `web/usability/eps-delta-glosses-1280-live.png`
+- Desktop live (900px): `web/usability/eps-delta-glosses-900-live.png`
+- Desktop live (721px): `web/usability/eps-delta-glosses-721-live.png`
+- Desktop live (820px, glosses hidden): `web/usability/eps-delta-glosses-820-live.png`
+- Mobile live (390px): `web/usability/eps-delta-glosses-390-live.png`
+- Desktop loaded Status/Layers (1280px): `web/usability/eps-delta-glosses-1280-loaded-live.png`
+- Mobile loaded Status/Layers (390px): `web/usability/eps-delta-glosses-390-loaded-live.png`
+
 ## Still open
 
 No open layout or novice-copy items from this pass. First live Cloud Run publish still needs a successful `main` push or `workflow_dispatch` run of `.github/workflows/deploy.yml` (workflow is not on `main` yet; only Benchmark and Correctness are registered).
