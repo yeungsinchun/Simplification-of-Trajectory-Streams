@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Match / DP tips still said Smaller keeps more detail (resolved)
+
+**Where:** Match form/chip titles and Accuracy tour in `web/index.html` / `web/viewer.js`, plus DP match Compare field titles.
+
+**Problem:** After Compare budget / keep tips named the green-path outcome, Match and DP match still said `Smaller keeps more detail` with no green-path wording. Skip-tour users and phone long-press could not map those tips to the same green-path vocabulary.
+
+**Fix:** Match and DP tips say `A smaller Match/match keeps a more detailed green path`; Accuracy tour uses the same phrasing. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/match-keeps-detailed-green-path.html`
+- Fixture screenshot (900px): `web/usability/match-keeps-detailed-green-path.png`
+
 ### SQUISH tips still omitted builds a shorter green path (resolved)
 
 **Where:** Compare SQUISH pill titles and keep-percent field titles in `web/index.html`, plus `COMPARE_PILL_TITLES` in `web/viewer.js`.

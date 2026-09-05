@@ -1199,7 +1199,7 @@
     const pendingStyle = simplifiedLen == null ? "color:var(--text-dim)" : "";
 
     return [
-      paramChip("Match", epsilonValue, "Match (ε): how closely the green path must match the Gray path. Smaller keeps more detail."),
+      paramChip("Match", epsilonValue, "Match (ε): how closely the green path must match the Gray path. A smaller Match keeps a more detailed green path."),
       paramChip("Grid", deltaValue, "Grid spacing (δ) used while finding the green path."),
       paramChip("grid cell", gridLength, "Length of one Grid cell used while finding the green path."),
       paramChip("circle radius", diskRadius, "Radius of the Start-point circle and Current-point circle overlays while finding the next green-path point."),
@@ -3280,7 +3280,7 @@
     },
     {
       title: "Accuracy controls",
-      body: "<b>Match</b> is how closely the green path must match the Gray path (smaller keeps more detail). <b>Grid</b> is spacing used while finding the green path. Defaults are fine for a first run.",
+      body: "<b>Match</b> is how closely the green path must match the Gray path (a smaller Match keeps a more detailed green path). <b>Grid</b> is spacing used while finding the green path. Defaults are fine for a first run.",
       targets: ["#epsilonInput", "#deltaInput"],
     },
     {

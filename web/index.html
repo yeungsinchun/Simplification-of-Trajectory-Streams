@@ -2193,7 +2193,7 @@
           <span class="or-divider" style="color: var(--text-dim); font-size: 12px; margin: 0 8px;">or</span>
           <button id="uploadBtn" class="primary" title="Upload a plain-text trajectory: first line is the point count N, then N lines of x y coordinates.">Upload trajectory</button>
           <input type="file" id="trajectoryInput" accept=".txt,text/plain" />
-          <label title="Match (ε): how closely the green path must match the Gray path. Smaller keeps more detail.">
+          <label title="Match (ε): how closely the green path must match the Gray path. A smaller Match keeps a more detailed green path.">
             <span class="param-label"><span class="param-symbol">&epsilon;</span> <span class="param-gloss">match</span></span>
             <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" aria-label="Match" />
           </label>
@@ -2218,7 +2218,7 @@
               <input type="number" id="headerBaselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS budget in thousands" />
               <span class="baseline-field-unit" title="Entered in thousands (×1,000)">×1k</span>
             </label>
-            <label class="baseline-field baseline-field--inline" id="headerBaselineDpEpsField" hidden title="DP match limit (same idea as the Match field). Smaller keeps more detail.">
+            <label class="baseline-field baseline-field--inline" id="headerBaselineDpEpsField" hidden title="DP match limit (same idea as the Match field). A smaller match keeps a more detailed green path.">
               <span><span class="baseline-param-owner owner-dp">DP</span> match</span>
               <input type="number" id="headerBaselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP match limit" />
             </label>
@@ -2272,7 +2272,7 @@
                     <span class="baseline-field-unit" title="Entered in thousands (×1,000)">×1k</span>
                   </div>
                 </label>
-                <label class="baseline-field" id="baselineDpEpsField" hidden title="DP match limit (same idea as the Match field). Smaller keeps more detail.">
+                <label class="baseline-field" id="baselineDpEpsField" hidden title="DP match limit (same idea as the Match field). A smaller match keeps a more detailed green path.">
                   <span><span class="baseline-param-owner owner-dp">DP</span> match</span>
                   <input type="number" id="baselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP match limit" />
                 </label>
