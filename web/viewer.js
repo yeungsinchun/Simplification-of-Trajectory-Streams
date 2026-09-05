@@ -3292,7 +3292,7 @@
     },
     {
       title: "Map overlays",
-      body: "In the sidebar, <b>Map overlays</b> toggles what the map draws (original path, path so far, start-point / current-point circles, options near current, next-point zone). Open <b>This run</b> for those toggles (same name as the Scores column), or <b>Compare</b> for other algorithms. Use <b>Fit view</b> in View if you pan or zoom away.",
+      body: "In the sidebar, <b>Map overlays</b> toggles what the map draws (gray path, path so far, start-point / current-point circles, options near current, next-point zone). Open <b>This run</b> for those toggles (same name as the Scores column), or <b>Compare</b> for other algorithms. Use <b>Fit view</b> in View if you pan or zoom away.",
       targets: ["#layersSection > h2", "#mobileLayersToggle", "#toggle-stream", "#toggle-simplified"],
       prepare: prepareLayersTourStep,
     },

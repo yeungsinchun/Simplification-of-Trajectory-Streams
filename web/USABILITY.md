@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Map overlays said Original path (resolved)
+
+**Where:** Map overlays `#toggle-stream` label/tooltip and playback Map overlays tour copy.
+
+**Problem:** Path so far / Full green path and the playback tour already used green / gray wording, but the input overlay toggle still said `Original path`. Skip-tour users mapping Map overlays to the tour’s “gray original” could not tell which toggle was that gray path.
+
+**Fix:** Label reads `Gray path` with a tooltip that names Path so far and Full green path. Tour copy says gray path. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/gray-path.html`
+- Fixture screenshot (900px): `web/usability/gray-path.png`
+
 ### Map overlays said Search circle (start/current point) (resolved)
 
 **Where:** Map overlays `#toggle-ball-p0` / `#toggle-ball-pi` labels/tooltips; desktop `#paramsBar` `circle radius` chip tooltip; playback Map overlays tour copy.
