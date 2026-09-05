@@ -282,7 +282,7 @@
   function updateCompareAvailabilityCopy() {
     if (baselineLayerHint && !baselineLayerHint.hidden) {
       baselineLayerHint.textContent = compareBlockedByUpload()
-        ? "Compare needs a preloaded trajectory. Your upload still shows scores in Results; pick a preloaded trajectory to enable DOTS / DP / SQUISH layers."
+        ? "Compare needs a preloaded trajectory. Your upload still shows scores in Results; pick a preloaded trajectory to enable DOTS / DP / SQUISH."
         : "Compare works with preloaded trajectories. Open Results, pick DOTS / DP / SQUISH, then press Run compare (on wider screens, Run beside Compare also works). Uploaded files show scores only.";
     }
   }
@@ -3190,7 +3190,7 @@
     },
     {
       title: "Load the trajectory",
-      body: "Optional: with a <b>preloaded</b> trajectory, tap <b>Compare</b> (DOTS / DP / SQUISH) to score other algorithms later - or skip. Uploaded files show scores only. Press <b>Load</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Candidate, Layers, and Results.",
+      body: "Optional: with a <b>preloaded</b> trajectory, tap <b>Compare</b> (DOTS / DP / SQUISH) to score other algorithms later - or skip. Uploaded files show scores only. Press <b>Load</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Candidate, Map overlays, and Results.",
       targets: ["#loadBtn", ".header-baseline"],
     },
   ];
@@ -3212,8 +3212,8 @@
       targets: ["#segmentInput", "#candidateInput", "#playBtn", "#mobileSegmentForwardBtn", "#mobileCandidateForwardBtn", "#mobilePlayBtn"],
     },
     {
-      title: "Layers",
-      body: "In the sidebar, <b>Layers</b> toggles what the map draws (original path, path so far, search circles, candidate regions). Labels use plain wording so you can match them to the map. Use <b>Fit view</b> in View if you pan or zoom away.",
+      title: "Map overlays",
+      body: "In the sidebar, <b>Map overlays</b> toggles what the map draws (original path, path so far, search circles, candidate regions). Open <b>Paths &amp; search</b> for those toggles, or <b>Compare</b> for other algorithms. Use <b>Fit view</b> in View if you pan or zoom away.",
       targets: ["#layersSection > h2", "#mobileLayersToggle", "#toggle-stream", "#toggle-simplified"],
       prepare: prepareLayersTourStep,
     },

@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Outer Layers section still used GIS jargon (resolved)
+
+**Where:** sidebar `#layersSection` h2 / `#mobileLayersToggle`, playback tour step, mobile Instructions / start help after Load.
+
+**Problem:** Iteration 32 renamed the inner Simplify accordion to `Paths & search`, but the outer section heading and mobile toggle still said `Layers`. Tour, Instructions, and start help used the same GIS word, so skip-tour users saw two names for one sidebar block that also holds Compare.
+
+**Fix:** Outer section and mobile toggle read `Map overlays`. Tour, Hide/Controls shortcut, and mobile start help use the same wording and mention Paths & search / Compare. Upload Compare hint drops the leftover “layers” suffix. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/map-overlays-label.html`
+- Fixture screenshot (900px): `web/usability/map-overlays-label.png`
+
 ### Layers still said segment start / Anchor points (resolved)
 
 **Where:** Layers `#toggle-ball-p0` / `#toggle-P` / `#toggle-F-Si` and related layer tooltips after Load.
