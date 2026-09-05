@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Params chip said search radius instead of Search circle (resolved)
+
+**Where:** desktop `#paramsBar` `search radius` chip; Map overlays Search circle (start / current) tooltips.
+
+**Problem:** After Match / Grid / grid cell / saved Match landed, the radius chip still said `search radius` while Map overlays said `Search circle`. Circle tooltips also claimed the size was “from Grid”, so skip-tour users could not map the chip number to the purple/pink overlays.
+
+**Fix:** Chip reads `circle radius` with a Search circle tooltip. Overlay titles say the size matches the circle radius chip. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/circle-radius-search-circle.html`
+- Fixture screenshot (900px): `web/usability/circle-radius-search-circle.png`
+
 ### Params chips still said cell size / file match (resolved)
 
 **Where:** desktop `#paramsBar` secondary chips after Load.
