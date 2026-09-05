@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Map overlays / circle radius said next simplified point (resolved)
+
+**Where:** Map overlays `#toggle-F-Si` / `#toggle-S` tooltips and the desktop `#paramsBar` circle radius chip tooltip.
+
+**Problem:** Green path so far / Full green path / Next-point zone already shared green-path and next-point vocabulary, but those tips still said `next simplified point`. Skip-tour users mapping Next-point zone and circle radius to the green path could not tell the tip meant the next point on that green path.
+
+**Fix:** Tips read `next green-path point`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/next-green-path-point.html`
+- Fixture screenshot (900px): `web/usability/next-green-path-point.png`
+
 ### Map overlays said Still-allowed area (resolved)
 
 **Where:** Map overlays `#toggle-F` / `#toggle-F-Si` labels/tooltips and `#toggle-S` Next-point zone tooltip.

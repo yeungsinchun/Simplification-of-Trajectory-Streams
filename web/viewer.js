@@ -1186,7 +1186,7 @@
       paramChip("Match", epsilonValue, "Match tolerance (ε): how closely the simplified path must follow the original. Smaller keeps more detail."),
       paramChip("Grid", deltaValue, "Search-grid spacing (δ) used while finding the simplified path."),
       paramChip("grid cell", gridLength, "Length of one Grid cell used while searching for the simplified path."),
-      paramChip("circle radius", diskRadius, "Radius of the Start-point circle and Current-point circle overlays while looking for the next simplified point."),
+      paramChip("circle radius", diskRadius, "Radius of the Start-point circle and Current-point circle overlays while looking for the next green-path point."),
       paramChip("match limit", expectedFrechet, "Upper Match limit for this run: how far the simplified path may drift from the original. Same idea as the Match field."),
       paramChip(
         "saved Match",
