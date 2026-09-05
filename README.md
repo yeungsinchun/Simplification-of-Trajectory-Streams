@@ -69,10 +69,13 @@ The build produces these main targets within the `build` directory:
 | Target | Purpose |
 | --- | --- |
 | `simplify` | Headless streaming simplifier |
-| `simplify_with_gui` | Qt viewer and simplifier |
-| `dots` | DOTS baseline used by `benchmark.py` and the web compare pane (`BUILD_GUI=ON`) |
-| `dp` | DP baseline used by the web compare pane (when the submodule source is present) |
-| `squish` | SQUISH baseline used by the web compare pane (when the submodule source is present) |
+| `simplify_with_gui` | Qt viewer and simplifier (`-DBUILD_GUI=ON`) |
+| `dots` | DOTS baseline (Qt6 Core only; web compare pane and `benchmark.py`) |
+| `dp` | DP baseline for the web compare pane (when the submodule source is present) |
+| `squish` | SQUISH baseline for the web compare pane (when the submodule source is present) |
+
+Headless / Docker builds use `-DBUILD_GUI=OFF`, which skips `simplify_with_gui`
+but still builds `simplify`, `dots`, `dp`, and `squish` when their sources exist.
 
 ### Download and prepare data
 
@@ -129,10 +132,10 @@ python3 -m pip install -r web/requirements.txt
 python3 web/server.py
 ```
 
-Open the printed URL, load a trace, pick a baseline, and run it. `dp` and
-`squish` are produced whenever their `traj-compression` sources exist, including
-with `-DBUILD_GUI=OFF`. The `dots` binary still needs the Qt-enabled DOTS
-target. If `dp` or `squish` is missing, initialize the submodule and rebuild.
+Open the printed URL, load a trace, pick a baseline, and run it. `dots`, `dp`,
+and `squish` are produced whenever their `traj-compression` sources exist,
+including with `-DBUILD_GUI=OFF` (`dots` needs Qt6 Core only). If a baseline
+binary is missing, initialize the submodule and rebuild.
 
 ## Benchmarking
 

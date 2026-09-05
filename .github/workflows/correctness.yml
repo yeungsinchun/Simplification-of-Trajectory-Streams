@@ -50,7 +50,9 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential libcgal-dev
+          # qt6-base-dev: DOTS (web/benchmark baseline) needs Qt6 Core at
+          # configure time even when BUILD_GUI=OFF.
+          sudo apt-get install -y cmake build-essential libcgal-dev qt6-base-dev
 
       - name: Install Julia (for Fréchet distance)
         uses: julia-actions/setup-julia@v3

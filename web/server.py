@@ -319,23 +319,23 @@ def get_trace_compare(trace_id):
         if not binary.exists():
             baseline_error = f'{algorithm} binary not found at {binary}'
         else:
-            original = trace_dir / 'original.txt'
+            original = (trace_dir / 'original.txt').resolve()
             out_name = meta['files'][0]
-            out_path = trace_dir / out_name
+            out_path = (trace_dir / out_name).resolve()
+            binary_abs = str(binary.resolve())
+            # DOTS resolves data/<id>/original.txt from cwd; always run from
+            # the repo root with an absolute binary path (not from build/).
             if algorithm == 'dots':
-                cmd = [str(binary), str(trace_id), '-lssd', str(lssd)]
-                cwd = REPO_ROOT / 'build'
+                cmd = [binary_abs, str(trace_id), '-lssd', str(lssd)]
             elif algorithm == 'dp':
-                cmd = [str(binary), str(original), str(dp_eps), str(out_path)]
-                cwd = REPO_ROOT
+                cmd = [binary_abs, str(original), str(dp_eps), str(out_path)]
             else:
-                cmd = [str(binary), str(original), str(squish_ratio), str(out_path)]
-                cwd = REPO_ROOT
+                cmd = [binary_abs, str(original), str(squish_ratio), str(out_path)]
             try:
                 started = time.perf_counter()
                 result = subprocess.run(
                     cmd,
-                    cwd=cwd,
+                    cwd=REPO_ROOT,
                     capture_output=True,
                     text=True,
                     timeout=120,
@@ -684,8 +684,14 @@ if __name__ == '__main__':
         print(f"Error: simplify binary not found at {SIMPLIFY_BIN}")
         print("Build it first: cmake -B build && cmake --build build")
         exit(1)
-    
-    port = int(os.environ.get('PORT', 5050))
+
+    for name, path in (('dots', DOTS_BIN), ('dp', DP_BIN), ('squish', SQUISH_BIN)):
+        if not path.exists():
+            print(f"Warning: {name} binary not found at {path}")
+            print(f"  Compare pane for {name} will fail until you build it:")
+            print(f"  cmake -B build && cmake --build build --target {name}")
+
+    port = int(os.environ.get('PORT', 5051))
     # Bind to 0.0.0.0 by default. Cloud Run's request router and Docker's
     # published-port forwarding both require a non-loopback bind inside the
     # container; binding to 127.0.0.1 works for `python server.py` on a dev
@@ -694,6 +700,7 @@ if __name__ == '__main__':
     host = os.environ.get('HOST', '0.0.0.0')
     print(f"Repo root: {REPO_ROOT}")
     print(f"Binary: {SIMPLIFY_BIN}")
+    print(f"Baselines: dots={DOTS_BIN.exists()} dp={DP_BIN.exists()} squish={SQUISH_BIN.exists()}")
     print(f"Starting Flask server on http://{host}:{port}")
     # Note: on macOS, port 5000 is claimed by AirPlay Receiver (AirTunes),
     # which silently returns 403 for any request. Use 5050 or set PORT= to
