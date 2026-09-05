@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Playback and Status said Candidate (resolved)
+
+**Where:** Status Option row, desktop `#playbackBar` Option caption, mobile Option dock buttons, Instructions / tour / Map overlays tooltips that named Candidate.
+
+**Problem:** After Option markers / Options near current landed, Status, playback, and Instructions still said `Candidate`. Skip-tour users could not tell that the playback control cycles the same next-point options as those overlays.
+
+**Fix:** Visible labels read `Option` (narrow desktop short `Opt`). Status, Instructions, tour, and overlay tooltips use the same Option vocabulary. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/option-playback-label.html`
+- Fixture screenshot (900px): `web/usability/option-playback-label.png`
+
 ### Map overlays said Candidate markers (resolved)
 
 **Where:** Map overlays Paths & search toggles `#toggle-P` / `#toggle-dead-candidates` / `#toggle-F-Si`.

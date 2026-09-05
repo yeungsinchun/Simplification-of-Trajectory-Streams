@@ -1093,7 +1093,7 @@
     return "Point number on the original trajectory (0 = first point)";
   }
 
-  // Same pool as the Candidate playback control: still-open + just-rejected options.
+  // Same pool as the Option playback control: still-open + just-rejected options.
   function candidateCycleInfo(step) {
     if (!step || !step.candidates || step.candidates.length === 0) {
       return { displayIdx: 0, total: 0, stillOpen: 0 };
@@ -1112,7 +1112,7 @@
     const openBit = Number.isFinite(stillOpen)
       ? ` ${stillOpen} still being considered.`
       : "";
-    return `Cycles next-point options the search considered.${openBit} Same idea as Candidate on the playback bar.`;
+    return `Cycles next-point options the search considered.${openBit} Same idea as Option on the playback bar.`;
   }
 
   function renderBootstrapStatus(trace) {
@@ -1136,7 +1136,7 @@
     statusGrid.innerHTML = `
       <span title="Jumps between pieces of the green path">Segment</span><span class="mono"><b>1 / …</b></span>
       <span title="Walks along original points within the current Segment">Step</span><span class="mono"><b>1 / …</b></span>
-      <span title="${candidateStatusTitle()}">Candidate</span><span class="mono"><b>… / …</b></span>`;
+      <span title="${candidateStatusTitle()}">Option</span><span class="mono"><b>… / …</b></span>`;
     typesetStatus(statusIndices);
     typesetStatus(statusGrid);
   }
@@ -2070,7 +2070,7 @@
       "Walks along original points within the current Segment",
     ]);
     rows.push([
-      "Candidate",
+      "Option",
       cand.total
         ? `${cand.displayIdx} / ${cand.total}`
         : "0 / 0",
@@ -3269,7 +3269,7 @@
     },
     {
       title: "Load the trajectory",
-      body: "Optional: with a <b>preloaded</b> trajectory, tap <b>Compare</b> (DOTS / DP / SQUISH) to score other algorithms later - or skip. Press <b>Load</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Candidate, Map overlays, and Results.",
+      body: "Optional: with a <b>preloaded</b> trajectory, tap <b>Compare</b> (DOTS / DP / SQUISH) to score other algorithms later - or skip. Press <b>Load</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Option, Map overlays, and Results.",
       targets: ["#loadBtn", ".header-baseline"],
     },
   ];
@@ -3286,8 +3286,8 @@
       targets: ["#stepInput", "#mobileStepForwardBtn", "#mobileStepBackBtn"],
     },
     {
-      title: "Segment and Candidate",
-      body: "<b>Segment</b> jumps between pieces of the green path. <b>Candidate</b> cycles possible next points the search considered. Press <b>Play</b> to auto-advance; pick a speed if you want it faster or slower.",
+      title: "Segment and Option",
+      body: "<b>Segment</b> jumps between pieces of the green path. <b>Option</b> cycles possible next points the search considered. Press <b>Play</b> to auto-advance; pick a speed if you want it faster or slower.",
       targets: ["#segmentInput", "#candidateInput", "#playBtn", "#mobileSegmentForwardBtn", "#mobileCandidateForwardBtn", "#mobilePlayBtn"],
     },
     {
