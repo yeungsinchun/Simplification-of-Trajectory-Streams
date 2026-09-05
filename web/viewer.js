@@ -1257,7 +1257,7 @@
         }
 
         if (msg.type === "error") {
-          throw new Error(msg.message || "Trace stream failed");
+          throw new Error(msg.message || "Loading failed");
         }
         if (msg.type === "header") {
           applySampleTraceYOffset(msg);
@@ -1337,15 +1337,15 @@
         return;
       }
       if (msg.type === "error") {
-        throw new Error(msg.message || "Trace stream failed");
+        throw new Error(msg.message || "Loading failed");
       }
     }
 
     if (!sawDone) {
       if (!sawHeader) {
-        throw new Error("Trace stream returned no data (is the server restarted?)");
+        throw new Error("No data received from the server. Try again in a moment.");
       }
-      throw new Error("Trace stream ended before completion");
+      throw new Error("Loading stopped before the trajectory finished.");
     }
   }
 
@@ -1368,7 +1368,7 @@
       return;
     }
     if (!parsed || !Array.isArray(parsed.prefixes)) {
-      alert("This does not look like a simplify --web-server trace (missing 'prefixes').");
+      alert("This file is not a valid trajectory for this viewer. Upload a plain-text trajectory (first line N, then N lines of x y), or pick a preloaded trajectory.");
       uploadStatus.textContent = "Invalid trajectory format";
       uploadStatus.style.color = "#ff5f6d";
       return;
@@ -1530,12 +1530,12 @@
     tracesList.forEach(t => {
       const id = t.id !== undefined ? t.id : t;
       const n = t.n_points;
-      const label = t.label || `Trace ${id}`;
+      const label = t.label || `Trajectory ${id}`;
       const isSample = (id === 51 || id === 52 || id === 53);
       if (!isSample && !addedDivider) {
         const sep = document.createElement("div");
         sep.className = "trace-picker-divider";
-        sep.textContent = "Other traces";
+        sep.textContent = "Other trajectories";
         tracePickerList.appendChild(sep);
         addedDivider = true;
       }
@@ -1763,8 +1763,8 @@
               opt.textContent = t.label;
             } else {
               opt.textContent = n != null
-                ? `Trace ${id}  (${n.toLocaleString()} pts)`
-                : `Trace ${id}`;
+                ? `Trajectory ${id}  (${n.toLocaleString()} pts)`
+                : `Trajectory ${id}`;
             }
             traceSelect.appendChild(opt);
           });

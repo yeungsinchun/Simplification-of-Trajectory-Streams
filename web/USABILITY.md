@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Picker / load errors still said “trace” (resolved)
+
+**Where:** mobile `#tracePicker` divider and unlabeled items; desktop `#traceSelect` fallback option labels; NDJSON load error strings; invalid JSON-upload `alert`; Results panel `aria-label`.
+
+**Problem:** Start screens already said trajectory, but the picker divider still read `Other traces`, unlabeled ids fell back to `Trace N`, and failure alerts mentioned `simplify --web-server trace` / `Trace stream…`. Novices who skipped jargon elsewhere still hit mixed vocabulary on pick and error paths.
+
+**Fix:** Divider is `Other trajectories`; unlabeled items / select options use `Trajectory N`. Load failures say plain “Loading failed” / “No data received…” / “Loading stopped…”. Invalid upload alert points at the plain-text format or preloaded list. Results `aria-label` is `Results scores and Compare`.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/picker-trajectory-wording.html`
+- Fixture screenshot (900px): `web/usability/picker-trajectory-wording.png`
+
 ### Load Trace CTA still mixed “trace” with trajectory wording (resolved)
 
 **Where:** `#loadBtn`, start Instructions / drop hint / tour, Compare status strings, mobile Back aria-label, and the params `trace error` chip.
