@@ -407,7 +407,7 @@ def get_trace_compare(trace_id):
                 {'id': 'epsilon', 'label': 'DP match', 'type': 'number', 'default': 0.9, 'min': 1e-9, 'step': 0.1},
             ]},
             {'id': 'squish', 'label': 'SQUISH', 'params': [
-                {'id': 'ratio', 'label': 'SQUISH keep %', 'type': 'number', 'default': 20, 'unit': '%', 'min': 0.01, 'max': 100, 'step': 1},
+                {'id': 'ratio', 'label': 'SQUISH keep', 'type': 'number', 'default': 20, 'unit': '%', 'min': 0.01, 'max': 100, 'step': 1},
             ]},
         ],
     })

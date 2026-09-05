@@ -784,7 +784,7 @@
         squishDisplayFromRaw(state.baselineSquishRatio)
       );
       if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
-        setBaselineStatus("SQUISH keep % must be greater than 0 and at most 100.", "error");
+        setBaselineStatus("SQUISH keep percent must be greater than 0 and at most 100.", "error");
         return;
       }
       squishRatio = squishRawFromDisplay(pct);

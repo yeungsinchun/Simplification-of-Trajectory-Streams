@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Results SQUISH still said keep % beside a % unit (resolved)
+
+**Where:** Results Compare `#baselineSquishRatioField`, client SQUISH validation status in `web/viewer.js`, and Compare API param metadata in `web/server.py`.
+
+**Problem:** Header Compare already said `SQUISH keep` with a separate `%` unit, but Results still said `keep %` next to another `%`, so the field read like `keep % 20 %`. Client validation still said `SQUISH keep % must…` while titles/server used `keep percent`. Skip-tour users mapping Results to the header saw two labels for the same control.
+
+**Fix:** Results field matches the header as `keep` + `%`; validation says `keep percent`; API metadata says `SQUISH keep` with unit `%`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/squish-keep-not-keep-pct.html`
+- Fixture screenshot (900px): `web/usability/squish-keep-not-keep-pct.png`
+
 ### Compare still said stream / classic path shortener (resolved)
 
 **Where:** Compare DOTS / DP pill glosses and titles (header + Results), Map overlays Compare tip titles, desktop `#paramsBar` circle radius tip, and the rare streaming load-error string in `web/viewer.js`.
