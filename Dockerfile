@@ -81,9 +81,10 @@ RUN pip install --no-cache-dir -r /app/web/requirements.txt
 # --raw flag parsing.
 RUN julia -e 'using Pkg; Pkg.add(["FrechetDist", "ArgParse"])'
 
-# Set environment variables
-# Default to 5050 to match local Flask (`python server.py`) and avoid macOS
-# AirPlay on 5000. Cloud Run still injects PORT (typically 8080) at runtime.
+# Set environment variables.
+# Image default PORT=5050 avoids macOS AirPlay on 5000 when published locally.
+# Local `python web/server.py` defaults to 5051 when PORT is unset; Cloud Run
+# still injects PORT (typically 8080) at runtime.
 ENV PORT=5050
 ENV PYTHONUNBUFFERED=1
 

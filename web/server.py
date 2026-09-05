@@ -703,8 +703,8 @@ if __name__ == '__main__':
     print(f"Baselines: dots={DOTS_BIN.exists()} dp={DP_BIN.exists()} squish={SQUISH_BIN.exists()}")
     print(f"Starting Flask server on http://{host}:{port}")
     # Note: on macOS, port 5000 is claimed by AirPlay Receiver (AirTunes),
-    # which silently returns 403 for any request. Use 5050 or set PORT= to
-    # override.
+    # which silently returns 403 for any request. Default is 5051; set PORT=
+    # to override (the Docker image sets PORT=5050).
     # threaded=True so concurrent requests (e.g. the long-running Julia
     # frechet job) don't block simpler endpoints.
     app.run(debug=False, host=host, port=port, threaded=True)
