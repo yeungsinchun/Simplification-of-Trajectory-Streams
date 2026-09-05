@@ -519,7 +519,13 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 ## Still open
 
-No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
+### Live Cloud Run still serves pre–PR #12 novice copy
+
+**Where:** https://simplify-viewer-522405269791.asia-east2.run.app (last Deploy from merge of PR #11).
+
+**Problem:** Local usability work after PR #11 (Load / Match-Grid-first labels, green path / Gray path / Option / Map overlays vocabulary, Compare method glosses, smaller/outcome tips) was branch-only. The live site still shows older copy such as `Load Trace`, `algorithms`, and `Smaller keeps more detail`.
+
+**Next step:** Merge https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/pull/12 so Deploy publishes a new revision. No layout or CI/CD wiring gaps remain in this pass.
 
 ### match limit chip tip lagged Match’s smaller/outcome guidance (resolved)
 
