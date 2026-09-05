@@ -19,6 +19,8 @@ Builds in Release mode, sweeps epsilon values, and stores historical results.
 
 Builds the repo `Dockerfile` with Cloud Build (`gcloud run deploy --source .`) and publishes the web viewer to Cloud Run.
 
+Authentication uses Workload Identity Federation (OIDC). No repository secret is required. The workflow requests `id-token: write` and impersonates the deploy service account through a GitHub-restricted identity pool provider.
+
 Defaults (override with repository variables):
 
 | Variable | Default |
@@ -26,10 +28,14 @@ Defaults (override with repository variables):
 | `GCP_PROJECT_ID` | `project-ec366840-6857-446e-852` |
 | `GCP_REGION` | `asia-east2` |
 | `CLOUD_RUN_SERVICE` | `simplify-viewer` |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/522405269791/locations/global/workloadIdentityPools/github-actions/providers/github` |
+| `GCP_SERVICE_ACCOUNT` | `github-actions-deploy@project-ec366840-6857-446e-852.iam.gserviceaccount.com` |
 
-Required repository secret:
+GCP setup already applied for this repo (`yeungsinchun/Simplification-of-Trajectory-Streams`):
 
-- `GCP_SA_KEY` - JSON key for a service account that can deploy Cloud Run from source (Cloud Run Admin, Cloud Build Editor, Service Account User, and Storage access for source upload). Enable the Cloud Run, Cloud Build, and Artifact Registry APIs in the project.
+- Workload Identity Pool `github-actions` with OIDC provider `github` (attribute condition locks to this repository)
+- Service account `github-actions-deploy@…` with Cloud Run Admin, Cloud Build Editor, Service Account User, Storage Admin, and Artifact Registry Admin
+- Pool principal bound as `roles/iam.workloadIdentityUser` on that service account
 
 Service flags match the former local `deploy.sh`: 4 GiB RAM, 2 CPU, 300s timeout, max 10 instances, `--no-cpu-throttling` (needed so background Julia Fréchet work keeps CPU after `/api/frechet` returns), `--allow-unauthenticated`.
 

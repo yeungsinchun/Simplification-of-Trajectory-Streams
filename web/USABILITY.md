@@ -362,8 +362,14 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture: `web/usability/desktop-compare-bar-wrap.html`
 - Fixture screenshot: `web/usability/desktop-compare-bar-wrap.png`
 
+### Cloud Run CI/CD blocked on JSON service-account keys
+
+**Where:** `.github/workflows/deploy.yml` and repository secrets.
+
+**Problem:** The first deploy workflow expected `GCP_SA_KEY`, but the GCP project enforces `constraints/iam.disableServiceAccountKeyCreation`, so a JSON key could not be created or stored. Pushes to `main` could not publish.
+
+**Fix:** Configured Workload Identity Federation for `yeungsinchun/Simplification-of-Trajectory-Streams` (pool `github-actions`, provider `github`, SA `github-actions-deploy@…`) and switched `deploy.yml` to OIDC auth with `id-token: write`. No repository secret is required; optional variables can override project / region / provider / SA.
+
 ## Still open
 
-Remaining item for a later pass:
-
-- Cloud Run auto-deploy workflow exists (`.github/workflows/deploy.yml`) but still needs the `GCP_SA_KEY` repository secret before pushes to `main` can publish.
+No open layout or novice-copy items from this pass. First live Cloud Run publish still needs a successful `main` push or `workflow_dispatch` run of `.github/workflows/deploy.yml`.

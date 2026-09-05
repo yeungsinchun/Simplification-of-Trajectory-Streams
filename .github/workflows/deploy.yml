@@ -1,8 +1,9 @@
 name: Deploy
 
 # Build the Dockerfile via Cloud Build and publish the web viewer to Cloud Run.
-# Requires repository secret GCP_SA_KEY (service-account JSON with Run + Cloud Build).
-# Optional repository variables: GCP_PROJECT_ID, GCP_REGION, CLOUD_RUN_SERVICE.
+# Auth uses Workload Identity Federation (no JSON key secret). Optional overrides:
+# repository variables GCP_PROJECT_ID, GCP_REGION, CLOUD_RUN_SERVICE,
+# GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT.
 
 on:
   push:
@@ -19,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
 
     env:
       PROJECT_ID: ${{ vars.GCP_PROJECT_ID || 'project-ec366840-6857-446e-852' }}
@@ -26,25 +28,14 @@ jobs:
       SERVICE_NAME: ${{ vars.CLOUD_RUN_SERVICE || 'simplify-viewer' }}
 
     steps:
-      - name: Check GCP credentials
-        env:
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-        run: |
-          if [ -z "$GCP_SA_KEY" ]; then
-            echo "::error::Missing repository secret GCP_SA_KEY."
-            echo "Create a GCP service account with Cloud Run Admin, Cloud Build Editor,"
-            echo "Service Account User, and Storage Admin (source upload), then store its"
-            echo "JSON key as the GCP_SA_KEY repository secret."
-            exit 1
-          fi
-
       - name: Checkout
         uses: actions/checkout@v6
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER || 'projects/522405269791/locations/global/workloadIdentityPools/github-actions/providers/github' }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT || 'github-actions-deploy@project-ec366840-6857-446e-852.iam.gserviceaccount.com' }}
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
