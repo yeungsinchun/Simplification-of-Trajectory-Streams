@@ -327,9 +327,24 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture: `web/usability/desktop-playback-bar-wrap.html`
 - Fixture screenshot: `web/usability/desktop-playback-bar-wrap.png`
 
+### Layer toggles used paper math without plain language
+
+**Where:** desktop and mobile `#layersSection` Simplify accordion, after a trace is loaded.
+
+**Problem:** Several layer labels were pure notation (`conv(G_{v_i})`, `F(S_{i-1}[p], p)`, the long `S_i[p] = …` equation). Visitors who had not read the paper could not tell what each toggle drew. The long `S_i[p]` equation also left a MathJax assistive MathML tree whose unclipped box could sit about 10px past a 900px window (visible formula and `scrollWidth` already stayed inside).
+
+**Fix:** Every math layer keeps a short symbol plus a plain-language gloss and a longer `title` tooltip. `S_i[p]` is labeled `(current search region)` instead of the full intersection formula. MathJax `renderActions.assistiveMml` is cleared so assistive copies are not injected, with CSS clip kept as a fallback. At 900px the farthest layer label ends at 877px, assistive count is 0, and `documentElement.scrollWidth` stays 900.
+
+**Evidence:**
+
+- Desktop live (900px): `web/usability/desktop-layer-glosses-900-live.png`
+- Desktop live (1280px): `web/usability/desktop-layer-glosses-1280-live.png`
+- Mobile regression (390px open layers): `web/usability/desktop-layer-glosses-390-regression-live.png`
+- Before/after markup fixture: `web/usability/desktop-layer-glosses.html`
+- Fixture screenshot: `web/usability/desktop-layer-glosses.png`
+
 ## Still open
 
-A 721 / 900 / 1024 / 1280 playback pass now keeps the desktop bar on one row (48 / 53 / 53 / 61). Remaining items for a later pass:
+Remaining item for a later pass:
 
-- At 900px a nested MathJax assistive `mjx-container` for \(S_i[p]\) still has a bounding box about 10px past the window. The visible formula ends at 882px, `#sidebar` clips overflow-x, and `documentElement.scrollWidth` stays 900.
 - Cloud Run auto-deploy workflow exists (`.github/workflows/deploy.yml`) but still needs the `GCP_SA_KEY` repository secret before pushes to `main` can publish.

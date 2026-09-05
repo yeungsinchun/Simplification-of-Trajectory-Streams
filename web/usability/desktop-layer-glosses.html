@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Desktop layer plain-language glosses</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+  }
+  h1 { font-size: 16px; margin: 0 0 6px; }
+  p { margin: 0 0 14px; color: var(--text-dim); font-size: 12px; }
+  section { padding: 16px; }
+  .label {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .callout { margin-top: 8px; font-size: 12px; color: #ffb4bc; }
+  .ok { color: #3ddc97; }
+  .frame {
+    width: 280px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px;
+    overflow-x: hidden;
+  }
+  h2 {
+    margin: 0 0 8px;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .toggle-row { padding: 4px 0; }
+  .toggle-row label {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    max-width: 100%;
+    font-size: 12.5px;
+  }
+  .swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .math {
+    font-family: "Times New Roman", Times, serif;
+    font-style: italic;
+    font-size: 14px;
+  }
+  .row { display: flex; gap: 24px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<section>
+  <h1>Desktop layer plain-language glosses</h1>
+  <p>At 900px the sidebar is 280px. Math-only labels left novices guessing, and the long \(S_i[p]\) equation invited assistive-box overflow.</p>
+
+  <div class="row">
+    <div>
+      <div class="label">Before</div>
+      <div class="frame">
+        <h2>Layers</h2>
+        <div class="toggle-row"><label><input type="checkbox" checked /><span class="swatch" style="background:#e8c547"></span><span class="math">conv(G<sub>v<sub>i</sub></sub>)</span></label></div>
+        <div class="toggle-row"><label><input type="checkbox" checked /><span class="swatch" style="background:#4f9dff"></span><span class="math">F(S<sub>i−1</sub>[p], p)</span></label></div>
+        <div class="toggle-row"><label><input type="checkbox" /><span class="swatch" style="background:#22d3ee"></span><span class="math">F(S<sub>i</sub>[p], p)</span></label></div>
+        <div class="toggle-row"><label><input type="checkbox" checked /><span class="swatch" style="background:#a78bfa"></span><span class="math">S<sub>i</sub>[p] = conv(G<sub>v<sub>i</sub></sub>) ∩ F(S<sub>i−1</sub>[p], p)</span></label></div>
+        <div class="toggle-row"><label><input type="checkbox" checked /><span class="swatch" style="background:#ff9f43"></span><span class="math">P</span> (boundary anchors in <span class="math">G<sub>v<sub>0</sub></sub></span>)</label></div>
+        <p class="callout">Pure math plus a long equation; assistive copies could box past the window.</p>
+      </div>
+    </div>
+    <div>
+      <div class="label">After</div>
+      <div class="frame">
+        <h2>Layers</h2>
+        <div class="toggle-row"><label><input type="checkbox" checked /><span class="swatch" style="background:#e8c547"></span><span class="math">conv(G<sub>v<sub>i</sub></sub>)</span> (candidate region)</label></div>
+        <div class="toggle-row"><label><input type="checkbox" checked /><span class="swatch" style="background:#4f9dff"></span><span class="math">F(S<sub>i−1</sub>[p], p)</span> (reachability so far)</label></div>
+        <div class="toggle-row"><label><input type="checkbox" /><span class="swatch" style="background:#22d3ee"></span><span class="math">F(S<sub>i</sub>[p], p)</span> (updated reachability)</label></div>
+        <div class="toggle-row"><label><input type="checkbox" checked /><span class="swatch" style="background:#a78bfa"></span><span class="math">S<sub>i</sub>[p]</span> (current search region)</label></div>
+        <div class="toggle-row"><label><input type="checkbox" checked /><span class="swatch" style="background:#ff9f43"></span><span class="math">P</span> (boundary anchors)</label></div>
+        <p class="ok">Short symbols keep paper notation; glosses explain each toggle without a wide formula.</p>
+      </div>
+    </div>
+  </div>
+</section>
+</body>
+</html>

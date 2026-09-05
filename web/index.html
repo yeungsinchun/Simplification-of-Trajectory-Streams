@@ -4,6 +4,19 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Trajectory Simplification Visualizer</title>
+<script>
+  // Assistive MathML copies keep full formula width and can report boxes past the
+  // 280px sidebar at 900px even when overflow-x is hidden. Disable the render
+  // action that injects them; CSS below still clips any leftover copies.
+  window.MathJax = {
+    options: {
+      enableAssistiveMml: false,
+      renderActions: {
+        assistiveMml: [],
+      },
+    },
+  };
+</script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 <style>
   :root {
@@ -920,13 +933,21 @@
   }
   #layersSection mjx-container {
     max-width: 100%;
+    overflow: hidden;
   }
-  #layersSection mjx-assistive-mml {
+  /* Belt-and-suspenders if a MathJax build still injects assistive MathML. */
+  #layersSection mjx-assistive-mml,
+  #layersSection mjx-assistive-mml math {
     position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
     width: 1px !important;
     height: 1px !important;
     overflow: hidden !important;
-    clip: rect(1px, 1px, 1px, 1px);
+    clip: rect(1px, 1px, 1px, 1px) !important;
+    clip-path: inset(50%) !important;
+    white-space: nowrap !important;
+    pointer-events: none !important;
   }
   .swatch {
     width: 12px; height: 12px;
@@ -2288,25 +2309,25 @@
                 <label><input type="checkbox" id="toggle-final-simplify" /><span class="swatch" style="background:#3ddc97"></span>Final simplified</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-ball-p0" checked /><span class="swatch" style="background:#c47aff"></span>\(B_p\) (δ-ball at start vertex)</label>
+                <label title="δ-radius ball around the start vertex of the current segment"><input type="checkbox" id="toggle-ball-p0" checked /><span class="swatch" style="background:#c47aff"></span>\(B_p\) (δ-ball at start vertex)</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-ball-pi" checked /><span class="swatch" style="background:#ff7ae8"></span>\(B_{v_i}\) (δ-ball at current vertex)</label>
+                <label title="δ-radius ball around the vertex currently being processed"><input type="checkbox" id="toggle-ball-pi" checked /><span class="swatch" style="background:#ff7ae8"></span>\(B_{v_i}\) (δ-ball at current vertex)</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-Gi" checked /><span class="swatch" style="background:#e8c547"></span>\(\mathrm{conv}(G_{v_i})\)</label>
+                <label title="Convex hull of the alive candidate points at the current vertex"><input type="checkbox" id="toggle-Gi" checked /><span class="swatch" style="background:#e8c547"></span>\(\mathrm{conv}(G_{v_i})\) (candidate region)</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-F" checked /><span class="swatch" style="background:#4f9dff"></span>\(F(S_{i-1}[p], p)\)</label>
+                <label title="Free-space reachability from the previous simplified segment"><input type="checkbox" id="toggle-F" checked /><span class="swatch" style="background:#4f9dff"></span>\(F(S_{i-1}[p], p)\) (reachability so far)</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-F-Si" /><span class="swatch" style="background:#22d3ee"></span>\(F(S_i[p], p)\)</label>
+                <label title="Free-space reachability after accepting the current candidate"><input type="checkbox" id="toggle-F-Si" /><span class="swatch" style="background:#22d3ee"></span>\(F(S_i[p], p)\) (updated reachability)</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-S" checked /><span class="swatch" style="background:#a78bfa"></span>\(S_i[p]\) = \(\mathrm{conv}(G_{v_i}) \cap F(S_{i-1}[p], p)\)</label>
+                <label title="Current search region: intersection of the candidate hull and reachability so far"><input type="checkbox" id="toggle-S" checked /><span class="swatch" style="background:#a78bfa"></span>\(S_i[p]\) (current search region)</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-P" checked /><span class="swatch" style="background:#ff9f43"></span>\(P\) (boundary anchors in \(G_{v_0}\) )</label>
+                <label title="Boundary anchor points kept from the start-vertex candidate set"><input type="checkbox" id="toggle-P" checked /><span class="swatch" style="background:#ff9f43"></span>\(P\) (boundary anchors)</label>
               </div>
               <div class="toggle-row">
                 <label><input type="checkbox" id="toggle-dead-candidates" checked /><span class="swatch" style="background:#ff3c3c"></span>Dead candidates</label>
@@ -2438,6 +2459,6 @@
   </div>
 </div>
 
-<script src="viewer.js?v=first-visit-tour-1"></script>
+<script src="viewer.js?v=layer-gloss-1"></script>
 </body>
 </html>
