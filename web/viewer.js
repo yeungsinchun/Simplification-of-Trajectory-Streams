@@ -721,7 +721,7 @@
     if (algos.includes("dots")) {
       lssd = readBaselineLssdFromInputs();
       if (!Number.isFinite(lssd) || lssd <= 0) {
-        setBaselineStatus("DOTS distance limit must be a positive number.", "error");
+        setBaselineStatus("DOTS distance budget must be a positive number.", "error");
         return;
       }
     }
@@ -1089,8 +1089,8 @@
         "Match error saved in this preloaded trajectory file (may differ slightly from the live Match error above).",
         "color:#C4612F;font-weight:600",
       ),
-      paramChip("original", streamLen, "Number of points on the original trajectory."),
-      paramChip("kept", simplifiedLen != null ? simplifiedLen : "…", "Number of points kept on the simplified path.", pendingStyle),
+      paramChip("orig. points", streamLen, "Number of points on the original trajectory."),
+      paramChip("kept points", simplifiedLen != null ? simplifiedLen : "…", "Number of points kept on the simplified path.", pendingStyle),
       paramChip("kept %", ratio, "Simplified points as a percent of the original.", pendingStyle),
     ].join("");
   }
@@ -1489,7 +1489,7 @@
         const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
         console.log(`[Client] Trace load completed in ${elapsed}s`);
         
-        uploadStatus.textContent = `✓ Loaded ${currentTraceId}`;
+        uploadStatus.textContent = "✓ Loaded";
         uploadStatus.style.color = "#3ddc97";
         clearTopBarTraceStatus();
       } catch (err) {

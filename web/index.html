@@ -2188,10 +2188,10 @@
               <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP classic" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Needs a preloaded trajectory.">DP<span class="pill-gloss">classic</span></button>
               <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" aria-label="SQUISH keep percent" title="SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.">SQUISH<span class="pill-gloss">keep %</span></button>
             </div>
-            <label class="baseline-field baseline-field--inline" id="headerBaselineLssdField" hidden title="DOTS distance limit in thousands (K). Larger keeps fewer points.">
-              <span><span class="baseline-param-owner owner-dots">DOTS</span> limit</span>
-              <input type="number" id="headerBaselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS distance limit in thousands" />
-              <span class="baseline-field-unit" title="Thousand">K</span>
+            <label class="baseline-field baseline-field--inline" id="headerBaselineLssdField" hidden title="DOTS distance budget. Entered in thousands (1000 means 1,000,000). Larger keeps fewer points.">
+              <span><span class="baseline-param-owner owner-dots">DOTS</span> budget</span>
+              <input type="number" id="headerBaselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS distance budget in thousands" />
+              <span class="baseline-field-unit" title="Entered in thousands (×1,000)">×1k</span>
             </label>
             <label class="baseline-field baseline-field--inline" id="headerBaselineDpEpsField" hidden title="DP allowed point-to-edge error (same idea as ε match).">
               <span><span class="baseline-param-owner owner-dp">DP</span> match</span>
@@ -2240,11 +2240,11 @@
                 <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" aria-label="SQUISH keep percent" title="SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.">SQUISH<span class="pill-gloss">keep %</span></button>
               </div>
               <div id="baselineParamFields" class="baseline-param-fields">
-                <label class="baseline-field" id="baselineLssdField" hidden title="DOTS distance limit in thousands (K). Larger keeps fewer points.">
-                  <span><span class="baseline-param-owner owner-dots">DOTS</span> distance limit</span>
+                <label class="baseline-field" id="baselineLssdField" hidden title="DOTS distance budget. Entered in thousands (1000 means 1,000,000). Larger keeps fewer points.">
+                  <span><span class="baseline-param-owner owner-dots">DOTS</span> distance budget</span>
                   <div class="baseline-field-input-row">
-                    <input type="number" id="baselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS distance limit in thousands" />
-                    <span class="baseline-field-unit" title="Thousand">K</span>
+                    <input type="number" id="baselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS distance budget in thousands" />
+                    <span class="baseline-field-unit" title="Entered in thousands (×1,000)">×1k</span>
                   </div>
                 </label>
                 <label class="baseline-field" id="baselineDpEpsField" hidden title="DP allowed point-to-edge error (same idea as ε match).">

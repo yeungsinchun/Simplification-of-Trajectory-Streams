@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### DOTS K unit and opaque Loaded id (resolved)
+
+**Where:** header / Results DOTS Compare field (`limit` + unit `K`); preloaded load success `#uploadStatus`; desktop `#paramsBar` count chips `original` / `kept`.
+
+**Problem:** Preloaded success still said `✓ Loaded 51` (internal id) while Upload already said `✓ Loaded`. DOTS used `limit` with unit `K` titled only “Thousand”, so novices could not tell the field was a distance budget entered in thousands. Params chips `original` / `kept` looked like bare adjectives next to numbers.
+
+**Fix:** Preloaded success matches Upload as `✓ Loaded` (header title already names the trajectory). DOTS reads `budget` / `distance budget` with unit `×1k` and tooltips that spell out thousands. Count chips are `orig. points` / `kept points`. Fixture Compare strip stays one row with `scrollWidth` within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/dots-budget-point-chips.html`
+- Fixture screenshot (900px): `web/usability/dots-budget-point-chips.png`
+
 ### Results / Layers still said Simplify (resolved)
 
 **Where:** Results Scores first data column; Layers accordion summary; path toggles under that accordion; desktop `#paramsBar` `search r` chip.
