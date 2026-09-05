@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Post-load playback tour</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+    --accent: #4f9dff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+  }
+  h1 { font-size: 16px; margin: 0 0 6px; }
+  p { margin: 0 0 14px; color: var(--text-dim); font-size: 12px; }
+  section { padding: 16px; }
+  .label {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .stage {
+    position: relative;
+    overflow: hidden;
+    background: var(--bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+  }
+  .stage-desktop { width: 900px; height: 420px; }
+  .stage-mobile { width: 390px; height: 720px; }
+  .canvas {
+    position: absolute;
+    inset: 48px 0 72px 0;
+    background: #12151c;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+  header, .bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    background: var(--panel);
+    border-color: var(--panel-border);
+  }
+  header {
+    top: 0;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+  .bar {
+    bottom: 0;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    border-top: 1px solid var(--panel-border);
+  }
+  .chip {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--panel-border);
+    background: #1e2330;
+    font-size: 12px;
+  }
+  .chip b { color: var(--text); font-weight: 600; }
+  .tour-card {
+    position: absolute;
+    width: 280px;
+    left: 24px;
+    bottom: 88px;
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 12px 14px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.45);
+    z-index: 3;
+  }
+  .tour-card .step { font-size: 11px; color: var(--text-dim); margin: 0 0 4px; }
+  .tour-card h2 { margin: 0 0 6px; font-size: 15px; }
+  .tour-card p { margin: 0 0 10px; color: var(--text); font-size: 12px; line-height: 1.4; }
+  .actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .actions button {
+    border: 1px solid var(--panel-border);
+    background: #1e2330;
+    color: var(--text);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+  .actions .primary { background: var(--accent); border-color: var(--accent); color: #061018; font-weight: 600; }
+  .spotlight {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 8px;
+    height: 52px;
+    border-radius: 8px;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
+    outline: 2px solid var(--accent);
+    z-index: 2;
+    pointer-events: none;
+  }
+  .mobile-dock {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 12px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 5px;
+    z-index: 1;
+  }
+  .mobile-dock span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 44px;
+    border-radius: 8px;
+    background: #1e2330;
+    border: 1px solid var(--panel-border);
+    font-size: 11px;
+  }
+  .ok { color: #3ddc97; font-size: 12px; margin-top: 12px; }
+  .before .tour-card, .before .spotlight { display: none; }
+  .before .note {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 88px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #2a1f14;
+    border: 1px solid #8a5a2b;
+    color: #f0d2a8;
+    font-size: 12px;
+    z-index: 2;
+  }
+</style>
+</head>
+<body>
+<section>
+  <h1>Post-load playback tour</h1>
+  <p>After the first successful Load Trace, a three-step popover explains Play / Step / Segment / Candidate once (<code>localStorage</code> key <code>simplify-viewer-playback-tour-v1</code>). Layers accordion and Results empty copy use Compare instead of Baseline.</p>
+  <div class="row">
+    <div>
+      <div class="label">Before (desktop)</div>
+      <div class="stage stage-desktop before">
+        <header><strong>Simplify Viewer</strong><span class="chip">Loaded</span></header>
+        <div class="canvas">Trace loaded · no guidance on Step / Segment / Candidate</div>
+        <div class="note">Novices saw opaque Step / Segment / Candidate captions with no post-load explanation.</div>
+        <div class="bar">
+          <span class="chip"><b>Step</b> 0 / 12</span>
+          <span class="chip"><b>Segment</b> 0 / 3</span>
+          <span class="chip"><b>Candidate</b> 0 / 5</span>
+          <span class="chip">Play</span>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="label">After (desktop)</div>
+      <div class="stage stage-desktop">
+        <header><strong>Simplify Viewer</strong><span class="chip">Loaded</span></header>
+        <div class="canvas">Trace loaded</div>
+        <div class="spotlight"></div>
+        <div class="tour-card">
+          <p class="step">1 / 3</p>
+          <h2>Replay how it was built</h2>
+          <p>The green path is shorter than the gray original. These controls walk through the algorithm so you can see each choice over time.</p>
+          <div class="actions">
+            <button type="button">Skip</button>
+            <button type="button" class="primary">Next</button>
+          </div>
+        </div>
+        <div class="bar">
+          <span class="chip"><b>Step</b> 0 / 12</span>
+          <span class="chip"><b>Segment</b> 0 / 3</span>
+          <span class="chip"><b>Candidate</b> 0 / 5</span>
+          <span class="chip">Play</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="row" style="margin-top:16px">
+    <div>
+      <div class="label">After (mobile 390)</div>
+      <div class="stage stage-mobile">
+        <header><strong>Simplify Viewer</strong></header>
+        <div class="canvas" style="inset:48px 0 120px 0">Trace loaded</div>
+        <div class="spotlight" style="height:96px"></div>
+        <div class="tour-card" style="bottom:140px; left:16px; right:16px; width:auto">
+          <p class="step">2 / 3</p>
+          <h2>Step</h2>
+          <p><b>Step</b> moves along the original path points covered by the current simplified piece.</p>
+          <div class="actions">
+            <button type="button">Skip</button>
+            <button type="button" class="primary">Next</button>
+          </div>
+        </div>
+        <div class="mobile-dock">
+          <span>← Step</span>
+          <span>‹ Cand</span>
+          <span>Play</span>
+          <span>Cand ›</span>
+          <span>Step →</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="ok">Playback tour opens once after first load. Header ? stays visible after load and relaunches the playback guide; on the start screen it relaunches the welcome tour. Compare replaces Baseline in the Layers accordion and Results empty state.</p>
+</section>
+</body>
+</html>

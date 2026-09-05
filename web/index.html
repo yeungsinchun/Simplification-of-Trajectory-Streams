@@ -2032,7 +2032,6 @@
     color: var(--accent);
     border-color: var(--accent-dim);
   }
-  body.trace-loaded-mobile .ui-tour-relaunch { display: none; }
   @media (max-width: 720px) {
     .ui-tour-card {
       width: min(360px, calc(100vw - 24px));
@@ -2048,6 +2047,10 @@
       width: 32px;
       height: 32px;
       font-size: 14px;
+    }
+    body.trace-loaded-mobile .ui-tour-relaunch {
+      margin-left: 0;
+      flex-shrink: 0;
     }
   }
 </style>
@@ -2182,7 +2185,7 @@
                 </tr>
               </thead>
               <tbody id="compareMetricsBody">
-                <tr><td colspan="2" class="compare-metrics-empty">Load a trace, then run a baseline.</td></tr>
+                <tr><td colspan="2" class="compare-metrics-empty">Load a trace, then run a compare.</td></tr>
               </tbody>
             </table>
             </div>
@@ -2368,10 +2371,10 @@
             </div>
           </details>
           <details class="layer-acc" id="accordionBaseline">
-            <summary id="accordionBaselineSummary">Baseline</summary>
+            <summary id="accordionBaselineSummary">Compare</summary>
             <div class="layer-acc-body">
               <div id="baselineLayerToggles"></div>
-              <p id="baselineLayerHint" class="baseline-layer-hint">Run a baseline from the Results panel to enable these layers.</p>
+              <p id="baselineLayerHint" class="baseline-layer-hint">Run a compare from the Results panel to enable these layers.</p>
             </div>
           </details>
         </div>

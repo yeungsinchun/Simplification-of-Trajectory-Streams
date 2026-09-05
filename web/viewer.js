@@ -364,7 +364,7 @@
     closeResultsPanel();
     document.body.classList.remove("results-available");
     if (resultsPanel) resultsPanel.hidden = true;
-    if (accordionBaselineSummary) accordionBaselineSummary.textContent = "Baseline";
+    if (accordionBaselineSummary) accordionBaselineSummary.textContent = "Compare";
     if (baselineLayerHint) baselineLayerHint.hidden = false;
     if (compareFrechetNote) {
       compareFrechetNote.hidden = true;
@@ -404,7 +404,7 @@
     if (accordionBaselineSummary) {
       accordionBaselineSummary.textContent = ready.length
         ? ready.map(baselineAlgoLabel).join(" / ")
-        : "Baseline";
+        : "Compare";
     }
   }
 
@@ -1104,6 +1104,7 @@
     stepBackBtn.disabled = (state.prefixIdx === 0 && state.stepIdx === 0);
     startFrechetComputation();
     typesetParamsBar();
+    schedulePlaybackTour();
     // Fire-and-forget: Results strip + DOTS metrics after the live simplify trace.
     loadCompare().then(() => render());
   }
@@ -2984,6 +2985,7 @@
   // -------------------------------------------------------------------------
 
   const TOUR_STORAGE_KEY = "simplify-viewer-tour-v1";
+  const PLAYBACK_TOUR_STORAGE_KEY = "simplify-viewer-playback-tour-v1";
   const uiTour = el("uiTour");
   const uiTourSpotlight = el("uiTourSpotlight");
   const uiTourCard = uiTour ? uiTour.querySelector(".ui-tour-card") : null;
@@ -2994,7 +2996,7 @@
   const uiTourNext = el("uiTourNext");
   const uiTourRelaunch = el("uiTourRelaunch");
 
-  const tourSteps = [
+  const startTourSteps = [
     {
       title: "Welcome",
       body: "This visualizer shortens a GPS-style path while keeping its shape. A short tour shows the controls you need to load your first trace.",
@@ -3012,13 +3014,34 @@
     },
     {
       title: "Load the trace",
-      body: "Press <b>Load Trace</b> to run the simplification. When it finishes, use Play / Step to walk through how the shorter path was built.",
+      body: "Press <b>Load Trace</b> to run the simplification. When it finishes, a short follow-up explains Play / Step / Segment / Candidate.",
       targets: ["#loadBtn"],
     },
   ];
 
+  const playbackTourSteps = [
+    {
+      title: "Replay how it was built",
+      body: "The green path is shorter than the gray original. These controls walk through the algorithm so you can see each choice over time.",
+      targets: ["#playbackBar", "#mobileTransport"],
+    },
+    {
+      title: "Step",
+      body: "<b>Step</b> moves along the original path points covered by the current simplified piece. Use ← / → (or the Step buttons) to advance one at a time.",
+      targets: ["#stepInput", "#mobileStepForwardBtn", "#mobileStepBackBtn"],
+    },
+    {
+      title: "Segment and Candidate",
+      body: "<b>Segment</b> jumps between pieces of the simplified path. <b>Candidate</b> cycles possible next points the search considered. Press <b>Play</b> to auto-advance; pick a speed if you want it faster or slower.",
+      targets: ["#segmentInput", "#candidateInput", "#playBtn", "#mobileSegmentForwardBtn", "#mobileCandidateForwardBtn", "#mobilePlayBtn"],
+    },
+  ];
+
+  let tourSteps = startTourSteps;
+  let tourStorageKey = TOUR_STORAGE_KEY;
   let tourIndex = 0;
   let tourActive = false;
+  let playbackTourPending = false;
 
   function isTourTargetVisible(node) {
     if (!node || !(node instanceof Element)) return false;
@@ -3127,8 +3150,10 @@
     }
   }
 
-  function openTour(fromStart) {
+  function openTour(fromStart, steps, storageKey) {
     if (!uiTour) return;
+    tourSteps = steps || startTourSteps;
+    tourStorageKey = storageKey || TOUR_STORAGE_KEY;
     tourActive = true;
     tourIndex = fromStart ? 0 : tourIndex;
     uiTour.hidden = false;
@@ -3139,15 +3164,20 @@
 
   function finishTour() {
     if (!uiTour) return;
+    const finishedKey = tourStorageKey;
     tourActive = false;
     uiTour.hidden = true;
     uiTour.classList.remove("has-spotlight");
     if (uiTourSpotlight) uiTourSpotlight.hidden = true;
     document.body.style.overflow = "";
     try {
-      localStorage.setItem(TOUR_STORAGE_KEY, "1");
+      localStorage.setItem(finishedKey, "1");
     } catch (_) {
       /* ignore quota / private mode */
+    }
+    if (finishedKey === TOUR_STORAGE_KEY && playbackTourPending) {
+      playbackTourPending = false;
+      requestAnimationFrame(() => maybeStartPlaybackTour());
     }
   }
 
@@ -3160,12 +3190,42 @@
     renderTourStep();
   }
 
+  function playbackTourSeen() {
+    try {
+      return localStorage.getItem(PLAYBACK_TOUR_STORAGE_KEY) === "1";
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function maybeStartPlaybackTour() {
+    if (!uiTour || tourActive || playbackTourSeen()) return;
+    if (!document.body.classList.contains("playback-ready")) return;
+    openTour(true, playbackTourSteps, PLAYBACK_TOUR_STORAGE_KEY);
+  }
+
+  function schedulePlaybackTour() {
+    if (playbackTourSeen()) return;
+    if (tourActive && tourStorageKey === TOUR_STORAGE_KEY) {
+      playbackTourPending = true;
+      return;
+    }
+    // Wait for playback chrome layout (desktop bar / mobile dock) to settle.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => maybeStartPlaybackTour());
+    });
+  }
+
   if (uiTourSkip) uiTourSkip.addEventListener("click", finishTour);
   if (uiTourNext) uiTourNext.addEventListener("click", advanceTour);
   if (uiTourRelaunch) {
     uiTourRelaunch.addEventListener("click", () => {
-      tourIndex = 0;
-      openTour(true);
+      // After a trace is loaded, ? reopens the playback guide; otherwise the start guide.
+      if (document.body.classList.contains("playback-ready")) {
+        openTour(true, playbackTourSteps, PLAYBACK_TOUR_STORAGE_KEY);
+      } else {
+        openTour(true, startTourSteps, TOUR_STORAGE_KEY);
+      }
     });
   }
 
@@ -3199,6 +3259,6 @@
   }
   if (shouldStartTour) {
     // Wait one frame so header layout (including mobile start screen) is ready.
-    requestAnimationFrame(() => openTour(true));
+    requestAnimationFrame(() => openTour(true, startTourSteps, TOUR_STORAGE_KEY));
   }
 })();

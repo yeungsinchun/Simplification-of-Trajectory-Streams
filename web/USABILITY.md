@@ -370,6 +370,25 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 **Fix:** Configured Workload Identity Federation for `yeungsinchun/Simplification-of-Trajectory-Streams` (pool `github-actions`, provider `github`, SA `github-actions-deploy@…`) and switched `deploy.yml` to OIDC auth with `id-token: write`. No repository secret is required; optional variables can override project / region / provider / SA.
 
+### After Load Trace, Step / Segment / Candidate were unexplained
+
+**Where:** desktop `#playbackBar` and mobile `#mobileTransport`, after the first successful Load Trace.
+
+**Problem:** The first-visit tour ended at Load Trace. Once the green path appeared, novices faced Step / Segment / Candidate with only short captions and no plain-language walkthrough of how to replay the algorithm. Layers still said Baseline while the header said Compare.
+
+**Fix:** A three-step playback tour opens once after the first successful load (`localStorage` key `simplify-viewer-playback-tour-v1`), spotlighting the playback chrome and explaining Step, then Segment / Candidate / Play. The header `?` stays available after load and relaunches this guide while a trace is loaded; otherwise it relaunches the start tour. Layers accordion and Results empty / hint copy now say Compare instead of Baseline.
+
+**Evidence:**
+
+- Desktop live step 1 (1280px): `web/usability/playback-tour-1280-live.png`
+- Desktop live Step (1280px): `web/usability/playback-tour-1280-step-live.png`
+- Desktop live Segment/Candidate (1280px): `web/usability/playback-tour-1280-segment-live.png`
+- Desktop ? relaunch after load (1280px): `web/usability/playback-tour-1280-relaunch-live.png`
+- Mobile live step 1 (390px): `web/usability/playback-tour-390-live.png`
+- Mobile ? visible after skip (390px): `web/usability/playback-tour-390-help-live.png`
+- Before/after markup fixture: `web/usability/playback-tour.html`
+- Fixture screenshot: `web/usability/playback-tour.png`
+
 ## Still open
 
 No open layout or novice-copy items from this pass. First live Cloud Run publish still needs a successful `main` push or `workflow_dispatch` run of `.github/workflows/deploy.yml`.
