@@ -234,7 +234,7 @@
     squish: "SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.",
   };
   const COMPARE_PILL_UPLOAD_TITLE =
-    "Compare needs a preloaded trajectory. Uploaded files show Simplify scores only in Results.";
+    "Compare needs a preloaded trajectory. Uploaded files show scores only in Results.";
 
   function selectedBaselineAlgos() {
     return BASELINE_ORDER.filter((a) => state.baselineAlgos.includes(a));
@@ -267,11 +267,11 @@
   function compareSelectionStatus(labels) {
     if (!labels.length) {
       return compareBlockedByUpload()
-        ? "Compare needs a preloaded trajectory. Uploaded files show Simplify scores only."
+        ? "Compare needs a preloaded trajectory. Uploaded files show scores only."
         : "";
     }
     if (compareBlockedByUpload()) {
-      return `Selected ${labels.join(", ")}. Compare needs a preloaded trajectory - choose one and press Load. Uploaded files show Simplify scores only.`;
+      return `Selected ${labels.join(", ")}. Compare needs a preloaded trajectory - choose one and press Load. Uploaded files show scores only.`;
     }
     if (currentTraceId) {
       return `Selected ${labels.join(", ")}. Press Run compare (on wider screens, Run beside Compare also works).`;
@@ -282,8 +282,8 @@
   function updateCompareAvailabilityCopy() {
     if (baselineLayerHint && !baselineLayerHint.hidden) {
       baselineLayerHint.textContent = compareBlockedByUpload()
-        ? "Compare needs a preloaded trajectory. Your upload still shows Simplify scores in Results; pick a preloaded trajectory to enable DOTS / DP / SQUISH layers."
-        : "Compare works with preloaded trajectories. Open Results, pick DOTS / DP / SQUISH, then press Run compare (on wider screens, Run beside Compare also works). Uploaded files show Simplify scores only.";
+        ? "Compare needs a preloaded trajectory. Your upload still shows scores in Results; pick a preloaded trajectory to enable DOTS / DP / SQUISH layers."
+        : "Compare works with preloaded trajectories. Open Results, pick DOTS / DP / SQUISH, then press Run compare (on wider screens, Run beside Compare also works). Uploaded files show scores only.";
     }
   }
 
@@ -291,7 +291,7 @@
     if (!BASELINE_ORDER.includes(algo)) return;
     if (compareBlockedByUpload()) {
       setBaselineStatus(
-        "Compare needs a preloaded trajectory. Uploaded files show Simplify scores only.",
+        "Compare needs a preloaded trajectory. Uploaded files show scores only.",
         "error"
       );
       syncBaselinePills();
@@ -430,7 +430,7 @@
 
   function emptyCompareMessage(colspan) {
     const msg = compareBlockedByUpload()
-      ? "Simplify scores appear after Load. Compare needs a preloaded trajectory."
+      ? "Scores appear after Load. Compare needs a preloaded trajectory."
       : "Load a trajectory to see scores. Optional: run Compare above (preloaded trajectories).";
     return `<tr><td colspan="${colspan}" class="compare-metrics-empty">${msg}</td></tr>`;
   }
@@ -508,7 +508,7 @@
 
     if (compareMetricsHead) {
       compareMetricsHead.innerHTML =
-        `<th>Metric</th><th>Simplify</th>` +
+        `<th>Metric</th><th title="Scores for this simplification run (the green path)">This run</th>` +
         algos.map((a) => `<th>${baselineAlgoLabel(a)}</th>`).join("");
     }
 
@@ -672,7 +672,7 @@
       if (state.trace) showResultsPanel(false);
       if (compareBlockedByUpload()) {
         setBaselineStatus(
-          "Compare needs a preloaded trajectory. Uploaded files show Simplify scores only.",
+          "Compare needs a preloaded trajectory. Uploaded files show scores only.",
         );
       }
       syncBaselineParamFields();
@@ -703,7 +703,7 @@
     if (!currentTraceId) {
       setBaselineStatus(
         compareBlockedByUpload()
-          ? "Compare needs a preloaded trajectory. Uploaded files show Simplify scores only."
+          ? "Compare needs a preloaded trajectory. Uploaded files show scores only."
           : "Load a preloaded trajectory first.",
         "error"
       );
@@ -1081,7 +1081,7 @@
       paramChip("ε match", epsilonValue, "Match tolerance: how closely the simplified path must follow the original. Smaller keeps more detail."),
       paramChip("δ grid", deltaValue, "Search-grid spacing used while finding the simplified path."),
       paramChip("cell size", gridLength, "Length of one search-grid cell (from δ grid)."),
-      paramChip("search r", diskRadius, "Radius of the search circles drawn around path points while looking for the next simplified point."),
+      paramChip("search radius", diskRadius, "Radius of the search circles drawn around path points while looking for the next simplified point."),
       paramChip("max error", expectedFrechet, "Upper limit on how far the simplified path may drift from the original."),
       paramChip(
         "file match",
@@ -1414,7 +1414,7 @@
     state.baselineAlgos = [];
     clearCompare();
     setBaselineStatus(
-      "Compare needs a preloaded trajectory. Uploaded files show Simplify scores only."
+      "Compare needs a preloaded trajectory. Uploaded files show scores only."
     );
     syncBaselineParamFields();
     traceSelect.value = "";
@@ -2794,8 +2794,7 @@
       }
     }
 
-    // DOTS / final Simplify result curves (Results strip — not Layers).
-    // Final simplified result curve (accordion: Simplify → Final simplified).
+    // Final full-result curve (accordion: Paths & search → Full result path).
     if (state.resultVisible.simplify && t.simplified && t.simplified.length >= 2) {
       strokePath(t.simplified, "#3ddc97", 2.5);
       for (const p of t.simplified) dot(p, 1.7, "#3ddc97", null);
@@ -3153,7 +3152,7 @@
     },
     {
       title: "Load the trajectory",
-      body: "Optional: with a <b>preloaded</b> trajectory, tap <b>Compare</b> (DOTS / DP / SQUISH) to score other algorithms later - or skip. Uploaded files show Simplify scores only. Press <b>Load</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Candidate, Layers, and Results.",
+      body: "Optional: with a <b>preloaded</b> trajectory, tap <b>Compare</b> (DOTS / DP / SQUISH) to score other algorithms later - or skip. Uploaded files show scores only. Press <b>Load</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Candidate, Layers, and Results.",
       targets: ["#loadBtn", ".header-baseline"],
     },
   ];
@@ -3176,13 +3175,13 @@
     },
     {
       title: "Layers",
-      body: "In the sidebar, <b>Layers</b> toggles what the map draws (original path, simplified path, search circles, candidate regions). Labels use plain wording so you can match them to the map. Use <b>Fit view</b> in View if you pan or zoom away.",
+      body: "In the sidebar, <b>Layers</b> toggles what the map draws (original path, path so far, search circles, candidate regions). Labels use plain wording so you can match them to the map. Use <b>Fit view</b> in View if you pan or zoom away.",
       targets: ["#layersSection > h2", "#mobileLayersToggle", "#toggle-stream", "#toggle-simplified"],
       prepare: prepareLayersTourStep,
     },
     {
       title: "Results and Compare",
-      body: "Open the left-edge <b>Results</b> tab to see scores. On a <b>preloaded</b> trajectory, pick DOTS / DP / SQUISH and press <b>Run compare</b> inside Results (on wider screens you can also use <b>Run</b> beside Compare in the header). Uploaded files show Simplify scores only - skip Compare if that is enough.",
+      body: "Open the left-edge <b>Results</b> tab to see scores. On a <b>preloaded</b> trajectory, pick DOTS / DP / SQUISH and press <b>Run compare</b> inside Results (on wider screens you can also use <b>Run</b> beside Compare in the header). Uploaded files show scores only - skip Compare if that is enough.",
       targets: ["#resultsPanelOpen"],
     },
   ];

@@ -2212,7 +2212,7 @@
         <ul>
           <li>Select a preloaded trajectory.</li>
           <li>Optionally adjust <b>&epsilon; match</b> (accuracy) and <b>&delta; grid</b> (search spacing), then tap <b>Load</b>.</li>
-          <li>After <b>Load</b>, open <b>Results</b> for scores. With a <b>preloaded</b> trajectory you can pick optional <b>Compare</b> algorithms and tap <b>Run compare</b>. Uploaded files show Simplify scores only.</li>
+          <li>After <b>Load</b>, open <b>Results</b> for scores. With a <b>preloaded</b> trajectory you can pick optional <b>Compare</b> algorithms and tap <b>Run compare</b>. Uploaded files show scores only.</li>
           <li>Drag the visualization to pan and pinch to zoom.</li>
           <li>Use <b>Controls</b> for status and layers.</li>
           <li>Tap <b>Back</b> to choose another trajectory.</li>
@@ -2232,7 +2232,7 @@
         </div>
         <div class="results-panel-body">
           <div>
-            <p class="results-section-label" title="Optional algorithms to compare against the Simplify result">Compare algorithms</p>
+            <p class="results-section-label" title="Optional algorithms to compare against this run">Compare algorithms</p>
             <div class="baseline-controls">
               <div class="baseline-algo-row" id="baselineAlgoRow" role="group" aria-label="Compare algorithms">
                 <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" aria-label="DOTS streaming" title="DOTS: another streaming simplifier to score against. Needs a preloaded trajectory.">DOTS<span class="pill-gloss">stream</span></button>
@@ -2264,14 +2264,14 @@
             </div>
           </div>
           <div>
-            <p class="results-section-label" title="Scores for this Simplify run. Optional Compare algorithms add columns when you run them.">Scores</p>
+            <p class="results-section-label" title="Scores for this run. Optional Compare algorithms add columns when you run them.">Scores</p>
             <p id="compareOriginalCount" class="compare-original-count" hidden></p>
             <div class="compare-metrics-wrap">
             <table class="compare-metrics-table" id="compareMetricsTable">
               <thead>
                 <tr id="compareMetricsHead">
                   <th>Metric</th>
-                  <th>Simplify</th>
+                  <th title="Scores for this simplification run (the green path)">This run</th>
                 </tr>
               </thead>
               <tbody id="compareMetricsBody">
@@ -2324,7 +2324,7 @@
               <ul>
                 <li>Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>.</li>
                 <li>Optionally adjust <b>&epsilon; match</b> (accuracy) and <b>&delta; grid</b> (search spacing), then press <b>Load</b>.</li>
-                <li>After load, open <b>Results</b> for scores. With a preloaded trajectory you can pick optional <b>Compare</b> algorithms and press <b>Run</b> (or <b>Run compare</b> in Results). Uploads show Simplify scores only.</li>
+                <li>After load, open <b>Results</b> for scores. With a preloaded trajectory you can pick optional <b>Compare</b> algorithms and press <b>Run</b> (or <b>Run compare</b> in Results). Uploads show scores only.</li>
                 <li><b>Drag</b> to pan and <b>scroll</b> to zoom. Keyboard shortcuts for Step / Segment / Candidate live in the right-side Instructions after load.</li>
               </ul>
             </div>
@@ -2422,16 +2422,16 @@
         </button>
         <div class="layer-accordion" id="layerAccordion">
           <details class="layer-acc" id="accordionSimplify" open>
-            <summary>Simplify</summary>
+            <summary>Paths &amp; search</summary>
             <div class="layer-acc-body">
               <div class="toggle-row">
                 <label title="The original trajectory path before simplification"><input type="checkbox" id="toggle-stream" checked /><span class="swatch" style="background:#5a6272"></span>Original path</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-simplified" checked /><span class="swatch" style="background:#3ddc97"></span>Simplified so far</label>
+                <label title="Green path built so far as you Step or Play through the run"><input type="checkbox" id="toggle-simplified" checked /><span class="swatch" style="background:#3ddc97"></span>Path so far</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-final-simplify" /><span class="swatch" style="background:#3ddc97"></span>Final simplified</label>
+                <label title="Full green result for the whole trajectory. Turn on to see the finished path anytime, even mid-playback."><input type="checkbox" id="toggle-final-simplify" /><span class="swatch" style="background:#3ddc97"></span>Full result path</label>
               </div>
               <div class="toggle-row">
                 <label title="Search circle around the start of the current simplified piece (radius δ). Paper: Bp."><input type="checkbox" id="toggle-ball-p0" checked /><span class="swatch" style="background:#c47aff"></span>Search circle (segment start)</label>
@@ -2463,7 +2463,7 @@
             <summary id="accordionBaselineSummary">Compare</summary>
             <div class="layer-acc-body">
               <div id="baselineLayerToggles"></div>
-              <p id="baselineLayerHint" class="baseline-layer-hint">Compare works with preloaded trajectories. Open Results, pick DOTS / DP / SQUISH, then press Run compare (on wider screens, Run beside Compare also works). Uploaded files show Simplify scores only.</p>
+              <p id="baselineLayerHint" class="baseline-layer-hint">Compare works with preloaded trajectories. Open Results, pick DOTS / DP / SQUISH, then press Run compare (on wider screens, Run beside Compare also works). Uploaded files show scores only.</p>
             </div>
           </details>
         </div>

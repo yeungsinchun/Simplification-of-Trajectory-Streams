@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Results / Layers still said Simplify (resolved)
+
+**Where:** Results Scores first data column; Layers accordion summary; path toggles under that accordion; desktop `#paramsBar` `search r` chip.
+
+**Problem:** After Compare glosses and Match error work, novices still saw a Scores column labeled `Simplify` next to DOTS / DP / SQUISH with no plain meaning, a Layers group also named `Simplify`, and path toggles `Simplified so far` / `Final simplified` with no tooltips. Params kept abbreviated `search r`. Skip-tour users could not tell which column was this run, or when to turn on the full green path.
+
+**Fix:** Scores column is `This run` with a green-path tooltip. Layers accordion is `Paths & search`. Path toggles are `Path so far` / `Full result path` with tooltips. Params chip is `search radius`. User-facing “Simplify scores” copy is just “scores”. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/this-run-path-labels.html`
+- Fixture screenshot (900px): `web/usability/this-run-path-labels.png`
+
 ### Params chips still said grid step / error budget / recorded (resolved)
 
 **Where:** desktop `#paramsBar` secondary chips after Load; Results Scores `Time (ms)` row.
