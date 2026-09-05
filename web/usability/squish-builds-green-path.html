@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Compare tips: SQUISH builds a shorter green path</title>
+<style>
+  html, body {
+    width: 900px;
+    max-width: 900px;
+    margin: 0 auto;
+    overflow-x: hidden;
+  }
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+    --accent: #26bf90;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    padding: 16px;
+  }
+  h1 { font-size: 15px; margin: 0 0 6px; }
+  p { margin: 0 0 12px; color: var(--text-dim); font-size: 12px; max-width: 860px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .label {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0 4px 6px 0;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--panel-border);
+    background: #1c2230;
+    color: var(--text);
+    font-size: 12px;
+  }
+  .pill.active {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .pill-gloss { color: var(--text-dim); font-size: 10px; }
+  .field {
+    display: block;
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: #1c2230;
+    border: 1px solid var(--panel-border);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .check {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--accent);
+  }
+  .check.bad { color: #f87171; }
+</style>
+</head>
+<body>
+  <h1>Compare tips: SQUISH builds a shorter green path</h1>
+  <p>
+    After DOTS / DP already said <b>builds a shorter green path</b>, SQUISH still said
+    <b>keeps about this percent of the original points</b> with no green-path outcome.
+    Field tips also omitted green path.
+  </p>
+  <div class="grid">
+    <div class="frame">
+      <div class="label">Before</div>
+      <button type="button" class="pill active"
+        title="SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.">
+        SQUISH<span class="pill-gloss">keep %</span>
+      </button>
+      <label class="field" title="SQUISH keep percent: percent of original points to keep.">
+        SQUISH keep &nbsp; 20 &nbsp; %
+      </label>
+    </div>
+    <div class="frame">
+      <div class="label">After</div>
+      <button type="button" class="pill active" id="squishPill"
+        title="SQUISH: builds a shorter green path by keeping about this percent of the original points. Needs a preloaded trajectory.">
+        SQUISH<span class="pill-gloss">keep %</span>
+      </button>
+      <label class="field" id="squishField" title="SQUISH keep percent: percent of original points to keep on the green path.">
+        SQUISH keep &nbsp; 20 &nbsp; %
+      </label>
+    </div>
+  </div>
+  <div id="check" class="check">Checking…</div>
+  <script>
+    const pill = document.getElementById("squishPill");
+    const field = document.getElementById("squishField");
+    const scrollWidth = document.documentElement.scrollWidth;
+    const ok =
+      pill.title.includes("builds a shorter green path")
+      && !pill.title.startsWith("SQUISH: keeps about this percent")
+      && field.title.includes("on the green path")
+      && !field.title.endsWith("to keep.")
+      && scrollWidth <= 900;
+    const el = document.getElementById("check");
+    el.textContent = `ok=${ok} scrollWidth=${scrollWidth}`;
+    el.className = "check" + (ok ? "" : " bad");
+  </script>
+</body>
+</html>

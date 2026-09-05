@@ -2211,7 +2211,7 @@
             <div class="baseline-algo-row" id="headerBaselineAlgoRow" role="group" aria-label="Compare methods">
               <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" aria-label="DOTS as-you-go" title="DOTS: builds a shorter green path as Gray path points arrive (as-you-go). Needs a preloaded trajectory.">DOTS<span class="pill-gloss">as-you-go</span></button>
               <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP all-at-once" title="DP: builds a shorter green path from the whole Gray path in one pass (all-at-once), while staying within a match limit. Needs a preloaded trajectory.">DP<span class="pill-gloss">all-at-once</span></button>
-              <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" aria-label="SQUISH keep percent" title="SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.">SQUISH<span class="pill-gloss">keep %</span></button>
+              <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" aria-label="SQUISH keep percent" title="SQUISH: builds a shorter green path by keeping about this percent of the original points. Needs a preloaded trajectory.">SQUISH<span class="pill-gloss">keep %</span></button>
             </div>
             <label class="baseline-field baseline-field--inline" id="headerBaselineLssdField" hidden title="DOTS budget. Entered in thousands (1000 means 1,000,000). A larger budget builds a shorter green path (keeps fewer points).">
               <span><span class="baseline-param-owner owner-dots">DOTS</span> budget</span>
@@ -2222,7 +2222,7 @@
               <span><span class="baseline-param-owner owner-dp">DP</span> match</span>
               <input type="number" id="headerBaselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP match limit" />
             </label>
-            <label class="baseline-field baseline-field--inline" id="headerBaselineSquishRatioField" hidden title="SQUISH keep percent: percent of original points to keep.">
+            <label class="baseline-field baseline-field--inline" id="headerBaselineSquishRatioField" hidden title="SQUISH keep percent: percent of original points to keep on the green path.">
               <span><span class="baseline-param-owner owner-squish">SQUISH</span> keep</span>
               <input type="number" id="headerBaselineSquishRatioInput" value="20" step="1" min="0.01" max="100" aria-label="SQUISH keep percent" />
               <span class="baseline-field-unit" title="Percent">%</span>
@@ -2262,7 +2262,7 @@
               <div class="baseline-algo-row" id="baselineAlgoRow" role="group" aria-label="Compare methods">
                 <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" aria-label="DOTS as-you-go" title="DOTS: builds a shorter green path as Gray path points arrive (as-you-go). Needs a preloaded trajectory.">DOTS<span class="pill-gloss">as-you-go</span></button>
                 <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP all-at-once" title="DP: builds a shorter green path from the whole Gray path in one pass (all-at-once), while staying within a match limit. Needs a preloaded trajectory.">DP<span class="pill-gloss">all-at-once</span></button>
-                <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" aria-label="SQUISH keep percent" title="SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.">SQUISH<span class="pill-gloss">keep %</span></button>
+                <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" aria-label="SQUISH keep percent" title="SQUISH: builds a shorter green path by keeping about this percent of the original points. Needs a preloaded trajectory.">SQUISH<span class="pill-gloss">keep %</span></button>
               </div>
               <div id="baselineParamFields" class="baseline-param-fields">
                 <label class="baseline-field" id="baselineLssdField" hidden title="DOTS budget. Entered in thousands (1000 means 1,000,000). A larger budget builds a shorter green path (keeps fewer points).">
@@ -2276,7 +2276,7 @@
                   <span><span class="baseline-param-owner owner-dp">DP</span> match</span>
                   <input type="number" id="baselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP match limit" />
                 </label>
-                <label class="baseline-field" id="baselineSquishRatioField" hidden title="SQUISH keep percent: percent of original points to keep.">
+                <label class="baseline-field" id="baselineSquishRatioField" hidden title="SQUISH keep percent: percent of original points to keep on the green path.">
                   <span><span class="baseline-param-owner owner-squish">SQUISH</span> keep</span>
                   <div class="baseline-field-input-row">
                     <input type="number" id="baselineSquishRatioInput" value="20" step="1" min="0.01" max="100" aria-label="SQUISH keep percent" />

@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### SQUISH tips still omitted builds a shorter green path (resolved)
+
+**Where:** Compare SQUISH pill titles and keep-percent field titles in `web/index.html`, plus `COMPARE_PILL_TITLES` in `web/viewer.js`.
+
+**Problem:** After DOTS / DP already said `builds a shorter green path`, SQUISH still said only `keeps about this percent of the original points`, and the keep field tip said `percent of original points to keep` with no green-path outcome. Skip-tour users and phone long-press could not map SQUISH to the same green-path vocabulary.
+
+**Fix:** SQUISH pills say `builds a shorter green path by keeping about this percent of the original points`; keep field tips say `percent of original points to keep on the green path`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/squish-builds-green-path.html`
+- Fixture screenshot (900px): `web/usability/squish-builds-green-path.png`
+
 ### Compare tips still said dropping points / Larger keeps (resolved)
 
 **Where:** Compare DP pill titles and DOTS budget field titles in `web/index.html`, plus `COMPARE_PILL_TITLES` in `web/viewer.js`.
