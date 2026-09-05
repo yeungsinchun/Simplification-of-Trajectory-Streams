@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Status lacked a map/playback gloss; empty Load said upload (resolved)
+
+**Where:** sidebar `#statusGloss`; empty `#loadBtn` status in `viewer.js`; default `#baselineLayerHint` (preloaded path).
+
+**Problem:** Skip-tour users opening Status first saw bare start point / current point / Segment numbers with no link to the colored map markers or the playback bar. Pressing Load with nothing chosen said “select or upload”, which is unreachable on phones where Upload is `display: none`. The preloaded Compare map-overlay hint still ended with an Upload aside even when Compare was already available.
+
+**Fix:** Status leads with a plain gloss mapping start/current to map markers and Segment/Step/Candidate to playback. Empty Load says “Please choose a trajectory first”. The default Compare hint keeps Results → Run compare and drops the Upload aside (upload-blocked copy still explains uploads when needed). Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/status-gloss-map-playback.html`
+- Fixture screenshot (900px): `web/usability/status-gloss-map-playback.png`
+
 ### Mobile start help still mentioned Upload (resolved)
 
 **Where:** header `.mobile-start-help` Instructions (max-width 720px); start-tour Load step and playback Results tour copy in `viewer.js`.

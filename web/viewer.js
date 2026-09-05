@@ -303,7 +303,7 @@
     if (baselineLayerHint && !baselineLayerHint.hidden) {
       baselineLayerHint.textContent = compareBlockedByUpload()
         ? "Compare needs a preloaded trajectory. Your upload still shows scores in Results; pick a preloaded trajectory to enable DOTS / DP / SQUISH."
-        : "Compare works with preloaded trajectories. Open Results, pick DOTS / DP / SQUISH, then press Run compare (on wider screens, Run beside Compare also works). Uploaded files show scores only.";
+        : "Compare works with preloaded trajectories. Open Results, pick DOTS / DP / SQUISH, then press Run compare (on wider screens, Run beside Compare also works).";
     }
   }
 
@@ -1569,7 +1569,7 @@
         setLoadButtonBusy(false);
       }
     } else {
-      uploadStatus.textContent = "Please select or upload a trajectory first";
+      uploadStatus.textContent = "Please choose a trajectory first";
       uploadStatus.style.color = "#ff5f6d";
     }
   });

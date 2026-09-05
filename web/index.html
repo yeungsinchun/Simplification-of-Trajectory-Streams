@@ -1083,13 +1083,15 @@
     font-size: 11px;
     line-height: 1.5;
   }
-  .instructions-gloss {
+  .instructions-gloss,
+  .status-gloss {
     margin: 0 0 10px;
     font-size: 12px;
     line-height: 1.45;
     color: var(--text-dim);
   }
-  .instructions-gloss b {
+  .instructions-gloss b,
+  .status-gloss b {
     color: var(--text);
     font-weight: 600;
   }
@@ -2424,6 +2426,10 @@
 
       <div class="section">
         <h2>Status</h2>
+        <p class="status-gloss" id="statusGloss">
+          <b>Start point</b> and <b>current point</b> match the colored markers on the map.
+          <b>Segment</b>, <b>Step</b>, and <b>Candidate</b> match the playback controls.
+        </p>
         <div id="statusIndices" class="status-indices"></div>
         <div class="status-grid" id="statusGrid"></div>
       </div>
@@ -2477,7 +2483,7 @@
             <summary id="accordionBaselineSummary">Compare</summary>
             <div class="layer-acc-body">
               <div id="baselineLayerToggles"></div>
-              <p id="baselineLayerHint" class="baseline-layer-hint">Compare works with preloaded trajectories. Open Results, pick DOTS / DP / SQUISH, then press Run compare (on wider screens, Run beside Compare also works). Uploaded files show scores only.</p>
+              <p id="baselineLayerHint" class="baseline-layer-hint">Compare works with preloaded trajectories. Open Results, pick DOTS / DP / SQUISH, then press Run compare (on wider screens, Run beside Compare also works).</p>
             </div>
           </details>
         </div>
@@ -2501,7 +2507,7 @@
         </p>
         <table class="shortcuts-table desktop-shortcuts">
           <tbody>
-            <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Previous / next step</td></tr>
+            <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Previous / next Step</td></tr>
             <tr><td><kbd>Shift</kbd>+<kbd>←</kbd>/<kbd>→</kbd></td><td>Previous / next Segment</td></tr>
             <tr><td><kbd>Space</kbd></td><td>Play / pause</td></tr>
             <tr><td><kbd>C</kbd> / <kbd>X</kbd></td><td>Next / previous Candidate</td></tr>
@@ -2605,6 +2611,6 @@
   </div>
 </div>
 
-<script src="viewer.js?v=mobile-start-no-upload-1"></script>
+<script src="viewer.js?v=status-gloss-1"></script>
 </body>
 </html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Status gloss maps to map and playback</title>
+<style>
+  html, body { max-width: 900px; margin: 0 auto; }
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+    --accent: #3ddc97;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    padding: 16px;
+  }
+  h1 { font-size: 15px; margin: 0 0 6px; }
+  p { margin: 0 0 12px; color: var(--text-dim); font-size: 12px; max-width: 720px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 900px; }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .label {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  h2 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .status-gloss {
+    margin: 0 0 10px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text-dim);
+  }
+  .status-gloss b { color: var(--text); font-weight: 600; }
+  .status-indices {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .status-idx-block {
+    flex: 1;
+    background: #0f131a;
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 8px;
+    text-align: center;
+  }
+  .idx-label { display: block; font-size: 11px; margin-bottom: 2px; }
+  .idx-num {
+    display: block;
+    font-size: 22px;
+    font-weight: 700;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .status-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .status-grid .mono {
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .hint {
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.4;
+  }
+  .bad { color: #ff8a94; }
+  .ok { color: var(--accent); margin-top: 12px; font-size: 12px; }
+  .load-msg {
+    margin-top: 8px;
+    font-size: 12px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: #0f131a;
+    border: 1px solid var(--panel-border);
+  }
+</style>
+</head>
+<body>
+  <h1>Status gloss + choose-trajectory Load error</h1>
+  <p>
+    Skip-tour users opening Status first saw bare start / current / Segment numbers with no
+    link to the map or playback bar. Empty Load also said <b>select or upload</b>, which is
+    unreachable on phones where Upload is hidden. Status now leads with a plain gloss;
+    empty Load says <b>choose a trajectory</b>; the preloaded Compare hint drops Upload aside.
+  </p>
+  <div class="grid">
+    <div class="frame">
+      <div class="label">Before</div>
+      <h2>Status</h2>
+      <div class="status-indices">
+        <div class="status-idx-block">
+          <span class="idx-label" style="color:#ff9f43">start point</span>
+          <span class="idx-num" style="color:#ff9f43">0</span>
+        </div>
+        <div class="status-idx-block">
+          <span class="idx-label" style="color:#ff7ae8">current point</span>
+          <span class="idx-num" style="color:#ff7ae8">12</span>
+        </div>
+      </div>
+      <div class="status-grid">
+        <span>Segment</span><span class="mono"><b>2 / 8</b></span>
+        <span>Step</span><span class="mono"><b>4 / 15</b></span>
+        <span>Candidate</span><span class="mono"><b>1 / 3</b></span>
+      </div>
+      <div class="load-msg bad" id="beforeLoad">Please select or upload a trajectory first</div>
+      <div class="hint bad" id="beforeHint">…Run compare…. Uploaded files show scores only.</div>
+    </div>
+    <div class="frame" id="after">
+      <div class="label">After</div>
+      <h2>Status</h2>
+      <p class="status-gloss" id="statusGloss">
+        <b>Start point</b> and <b>current point</b> match the colored markers on the map.
+        <b>Segment</b>, <b>Step</b>, and <b>Candidate</b> match the playback controls.
+      </p>
+      <div class="status-indices">
+        <div class="status-idx-block">
+          <span class="idx-label" style="color:#ff9f43">start point</span>
+          <span class="idx-num" style="color:#ff9f43">0</span>
+        </div>
+        <div class="status-idx-block">
+          <span class="idx-label" style="color:#ff7ae8">current point</span>
+          <span class="idx-num" style="color:#ff7ae8">12</span>
+        </div>
+      </div>
+      <div class="status-grid">
+        <span>Segment</span><span class="mono"><b>2 / 8</b></span>
+        <span>Step</span><span class="mono"><b>4 / 15</b></span>
+        <span>Candidate</span><span class="mono"><b>1 / 3</b></span>
+      </div>
+      <div class="load-msg" id="afterLoad">Please choose a trajectory first</div>
+      <div class="hint" id="afterHint">Compare works with preloaded trajectories. Open Results, pick DOTS / DP / SQUISH, then press Run compare (on wider screens, Run beside Compare also works).</div>
+    </div>
+  </div>
+  <p class="ok" id="check">Measuring…</p>
+<script>
+  const gloss = document.getElementById("statusGloss").textContent;
+  const afterLoad = document.getElementById("afterLoad").textContent;
+  const afterHint = document.getElementById("afterHint").textContent;
+  const scroll = document.documentElement.scrollWidth;
+  const hasGloss = gloss.includes("colored markers")
+    && gloss.includes("playback controls")
+    && gloss.includes("Start point")
+    && gloss.includes("Segment");
+  const loadOk = afterLoad === "Please choose a trajectory first"
+    && !afterLoad.toLowerCase().includes("upload");
+  const hintOk = afterHint.includes("Run compare")
+    && !afterHint.toLowerCase().includes("upload");
+  const ok = hasGloss && loadOk && hintOk && scroll <= 900;
+  document.getElementById("check").textContent =
+    `gloss=${hasGloss} loadOk=${loadOk} hintOk=${hintOk} scrollWidth=${scroll} ok=${ok}`;
+</script>
+</body>
+</html>
