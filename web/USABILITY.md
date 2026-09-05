@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Map overlays said Candidate region (resolved)
+
+**Where:** Map overlays Paths & search toggle `#toggle-Gi`, `#toggle-S` tooltip, and playback Map overlays tour copy.
+
+**Problem:** After Next landing zone and Still-allowed area landed, the yellow overlay still said `Candidate region`. Skip-tour users could not tell it is the set of next-point options near the Status current point, and the tour still said “candidate regions”.
+
+**Fix:** Label reads `Options near current` with a Status-linked tooltip. Next landing zone tooltip and the Map overlays tour use the same capitalized name. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/options-near-current.html`
+- Fixture screenshot (900px): `web/usability/options-near-current.png`
+
 ### Map overlays said Allowed area so far (resolved)
 
 **Where:** Map overlays Paths & search toggles `#toggle-F` / `#toggle-F-Si` and `#toggle-S` tooltip.

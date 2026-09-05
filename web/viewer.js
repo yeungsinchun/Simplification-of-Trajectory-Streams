@@ -3292,7 +3292,7 @@
     },
     {
       title: "Map overlays",
-      body: "In the sidebar, <b>Map overlays</b> toggles what the map draws (original path, path so far, search circles, candidate regions). Open <b>Paths &amp; search</b> for those toggles, or <b>Compare</b> for other algorithms. Use <b>Fit view</b> in View if you pan or zoom away.",
+      body: "In the sidebar, <b>Map overlays</b> toggles what the map draws (original path, path so far, search circles, options near current, next landing zone). Open <b>Paths &amp; search</b> for those toggles, or <b>Compare</b> for other algorithms. Use <b>Fit view</b> in View if you pan or zoom away.",
       targets: ["#layersSection > h2", "#mobileLayersToggle", "#toggle-stream", "#toggle-simplified"],
       prepare: prepareLayersTourStep,
     },
