@@ -144,7 +144,9 @@
   const headerBaselineSquishRatioField = el("headerBaselineSquishRatioField");
   const headerBaselineSquishRatioInput = el("headerBaselineSquishRatioInput");
   const baselineRunBtn = el("baselineRunBtn");
+  const headerBaselineRunBtn = el("headerBaselineRunBtn");
   const baselineStatus = el("baselineStatus");
+  const compareRunButtons = () => [baselineRunBtn, headerBaselineRunBtn].filter(Boolean);
 
   function baselineAlgoRows() {
     return [headerBaselineAlgoRow, baselineAlgoRow].filter(Boolean);
@@ -251,7 +253,7 @@
     setBaselineStatus(
       labels.length
         ? (currentTraceId
-          ? `Selected ${labels.join(", ")}. Click Run compare (or reload the trace to auto-run).`
+          ? `Selected ${labels.join(", ")}. Press Run beside Compare (or Run compare in Results).`
           : `Selected ${labels.join(", ")}. Load a preloaded trace to run the compare.`)
         : ""
     );
@@ -348,10 +350,26 @@
       headerBaselineSquishRatioInput,
       squishDisplayFromRaw(state.baselineSquishRatio)
     );
-    if (baselineRunBtn) {
-      baselineRunBtn.disabled = !currentTraceId || selected.size === 0 || baselineRunBtn.dataset.busy === "1";
-      baselineRunBtn.textContent = "Run compare";
+    const busy = compareRunButtons().some((btn) => btn.dataset.busy === "1");
+    const canRun = !!currentTraceId && selected.size > 0 && !busy;
+    const traceReady = document.body.classList.contains("results-available");
+    for (const btn of compareRunButtons()) {
+      btn.disabled = !canRun;
+      const isHeader = btn === headerBaselineRunBtn;
+      btn.textContent = busy ? "Running…" : (isHeader ? "Run" : "Run compare");
+      if (isHeader) {
+        // Header Run appears only after Load Trace (Results tab available).
+        // Before that, Load Trace auto-runs any selected Compare algorithms.
+        btn.hidden = !traceReady;
+      }
     }
+  }
+
+  function setCompareRunBusy(busy) {
+    for (const btn of compareRunButtons()) {
+      btn.dataset.busy = busy ? "1" : "0";
+    }
+    syncBaselineParamFields();
   }
 
   function emptyCompareMessage(colspan) {
@@ -662,11 +680,7 @@
       );
     }
 
-    if (baselineRunBtn) {
-      baselineRunBtn.dataset.busy = "1";
-      baselineRunBtn.disabled = true;
-      baselineRunBtn.textContent = "Running…";
-    }
+    setCompareRunBusy(true);
 
     const errors = [];
     const skipped = [];
@@ -722,13 +736,10 @@
         render();
       }
     } catch (err) {
-      console.warn("[Compare] Baseline run failed:", err);
-      setBaselineStatus(err.message || "Baseline run failed", "error");
+      console.warn("[Compare] Compare run failed:", err);
+      setBaselineStatus(err.message || "Compare run failed", "error");
     } finally {
-      if (baselineRunBtn) {
-        baselineRunBtn.dataset.busy = "0";
-        syncBaselineParamFields();
-      }
+      setCompareRunBusy(false);
     }
   }
 
@@ -2332,6 +2343,9 @@
   if (baselineRunBtn) {
     baselineRunBtn.addEventListener("click", () => { runSelectedBaseline(); });
   }
+  if (headerBaselineRunBtn) {
+    headerBaselineRunBtn.addEventListener("click", () => { runSelectedBaseline(); });
+  }
   syncBaselinePills();
   syncBaselineParamFields();
 
@@ -3035,8 +3049,8 @@
     },
     {
       title: "Load the trace",
-      body: "Press <b>Load Trace</b> to run the simplification. When it finishes, a short follow-up explains Play / Step / Segment / Candidate, Layers, and the Results tab.",
-      targets: ["#loadBtn"],
+      body: "Optional: tap <b>Compare</b> (DOTS / DP / SQUISH) to score other algorithms later - or skip them. Press <b>Load Trace</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Candidate, Layers, and Results.",
+      targets: ["#loadBtn", ".header-baseline"],
     },
   ];
 
@@ -3064,7 +3078,7 @@
     },
     {
       title: "Results and Compare",
-      body: "Open the left-edge <b>Results</b> tab to see scores and optionally run <b>Compare</b> algorithms (DOTS / DP / SQUISH). Skip Compare if you only want the green simplified path.",
+      body: "Open the left-edge <b>Results</b> tab to see scores. To compare other algorithms after load, pick DOTS / DP / SQUISH in the header and press the nearby <b>Run</b> button (or use Run compare inside Results). Skip Compare if you only want the green simplified path.",
       targets: ["#resultsPanelOpen"],
     },
   ];

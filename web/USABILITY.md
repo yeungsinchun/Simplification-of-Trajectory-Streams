@@ -455,6 +455,21 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Desktop loaded Status/Layers (1280px): `web/usability/eps-delta-glosses-1280-loaded-live.png`
 - Mobile loaded Status/Layers (390px): `web/usability/eps-delta-glosses-390-loaded-live.png`
 
+### Post-load Compare had no visible Run next to the header pills
+
+**Where:** desktop `#headerBaseline` Compare strip after Load Trace; `#baselineStatus` / `#baselineRunBtn` only inside the closed Results panel.
+
+**Problem:** After a trace loaded, selecting DOTS / DP / SQUISH in the header only wrote “Click Run compare…” into the Results panel status node. With Results closed, novices saw param fields appear but no next action, and tooltips still said “baseline”.
+
+**Fix:** A compact header `Run` button (`#headerBaselineRunBtn`) appears once Results is available, stays on the same nowrap Compare strip, and shares busy/disabled state with Results `Run compare`. Start and playback tour copy mention Compare + Run; pill titles drop “baseline” jargon; failure copy says “Compare run failed”.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/desktop-compare-header-run.html`
+- Fixture screenshot (900px): `web/usability/desktop-compare-header-run.png`
+- Desktop live after load with DOTS + Run (1280px): `web/usability/desktop-compare-header-run-1280-live.png`
+- Desktop live narrow (900px): `web/usability/desktop-compare-header-run-900-live.png`
+
 ## Still open
 
 No open layout or novice-copy items from this pass. First live Cloud Run publish still needs a successful `main` push or `workflow_dispatch` run of `.github/workflows/deploy.yml` (workflow is not on `main` yet; only Benchmark and Correctness are registered).
