@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Compare algorithm names and canvas “cur” stayed opaque (resolved)
+
+**Where:** Results / header Compare pills (`DOTS` / `DP` / `SQUISH`); canvas overlay label beside the current path point; Status candidates tooltip; desktop keyboard shortcut for C/X; canvas loading HUD.
+
+**Problem:** Compare pills were acronym-only. Desktop users could hover titles, but phones cannot, so novices who opened Results still did not know what DOTS / DP / SQUISH meant. The map still said `cur` while Status said `current point`. Shortcut copy still said `open candidates`, and the HUD said `Loading details…`.
+
+**Fix:** Results pills show short visible glosses (`stream` / `classic` / `keep %`); the header strip hides those glosses so the Compare row stays one line. Canvas label is `current`. Status / Layers tooltips say “still being considered”. Shortcut text drops `open`. HUD reads `Loading trajectory…`.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-algo-glosses.html`
+- Fixture screenshot (900px): `web/usability/compare-algo-glosses.png`
+
 ### Mobile loaded header kept the long product name (resolved)
 
 **Where:** mobile `#appTitle` / `header h1` after `body.trace-loaded-mobile` (Back + title + `?`).
@@ -540,7 +553,7 @@ No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
 **Problem:** Mobile Status already said `start point` / `current point`, but desktop still prefixed MathJax `p` / `vᵢ`, the map drew `p` / `v42`, and Layers kept symbols first (`Bp`, `Si[p]`, …). Novices could not match Status wording to the map, and loading still said `Loading pts…`.
 
-**Fix:** Status uses plain `start point` / `current point` on every viewport. Canvas overlays say `start` / `cur` in the same colors. Layer rows lead with plain glosses (paper symbols only in tooltips). Progress and picker counts say `points` / `Loading points…`; load failures say `Could not load trajectory`.
+**Fix:** Status uses plain `start point` / `current point` on every viewport. Canvas overlays say `start` / `current` in the same colors. Layer rows lead with plain glosses (paper symbols only in tooltips). Progress and picker counts say `points` / `Loading points…`; load failures say `Could not load trajectory`.
 
 **Evidence:**
 

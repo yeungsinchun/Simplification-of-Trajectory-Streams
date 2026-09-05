@@ -1029,7 +1029,7 @@
       </div>`;
     statusGrid.innerHTML = `
       <span title="How far this simplified segment has walked along the original path">path step</span><span class="mono"><b>1</b></span>
-      <span title="Candidate anchors still open for this segment">candidates</span><span class="mono"><b>…</b></span>`;
+      <span title="Candidate anchors still being considered for this segment">candidates</span><span class="mono"><b>…</b></span>`;
     typesetStatus(statusIndices);
     typesetStatus(statusGrid);
   }
@@ -1946,7 +1946,7 @@
     const rows = [];
     const alive = step.candidates.filter((c) => c.alive).length;
     rows.push(["path step", `${state.stepIdx + 1}`, "How far this simplified segment has walked along the original path"]);
-    rows.push(["candidates", `<b style="color:#3ddc97">${alive}</b> / ${pfx.P.length}`, "Candidate anchors still open for this segment"]);
+    rows.push(["candidates", `<b style="color:#3ddc97">${alive}</b> / ${pfx.P.length}`, "Candidate anchors still being considered for this segment"]);
 
     statusGrid.innerHTML = rows
       .map(([k, v, tip]) => `<span title="${tip}">${k}</span><span class="mono"><b>${v}</b></span>`)
@@ -3078,7 +3078,7 @@
         ctx.save();
         ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, sans-serif";
         ctx.fillStyle = "#ff7ae8";
-        ctx.fillText("cur", pix + 7, piy - 6);
+        ctx.fillText("current", pix + 7, piy - 6);
         ctx.restore();
       }
     }

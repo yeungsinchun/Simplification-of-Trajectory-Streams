@@ -378,6 +378,19 @@
     font-weight: 650;
     letter-spacing: 0.02em;
     cursor: pointer;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    line-height: 1.15;
+  }
+  .baseline-algo-pill .pill-gloss {
+    font-size: 9px;
+    font-weight: 550;
+    letter-spacing: 0;
+    opacity: 0.75;
+    text-transform: none;
   }
   .baseline-algo-pill:hover:not(:disabled) {
     border-color: var(--accent);
@@ -413,6 +426,11 @@
   .header-baseline .baseline-algo-pill {
     padding: 5px 12px;
     font-size: 11px;
+    flex-direction: row;
+    gap: 0;
+  }
+  .header-baseline .baseline-algo-pill .pill-gloss {
+    display: none;
   }
   .baseline-field {
     display: flex;
@@ -2156,9 +2174,9 @@
           <div class="header-baseline" aria-label="Optional algorithms to compare against">
             <span class="header-baseline-label" title="Optional. Pick other algorithms to score against after Load. Skip for a first run.">Compare:</span>
             <div class="baseline-algo-row" id="headerBaselineAlgoRow" role="group" aria-label="Compare algorithms">
-              <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" title="DOTS: another streaming simplifier to score against. Needs a preloaded trajectory.">DOTS</button>
-              <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Needs a preloaded trajectory.">DP</button>
-              <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" title="SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.">SQUISH</button>
+              <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" aria-label="DOTS streaming" title="DOTS: another streaming simplifier to score against. Needs a preloaded trajectory.">DOTS<span class="pill-gloss">stream</span></button>
+              <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP classic" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Needs a preloaded trajectory.">DP<span class="pill-gloss">classic</span></button>
+              <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" aria-label="SQUISH keep percent" title="SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.">SQUISH<span class="pill-gloss">keep %</span></button>
             </div>
             <label class="baseline-field baseline-field--inline" id="headerBaselineLssdField" hidden title="DOTS distance limit in thousands (K). Larger keeps fewer points.">
               <span><span class="baseline-param-owner owner-dots">DOTS</span> limit</span>
@@ -2207,9 +2225,9 @@
             <p class="results-section-label" title="Optional algorithms to compare against the Simplify result">Compare algorithms</p>
             <div class="baseline-controls">
               <div class="baseline-algo-row" id="baselineAlgoRow" role="group" aria-label="Compare algorithms">
-                <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" title="DOTS: another streaming simplifier to score against. Needs a preloaded trajectory.">DOTS</button>
-                <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Needs a preloaded trajectory.">DP</button>
-                <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" title="SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.">SQUISH</button>
+                <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" aria-label="DOTS streaming" title="DOTS: another streaming simplifier to score against. Needs a preloaded trajectory.">DOTS<span class="pill-gloss">stream</span></button>
+                <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP classic" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Needs a preloaded trajectory.">DP<span class="pill-gloss">classic</span></button>
+                <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" aria-label="SQUISH keep percent" title="SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.">SQUISH<span class="pill-gloss">keep %</span></button>
               </div>
               <div id="baselineParamFields" class="baseline-param-fields">
                 <label class="baseline-field" id="baselineLssdField" hidden title="DOTS distance limit in thousands (K). Larger keeps fewer points.">
@@ -2271,7 +2289,7 @@
           <canvas id="canvas"></canvas>
           <div id="traceLoadingHud" role="status" aria-live="polite" aria-hidden="true">
             <span class="button-spinner" aria-hidden="true"></span>
-            <span id="traceLoadingText">Loading details…</span>
+            <span id="traceLoadingText">Loading trajectory…</span>
           </div>
           <div id="dropHint">
             <div class="dropHint-icon" aria-hidden="true">
@@ -2411,7 +2429,7 @@
                 <label title="Search circle around the path point currently being processed (radius δ). Paper: Bvᵢ."><input type="checkbox" id="toggle-ball-pi" checked /><span class="swatch" style="background:#ff7ae8"></span>Search circle (current point)</label>
               </div>
               <div class="toggle-row">
-                <label title="Yellow region covering open candidate points near the current path point. Paper: conv(Gvᵢ)."><input type="checkbox" id="toggle-Gi" checked /><span class="swatch" style="background:#e8c547"></span>Candidate region</label>
+                <label title="Yellow region covering candidate points still being considered near the current path point. Paper: conv(Gvᵢ)."><input type="checkbox" id="toggle-Gi" checked /><span class="swatch" style="background:#e8c547"></span>Candidate region</label>
               </div>
               <div class="toggle-row">
                 <label title="Blue area still allowed by the accuracy limit after the previous simplified piece. Paper: F(Sᵢ₋₁[p], p)."><input type="checkbox" id="toggle-F" checked /><span class="swatch" style="background:#4f9dff"></span>Allowed area so far</label>
@@ -2454,7 +2472,7 @@
             <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Previous / next step</td></tr>
             <tr><td><kbd>Shift</kbd>+<kbd>←</kbd>/<kbd>→</kbd></td><td>Previous / next simplified segment</td></tr>
             <tr><td><kbd>Space</kbd></td><td>Play / pause auto-advance</td></tr>
-            <tr><td><kbd>C</kbd> / <kbd>X</kbd></td><td>Cycle through open candidates forward / backward</td></tr>
+            <tr><td><kbd>C</kbd> / <kbd>X</kbd></td><td>Cycle through candidates forward / backward</td></tr>
             <tr><td>Drag</td><td>Pan the view</td></tr>
             <tr><td>Scroll / pinch</td><td>Zoom in / out</td></tr>
           </tbody>
@@ -2555,6 +2573,6 @@
   </div>
 </div>
 
-<script src="viewer.js?v=results-scores-label-1"></script>
+<script src="viewer.js?v=compare-algo-glosses-1"></script>
 </body>
 </html>
