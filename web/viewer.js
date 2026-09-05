@@ -227,12 +227,12 @@
   }
 
   const COMPARE_PILL_TITLES = {
-    dots: "DOTS: another streaming simplifier to score against. Needs a preloaded trace.",
-    dp: "DP: classic point-to-edge simplifier (Douglas-Peucker style). Needs a preloaded trace.",
-    squish: "SQUISH: keeps about this percent of the original points. Needs a preloaded trace.",
+    dots: "DOTS: another streaming simplifier to score against. Needs a preloaded trajectory.",
+    dp: "DP: classic point-to-edge simplifier (Douglas-Peucker style). Needs a preloaded trajectory.",
+    squish: "SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.",
   };
   const COMPARE_PILL_UPLOAD_TITLE =
-    "Compare needs a preloaded trace. Uploaded files show Simplify scores only in Results.";
+    "Compare needs a preloaded trajectory. Uploaded files show Simplify scores only in Results.";
 
   function selectedBaselineAlgos() {
     return BASELINE_ORDER.filter((a) => state.baselineAlgos.includes(a));
@@ -257,7 +257,7 @@
         btn.disabled = blocked;
         btn.title = blocked
           ? COMPARE_PILL_UPLOAD_TITLE
-          : (COMPARE_PILL_TITLES[algo] || "Optional compare algorithm. Needs a preloaded trace.");
+          : (COMPARE_PILL_TITLES[algo] || "Optional compare algorithm. Needs a preloaded trajectory.");
       }
     }
   }
@@ -265,23 +265,23 @@
   function compareSelectionStatus(labels) {
     if (!labels.length) {
       return compareBlockedByUpload()
-        ? "Compare needs a preloaded trace. Uploaded files show Simplify scores only."
+        ? "Compare needs a preloaded trajectory. Uploaded files show Simplify scores only."
         : "";
     }
     if (compareBlockedByUpload()) {
-      return `Selected ${labels.join(", ")}. Compare needs a preloaded trace - choose one and press Load Trace. Uploaded files show Simplify scores only.`;
+      return `Selected ${labels.join(", ")}. Compare needs a preloaded trajectory - choose one and press Load Trace. Uploaded files show Simplify scores only.`;
     }
     if (currentTraceId) {
       return `Selected ${labels.join(", ")}. Press Run compare (on wider screens, Run beside Compare also works).`;
     }
-    return `Selected ${labels.join(", ")}. Load a preloaded trace to run the compare.`;
+    return `Selected ${labels.join(", ")}. Load a preloaded trajectory to run the compare.`;
   }
 
   function updateCompareAvailabilityCopy() {
     if (baselineLayerHint && !baselineLayerHint.hidden) {
       baselineLayerHint.textContent = compareBlockedByUpload()
-        ? "Compare needs a preloaded trace. Your upload still shows Simplify scores in Results; pick a preloaded trace to enable DOTS / DP / SQUISH layers."
-        : "Compare works with preloaded traces. Open Results, pick DOTS / DP / SQUISH, then press Run compare (on wider screens, Run beside Compare also works). Uploaded files show Simplify scores only.";
+        ? "Compare needs a preloaded trajectory. Your upload still shows Simplify scores in Results; pick a preloaded trajectory to enable DOTS / DP / SQUISH layers."
+        : "Compare works with preloaded trajectories. Open Results, pick DOTS / DP / SQUISH, then press Run compare (on wider screens, Run beside Compare also works). Uploaded files show Simplify scores only.";
     }
   }
 
@@ -289,7 +289,7 @@
     if (!BASELINE_ORDER.includes(algo)) return;
     if (compareBlockedByUpload()) {
       setBaselineStatus(
-        "Compare needs a preloaded trace. Uploaded files show Simplify scores only.",
+        "Compare needs a preloaded trajectory. Uploaded files show Simplify scores only.",
         "error"
       );
       syncBaselinePills();
@@ -428,8 +428,8 @@
 
   function emptyCompareMessage(colspan) {
     const msg = compareBlockedByUpload()
-      ? "Simplify scores appear after Load Trace. Compare needs a preloaded trace."
-      : "Load a trace to see scores. Optional: run Compare above (preloaded traces).";
+      ? "Simplify scores appear after Load Trace. Compare needs a preloaded trajectory."
+      : "Load a trajectory to see scores. Optional: run Compare above (preloaded trajectories).";
     return `<tr><td colspan="${colspan}" class="compare-metrics-empty">${msg}</td></tr>`;
   }
 
@@ -668,7 +668,7 @@
       if (state.trace) showResultsPanel(false);
       if (compareBlockedByUpload()) {
         setBaselineStatus(
-          "Compare needs a preloaded trace. Uploaded files show Simplify scores only.",
+          "Compare needs a preloaded trajectory. Uploaded files show Simplify scores only.",
         );
       }
       syncBaselineParamFields();
@@ -699,8 +699,8 @@
     if (!currentTraceId) {
       setBaselineStatus(
         compareBlockedByUpload()
-          ? "Compare needs a preloaded trace. Uploaded files show Simplify scores only."
-          : "Load a preloaded trace first.",
+          ? "Compare needs a preloaded trajectory. Uploaded files show Simplify scores only."
+          : "Load a preloaded trajectory first.",
         "error"
       );
       return;
@@ -1066,7 +1066,7 @@
       paramChip(
         "trace error",
         actualFrechet,
-        "Match error recorded in this preloaded trace (Fréchet distance).",
+        "Match error recorded in this preloaded trajectory (Fréchet distance).",
         "color:#C4612F;font-weight:600",
       ),
       paramChip("original", streamLen, "Number of points on the original trajectory."),
@@ -1138,7 +1138,7 @@
     document.body.classList.add("trace-loading");
     document.body.classList.remove("trace-loading-error");
     setCanvasLoadingHud(true);
-    setTopBarTraceStatus("Computing trace…");
+    setTopBarTraceStatus("Computing…");
     render();
   }
 
@@ -1369,7 +1369,7 @@
     }
     if (!parsed || !Array.isArray(parsed.prefixes)) {
       alert("This does not look like a simplify --web-server trace (missing 'prefixes').");
-      uploadStatus.textContent = "Invalid trace format";
+      uploadStatus.textContent = "Invalid trajectory format";
       uploadStatus.style.color = "#ff5f6d";
       return;
     }
@@ -1391,7 +1391,7 @@
     state.baselineAlgos = [];
     clearCompare();
     setBaselineStatus(
-      "Compare needs a preloaded trace. Uploaded files show Simplify scores only."
+      "Compare needs a preloaded trajectory. Uploaded files show Simplify scores only."
     );
     syncBaselineParamFields();
     traceSelect.value = "";
@@ -1466,7 +1466,7 @@
         const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
         console.log(`[Client] Trace load completed in ${elapsed}s`);
         
-        uploadStatus.textContent = `✓ Loaded Trace ${currentTraceId}`;
+        uploadStatus.textContent = `✓ Loaded ${currentTraceId}`;
         uploadStatus.style.color = "#3ddc97";
         clearTopBarTraceStatus();
       } catch (err) {
@@ -1478,7 +1478,7 @@
         setLoadButtonBusy(false);
       }
     } else {
-      uploadStatus.textContent = "Please select a file or preloaded trace first";
+      uploadStatus.textContent = "Please select or upload a trajectory first";
       uploadStatus.style.color = "#ff5f6d";
     }
   });
@@ -1522,7 +1522,7 @@
     if (!tracesList.length) {
       const empty = document.createElement("div");
       empty.className = "trace-picker-empty";
-      empty.textContent = "No preloaded traces available.";
+      empty.textContent = "No preloaded trajectories available.";
       tracePickerList.appendChild(empty);
       return;
     }
@@ -1576,7 +1576,7 @@
       preloadedLabel.textContent = opt.textContent;
       preloadedTrigger.classList.add("has-value");
     } else {
-      preloadedLabel.textContent = "Select trace…";
+      preloadedLabel.textContent = "Select trajectory…";
       preloadedTrigger.classList.remove("has-value");
     }
   }
@@ -3111,12 +3111,12 @@
   const startTourSteps = [
     {
       title: "Welcome",
-      body: "This visualizer shortens a GPS-style path while keeping its shape. A short tour shows the controls you need to load your first trace.",
+      body: "This visualizer shortens a GPS-style path while keeping its shape. A short tour shows the controls you need to load your first trajectory.",
       targets: [],
     },
     {
       title: "Choose a trajectory",
-      body: "Pick a <b>preloaded trace</b>, or on desktop tap <b>Upload trajectory</b> for your own file (plain text: first line N, then N lines of x y). Preloaded samples already include sensible settings.",
+      body: "Pick a <b>preloaded trajectory</b>, or on desktop tap <b>Upload trajectory</b> for your own file (plain text: first line N, then N lines of x y). Preloaded samples already include sensible settings.",
       targets: [".preloaded-row", "#preloadedTrigger", "#traceSelect", "#uploadBtn"],
     },
     {
@@ -3125,8 +3125,8 @@
       targets: ["#epsilonInput", "#deltaInput"],
     },
     {
-      title: "Load the trace",
-      body: "Optional: with a <b>preloaded</b> trace, tap <b>Compare</b> (DOTS / DP / SQUISH) to score other algorithms later - or skip. Uploaded files show Simplify scores only. Press <b>Load Trace</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Candidate, Layers, and Results.",
+      title: "Load the trajectory",
+      body: "Optional: with a <b>preloaded</b> trajectory, tap <b>Compare</b> (DOTS / DP / SQUISH) to score other algorithms later - or skip. Uploaded files show Simplify scores only. Press <b>Load Trace</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Candidate, Layers, and Results.",
       targets: ["#loadBtn", ".header-baseline"],
     },
   ];

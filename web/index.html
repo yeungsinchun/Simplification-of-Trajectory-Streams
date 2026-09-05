@@ -2119,14 +2119,14 @@
         <div class="upload-form">
           <div class="preloaded-row">
             <button type="button" id="preloadedTrigger" class="preloaded-trigger">
-              <span id="preloadedLabel">Select trace…</span>
+              <span id="preloadedLabel">Select trajectory…</span>
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </button>
             <!-- Real select kept for accessibility, hidden visually on mobile -->
             <select id="traceSelect" class="visually-hidden">
-              <option value="">Select trace...</option>
+              <option value="">Select trajectory...</option>
             </select>
           </div>
           <span class="or-divider" style="color: var(--text-dim); font-size: 12px; margin: 0 8px;">or</span>
@@ -2148,9 +2148,9 @@
           <div class="header-baseline" aria-label="Optional algorithms to compare against">
             <span class="header-baseline-label" title="Optional. Pick other algorithms to score against after Load Trace. Skip for a first run.">Compare:</span>
             <div class="baseline-algo-row" id="headerBaselineAlgoRow" role="group" aria-label="Compare algorithms">
-              <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" title="DOTS: another streaming simplifier to score against. Needs a preloaded trace.">DOTS</button>
-              <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Needs a preloaded trace.">DP</button>
-              <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" title="SQUISH: keeps about this percent of the original points. Needs a preloaded trace.">SQUISH</button>
+              <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" title="DOTS: another streaming simplifier to score against. Needs a preloaded trajectory.">DOTS</button>
+              <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Needs a preloaded trajectory.">DP</button>
+              <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" title="SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.">SQUISH</button>
             </div>
             <label class="baseline-field baseline-field--inline" id="headerBaselineLssdField" hidden title="DOTS distance limit in thousands (K). Larger keeps fewer points.">
               <span><span class="baseline-param-owner owner-dots">DOTS</span> limit</span>
@@ -2176,7 +2176,7 @@
         <ul>
           <li>Select a preloaded trajectory.</li>
           <li>Optionally adjust <b>&epsilon; match</b> (accuracy) and <b>&delta; grid</b> (search spacing), then tap <b>Load Trace</b>.</li>
-          <li>After <b>Load Trace</b>, open <b>Results</b> for scores. With a <b>preloaded</b> trace you can pick optional <b>Compare</b> algorithms and tap <b>Run compare</b>. Uploaded files show Simplify scores only.</li>
+          <li>After <b>Load Trace</b>, open <b>Results</b> for scores. With a <b>preloaded</b> trajectory you can pick optional <b>Compare</b> algorithms and tap <b>Run compare</b>. Uploaded files show Simplify scores only.</li>
           <li>Drag the visualization to pan and pinch to zoom.</li>
           <li>Use <b>Controls</b> for status and layers.</li>
           <li>Tap <b>Back</b> to choose another trajectory.</li>
@@ -2199,9 +2199,9 @@
             <p class="results-section-label" title="Optional algorithms to compare against the Simplify result">Compare algorithms</p>
             <div class="baseline-controls">
               <div class="baseline-algo-row" id="baselineAlgoRow" role="group" aria-label="Compare algorithms">
-                <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" title="DOTS: another streaming simplifier to score against. Needs a preloaded trace.">DOTS</button>
-                <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Needs a preloaded trace.">DP</button>
-                <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" title="SQUISH: keeps about this percent of the original points. Needs a preloaded trace.">SQUISH</button>
+                <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" title="DOTS: another streaming simplifier to score against. Needs a preloaded trajectory.">DOTS</button>
+                <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Needs a preloaded trajectory.">DP</button>
+                <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" title="SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.">SQUISH</button>
               </div>
               <div id="baselineParamFields" class="baseline-param-fields">
                 <label class="baseline-field" id="baselineLssdField" hidden title="DOTS distance limit in thousands (K). Larger keeps fewer points.">
@@ -2239,7 +2239,7 @@
                 </tr>
               </thead>
               <tbody id="compareMetricsBody">
-                <tr><td colspan="2" class="compare-metrics-empty">Load a trace to see scores. Optional: run Compare above (preloaded traces).</td></tr>
+                <tr><td colspan="2" class="compare-metrics-empty">Load a trajectory to see scores. Optional: run Compare above (preloaded trajectories).</td></tr>
               </tbody>
             </table>
             </div>
@@ -2277,7 +2277,7 @@
             </div>
             <div class="big">Choose a trajectory to get started</div>
             <div class="dropHint-sub">
-              Select a <b>preloaded trace</b> or click <b>Upload trajectory</b>, optionally pick <b>Compare</b> (preloaded only), leave <b>&epsilon; match</b> / <b>&delta; grid</b> at defaults (or tweak them), then <b>Load Trace</b>
+              Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>, optionally pick <b>Compare</b> (preloaded only), leave <b>&epsilon; match</b> / <b>&delta; grid</b> at defaults (or tweak them), then <b>Load Trace</b>
             </div>
             <div class="dropHint-format">
               Format: first line <code>N</code>, then <code>N</code> lines of <code>"x y"</code>
@@ -2285,12 +2285,10 @@
             <div class="desktop-instructions">
               <h2>Instructions</h2>
               <ul>
-                <li><kbd>←</kbd> / <kbd>→</kbd>: Previous / next step</li>
-                <li><kbd>Shift</kbd> + <kbd>←</kbd> / <kbd>→</kbd>: Previous / next segment</li>
-                <li><kbd>Space</kbd>: Play / pause</li>
-                <li><kbd>C</kbd> / <kbd>X</kbd>: Next / previous candidate</li>
-                <li><b>Drag</b>: Pan</li>
-                <li><b>Scroll</b>: Zoom</li>
+                <li>Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>.</li>
+                <li>Optionally adjust <b>&epsilon; match</b> (accuracy) and <b>&delta; grid</b> (search spacing), then press <b>Load Trace</b>.</li>
+                <li>After load, open <b>Results</b> for scores. With a preloaded trajectory you can pick optional <b>Compare</b> algorithms and press <b>Run</b> (or <b>Run compare</b> in Results). Uploads show Simplify scores only.</li>
+                <li><b>Drag</b> to pan and <b>scroll</b> to zoom. Keyboard shortcuts for Step / Segment / Candidate live in the right-side Instructions after load.</li>
               </ul>
             </div>
           </div>
@@ -2428,7 +2426,7 @@
             <summary id="accordionBaselineSummary">Compare</summary>
             <div class="layer-acc-body">
               <div id="baselineLayerToggles"></div>
-              <p id="baselineLayerHint" class="baseline-layer-hint">Compare works with preloaded traces. Open Results, pick DOTS / DP / SQUISH, then press Run compare (on wider screens, Run beside Compare also works). Uploaded files show Simplify scores only.</p>
+              <p id="baselineLayerHint" class="baseline-layer-hint">Compare works with preloaded trajectories. Open Results, pick DOTS / DP / SQUISH, then press Run compare (on wider screens, Run beside Compare also works). Uploaded files show Simplify scores only.</p>
             </div>
           </details>
         </div>
@@ -2478,7 +2476,7 @@
 <!-- Full-screen trace picker overlay (mobile) -->
 <div id="tracePicker" class="trace-picker" aria-hidden="true">
   <div class="trace-picker-header">
-    <h2>Choose a preloaded trace</h2>
+    <h2>Choose a preloaded trajectory</h2>
     <button type="button" id="tracePickerClose" class="trace-picker-close" aria-label="Close">
       <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
     </button>

@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Desktop empty-canvas Instructions showed playback keys before load (resolved)
+
+**Where:** `#dropHint .desktop-instructions` on the empty canvas (desktop only); start picker `#preloadedLabel` / `#tracePicker` heading; loading status strings.
+
+**Problem:** Before any trajectory loaded, desktop Instructions listed ←/→ Step, Segment, Candidate, and Space Play shortcuts. Novices who skipped the tour saw expert replay keys instead of how to start. The picker still said `Select trace…` / `Choose a preloaded trace` while Upload already said `trajectory`, and status used `Computing trace…` / `Loaded Trace N`.
+
+**Fix:** Desktop empty Instructions now mirror the mobile start path (pick / upload → ε match / δ grid → Load Trace → Results / Compare), and point to the sidebar for keyboard shortcuts after load. Picker and user-facing copy say `trajectory`; status reads `Computing…` / `✓ Loaded <id>`.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/desktop-start-instructions.html`
+- Fixture screenshot (900px): `web/usability/desktop-start-instructions.png`
+
 ### Results metrics heading said Compare while scores appear without it (resolved)
 
 **Where:** Results panel `#resultsPanel` second section label; empty-canvas `#dropHint` headline.
