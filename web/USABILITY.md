@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Map overlays said Still-allowed area (resolved)
+
+**Where:** Map overlays `#toggle-F` / `#toggle-F-Si` labels/tooltips and `#toggle-S` Next-point zone tooltip.
+
+**Problem:** Match / Match error / Match limit already shared Match vocabulary, but the blue/cyan overlays still said `Still-allowed area` / `Still-allowed (this option)`. Skip-tour users could not tell those areas are the residual region within the Match limit that Next-point zone is cut from.
+
+**Fix:** Labels read `Match-safe area` and `Match-safe (this option)`. Related tooltips and the Next-point zone tip reuse those names. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/match-safe-area.html`
+- Fixture screenshot (900px): `web/usability/match-safe-area.png`
+
 ### Map overlays said Path so far (resolved)
 
 **Where:** Map overlays `#toggle-simplified` label/tooltip, Gray path / Full green path tooltips, and playback Map overlays tour copy.
