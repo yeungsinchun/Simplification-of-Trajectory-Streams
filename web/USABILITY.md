@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Server Match-error / Compare failures still said simplified path / algorithm (resolved)
+
+**Where:** `web/server.py` Match-error and stream failure messages, Compare API param metadata, and the Results tiny-Match-error note in `web/viewer.js`.
+
+**Problem:** Idle UI already used `green path` / `methods` / `budget` / `match` / `keep %`, but rare server failures still said `simplified path` / `Compare algorithm` / `Simplification took too long` / `Could not simplify`, API Compare metadata still said `DOTS LSSD` / `DP PED ε` / `SQUISH Ratio`, and the Scores tiny-value note said `compare match-error`. Those strings bypass most start-screen copy and still reach novices.
+
+**Fix:** Server errors say `green path` / `Compare method` / `Building the green path`; Compare metadata says `DOTS budget` / `DP match` / `SQUISH keep %`; the Scores note says `Compare Match error`. Client `plainUserError` also rewrites residual `simplified path` / simplify-timeout wording. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/server-errors-green-path-methods.html`
+- Fixture screenshot (900px): `web/usability/server-errors-green-path-methods.png`
+
 ### Compare DP still said match error / DOTS distance budget (resolved)
 
 **Where:** Results and header Compare param fields for DP / DOTS / SQUISH, plus client and server validation errors.

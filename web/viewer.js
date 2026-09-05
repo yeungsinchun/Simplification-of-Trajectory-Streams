@@ -606,7 +606,7 @@
       if (tiny) {
         compareFrechetNote.hidden = false;
         compareFrechetNote.textContent =
-          "A compare match-error value is tiny but not exact zero; that can happen when the compare path keeps most of the original points.";
+          "A Compare Match error value is tiny but not exact zero; that can happen when the Compare path keeps most of the original points.";
       } else {
         compareFrechetNote.hidden = true;
         compareFrechetNote.textContent = "";
@@ -965,8 +965,18 @@
     if (lower.includes("invalid epsilon") || lower.includes("invalid delta")) {
       return "Match and Grid must be valid numbers.";
     }
-    if (lower.includes("unknown curve") || lower.includes("unknown algorithm")) {
+    if (lower.includes("unknown curve") || lower.includes("unknown algorithm") || lower.includes("unknown compare method")) {
       return "That Compare or Match error option is not available.";
+    }
+    if (
+      lower.includes("simplified path")
+      || lower.includes("could not simplify")
+      || lower.includes("simplification took too long")
+    ) {
+      return raw
+        .replace(/simplified path/gi, "green path")
+        .replace(/Could not simplify this trajectory/gi, "Could not build the green path for this trajectory")
+        .replace(/Simplification took too long/gi, "Building the green path took too long");
     }
     if (lower.includes("lssd") || lower.includes("baseline parameter")) {
       return "Compare settings must be valid numbers.";

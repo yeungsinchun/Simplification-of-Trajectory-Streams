@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Server errors green path / methods</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+  }
+  * { box-sizing: border-box; }
+  html, body { width: 900px; max-width: 900px; overflow-x: hidden; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    padding: 16px;
+  }
+  h1 { font-size: 15px; margin: 0 0 6px; }
+  p { margin: 0 0 12px; color: var(--text-dim); font-size: 12px; max-width: 720px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .label {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .err, .meta, .note {
+    display: block;
+    padding: 6px 10px;
+    background: #1a1f2b;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .err { color: #ff8a94; }
+  #check {
+    margin-top: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+  <h1>simplified path / algorithm → green path / method</h1>
+  <p>
+    Before: rare server Match-error and Compare failures still said
+    <b>simplified path</b> / <b>Compare algorithm</b>, API Compare param metadata
+    still said <b>DOTS LSSD</b> / <b>DP PED ε</b> / <b>SQUISH Ratio</b>, and the
+    Scores tiny-Match-error note said <b>compare match-error</b>.
+    After: those strings share <b>green path</b> / <b>method</b> /
+    <b>budget</b> / <b>match</b> / <b>keep %</b> / <b>Match error</b> wording.
+  </p>
+  <div class="grid">
+    <div class="frame" id="before">
+      <div class="label">Before</div>
+      <span class="err">No simplified path is ready for Match error yet.</span>
+      <span class="err">Unknown Compare algorithm. Choose DOTS, DP, or SQUISH.</span>
+      <span class="err">Simplification took too long. Try a shorter trajectory or a larger Match / Grid.</span>
+      <span class="err">Could not simplify this trajectory. Try again in a moment.</span>
+      <span class="meta">DOTS LSSD · unit K</span>
+      <span class="meta">DP PED ε</span>
+      <span class="meta">SQUISH Ratio</span>
+      <span class="note">A compare match-error value is tiny but not exact zero; that can happen when the compare path keeps most of the original points.</span>
+    </div>
+    <div class="frame" id="after">
+      <div class="label">After</div>
+      <span class="err" id="readyErr">No green path is ready for Match error yet.</span>
+      <span class="err" id="methodErr">Unknown Compare method. Choose DOTS, DP, or SQUISH.</span>
+      <span class="err" id="timeoutErr">Building the green path took too long. Try a shorter trajectory or a larger Match / Grid.</span>
+      <span class="err" id="failErr">Could not build the green path for this trajectory. Try again in a moment.</span>
+      <span class="meta" id="dotsMeta">DOTS budget · unit ×1k</span>
+      <span class="meta" id="dpMeta">DP match</span>
+      <span class="meta" id="squishMeta">SQUISH keep %</span>
+      <span class="note" id="tinyNote">A Compare Match error value is tiny but not exact zero; that can happen when the Compare path keeps most of the original points.</span>
+    </div>
+  </div>
+  <div id="check"></div>
+  <script>
+    const before = document.getElementById("before");
+    const after = document.getElementById("after");
+    const beforeText = before.innerText;
+    const afterText = after.innerText;
+
+    const beforeOld = beforeText.includes("simplified path")
+      && beforeText.includes("Compare algorithm")
+      && beforeText.includes("Simplification took too long")
+      && beforeText.includes("Could not simplify")
+      && beforeText.includes("DOTS LSSD")
+      && beforeText.includes("DP PED")
+      && beforeText.includes("SQUISH Ratio")
+      && beforeText.includes("compare match-error");
+    const afterOk = afterText.includes("green path is ready")
+      && afterText.includes("Compare method")
+      && afterText.includes("Building the green path took too long")
+      && afterText.includes("Could not build the green path")
+      && afterText.includes("DOTS budget")
+      && afterText.includes("×1k")
+      && afterText.includes("DP match")
+      && afterText.includes("SQUISH keep %")
+      && afterText.includes("Compare Match error")
+      && !afterText.includes("simplified path")
+      && !afterText.includes("algorithm")
+      && !afterText.includes("DOTS LSSD")
+      && !afterText.includes("PED")
+      && !afterText.includes("Ratio")
+      && !afterText.includes("match-error")
+      && !afterText.toLowerCase().includes("simplification took");
+    const scrollOk = document.documentElement.scrollWidth <= 900;
+    const ok = beforeOld && afterOk && scrollOk;
+    document.getElementById("check").textContent =
+      `ok=${ok} beforeOld=${beforeOld} afterOk=${afterOk} scrollWidth=${document.documentElement.scrollWidth}`;
+  </script>
+</body>
+</html>

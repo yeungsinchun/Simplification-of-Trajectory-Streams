@@ -158,7 +158,7 @@ def stream_simplify_trace(cmd, label):
             proc.wait()
             yield json.dumps({
                 'type': 'error',
-                'message': 'Simplification took too long. Try a shorter trajectory or a larger Match / Grid.',
+                'message': 'Building the green path took too long. Try a shorter trajectory or a larger Match / Grid.',
             }) + '\n'
             return
         except Exception as e:
@@ -167,7 +167,7 @@ def stream_simplify_trace(cmd, label):
             print(f"[{label}] simplify exception: {e}")
             yield json.dumps({
                 'type': 'error',
-                'message': 'Could not simplify this trajectory. Try again in a moment.',
+                'message': 'Could not build the green path for this trajectory. Try again in a moment.',
             }) + '\n'
             return
 
@@ -178,7 +178,7 @@ def stream_simplify_trace(cmd, label):
             print(f"[{label}] simplify failed: {err or 'no stderr'}")
             yield json.dumps({
                 'type': 'error',
-                'message': 'Could not simplify this trajectory. Try again, or pick another trajectory.',
+                'message': 'Could not build the green path for this trajectory. Try again, or pick another trajectory.',
             }) + '\n'
 
     return Response(
@@ -284,9 +284,9 @@ def get_trace_compare(trace_id):
     Query:
       algorithm: none|dots|dp|squish (default none)
       run: 1 to execute the baseline binary
-      lssd: DOTS LSSD threshold (default 1e6 / 1000K)
-      epsilon: DP PED epsilon (default 0.9)
-      ratio: SQUISH compression ratio in (0, 1] (default 0.2)
+      lssd: DOTS budget (default 1e6 / 1000×1k)
+      epsilon: DP match limit (default 0.9)
+      ratio: SQUISH keep fraction in (0, 1] (default 0.2)
     """
     trace_dir = DATA_DIR / str(trace_id)
     if not trace_dir.exists() or not (trace_dir / 'original.txt').exists():
@@ -298,7 +298,7 @@ def get_trace_compare(trace_id):
     run = request.args.get('run', '0') in ('1', 'true', 'yes')
 
     if algorithm not in ('none',) and algorithm not in BASELINE_ALGOS:
-        return jsonify({'error': 'Unknown Compare algorithm. Choose DOTS, DP, or SQUISH.'}), 400
+        return jsonify({'error': 'Unknown Compare method. Choose DOTS, DP, or SQUISH.'}), 400
 
     lssd = 1e6
     dp_eps = 0.9
@@ -401,13 +401,13 @@ def get_trace_compare(trace_id):
         'dots_error': baseline_error if algorithm == 'dots' else None,
         'algorithms': [
             {'id': 'dots', 'label': 'DOTS', 'params': [
-                {'id': 'lssd', 'label': 'DOTS LSSD', 'type': 'number', 'default': 1e6, 'unit': 'K', 'min': 1e-3, 'step': 1},
+                {'id': 'lssd', 'label': 'DOTS budget', 'type': 'number', 'default': 1e6, 'unit': '×1k', 'min': 1e-3, 'step': 1},
             ]},
             {'id': 'dp', 'label': 'DP', 'params': [
-                {'id': 'epsilon', 'label': 'DP PED ε', 'type': 'number', 'default': 0.9, 'min': 1e-9, 'step': 0.1},
+                {'id': 'epsilon', 'label': 'DP match', 'type': 'number', 'default': 0.9, 'min': 1e-9, 'step': 0.1},
             ]},
             {'id': 'squish', 'label': 'SQUISH', 'params': [
-                {'id': 'ratio', 'label': 'SQUISH Ratio', 'type': 'number', 'default': 20, 'unit': '%', 'min': 0.01, 'max': 100, 'step': 1},
+                {'id': 'ratio', 'label': 'SQUISH keep %', 'type': 'number', 'default': 20, 'unit': '%', 'min': 0.01, 'max': 100, 'step': 1},
             ]},
         ],
     })
@@ -442,7 +442,7 @@ def frechet_existing_curve(trace_id, curve):
             simplified = candidate
             break
     if simplified is None:
-        return jsonify({'error': f'No simplified path is ready for Match error yet.'}), 404
+        return jsonify({'error': 'No green path is ready for Match error yet.'}), 404
 
     request_id = f'{trace_id}_{curve}_{uuid.uuid4().hex[:8]}'
     try:
@@ -503,7 +503,7 @@ def get_trace(trace_id):
     
     except Exception as e:
         print(f"[Trace {trace_id}] {e}")
-        return jsonify({'error': 'Could not simplify this trajectory. Try again in a moment.'}), 500
+        return jsonify({'error': 'Could not build the green path for this trajectory. Try again in a moment.'}), 500
 
 # --- Trace generation endpoint ---
 
@@ -591,7 +591,7 @@ def generate_trace():
         if temp_dir.exists():
             shutil.rmtree(temp_dir, ignore_errors=True)
         print(f"[Upload] {e}")
-        return jsonify({'error': 'Could not simplify this trajectory. Try again in a moment.'}), 500
+        return jsonify({'error': 'Could not build the green path for this trajectory. Try again in a moment.'}), 500
 
 
 # --- Fréchet distance ---
