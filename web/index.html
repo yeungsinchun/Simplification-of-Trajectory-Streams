@@ -613,6 +613,46 @@
     flex-wrap: wrap;
   }
   #playbackBar.visible { display: flex; }
+  .pb-nav {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .pb-nav-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .pb-caption {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .pb-speed {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 8px;
+    flex-shrink: 0;
+  }
+  .pb-speed-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .pb-input {
+    width: 80px;
+    text-align: center;
+    background: #1e2330;
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 5px;
+    padding: 4px 8px;
+    font-size: 12px;
+  }
   .pb-group {
     display: flex;
     align-items: center;
@@ -1568,6 +1608,12 @@
     .headerBody { display: contents; }
     .playbackBody { display: contents; }
     #playbackBar .playback-handle { display: none; }
+    /* Keep step / segment / candidate / play / speed on one row so narrower
+       desktop widths do not grow the bar and shift the canvas. */
+    #playbackBar {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+    }
     .params:not(:empty) {
       flex: 1 1 100%;
       margin-left: 0;
@@ -1589,6 +1635,32 @@
     }
   }
 
+  /* Compact the playback chrome so 721-1100px stays one row without scrolling. */
+  @media (min-width: 721px) and (max-width: 1100px) {
+    #playbackBar {
+      gap: 4px;
+      padding: 6px 10px;
+    }
+    .pb-btn { min-width: 40px; padding: 4px 4px; }
+    .pb-btn--play { min-width: 48px; }
+    .pb-btn svg { width: 16px; height: 16px; }
+    .pb-divider { margin: 0 1px; height: 28px; }
+    .pb-nav-row { gap: 4px; }
+    .pb-speed { margin-left: 2px; gap: 3px; }
+    .pb-speed-label { display: none; }
+    .speed-preset { padding: 3px 5px !important; min-width: 28px; font-size: 11px; }
+    .pb-input { width: 56px; padding: 4px 4px; }
+  }
+
+  @media (min-width: 721px) and (max-width: 820px) {
+    .pb-caption { display: none; }
+    .pb-btn { min-width: 36px; }
+    .pb-btn--play { min-width: 44px; padding: 4px 6px; }
+    .pb-input { width: 50px; font-size: 11px; }
+    .speed-preset { padding: 2px 4px !important; min-width: 26px; font-size: 10px; }
+    #playbackBar { gap: 2px; padding: 5px 8px; }
+  }
+
   @media (min-width: 721px) and (max-width: 899px) {
     .upload-form { flex-wrap: wrap; }
     /* Ellipsis preview wraps to 2 rows here; filled numbers need 3. Reserve the
@@ -1602,7 +1674,7 @@
     header h1 { font-size: 14px; }
     .params { font-size: 11px; gap: 8px; }
     input[type="number"] { width: 100%; }
-    #stepInput, #segmentInput, #candidateInput { width: 64px; }
+    .pb-input { width: 64px; }
     .pb-btn { min-width: 42px; }
     .pb-btn--play { min-width: 50px; }
     .speed-preset { padding: 3px 6px !important; font-size: 11px; min-width: 30px; }
@@ -1613,7 +1685,7 @@
   /* Touch: prevent accidental pan/zoom while interacting with controls */
   @media (hover: none) {
     .pb-btn, button { padding: 10px 14px; }
-    input[type="number"], #stepInput, #segmentInput, #candidateInput { padding: 8px 10px; }
+    input[type="number"], .pb-input { padding: 8px 10px; }
   }
 
   /* ---------- Preloaded trace picker ---------- */
@@ -2116,49 +2188,49 @@
           <span class="playback-handle" aria-hidden="true"></span>
           <div class="playbackBody" id="playbackBody">
           <!-- Step navigation with input -->
-          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
-            <div style="display: flex; align-items: center; gap: 6px;">
+          <div class="pb-nav">
+            <div class="pb-nav-row">
               <button id="stepBackBtn" class="pb-btn" title="Previous step (←)">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
-              <input id="stepInput" type="text" style="width: 80px; text-align: center; background: #1e2330; color: var(--text); border: 1px solid var(--panel-border); border-radius: 5px; padding: 4px 8px; font-size: 12px;" placeholder="0 / 0" title="Current step / total steps">
+              <input id="stepInput" class="pb-input" type="text" placeholder="0 / 0" title="Current step / total steps">
               <button id="stepForwardBtn" class="pb-btn" title="Next step (→)">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
             </div>
-            <span style="font-size: 10px; color: var(--text-dim); font-weight: 500;">pts for current segment</span>
+            <span class="pb-caption" title="Points covered by the current simplified segment">Step</span>
           </div>
 
           <div class="pb-divider"></div>
 
           <!-- Segment navigation with input -->
-          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
-            <div style="display: flex; align-items: center; gap: 6px;">
+          <div class="pb-nav">
+            <div class="pb-nav-row">
               <button id="prefixBackBtn" class="pb-btn" title="Previous simplified segment (Shift+←)">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M19 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><line x1="5" y1="6" x2="5" y2="18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
               </button>
-              <input id="segmentInput" type="text" style="width: 80px; text-align: center; background: #1e2330; color: var(--text); border: 1px solid var(--panel-border); border-radius: 5px; padding: 4px 8px; font-size: 12px;" placeholder="0 / 0" title="Current segment / total segments">
+              <input id="segmentInput" class="pb-input" type="text" placeholder="0 / 0" title="Current segment / total segments">
               <button id="prefixForwardBtn" class="pb-btn" title="Next simplified segment (Shift+→)">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M5 18l6-6-6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><line x1="19" y1="6" x2="19" y2="18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
               </button>
             </div>
-            <span style="font-size: 10px; color: var(--text-dim); font-weight: 500;">segments in simplified curve</span>
+            <span class="pb-caption" title="Segments in the simplified curve">Segment</span>
           </div>
 
           <div class="pb-divider"></div>
 
           <!-- Candidate navigation with input -->
-          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
-            <div style="display: flex; align-items: center; gap: 6px;">
+          <div class="pb-nav">
+            <div class="pb-nav-row">
               <button id="candidateBackBtn" class="pb-btn" title="Previous candidate">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
-              <input id="candidateInput" type="text" style="width: 80px; text-align: center; background: #1e2330; color: var(--text); border: 1px solid var(--panel-border); border-radius: 5px; padding: 4px 8px; font-size: 12px;" placeholder="0 / 0" title="Current candidate / total candidates">
+              <input id="candidateInput" class="pb-input" type="text" placeholder="0 / 0" title="Current candidate / total candidates">
               <button id="candidateForwardBtn" class="pb-btn" title="Next candidate (C)">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
             </div>
-            <span style="font-size: 10px; color: var(--text-dim); font-weight: 500;">boundary anchors</span>
+            <span class="pb-caption" title="Candidate points on the search boundary">Candidate</span>
           </div>
 
           <div class="pb-divider"></div>
@@ -2173,8 +2245,8 @@
           </button>
 
           <!-- Speed -->
-          <div style="display:flex; align-items:center; gap:6px; margin-left:8px;">
-            <span style="font-size:11px; color:var(--text-dim);">Speed</span>
+          <div class="pb-speed">
+            <span class="pb-speed-label">Speed</span>
             <button class="speed-preset" data-speed="0.25">0.25×</button>
             <button class="speed-preset" data-speed="0.5">0.5×</button>
             <button class="speed-preset active" data-speed="1">1×</button>

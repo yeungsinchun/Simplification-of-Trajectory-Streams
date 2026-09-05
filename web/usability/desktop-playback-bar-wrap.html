@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Desktop playback bar wrap</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+    --accent: #4f9dff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+  }
+  h1 { font-size: 16px; margin: 0 0 6px; }
+  p { margin: 0 0 14px; color: var(--text-dim); font-size: 12px; }
+  section { padding: 16px; }
+  .label {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .stage {
+    width: 900px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .canvas-stub {
+    height: 72px;
+    background: #0b0e14;
+    border-bottom: 1px solid var(--panel-border);
+  }
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: var(--panel);
+  }
+  .problem.bar { flex-wrap: wrap; }
+  .fixed.bar {
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 6px 10px;
+  }
+  .nav {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .row { display: flex; align-items: center; gap: 6px; }
+  .fixed .row { gap: 4px; }
+  .btn {
+    min-width: 56px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    border: none;
+    background: #1a1f2b;
+    color: var(--text);
+    font-size: 11px;
+  }
+  .fixed .btn { min-width: 40px; padding: 4px; }
+  .play {
+    min-width: 64px;
+    background: var(--accent);
+    color: #0b0e14;
+    font-weight: 600;
+  }
+  .fixed .play { min-width: 48px; }
+  .inp {
+    width: 80px;
+    text-align: center;
+    background: #1e2330;
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 5px;
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  .fixed .inp { width: 56px; padding: 4px; }
+  .cap {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .divider {
+    width: 1px;
+    height: 36px;
+    background: var(--panel-border);
+    margin: 0 4px;
+    flex-shrink: 0;
+  }
+  .fixed .divider { margin: 0 1px; height: 28px; }
+  .speed {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 8px;
+    flex-shrink: 0;
+  }
+  .fixed .speed { margin-left: 2px; gap: 3px; }
+  .speed span { font-size: 11px; color: var(--text-dim); }
+  .fixed .speed span { display: none; }
+  .preset {
+    padding: 4px 9px;
+    font-size: 12px;
+    background: var(--bg);
+    border: 1px solid var(--panel-border);
+    color: var(--text-dim);
+    min-width: 36px;
+    border-radius: 5px;
+  }
+  .fixed .preset { padding: 3px 5px; min-width: 28px; font-size: 11px; }
+  .preset.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0B0E14;
+    font-weight: 600;
+  }
+  .meta {
+    margin-top: 8px;
+    font-size: 12px;
+  }
+  .bad { color: #ffb4bc; }
+  .ok { color: #3ddc97; }
+</style>
+</head>
+<body>
+<section>
+  <h1>Desktop playback bar wrap</h1>
+  <p>At 900-1024px the long captions forced Speed onto a second row (~91px). Short Step / Segment / Candidate labels plus compact chrome keep one row (~53px).</p>
+
+  <div class="label">Before (900px) - Speed wraps</div>
+  <div class="stage">
+    <div class="canvas-stub"></div>
+    <div class="bar problem" id="beforeBar">
+      <div class="nav">
+        <div class="row"><button class="btn">‹</button><input class="inp" value="12 / 45" readonly /><button class="btn">›</button></div>
+        <span class="cap">pts for current segment</span>
+      </div>
+      <div class="divider"></div>
+      <div class="nav">
+        <div class="row"><button class="btn">‹‹</button><input class="inp" value="3 / 18" readonly /><button class="btn">››</button></div>
+        <span class="cap">segments in simplified curve</span>
+      </div>
+      <div class="divider"></div>
+      <div class="nav">
+        <div class="row"><button class="btn">‹</button><input class="inp" value="2 / 7" readonly /><button class="btn">›</button></div>
+        <span class="cap">boundary anchors</span>
+      </div>
+      <div class="divider"></div>
+      <button class="btn play">Play</button>
+      <div class="speed">
+        <span>Speed</span>
+        <button class="preset">0.25×</button>
+        <button class="preset">0.5×</button>
+        <button class="preset active">1×</button>
+        <button class="preset">2×</button>
+        <button class="preset">4×</button>
+      </div>
+    </div>
+  </div>
+  <div class="meta bad" id="beforeMeta"></div>
+
+  <div class="label" style="margin-top:18px;">After (900px) - single row</div>
+  <div class="stage">
+    <div class="canvas-stub"></div>
+    <div class="bar fixed" id="afterBar">
+      <div class="nav">
+        <div class="row"><button class="btn">‹</button><input class="inp" value="12 / 45" readonly /><button class="btn">›</button></div>
+        <span class="cap">Step</span>
+      </div>
+      <div class="divider"></div>
+      <div class="nav">
+        <div class="row"><button class="btn">‹‹</button><input class="inp" value="3 / 18" readonly /><button class="btn">››</button></div>
+        <span class="cap">Segment</span>
+      </div>
+      <div class="divider"></div>
+      <div class="nav">
+        <div class="row"><button class="btn">‹</button><input class="inp" value="2 / 7" readonly /><button class="btn">›</button></div>
+        <span class="cap">Candidate</span>
+      </div>
+      <div class="divider"></div>
+      <button class="btn play">Play</button>
+      <div class="speed">
+        <span>Speed</span>
+        <button class="preset">0.25×</button>
+        <button class="preset">0.5×</button>
+        <button class="preset active">1×</button>
+        <button class="preset">2×</button>
+        <button class="preset">4×</button>
+      </div>
+    </div>
+  </div>
+  <div class="meta ok" id="afterMeta"></div>
+</section>
+<script>
+  function summarize(bar, meta) {
+    const speed = bar.querySelector('.speed');
+    const barTop = bar.getBoundingClientRect().top;
+    const speedTop = speed.getBoundingClientRect().top;
+    const wrapped = speedTop - barTop > 20;
+    meta.textContent = `height ${Math.round(bar.getBoundingClientRect().height)}px · Speed ${wrapped ? 'wrapped to next row' : 'stays on first row'}`;
+  }
+  summarize(document.getElementById('beforeBar'), document.getElementById('beforeMeta'));
+  summarize(document.getElementById('afterBar'), document.getElementById('afterMeta'));
+</script>
+</body>
+</html>

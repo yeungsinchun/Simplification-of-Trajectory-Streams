@@ -309,10 +309,27 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture: `web/usability/first-visit-tour.html`
 - Fixture screenshot: `web/usability/first-visit-tour.png`
 
+### Desktop playback bar wrapped Speed onto a second row
+
+**Where:** desktop `#playbackBar`, especially 721-1024px after stream geometry arrives.
+
+**Problem:** Long captions (`pts for current segment`, `segments in simplified curve`, `boundary anchors`) plus full-size inputs made the bar wider than the canvas. Speed presets wrapped under the nav groups, so bar height jumped from about 61px (1280) to about 91px (1024/900). Resizing the window shifted the canvas.
+
+**Fix:** Captions are plain `Step` / `Segment` / `Candidate` (with longer `title` tooltips). Desktop keeps `flex-wrap: nowrap`. Between 721px and 1100px the bar uses compact button/input/speed sizes, and below 820px the captions hide. Height stays one row: 61px at 1280, 53px at 1024/900, 48px at 721, with no horizontal scroll.
+
+**Evidence:**
+
+- Desktop live (1280px): `web/usability/desktop-playback-bar-wrap-1280-live.png`
+- Desktop live (1024px): `web/usability/desktop-playback-bar-wrap-1024-live.png`
+- Desktop live (900px): `web/usability/desktop-playback-bar-wrap-900-live.png`
+- Desktop live (721px): `web/usability/desktop-playback-bar-wrap-721-live.png`
+- Mobile regression (390px, desktop bar hidden): `web/usability/desktop-playback-bar-wrap-390-regression-live.png`
+- Before/after markup fixture: `web/usability/desktop-playback-bar-wrap.html`
+- Fixture screenshot: `web/usability/desktop-playback-bar-wrap.png`
+
 ## Still open
 
-A 721 / 900 / 1280 / 390 loading-to-loaded pass now keeps header height stable (214 / 150 / 116 / 117). Remaining items for a later pass:
+A 721 / 900 / 1024 / 1280 playback pass now keeps the desktop bar on one row (48 / 53 / 53 / 61). Remaining items for a later pass:
 
 - At 900px a nested MathJax assistive `mjx-container` for \(S_i[p]\) still has a bounding box about 10px past the window. The visible formula ends at 882px, `#sidebar` clips overflow-x, and `documentElement.scrollWidth` stays 900.
-- Desktop playback-bar height still grows from 91px (1280) to about 108px (1024/900) because the bar wraps; treat wrap as a problem only if a control is clipped or untappable.
 - Cloud Run auto-deploy workflow exists (`.github/workflows/deploy.yml`) but still needs the `GCP_SA_KEY` repository secret before pushes to `main` can publish.
