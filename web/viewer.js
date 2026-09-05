@@ -614,11 +614,11 @@
     }
 
     const matchErrorLabel =
-      '<td title="How far each path drifts from the original. Lower is better.">Match error</td>';
+      '<td title="How far each path drifts from the Gray path. Lower is better.">Match error</td>';
     const keptPointsLabel =
       '<td title="Number of points kept on each path. Same idea as kept points in the header.">Kept points</td>';
     const keptPctLabel =
-      '<td title="Kept points as a percent of the original. Same idea as kept % in the header.">Kept %</td>';
+      '<td title="Kept points as a percent of original points. Same idea as kept % in the header.">Kept %</td>';
 
     if (!algos.length) {
       compareMetricsBody.innerHTML = `
@@ -1183,11 +1183,11 @@
     const pendingStyle = simplifiedLen == null ? "color:var(--text-dim)" : "";
 
     return [
-      paramChip("Match", epsilonValue, "Match tolerance (ε): how closely the green path must follow the original. Smaller keeps more detail."),
-      paramChip("Grid", deltaValue, "Search-grid spacing (δ) used while finding the green path."),
+      paramChip("Match", epsilonValue, "Match tolerance (ε): how closely the green path must follow the Gray path. Smaller keeps more detail."),
+      paramChip("Grid", deltaValue, "Grid spacing (δ) used while finding the green path."),
       paramChip("grid cell", gridLength, "Length of one Grid cell used while searching for the green path."),
       paramChip("circle radius", diskRadius, "Radius of the Start-point circle and Current-point circle overlays while looking for the next green-path point."),
-      paramChip("match limit", expectedFrechet, "Upper Match limit for this run: how far the green path may drift from the original. Same idea as the Match field."),
+      paramChip("match limit", expectedFrechet, "Upper Match limit for this run: how far the green path may drift from the Gray path. Same idea as the Match field."),
       paramChip(
         "saved Match",
         actualFrechet,
@@ -1196,7 +1196,7 @@
       ),
       paramChip("original points", streamLen, "Number of points on the original trajectory."),
       paramChip("kept points", simplifiedLen != null ? simplifiedLen : "…", "Number of points kept on the green path.", pendingStyle),
-      paramChip("kept %", ratio, "Kept points as a percent of the original.", pendingStyle),
+      paramChip("kept %", ratio, "Kept points as a percent of original points.", pendingStyle),
     ].join("");
   }
 
@@ -1208,7 +1208,7 @@
 
   function renderParamsBarPreview() {
     const loadingMetrics = `
-      ${paramsBlueMetric("Match error", "", true, "frechet", "How far the green path drifts from the original. Lower is better.")}
+      ${paramsBlueMetric("Match error", "", true, "frechet", "How far the green path drifts from the Gray path. Lower is better.")}
       ${paramsBlueMetric("Time", "", true, "time", "How long this run took.")}`;
     if (isMobileUI()) {
       paramsBar.innerHTML = loadingMetrics;
@@ -1974,7 +1974,7 @@
       : (frechetUnavailable ? "unavailable" : "");
     const frechetTitle = frechetUnavailable
       ? "Match error could not be computed for this run."
-      : "How far the green path drifts from the original. Lower is better.";
+      : "How far the green path drifts from the Gray path. Lower is better.";
     const computedFrechetDisplay = paramsBlueMetric(
       "Match error",
       computedFrechetValue,
@@ -3264,7 +3264,7 @@
     },
     {
       title: "Accuracy controls",
-      body: "<b>Match</b> is how closely the green path must match the original (smaller keeps more detail). <b>Grid</b> is the search-grid spacing. Defaults are fine for a first run.",
+      body: "<b>Match</b> is how closely the green path must match the Gray path (smaller keeps more detail). <b>Grid</b> is search spacing. Defaults are fine for a first run.",
       targets: ["#epsilonInput", "#deltaInput"],
     },
     {
@@ -3277,7 +3277,7 @@
   const playbackTourSteps = [
     {
       title: "Replay how it was built",
-      body: "The green path is shorter than the gray original. These controls walk through the algorithm so you can see each choice over time.",
+      body: "The green path is shorter than the Gray path. These controls walk through the algorithm so you can see each choice over time.",
       targets: ["#playbackBar", "#mobileTransport"],
     },
     {

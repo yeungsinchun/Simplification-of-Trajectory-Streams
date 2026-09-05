@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Match / Match error still said the original (resolved)
+
+**Where:** Match form/chip titles, Match error Scores footer and tips, match limit / kept % tips, Gray path overlay tip, Accuracy tour, and playback-tour intro.
+
+**Problem:** Map overlays and Step already used `Gray path`, but Match / Match error / tour tips still said `the original` / `gray original`. Skip-tour users mapping Match error to the Gray path overlay could not tell those tips meant that same path.
+
+**Fix:** Tips say `Gray path` / `original points` (count metric kept). Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/match-error-gray-path.html`
+- Fixture screenshot (900px): `web/usability/match-error-gray-path.png`
+
 ### Step still said original points (resolved)
 
 **Where:** Status Step tooltip, desktop/mobile Step titles and aria-labels, Instructions gloss, playback tour Step copy, and Status point-index title.
