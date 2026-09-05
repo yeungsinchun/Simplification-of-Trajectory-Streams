@@ -1203,7 +1203,7 @@
       paramChip("Grid", deltaValue, "Grid spacing (δ) used while finding the green path. A smaller Grid uses finer spacing."),
       paramChip("grid cell", gridLength, "Length of one Grid cell used while finding the green path."),
       paramChip("circle radius", diskRadius, "Radius of the Start-point circle and Current-point circle overlays while finding the next green-path point."),
-      paramChip("match limit", expectedFrechet, "Upper Match limit for this run: how far the green path may drift from the Gray path. Same idea as the Match field."),
+      paramChip("match limit", expectedFrechet, "Match limit for this run (same idea as the Match field): how far the green path may drift from the Gray path. A smaller match limit keeps a more detailed green path."),
       paramChip(
         "saved Match",
         actualFrechet,

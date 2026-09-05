@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### match limit chip tip lagged Match’s smaller/outcome guidance (resolved)
+
+**Where:** Loaded `#paramsBar` `match limit` chip title in `web/viewer.js`.
+
+**Problem:** After Match and DP tips said `A smaller Match/match keeps a more detailed green path`, the `match limit` chip still led with `Upper Match limit` and had no smaller/outcome sentence. Skip-tour users long-pressing that chip could not map it to the same Match vocabulary.
+
+**Fix:** Tip says `Match limit for this run (same idea as the Match field)` plus `A smaller match limit keeps a more detailed green path`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/match-limit-detailed-green-path.html`
+- Fixture screenshot (900px): `web/usability/match-limit-detailed-green-path.png`
+
 ### Grid tips lagged Match’s smaller/outcome guidance (resolved)
 
 **Where:** Grid form/chip titles and Accuracy tour in `web/index.html` / `web/viewer.js`.
