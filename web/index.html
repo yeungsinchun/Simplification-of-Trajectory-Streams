@@ -1526,6 +1526,14 @@
       appearance: none;
       margin: 0;
     }
+    /* Prefer plain Match / Grid over Greek ε / δ on phones (same idea as 721–899px). */
+    .upload-form .param-symbol { display: none; }
+    .upload-form .param-gloss {
+      display: inline;
+      color: var(--text);
+      font-weight: 600;
+      text-transform: capitalize;
+    }
     .upload-form button {
       min-height: 44px;
       border-radius: 8px;
@@ -2224,7 +2232,7 @@
               <input type="number" id="headerBaselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS distance budget in thousands" />
               <span class="baseline-field-unit" title="Entered in thousands (×1,000)">×1k</span>
             </label>
-            <label class="baseline-field baseline-field--inline" id="headerBaselineDpEpsField" hidden title="DP allowed point-to-edge error (same idea as ε match).">
+            <label class="baseline-field baseline-field--inline" id="headerBaselineDpEpsField" hidden title="DP allowed point-to-edge error (same idea as Match).">
               <span><span class="baseline-param-owner owner-dp">DP</span> match</span>
               <input type="number" id="headerBaselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP match error" />
             </label>
@@ -2242,7 +2250,7 @@
         <h2>Instructions</h2>
         <ul>
           <li>Select a preloaded trajectory.</li>
-          <li>Optionally adjust <b>&epsilon; match</b> (accuracy) and <b>&delta; grid</b> (search spacing), then tap <b>Load</b>.</li>
+          <li>Optionally adjust <b>Match</b> (accuracy) and <b>Grid</b> (search spacing), then tap <b>Load</b>.</li>
           <li>Optionally pick <b>Compare</b> (DOTS / DP / SQUISH) above. After <b>Load</b>, open <b>Results</b> for scores and tap <b>Run compare</b>.</li>
           <li>Drag the visualization to pan and pinch to zoom.</li>
           <li>Use <b>Controls</b> for status and map overlays.</li>
@@ -2278,7 +2286,7 @@
                     <span class="baseline-field-unit" title="Entered in thousands (×1,000)">×1k</span>
                   </div>
                 </label>
-                <label class="baseline-field" id="baselineDpEpsField" hidden title="DP allowed point-to-edge error (same idea as ε match).">
+                <label class="baseline-field" id="baselineDpEpsField" hidden title="DP allowed point-to-edge error (same idea as Match).">
                   <span><span class="baseline-param-owner owner-dp">DP</span> match error</span>
                   <input type="number" id="baselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP match error" />
                 </label>
@@ -2345,7 +2353,7 @@
             </div>
             <div class="big">Choose a trajectory to get started</div>
             <div class="dropHint-sub">
-              Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>, optionally pick <b>Compare</b> (preloaded only), leave <b>&epsilon; match</b> / <b>&delta; grid</b> at defaults (or tweak them), then <b>Load</b>
+              Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>, optionally pick <b>Compare</b> (preloaded only), leave <b>Match</b> / <b>Grid</b> at defaults (or tweak them), then <b>Load</b>
             </div>
             <div class="dropHint-format">
               Format: first line <code>N</code> (point count), then <code>N</code> lines of <code>x y</code>
@@ -2354,7 +2362,7 @@
               <h2>Instructions</h2>
               <ul>
                 <li>Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>.</li>
-                <li>Optionally adjust <b>&epsilon; match</b> (accuracy) and <b>&delta; grid</b> (search spacing), then press <b>Load</b>.</li>
+                <li>Optionally adjust <b>Match</b> (accuracy) and <b>Grid</b> (search spacing), then press <b>Load</b>.</li>
                 <li>After load, open <b>Results</b> for scores. With a preloaded trajectory you can pick optional <b>Compare</b> algorithms and press <b>Run</b> (or <b>Run compare</b> in Results). Uploads show scores only.</li>
                 <li><b>Drag</b> to pan and <b>scroll</b> to zoom. Keyboard shortcuts for Step / Segment / Candidate live in the right-side Instructions after load.</li>
               </ul>
@@ -2469,10 +2477,10 @@
                 <label title="Full green result for the whole trajectory. Turn on to see the finished path anytime, even mid-playback."><input type="checkbox" id="toggle-final-simplify" /><span class="swatch" style="background:#3ddc97"></span>Full result path</label>
               </div>
               <div class="toggle-row">
-                <label title="Purple search circle around the start point of the current simplified piece (radius from δ grid). Same start point as in Status."><input type="checkbox" id="toggle-ball-p0" checked /><span class="swatch" style="background:#c47aff"></span>Search circle (start point)</label>
+                <label title="Purple search circle around the start point of the current simplified piece (radius from Grid). Same start point as in Status."><input type="checkbox" id="toggle-ball-p0" checked /><span class="swatch" style="background:#c47aff"></span>Search circle (start point)</label>
               </div>
               <div class="toggle-row">
-                <label title="Pink search circle around the current point being processed (radius from δ grid). Same current point as in Status."><input type="checkbox" id="toggle-ball-pi" checked /><span class="swatch" style="background:#ff7ae8"></span>Search circle (current point)</label>
+                <label title="Pink search circle around the current point being processed (radius from Grid). Same current point as in Status."><input type="checkbox" id="toggle-ball-pi" checked /><span class="swatch" style="background:#ff7ae8"></span>Search circle (current point)</label>
               </div>
               <div class="toggle-row">
                 <label title="Yellow region covering next-point options still being considered near the current point."><input type="checkbox" id="toggle-Gi" checked /><span class="swatch" style="background:#e8c547"></span>Candidate region</label>

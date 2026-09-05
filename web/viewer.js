@@ -963,7 +963,7 @@
       return raw.replace(/\b[Tt]race\b/g, "Trajectory").replace(/ not found/i, " was not found.");
     }
     if (lower.includes("invalid epsilon") || lower.includes("invalid delta")) {
-      return "Match error (ε) and grid (δ) must be valid numbers.";
+      return "Match and Grid must be valid numbers.";
     }
     if (lower.includes("unknown curve") || lower.includes("unknown algorithm")) {
       return "That Compare or Match error option is not available.";
@@ -1532,7 +1532,7 @@
     const eps = parseFloat(epsilonInput.value);
     const delta = parseFloat(deltaInput.value);
     if (isNaN(eps) || eps <= 0 || isNaN(delta) || delta <= 0) {
-      alert("Please enter positive numbers for ε match (accuracy) and δ grid (search spacing).");
+      alert("Please enter positive numbers for Match (accuracy) and Grid (search spacing).");
       return;
     }
 
@@ -3264,7 +3264,7 @@
     },
     {
       title: "Accuracy controls",
-      body: "<b>ε match</b> is how closely the simplified path must match the original (smaller keeps more detail). <b>δ grid</b> is the search-grid spacing. Defaults are fine for a first run.",
+      body: "<b>Match</b> is how closely the simplified path must match the original (smaller keeps more detail). <b>Grid</b> is the search-grid spacing. Defaults are fine for a first run.",
       targets: ["#epsilonInput", "#deltaInput"],
     },
     {

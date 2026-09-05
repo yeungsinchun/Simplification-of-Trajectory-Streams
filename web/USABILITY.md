@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Start help / tour / alerts still led with Greek ε / δ (resolved)
+
+**Where:** mobile and desktop start Instructions, empty-canvas drop hint, Accuracy tour step, invalid Match/Grid alert, server timeout / invalid-εδ JSON, DP Compare tooltips, search-circle layer tooltips; mobile form labels at max-width 720px.
+
+**Problem:** After loaded params chips and 721–899px fields preferred plain `Match` / `Grid`, start help, the first-visit Accuracy tour, validation alerts, and server errors still led with Greek `ε match` / `δ grid`. Phones also kept Greek symbols above the stacked number fields, so skip-tour users saw a different vocabulary than the chips.
+
+**Fix:** Instructions, tour, alerts, and server copy now lead with `Match` / `Grid`. Mobile form CSS hides Greek symbols and capitalizes the glosses (same idea as 721–899px). Wider desktop still shows `ε match` / `δ grid` on the form; ε / δ remain only in tooltips elsewhere. Fixture `scrollWidth` stays within 390.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/match-grid-help-copy.html`
+- Fixture screenshot (390px): `web/usability/match-grid-help-copy.png`
+
 ### Narrow desktop hid Match / Grid glosses (resolved)
 
 **Where:** start-screen `#epsilonInput` / `#deltaInput` labels at 721–899px; loaded `#paramsBar` chips for ε / δ.

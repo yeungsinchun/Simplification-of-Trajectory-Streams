@@ -158,7 +158,7 @@ def stream_simplify_trace(cmd, label):
             proc.wait()
             yield json.dumps({
                 'type': 'error',
-                'message': 'Simplification took too long. Try a shorter trajectory or coarser ε match / δ grid.',
+                'message': 'Simplification took too long. Try a shorter trajectory or a larger Match / Grid.',
             }) + '\n'
             return
         except Exception as e:
@@ -476,7 +476,7 @@ def get_trace(trace_id):
         epsilon = float(request.args.get('epsilon', 0.5))
         delta = float(request.args.get('delta', 300))
     except ValueError:
-        return jsonify({'error': 'Match error (ε) and grid (δ) must be valid numbers.'}), 400
+        return jsonify({'error': 'Match and Grid must be valid numbers.'}), 400
     
     try:
         import time
@@ -529,7 +529,7 @@ def generate_trace():
         epsilon = float(request.form.get('epsilon', 0.5))
         delta = float(request.form.get('delta', 300))
     except ValueError:
-        return jsonify({'error': 'Match error (ε) and grid (δ) must be valid numbers.'}), 400
+        return jsonify({'error': 'Match and Grid must be valid numbers.'}), 400
     
     # Validate basic format (first line should be an integer N)
     content = uploaded_file.read().decode('utf-8')
