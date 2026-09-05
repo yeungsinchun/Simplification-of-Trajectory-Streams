@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Narrow desktop hid Step/Segment/Candidate captions (resolved)
+
+**Where:** desktop `#playbackBar` `.pb-caption` at 721-820px.
+
+**Problem:** To keep the playback bar one row, full captions were `display: none` below 820px, so Step / Segment / Candidate became three identical `← 0/0 →` groups. Skip-tour users (and anyone who forgot the tour) could not tell the controls apart without hovering tooltips.
+
+**Fix:** At 721-820px the bar keeps short `Step` / `Seg` / `Cand` labels instead of hiding captions. Each nav group and input also has an aria-label matching the Instructions glosses. Fixture stays one row with `scrollWidth` within 820.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/playback-short-captions.html`
+- Fixture screenshot (820px): `web/usability/playback-short-captions.png`
+
 ### Speed chips lost meaning when the label hid; upload format showed quotes (resolved)
 
 **Where:** desktop `#playbackBar` `.speed-preset` buttons (especially 721-1100px where `.pb-speed-label` is `display: none`); empty-canvas `#dropHint .dropHint-format`.

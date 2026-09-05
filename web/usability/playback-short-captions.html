@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Playback short captions 721-820</title>
+<style>
+  html, body { max-width: 820px; width: 820px; margin: 0; overflow-x: hidden; }
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+    --accent: #3ddc97;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    padding: 12px;
+  }
+  h1 { font-size: 14px; margin: 0 0 4px; }
+  p { margin: 0 0 10px; color: var(--text-dim); font-size: 12px; }
+  .grid { display: flex; flex-direction: column; gap: 10px; max-width: 796px; }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 10px;
+  }
+  .label {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .bar {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 2px;
+    padding: 5px 8px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    overflow-x: auto;
+  }
+  .pb-nav {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .pb-nav-row { display: flex; align-items: center; gap: 4px; }
+  .pb-btn {
+    min-width: 36px;
+    height: 28px;
+    border: 1px solid var(--panel-border);
+    border-radius: 5px;
+    background: #1e2330;
+    color: var(--text);
+    font-size: 12px;
+  }
+  .pb-input {
+    width: 50px;
+    font-size: 11px;
+    text-align: center;
+    background: #1e2330;
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 5px;
+    padding: 4px;
+  }
+  .pb-caption {
+    font-size: 9px;
+    color: var(--text-dim);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .pb-caption-short { display: none; }
+  .before .pb-caption { display: none; }
+  .after .pb-caption-long { display: none; }
+  .after .pb-caption-short { display: inline; }
+  .ok { margin-top: 10px; font-size: 12px; color: var(--accent); }
+</style>
+</head>
+<body>
+  <h1>Narrow desktop playback captions (820px)</h1>
+  <p>Before: captions hidden, three identical ← 0/0 → groups. After: short Step / Seg / Cand labels stay visible.</p>
+  <div class="grid">
+    <div class="frame before">
+      <div class="label">Before</div>
+      <div class="bar" id="beforeBar">
+        <div class="pb-nav">
+          <div class="pb-nav-row">
+            <button class="pb-btn" type="button">←</button>
+            <input class="pb-input" value="0 / 0" readonly />
+            <button class="pb-btn" type="button">→</button>
+          </div>
+          <span class="pb-caption">Step</span>
+        </div>
+        <div class="pb-nav">
+          <div class="pb-nav-row">
+            <button class="pb-btn" type="button">←</button>
+            <input class="pb-input" value="0 / 0" readonly />
+            <button class="pb-btn" type="button">→</button>
+          </div>
+          <span class="pb-caption">Segment</span>
+        </div>
+        <div class="pb-nav">
+          <div class="pb-nav-row">
+            <button class="pb-btn" type="button">←</button>
+            <input class="pb-input" value="0 / 0" readonly />
+            <button class="pb-btn" type="button">→</button>
+          </div>
+          <span class="pb-caption">Candidate</span>
+        </div>
+      </div>
+    </div>
+    <div class="frame after">
+      <div class="label">After</div>
+      <div class="bar" id="afterBar">
+        <div class="pb-nav" role="group" aria-label="Step: walk along original points">
+          <div class="pb-nav-row">
+            <button class="pb-btn" type="button">←</button>
+            <input class="pb-input" value="0 / 0" readonly aria-label="Current Step / total Steps" />
+            <button class="pb-btn" type="button">→</button>
+          </div>
+          <span class="pb-caption"><span class="pb-caption-long">Step</span><span class="pb-caption-short">Step</span></span>
+        </div>
+        <div class="pb-nav" role="group" aria-label="Segment: jump between simplified pieces">
+          <div class="pb-nav-row">
+            <button class="pb-btn" type="button">←</button>
+            <input class="pb-input" value="0 / 0" readonly aria-label="Current Segment / total Segments" />
+            <button class="pb-btn" type="button">→</button>
+          </div>
+          <span class="pb-caption"><span class="pb-caption-long">Segment</span><span class="pb-caption-short">Seg</span></span>
+        </div>
+        <div class="pb-nav" role="group" aria-label="Candidate: cycle next-point options">
+          <div class="pb-nav-row">
+            <button class="pb-btn" type="button">←</button>
+            <input class="pb-input" value="0 / 0" readonly aria-label="Current Candidate / total Candidates" />
+            <button class="pb-btn" type="button">→</button>
+          </div>
+          <span class="pb-caption"><span class="pb-caption-long">Candidate</span><span class="pb-caption-short">Cand</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="ok" id="check">Measuring…</p>
+<script>
+  const after = document.getElementById("afterBar");
+  const shorts = [...after.querySelectorAll(".pb-caption-short")].map((el) => el.textContent.trim());
+  const shortsOk = shorts.join(",") === "Step,Seg,Cand"
+    && [...after.querySelectorAll(".pb-caption-short")].every((el) => getComputedStyle(el).display !== "none");
+  const longsHidden = [...after.querySelectorAll(".pb-caption-long")].every((el) => getComputedStyle(el).display === "none");
+  const beforeHidden = [...document.querySelectorAll(".before .pb-caption")].every((el) => getComputedStyle(el).display === "none");
+  const groups = [...after.querySelectorAll(".pb-nav")];
+  const groupOk = groups.length === 3
+    && (groups[0].getAttribute("aria-label") || "").startsWith("Step")
+    && (groups[1].getAttribute("aria-label") || "").startsWith("Segment")
+    && (groups[2].getAttribute("aria-label") || "").startsWith("Candidate");
+  const inputsOk = [...after.querySelectorAll(".pb-input")].every((el) => (el.getAttribute("aria-label") || "").includes("/"));
+  const oneRow = after.getBoundingClientRect().height < 56;
+  const scroll = document.documentElement.scrollWidth;
+  const ok = shortsOk && longsHidden && beforeHidden && groupOk && inputsOk && oneRow && scroll <= 820;
+  document.getElementById("check").textContent =
+    `shorts=${shortsOk} longsHidden=${longsHidden} beforeHidden=${beforeHidden} groups=${groupOk} inputs=${inputsOk} oneRow=${oneRow} scrollWidth=${scroll} ok=${ok}`;
+</script>
+</body>
+</html>
