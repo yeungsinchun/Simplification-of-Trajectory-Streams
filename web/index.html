@@ -2193,15 +2193,15 @@
           <span class="or-divider" style="color: var(--text-dim); font-size: 12px; margin: 0 8px;">or</span>
           <button id="uploadBtn" class="primary" title="Upload a plain-text trajectory: first line is the point count N, then N lines of x y coordinates.">Upload trajectory</button>
           <input type="file" id="trajectoryInput" accept=".txt,text/plain" />
-          <label title="Match tolerance (ε): how closely the simplified path must match the original. Smaller keeps more detail.">
+          <label title="Match tolerance (ε): how closely the green path must match the original. Smaller keeps more detail.">
             <span class="param-label"><span class="param-symbol">&epsilon;</span> <span class="param-gloss">match</span></span>
             <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" aria-label="Match tolerance" />
           </label>
-          <label title="Grid spacing (δ) used while searching for the simplified path. Preloaded trajectories set a good default.">
+          <label title="Grid spacing (δ) used while searching for the green path. Preloaded trajectories set a good default.">
             <span class="param-label"><span class="param-symbol">&delta;</span> <span class="param-gloss">grid</span></span>
             <input type="number" id="deltaInput" value="500" step="10" min="1" aria-label="Search grid spacing" />
           </label>
-          <button id="loadBtn" class="primary" title="Load trajectory and run simplification" aria-label="Load trajectory and run simplification">
+          <button id="loadBtn" class="primary" title="Load trajectory and build the green path" aria-label="Load trajectory and build the green path">
             <span class="button-spinner" aria-hidden="true"></span>
             <span class="load-btn-label">Load</span>
           </button>
@@ -2296,7 +2296,7 @@
               <thead>
                 <tr id="compareMetricsHead">
                   <th>Score</th>
-                  <th title="Scores for this simplification run (the green path)">This run</th>
+                  <th title="Scores for this run (the green path)">This run</th>
                 </tr>
               </thead>
               <tbody id="compareMetricsBody">
@@ -2305,7 +2305,7 @@
             </table>
             </div>
             <p class="compare-metrics-footer">
-              Match error is how far each simplified path drifts from the original. Lower is better.
+              Match error is how far each path drifts from the original. Lower is better.
               Optional reading:
               <a href="https://en.wikipedia.org/wiki/Fr%C3%A9chet_distance" target="_blank" rel="noopener noreferrer">Fréchet distance (technical)</a>.
             </p>
@@ -2451,10 +2451,10 @@
         </button>
         <div class="layer-accordion" id="layerAccordion">
           <details class="layer-acc" id="accordionSimplify" open>
-            <summary title="Overlays for this simplification run (the green path and search options). Same This run as in Results scores.">This run</summary>
+            <summary title="Overlays for this run (the green path and search options). Same This run as in Results scores.">This run</summary>
             <div class="layer-acc-body">
               <div class="toggle-row">
-                <label title="Gray path: the original trajectory before simplification. Contrast with Green path so far / Full green path."><input type="checkbox" id="toggle-stream" checked /><span class="swatch" style="background:#5a6272"></span>Gray path</label>
+                <label title="Gray path: the original trajectory before the green path. Contrast with Green path so far / Full green path."><input type="checkbox" id="toggle-stream" checked /><span class="swatch" style="background:#5a6272"></span>Gray path</label>
               </div>
               <div class="toggle-row">
                 <label title="Green path built so far as you Step or Play through the run. Same green path as Full green path and Segment."><input type="checkbox" id="toggle-simplified" checked /><span class="swatch" style="background:#3ddc97"></span>Green path so far</label>

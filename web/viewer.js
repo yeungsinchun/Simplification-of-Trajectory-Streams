@@ -538,7 +538,7 @@
 
     if (compareMetricsHead) {
       compareMetricsHead.innerHTML =
-        `<th>Score</th><th title="Scores for this simplification run (the green path)">This run</th>` +
+        `<th>Score</th><th title="Scores for this run (the green path)">This run</th>` +
         algos.map((a) => {
           const gloss = baselineAlgoGloss(a);
           const glossHtml = gloss
@@ -614,9 +614,9 @@
     }
 
     const matchErrorLabel =
-      '<td title="How far each simplified path drifts from the original. Lower is better.">Match error</td>';
+      '<td title="How far each path drifts from the original. Lower is better.">Match error</td>';
     const keptPointsLabel =
-      '<td title="Number of points kept on the simplified path. Same idea as kept points in the header.">Kept points</td>';
+      '<td title="Number of points kept on each path. Same idea as kept points in the header.">Kept points</td>';
     const keptPctLabel =
       '<td title="Kept points as a percent of the original. Same idea as kept % in the header.">Kept %</td>';
 
@@ -624,7 +624,7 @@
       compareMetricsBody.innerHTML = `
       <tr>${keptPointsLabel}${cell(nSimp ?? "—", false)}</tr>
       <tr>${keptPctLabel}${cell(pct(nSimp, nOrig), false)}</tr>
-      <tr><td title="How long the simplification run took, in milliseconds">Time</td>${cell(numOrDash(simpMs, 4), false)}</tr>
+      <tr><td title="How long this run took, in milliseconds">Time</td>${cell(numOrDash(simpMs, 4), false)}</tr>
       <tr>${matchErrorLabel}${cell(frSimpCell, false)}</tr>`;
       return;
     }
@@ -641,7 +641,7 @@
         ${algos.map((_, i) => cell(pct(basePts[i], nOrig), winClass(ptsAll, i + 1))).join("")}
       </tr>
       <tr>
-        <td title="How long the simplification run took, in milliseconds">Time</td>
+        <td title="How long this run took, in milliseconds">Time</td>
         ${cell(numOrDash(simpMs, 4), winClass(msAll, 0))}
         ${algos.map((_, i) => cell(numOrDash(baseMs[i], 4), winClass(msAll, i + 1))).join("")}
       </tr>
@@ -1183,11 +1183,11 @@
     const pendingStyle = simplifiedLen == null ? "color:var(--text-dim)" : "";
 
     return [
-      paramChip("Match", epsilonValue, "Match tolerance (ε): how closely the simplified path must follow the original. Smaller keeps more detail."),
-      paramChip("Grid", deltaValue, "Search-grid spacing (δ) used while finding the simplified path."),
-      paramChip("grid cell", gridLength, "Length of one Grid cell used while searching for the simplified path."),
+      paramChip("Match", epsilonValue, "Match tolerance (ε): how closely the green path must follow the original. Smaller keeps more detail."),
+      paramChip("Grid", deltaValue, "Search-grid spacing (δ) used while finding the green path."),
+      paramChip("grid cell", gridLength, "Length of one Grid cell used while searching for the green path."),
       paramChip("circle radius", diskRadius, "Radius of the Start-point circle and Current-point circle overlays while looking for the next green-path point."),
-      paramChip("match limit", expectedFrechet, "Upper Match limit for this run: how far the simplified path may drift from the original. Same idea as the Match field."),
+      paramChip("match limit", expectedFrechet, "Upper Match limit for this run: how far the green path may drift from the original. Same idea as the Match field."),
       paramChip(
         "saved Match",
         actualFrechet,
@@ -1195,7 +1195,7 @@
         "color:#C4612F;font-weight:600",
       ),
       paramChip("original points", streamLen, "Number of points on the original trajectory."),
-      paramChip("kept points", simplifiedLen != null ? simplifiedLen : "…", "Number of points kept on the simplified path.", pendingStyle),
+      paramChip("kept points", simplifiedLen != null ? simplifiedLen : "…", "Number of points kept on the green path.", pendingStyle),
       paramChip("kept %", ratio, "Kept points as a percent of the original.", pendingStyle),
     ].join("");
   }
@@ -1208,8 +1208,8 @@
 
   function renderParamsBarPreview() {
     const loadingMetrics = `
-      ${paramsBlueMetric("Match error", "", true, "frechet", "How far the simplified path drifts from the original. Lower is better.")}
-      ${paramsBlueMetric("Time", "", true, "time", "How long the simplification run took.")}`;
+      ${paramsBlueMetric("Match error", "", true, "frechet", "How far the green path drifts from the original. Lower is better.")}
+      ${paramsBlueMetric("Time", "", true, "time", "How long this run took.")}`;
     if (isMobileUI()) {
       paramsBar.innerHTML = loadingMetrics;
       return;
@@ -1974,7 +1974,7 @@
       : (frechetUnavailable ? "unavailable" : "");
     const frechetTitle = frechetUnavailable
       ? "Match error could not be computed for this run."
-      : "How far the simplified path drifts from the original. Lower is better.";
+      : "How far the green path drifts from the original. Lower is better.";
     const computedFrechetDisplay = paramsBlueMetric(
       "Match error",
       computedFrechetValue,
@@ -1989,13 +1989,13 @@
     if (isMobileUI()) {
       paramsBar.innerHTML = `
         ${computedFrechetDisplay}
-        ${paramsBlueMetric("Time", timeValue, timeLoading, "time", "How long the simplification run took.")}`;
+        ${paramsBlueMetric("Time", timeValue, timeLoading, "time", "How long this run took.")}`;
       return;
     }
 
     paramsBar.innerHTML = `
       ${computedFrechetDisplay}
-      ${paramsBlueMetric("Time", timeValue, timeLoading, "time", "How long the simplification run took.")}
+      ${paramsBlueMetric("Time", timeValue, timeLoading, "time", "How long this run took.")}
       ${desktopTraceParamChips(t)}
     `;
   }
@@ -3264,7 +3264,7 @@
     },
     {
       title: "Accuracy controls",
-      body: "<b>Match</b> is how closely the simplified path must match the original (smaller keeps more detail). <b>Grid</b> is the search-grid spacing. Defaults are fine for a first run.",
+      body: "<b>Match</b> is how closely the green path must match the original (smaller keeps more detail). <b>Grid</b> is the search-grid spacing. Defaults are fine for a first run.",
       targets: ["#epsilonInput", "#deltaInput"],
     },
     {

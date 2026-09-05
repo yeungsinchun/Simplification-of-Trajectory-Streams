@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Match / Grid / Scores still said simplified path (resolved)
+
+**Where:** Match / Grid form titles, Load title/aria-label, Results This run / Match error / Kept points / Time tips, Map overlays This run / Gray path tips, desktop `#paramsBar` chips, Accuracy tour copy.
+
+**Problem:** Green path so far / Full green path / next green-path point already shared green-path vocabulary, but Match / Grid / Load / Scores / Gray path tips still said `simplified path` or `simplification`. Skip-tour users mapping those controls to the green path could not tell the tips meant that same path.
+
+**Fix:** Tips say `green path` / `this run` / `each path` / `build the green path`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/green-path-not-simplified.html`
+- Fixture screenshot (900px): `web/usability/green-path-not-simplified.png`
+
 ### Map overlays / circle radius said next simplified point (resolved)
 
 **Where:** Map overlays `#toggle-F-Si` / `#toggle-S` tooltips and the desktop `#paramsBar` circle radius chip tooltip.
