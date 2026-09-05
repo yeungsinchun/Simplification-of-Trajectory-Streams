@@ -2435,28 +2435,28 @@
                 <label title="Full green result for the whole trajectory. Turn on to see the finished path anytime, even mid-playback."><input type="checkbox" id="toggle-final-simplify" /><span class="swatch" style="background:#3ddc97"></span>Full result path</label>
               </div>
               <div class="toggle-row">
-                <label title="Search circle around the start of the current simplified piece (radius δ). Paper: Bp."><input type="checkbox" id="toggle-ball-p0" checked /><span class="swatch" style="background:#c47aff"></span>Search circle (segment start)</label>
+                <label title="Purple search circle around the start point of the current simplified piece (radius from δ grid). Same start point as in Status."><input type="checkbox" id="toggle-ball-p0" checked /><span class="swatch" style="background:#c47aff"></span>Search circle (start point)</label>
               </div>
               <div class="toggle-row">
-                <label title="Search circle around the path point currently being processed (radius δ). Paper: Bvᵢ."><input type="checkbox" id="toggle-ball-pi" checked /><span class="swatch" style="background:#ff7ae8"></span>Search circle (current point)</label>
+                <label title="Pink search circle around the current point being processed (radius from δ grid). Same current point as in Status."><input type="checkbox" id="toggle-ball-pi" checked /><span class="swatch" style="background:#ff7ae8"></span>Search circle (current point)</label>
               </div>
               <div class="toggle-row">
-                <label title="Yellow region covering candidate points still being considered near the current path point. Paper: conv(Gvᵢ)."><input type="checkbox" id="toggle-Gi" checked /><span class="swatch" style="background:#e8c547"></span>Candidate region</label>
+                <label title="Yellow region covering next-point options still being considered near the current point."><input type="checkbox" id="toggle-Gi" checked /><span class="swatch" style="background:#e8c547"></span>Candidate region</label>
               </div>
               <div class="toggle-row">
-                <label title="Blue area still allowed by the accuracy limit after the previous simplified piece. Paper: F(Sᵢ₋₁[p], p)."><input type="checkbox" id="toggle-F" checked /><span class="swatch" style="background:#4f9dff"></span>Allowed area so far</label>
+                <label title="Blue area still allowed by the match accuracy limit after the previous simplified piece."><input type="checkbox" id="toggle-F" checked /><span class="swatch" style="background:#4f9dff"></span>Allowed area so far</label>
               </div>
               <div class="toggle-row">
-                <label title="Cyan area that would still be allowed if this candidate becomes the next simplified point. Paper: F(Sᵢ[p], p)."><input type="checkbox" id="toggle-F-Si" /><span class="swatch" style="background:#22d3ee"></span>Allowed area if chosen</label>
+                <label title="Cyan area that would still be allowed if this Candidate becomes the next simplified point."><input type="checkbox" id="toggle-F-Si" /><span class="swatch" style="background:#22d3ee"></span>Allowed area (this candidate)</label>
               </div>
               <div class="toggle-row">
-                <label title="Purple overlap of the candidate region and the allowed area - where the next point can land. Paper: Sᵢ[p]."><input type="checkbox" id="toggle-S" checked /><span class="swatch" style="background:#a78bfa"></span>Current search region</label>
+                <label title="Purple overlap of the candidate region and the allowed area - where the next point can land."><input type="checkbox" id="toggle-S" checked /><span class="swatch" style="background:#a78bfa"></span>Current search region</label>
               </div>
               <div class="toggle-row">
-                <label title="Orange dots kept as anchors while choosing the next simplified point. Paper: P."><input type="checkbox" id="toggle-P" checked /><span class="swatch" style="background:#ff9f43"></span>Anchor points</label>
+                <label title="Orange markers for next-point options still being considered (pairs with Rejected candidates)."><input type="checkbox" id="toggle-P" checked /><span class="swatch" style="background:#ff9f43"></span>Candidate markers</label>
               </div>
               <div class="toggle-row">
-                <label title="Candidate points the search already ruled out (shown in red)"><input type="checkbox" id="toggle-dead-candidates" checked /><span class="swatch" style="background:#ff3c3c"></span>Rejected candidates</label>
+                <label title="Next-point options the search already ruled out (shown in red)."><input type="checkbox" id="toggle-dead-candidates" checked /><span class="swatch" style="background:#ff3c3c"></span>Rejected candidates</label>
               </div>
             </div>
           </details>
@@ -2592,6 +2592,6 @@
   </div>
 </div>
 
-<script src="viewer.js?v=status-playback-gloss-1"></script>
+<script src="viewer.js?v=layers-start-point-1"></script>
 </body>
 </html>

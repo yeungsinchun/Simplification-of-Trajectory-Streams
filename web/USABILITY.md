@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Layers still said segment start / Anchor points (resolved)
+
+**Where:** Layers `#toggle-ball-p0` / `#toggle-P` / `#toggle-F-Si` and related layer tooltips after Load.
+
+**Problem:** Status and the map already used `start point` / `current point`, but Layers still said `Search circle (segment start)` and `Anchor points`, and tooltips led with paper symbols (`Paper: Bp.`, `Paper: P.`). Skip-tour users opening Layers first could not map toggles to Status, and long-press titles on phones dumped math notation.
+
+**Fix:** Layers read `Search circle (start point)`, `Allowed area (this candidate)`, and `Candidate markers` (paired with Rejected candidates). Tooltips use the same start point / current point / δ grid wording and drop `Paper:` math. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/layers-start-point-labels.html`
+- Fixture screenshot (900px): `web/usability/layers-start-point-labels.png`
+
 ### Status Candidates did not match playback Candidate (resolved)
 
 **Where:** sidebar Status `#statusGrid` Candidates row after Load.
