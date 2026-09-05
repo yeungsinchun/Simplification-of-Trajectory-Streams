@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Map overlays said Allowed area so far (resolved)
+
+**Where:** Map overlays Paths & search toggles `#toggle-F` / `#toggle-F-Si` and `#toggle-S` tooltip.
+
+**Problem:** After Path so far and Next landing zone landed, the blue/cyan overlays still said `Allowed area so far` / `Allowed area (this candidate)`. Skip-tour users could confuse “so far” with Path so far, and the Next landing zone tooltip already said “still-allowed” without a matching toggle name.
+
+**Fix:** Labels read `Still-allowed area` and `Still-allowed (this candidate)`. Tooltips lead with Still-allowed / Match / Candidate / Next landing zone vocabulary. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/still-allowed-area.html`
+- Fixture screenshot (900px): `web/usability/still-allowed-area.png`
+
 ### Map overlays said Current search region (resolved)
 
 **Where:** Map overlays Paths & search toggle `#toggle-S`.
