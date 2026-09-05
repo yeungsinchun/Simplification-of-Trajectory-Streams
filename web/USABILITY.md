@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Params chips still said grid step / error budget / recorded (resolved)
+
+**Where:** desktop `#paramsBar` secondary chips after Load; Results Scores `Time (ms)` row.
+
+**Problem:** Match error / kept % were plain, but secondary chips still said `grid step`, `radius`, `error budget`, and `recorded`. Novices could not tell the orange file-saved value from the live Match error chip. Results also said `Time (ms)` while the header chip said `Time`.
+
+**Fix:** Chips read `cell size`, `search r`, `max error`, and `file match` with tooltips. Results Scores uses `Time` with a milliseconds tooltip, matching the header.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/params-chip-plain-labels.html`
+- Fixture screenshot (900px): `web/usability/params-chip-plain-labels.png`
+
 ### Status and playback Candidate wording disagreed (resolved)
 
 **Where:** sidebar Status `path step` / `candidates` rows after Load; desktop `#playbackBar` Step / Segment / Candidate titles; mobile `#mobileTransport` aria-labels; Layers Anchor points tooltip.

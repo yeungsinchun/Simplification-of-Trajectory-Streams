@@ -584,7 +584,7 @@
       compareMetricsBody.innerHTML = `
       <tr><td>Simplified points</td>${cell(nSimp ?? "—", false)}</tr>
       <tr>${keptPctLabel}${cell(pct(nSimp, nOrig), false)}</tr>
-      <tr><td>Time (ms)</td>${cell(numOrDash(simpMs, 4), false)}</tr>
+      <tr><td title="How long the simplification run took, in milliseconds">Time</td>${cell(numOrDash(simpMs, 4), false)}</tr>
       <tr>${matchErrorLabel}${cell(frSimpCell, false)}</tr>`;
       return;
     }
@@ -601,7 +601,7 @@
         ${algos.map((_, i) => cell(pct(basePts[i], nOrig), winClass(ptsAll, i + 1))).join("")}
       </tr>
       <tr>
-        <td>Time (ms)</td>
+        <td title="How long the simplification run took, in milliseconds">Time</td>
         ${cell(numOrDash(simpMs, 4), winClass(msAll, 0))}
         ${algos.map((_, i) => cell(numOrDash(baseMs[i], 4), winClass(msAll, i + 1))).join("")}
       </tr>
@@ -1080,13 +1080,13 @@
     return [
       paramChip("ε match", epsilonValue, "Match tolerance: how closely the simplified path must follow the original. Smaller keeps more detail."),
       paramChip("δ grid", deltaValue, "Search-grid spacing used while finding the simplified path."),
-      paramChip("grid step", gridLength, "Length of one search-grid cell (derived from δ)."),
-      paramChip("radius", diskRadius, "Search-circle radius around path points while looking for the next simplified point."),
-      paramChip("error budget", expectedFrechet, "Upper bound on how far the simplified path may drift from the original."),
+      paramChip("cell size", gridLength, "Length of one search-grid cell (from δ grid)."),
+      paramChip("search r", diskRadius, "Radius of the search circles drawn around path points while looking for the next simplified point."),
+      paramChip("max error", expectedFrechet, "Upper limit on how far the simplified path may drift from the original."),
       paramChip(
-        "recorded",
+        "file match",
         actualFrechet,
-        "Match error recorded in this preloaded trajectory file.",
+        "Match error saved in this preloaded trajectory file (may differ slightly from the live Match error above).",
         "color:#C4612F;font-weight:600",
       ),
       paramChip("original", streamLen, "Number of points on the original trajectory."),
