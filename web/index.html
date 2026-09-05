@@ -1824,8 +1824,18 @@
     .params:not(:empty) {
       min-height: 76px;
     }
-    /* Keep ε/δ + Load on one row; tooltips and start copy still explain match/grid. */
-    .upload-form .param-gloss { display: none; }
+    /* Prefer plain Match / Grid over bare ε / δ. Hide the Greek symbols and
+       shrink the number fields so Load stays on the same control row. */
+    .upload-form .param-symbol { display: none; }
+    .upload-form .param-gloss {
+      display: inline;
+      color: var(--text);
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+    .upload-form label input[type="number"] {
+      width: 50px;
+    }
   }
 
   @media (max-width: 480px) {
@@ -2616,6 +2626,6 @@
   </div>
 </div>
 
-<script src="viewer.js?v=status-gloss-1"></script>
+<script src="viewer.js?v=match-grid-1"></script>
 </body>
 </html>

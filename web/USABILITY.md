@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Narrow desktop hid Match / Grid glosses (resolved)
+
+**Where:** start-screen `#epsilonInput` / `#deltaInput` labels at 721–899px; loaded `#paramsBar` chips for ε / δ.
+
+**Problem:** To keep Load on one row, the 721–899px rule hid `.param-gloss`, leaving bare Greek `ε` / `δ`. Skip-tour users (and anyone who forgot the tour) could not tell what the fields meant without hovering tooltips. Loaded params chips also led with `ε match` / `δ grid`.
+
+**Fix:** At 721–899px the form now hides the Greek symbols and keeps capitalized Match / Grid glosses, with slightly narrower number inputs so Load stays on the same row (`scrollWidth` 820 / 900). Loaded params chips read `Match` / `Grid` with ε / δ only in tooltips. Wider desktop still shows `ε match` / `δ grid`.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/narrow-match-grid-labels.html`
+- Fixture screenshot (820px): `web/usability/narrow-match-grid-labels.png`
+
 ### Server / Match error failures still said binary jargon (resolved)
 
 **Where:** `web/server.py` API error payloads (`type:error` stream messages, Compare `baseline_error`, Frechet / upload / missing-trajectory JSON); Match error chip in `viewer.js` `renderParamsBar`.

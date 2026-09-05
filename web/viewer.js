@@ -1183,9 +1183,9 @@
     const pendingStyle = simplifiedLen == null ? "color:var(--text-dim)" : "";
 
     return [
-      paramChip("ε match", epsilonValue, "Match tolerance: how closely the simplified path must follow the original. Smaller keeps more detail."),
-      paramChip("δ grid", deltaValue, "Search-grid spacing used while finding the simplified path."),
-      paramChip("cell size", gridLength, "Length of one search-grid cell (from δ grid)."),
+      paramChip("Match", epsilonValue, "Match tolerance (ε): how closely the simplified path must follow the original. Smaller keeps more detail."),
+      paramChip("Grid", deltaValue, "Search-grid spacing (δ) used while finding the simplified path."),
+      paramChip("cell size", gridLength, "Length of one search-grid cell (from Grid / δ)."),
       paramChip("search radius", diskRadius, "Radius of the search circles drawn around path points while looking for the next simplified point."),
       paramChip("max error", expectedFrechet, "Upper limit on how far the simplified path may drift from the original."),
       paramChip(
