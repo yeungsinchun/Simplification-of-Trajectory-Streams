@@ -1134,8 +1134,8 @@
         <span class="idx-coord">${viPoint ? ptStr(viPoint) : ""}</span>
       </div>`;
     statusGrid.innerHTML = `
-      <span title="Jumps between pieces of the simplified path">Segment</span><span class="mono"><b>1 / …</b></span>
-      <span title="Walks along original points for the current simplified piece">Step</span><span class="mono"><b>1 / …</b></span>
+      <span title="Jumps between pieces of the green path">Segment</span><span class="mono"><b>1 / …</b></span>
+      <span title="Walks along original points within the current Segment">Step</span><span class="mono"><b>1 / …</b></span>
       <span title="${candidateStatusTitle()}">Candidate</span><span class="mono"><b>… / …</b></span>`;
     typesetStatus(statusIndices);
     typesetStatus(statusGrid);
@@ -2062,12 +2062,12 @@
     rows.push([
       "Segment",
       `${state.prefixIdx + 1} / ${segmentTotal}`,
-      "Jumps between pieces of the simplified path",
+      "Jumps between pieces of the green path",
     ]);
     rows.push([
       "Step",
       `${state.stepIdx + 1} / ${stepTotal}`,
-      "Walks along original points for the current simplified piece",
+      "Walks along original points within the current Segment",
     ]);
     rows.push([
       "Candidate",
@@ -3282,12 +3282,12 @@
     },
     {
       title: "Step",
-      body: "<b>Step</b> moves along the original path points covered by the current simplified piece. Use ← / → (or the Step buttons) to advance one at a time.",
+      body: "<b>Step</b> moves along the original path points within the current Segment. Use ← / → (or the Step buttons) to advance one at a time.",
       targets: ["#stepInput", "#mobileStepForwardBtn", "#mobileStepBackBtn"],
     },
     {
       title: "Segment and Candidate",
-      body: "<b>Segment</b> jumps between pieces of the simplified path. <b>Candidate</b> cycles possible next points the search considered. Press <b>Play</b> to auto-advance; pick a speed if you want it faster or slower.",
+      body: "<b>Segment</b> jumps between pieces of the green path. <b>Candidate</b> cycles possible next points the search considered. Press <b>Play</b> to auto-advance; pick a speed if you want it faster or slower.",
       targets: ["#segmentInput", "#candidateInput", "#playBtn", "#mobileSegmentForwardBtn", "#mobileCandidateForwardBtn", "#mobilePlayBtn"],
     },
     {

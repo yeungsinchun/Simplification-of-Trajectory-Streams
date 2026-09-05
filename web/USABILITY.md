@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Step / Segment still said “simplified piece” (resolved)
+
+**Where:** Instructions gloss, Status Segment/Step tooltips, desktop playback captions/titles, mobile Step/Segment controls, Map overlays search-circle / Allowed area tooltips, and the playback tour Step / Segment steps.
+
+**Problem:** After Status and playback already shared Segment / Step / Candidate labels, the glosses still said “simplified piece” / “pieces of the simplified path”. Skip-tour users could not tell that Step walks inside the current Segment, or that Segment pieces are the green path.
+
+**Fix:** Step reads “within the current Segment”; Segment / tour / tooltips say “pieces of the green path” (and Map overlays use current/previous Segment). Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/step-segment-green-path.html`
+- Fixture screenshot (900px): `web/usability/step-segment-green-path.png`
+
 ### Wide desktop form still led with Greek ε / δ (resolved)
 
 **Where:** start-screen `#epsilonInput` / `#deltaInput` labels at ≥900px (and the shared base form CSS used on every viewport).

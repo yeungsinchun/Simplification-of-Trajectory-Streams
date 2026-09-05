@@ -2359,33 +2359,33 @@
           <span class="playback-handle" aria-hidden="true"></span>
           <div class="playbackBody" id="playbackBody">
           <!-- Step navigation with input -->
-          <div class="pb-nav" role="group" aria-label="Step: walk along original points">
+          <div class="pb-nav" role="group" aria-label="Step: walk along original points within the current Segment">
             <div class="pb-nav-row">
-              <button id="stepBackBtn" class="pb-btn" title="Previous Step: walk along original points (←)">
+              <button id="stepBackBtn" class="pb-btn" title="Previous Step: walk along original points within the current Segment (←)">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
-              <input id="stepInput" class="pb-input" type="text" placeholder="0 / 0" title="Current Step / total Steps (walk along original points)" aria-label="Current Step / total Steps">
-              <button id="stepForwardBtn" class="pb-btn" title="Next Step: walk along original points (→)">
+              <input id="stepInput" class="pb-input" type="text" placeholder="0 / 0" title="Current Step / total Steps within the current Segment" aria-label="Current Step / total Steps">
+              <button id="stepForwardBtn" class="pb-btn" title="Next Step: walk along original points within the current Segment (→)">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
             </div>
-            <span class="pb-caption" title="Walks along original points for the current simplified piece"><span class="pb-caption-long">Step</span><span class="pb-caption-short">Step</span></span>
+            <span class="pb-caption" title="Walks along original points within the current Segment"><span class="pb-caption-long">Step</span><span class="pb-caption-short">Step</span></span>
           </div>
 
           <div class="pb-divider"></div>
 
           <!-- Segment navigation with input -->
-          <div class="pb-nav" role="group" aria-label="Segment: jump between simplified pieces">
+          <div class="pb-nav" role="group" aria-label="Segment: jump between pieces of the green path">
             <div class="pb-nav-row">
-              <button id="prefixBackBtn" class="pb-btn" title="Previous Segment: jump between simplified pieces (Shift+←)">
+              <button id="prefixBackBtn" class="pb-btn" title="Previous Segment: jump between pieces of the green path (Shift+←)">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M19 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><line x1="5" y1="6" x2="5" y2="18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
               </button>
-              <input id="segmentInput" class="pb-input" type="text" placeholder="0 / 0" title="Current Segment / total Segments (pieces of the simplified path)" aria-label="Current Segment / total Segments">
-              <button id="prefixForwardBtn" class="pb-btn" title="Next Segment: jump between simplified pieces (Shift+→)">
+              <input id="segmentInput" class="pb-input" type="text" placeholder="0 / 0" title="Current Segment / total Segments (pieces of the green path)" aria-label="Current Segment / total Segments">
+              <button id="prefixForwardBtn" class="pb-btn" title="Next Segment: jump between pieces of the green path (Shift+→)">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M5 18l6-6-6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><line x1="19" y1="6" x2="19" y2="18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
               </button>
             </div>
-            <span class="pb-caption" title="Jumps between pieces of the simplified path"><span class="pb-caption-long">Segment</span><span class="pb-caption-short">Seg</span></span>
+            <span class="pb-caption" title="Jumps between pieces of the green path"><span class="pb-caption-long">Segment</span><span class="pb-caption-short">Seg</span></span>
           </div>
 
           <div class="pb-divider"></div>
@@ -2463,7 +2463,7 @@
                 <label title="Full green result for the whole trajectory. Turn on to see the finished path anytime, even mid-playback."><input type="checkbox" id="toggle-final-simplify" /><span class="swatch" style="background:#3ddc97"></span>Full result path</label>
               </div>
               <div class="toggle-row">
-                <label title="Purple search circle around the start point of the current simplified piece (radius from Grid). Same start point as in Status."><input type="checkbox" id="toggle-ball-p0" checked /><span class="swatch" style="background:#c47aff"></span>Search circle (start point)</label>
+                <label title="Purple search circle around the start point of the current Segment (radius from Grid). Same start point as in Status."><input type="checkbox" id="toggle-ball-p0" checked /><span class="swatch" style="background:#c47aff"></span>Search circle (start point)</label>
               </div>
               <div class="toggle-row">
                 <label title="Pink search circle around the current point being processed (radius from Grid). Same current point as in Status."><input type="checkbox" id="toggle-ball-pi" checked /><span class="swatch" style="background:#ff7ae8"></span>Search circle (current point)</label>
@@ -2472,7 +2472,7 @@
                 <label title="Yellow region covering next-point options still being considered near the current point."><input type="checkbox" id="toggle-Gi" checked /><span class="swatch" style="background:#e8c547"></span>Candidate region</label>
               </div>
               <div class="toggle-row">
-                <label title="Blue area still allowed by the match accuracy limit after the previous simplified piece."><input type="checkbox" id="toggle-F" checked /><span class="swatch" style="background:#4f9dff"></span>Allowed area so far</label>
+                <label title="Blue area still allowed by the match accuracy limit after the previous Segment."><input type="checkbox" id="toggle-F" checked /><span class="swatch" style="background:#4f9dff"></span>Allowed area so far</label>
               </div>
               <div class="toggle-row">
                 <label title="Cyan area that would still be allowed if this Candidate becomes the next simplified point."><input type="checkbox" id="toggle-F-Si" /><span class="swatch" style="background:#22d3ee"></span>Allowed area (this candidate)</label>
@@ -2508,8 +2508,8 @@
       <div class="section">
         <h2>Instructions</h2>
         <p class="instructions-gloss" id="playbackInstructionsGloss">
-          <b>Step</b> walks along original points for the current simplified piece.
-          <b>Segment</b> jumps between pieces of the simplified path.
+          <b>Step</b> walks along original points within the current Segment.
+          <b>Segment</b> jumps between pieces of the green path.
           <b>Candidate</b> cycles next-point options the search considered.
           <b>Play</b> auto-advances; use <b>Speed</b> to go faster or slower.
           <b>Fit view</b> resets pan and zoom.
@@ -2560,7 +2560,7 @@
 
 <!-- Mobile touch controls for steps, candidates, segments, and playback -->
 <nav id="mobileTransport" class="mobile-transport" aria-label="Playback navigation" aria-hidden="true">
-  <button type="button" id="mobileStepBackBtn" aria-label="Previous Step: walk along original points" title="Previous Step: walk along original points">
+  <button type="button" id="mobileStepBackBtn" aria-label="Previous Step: walk along original points within the current Segment" title="Previous Step: walk along original points within the current Segment">
     ←
     <span>Step</span>
   </button>
@@ -2579,15 +2579,15 @@
     ›
     <span>Candidate</span>
   </button>
-  <button type="button" id="mobileStepForwardBtn" aria-label="Next Step: walk along original points" title="Next Step: walk along original points">
+  <button type="button" id="mobileStepForwardBtn" aria-label="Next Step: walk along original points within the current Segment" title="Next Step: walk along original points within the current Segment">
     →
     <span>Step</span>
   </button>
-  <button type="button" id="mobileSegmentBackBtn" class="mobile-segment" aria-label="Previous Segment: jump between simplified pieces" title="Previous Segment: jump between simplified pieces">
+  <button type="button" id="mobileSegmentBackBtn" class="mobile-segment" aria-label="Previous Segment: jump between pieces of the green path" title="Previous Segment: jump between pieces of the green path">
     «
     <span>Segment</span>
   </button>
-  <button type="button" id="mobileSegmentForwardBtn" class="mobile-segment" aria-label="Next Segment: jump between simplified pieces" title="Next Segment: jump between simplified pieces">
+  <button type="button" id="mobileSegmentForwardBtn" class="mobile-segment" aria-label="Next Segment: jump between pieces of the green path" title="Next Segment: jump between pieces of the green path">
     »
     <span>Segment</span>
   </button>
