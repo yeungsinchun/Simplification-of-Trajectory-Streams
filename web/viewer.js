@@ -8,7 +8,7 @@
 // get_longest_stab) it shows the delta-disk boundary anchors P, and for each
 // step within a prefix it shows the point v_i being
 // consumed, the delta-disk hull G_i, each surviving candidate's free-space
-// wedge F(S,p) fed into intersect(), the resulting stab region S, and the
+// wedge F(S,p) clipped against G_i, the resulting stab region S, and the
 // best (buffer) segment chosen so far.
 
 (() => {

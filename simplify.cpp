@@ -4,36 +4,87 @@
 
 #include "simplify_geometry.h"
 #include "simplify_io.h"
+#include "timer.h"
 
 // ===========================================================================
-//  Core algorithm — bare (no instrumentation)
+//  Core algorithm
 // ===========================================================================
 
 
 int get_longest_stab(const std::vector<Point>& stream, int cur,
                      std::vector<Point>& simplified,
                      double EPSILON, double DELTA) {
+    TIMER("get_longest_stab");
     const Point& p0 = stream[cur];
-    std::vector<Point> P = get_boundary_points_from_grid(p0, EPSILON, DELTA);
+    std::vector<Point> P;
+    {
+        TIMER("get_boundary_points");
+        P = get_boundary_points_from_grid(p0, EPSILON, DELTA);
+    }
     std::array<Point, 2> buffer = {p0, p0};
     const int Pn = (int)P.size();
-    std::vector<std::vector<Point>> S(Pn);
-    for (int i = 0; i < Pn; ++i) S[i] = {P[i]};
+    if (timer_detail::enabled())
+        timer_detail::counters()["boundary_candidates"] += Pn;
+    // Stab regions stay as CCW doubles so prune / find_F / clip never
+    // convert Point <-> xy on the per-candidate path.
+    std::vector<std::array<double, 2>> P_xy(Pn);
+    std::vector<std::vector<std::array<double, 2>>> S(Pn);
+    for (int i = 0; i < Pn; ++i) {
+        P_xy[i] = {CGAL::to_double(P[i].x()), CGAL::to_double(P[i].y())};
+        S[i] = {P_xy[i]};
+    }
     int dead_cnt = 0;
     std::vector<int> dead(Pn);
-    std::vector<std::vector<Point>> new_S(Pn);
-    std::vector<std::vector<Point>> F(Pn);
-    std::vector<Point> Gi;
+    std::vector<std::vector<std::array<double, 2>>> new_S(Pn);
+    std::vector<std::vector<std::array<double, 2>>> F(Pn);
+    std::vector<std::array<double, 2>> Gi_xy;
+    std::vector<int> tangents;
+    tangents.reserve(2);
 
     cur++;
     while (cur < int(stream.size())) {
-        Gi = get_conv_from_grid(stream[cur], EPSILON, DELTA);
+        if (timer_detail::enabled())
+            timer_detail::counters()["stab_steps"]++;
+        {
+            TIMER("get_conv_from_grid");
+            get_conv_xy_from_grid(stream[cur], EPSILON, DELTA, Gi_xy);
+        }
         for (int i = 0; i < Pn; ++i) {
             if (dead[i]) continue;
-            
-            find_F(P[i], S[i], F[i]);
+            if (timer_detail::enabled())
+                timer_detail::counters()["alive_candidate_iters"]++;
 
-            if (!intersect(F[i], Gi, new_S[i])) {
+            // Conservative Frechet-safe prune: if Gi is robustly outside the
+            // tangent cone of S at P[i], F n Gi is empty and the candidate dies
+            // without building F or running the clip.  On a miss, reuse the
+            // tangents already computed for find_F.
+            tangents.clear();
+            bool pruned;
+            {
+                TIMER("wedge_gi_disjoint");
+                pruned = wedge_gi_disjoint_xy(P_xy[i][0], P_xy[i][1], S[i], Gi_xy, &tangents);
+            }
+            if (pruned) {
+                if (timer_detail::enabled())
+                    timer_detail::counters()["wedge_prune_hits"]++;
+                dead[i] = true;
+                dead_cnt++;
+                continue;
+            }
+
+            {
+                TIMER("find_F");
+                const std::vector<int>* tan_ptr =
+                    (tangents.size() == 2) ? &tangents : nullptr;
+                find_F_xy(P_xy[i][0], P_xy[i][1], S[i], F[i], tan_ptr);
+            }
+
+            bool hit;
+            {
+                TIMER("intersect");
+                hit = intersect_prepared_xy(F[i], Gi_xy, new_S[i]);
+            }
+            if (!hit) {
                 dead[i] = true;
                 dead_cnt++;
             }
@@ -42,12 +93,15 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
         for (int i = Pn - 1; i >= 0 && !has_candidate; --i) {
             if (dead[i] || new_S[i].empty()) continue;
             buffer[0] = P[i];
-            buffer[1] = new_S[i].front();
+            buffer[1] = Point(new_S[i].front()[0], new_S[i].front()[1]);
             has_candidate = true;
         }
         if (!has_candidate || dead_cnt == Pn) break;
-        for (int i = 0; i < Pn; ++i)
-            if (!dead[i]) S[i].swap(new_S[i]);
+        {
+            TIMER("update_S");
+            for (int i = 0; i < Pn; ++i)
+                if (!dead[i]) S[i].swap(new_S[i]);
+        }
         cur++;
     }
     simplified.emplace_back(buffer[0]);
@@ -72,8 +126,8 @@ namespace webtrace {
 struct Candidate {
     int grid_pt_idx = 0;
     bool alive = true;
-    std::vector<Point> F;      // free-space wedge F(S_{i-1}[p0], pi) fed to intersect() this step
-    std::vector<Point> F_Si;   // free-space wedge F(S_i[p0], pi) computed after intersect()
+    std::vector<Point> F;      // free-space wedge F(S_{i-1}[p0], pi) clipped against G_i this step
+    std::vector<Point> F_Si;   // free-space wedge F(S_i[p0], pi) after a successful clip
     std::vector<Point> S;      // resulting stab region (new_S[i]) after this step, if alive
 };
 
@@ -213,7 +267,8 @@ inline void write_json(std::ostream& os, double EPSILON, double DELTA, double ti
 }  // namespace webtrace
 
 // Web-trace twin of get_longest_stab: identical control flow, additionally
-// records P, Gi, F[i], new_S[i], alive/dead, and buffer at every step.
+// records P, Gi, alive/dead, buffer, and F/S when the clip path runs (prune
+// deaths omit F, matching the headless skip of find_F + clip).
 int get_longest_stab_web(const std::vector<Point>& stream, int cur,
                          std::vector<Point>& simplified,
                          double EPSILON, double DELTA,
@@ -222,13 +277,20 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
     std::vector<Point> P = get_boundary_points_from_grid(p0, EPSILON, DELTA);
     std::array<Point, 2> buffer = {p0, p0};
     const int Pn = (int)P.size();
-    std::vector<std::vector<Point>> S(Pn);
-    for (int i = 0; i < Pn; ++i) S[i] = {P[i]};
+    std::vector<std::array<double, 2>> P_xy(Pn);
+    std::vector<std::vector<std::array<double, 2>>> S(Pn);
+    for (int i = 0; i < Pn; ++i) {
+        P_xy[i] = {CGAL::to_double(P[i].x()), CGAL::to_double(P[i].y())};
+        S[i] = {P_xy[i]};
+    }
     int dead_cnt = 0;
     std::vector<int> dead(Pn);
-    std::vector<std::vector<Point>> new_S(Pn);
-    std::vector<std::vector<Point>> F(Pn);
+    std::vector<std::vector<std::array<double, 2>>> new_S(Pn);
+    std::vector<std::vector<std::array<double, 2>>> F(Pn);
     std::vector<Point> Gi;
+    std::vector<std::array<double, 2>> Gi_xy;
+    std::vector<int> tangents;
+    tangents.reserve(2);
 
     webtrace::PrefixTrace trace;
     trace.p0 = p0;
@@ -237,7 +299,10 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
 
     cur++;
     while (cur < int(stream.size())) {
-        Gi = get_conv_from_grid(stream[cur], EPSILON, DELTA);
+        get_conv_xy_from_grid(stream[cur], EPSILON, DELTA, Gi_xy);
+        Gi.clear();
+        Gi.reserve(Gi_xy.size());
+        for (const auto& q : Gi_xy) Gi.emplace_back(q[0], q[1]);
 
         webtrace::StepTrace step;
         step.stream_idx = cur;
@@ -253,20 +318,36 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
                 step.candidates.push_back(std::move(cand));
                 continue;
             }
-            
-            find_F(P[i], S[i], F[i]);
-            cand.F = F[i];
-            
-            if (!intersect(F[i], Gi, new_S[i])) {
+
+            tangents.clear();
+            if (wedge_gi_disjoint_xy(P_xy[i][0], P_xy[i][1], S[i], Gi_xy, &tangents)) {
+                dead[i] = true;
+                dead_cnt++;
+                cand.alive = false;
+                step.candidates.push_back(std::move(cand));
+                continue;
+            }
+
+            find_F_xy(P_xy[i][0], P_xy[i][1], S[i], F[i],
+                      (tangents.size() == 2) ? &tangents : nullptr);
+            cand.F.clear();
+            cand.F.reserve(F[i].size());
+            for (const auto& q : F[i]) cand.F.emplace_back(q[0], q[1]);
+
+            if (!intersect_prepared_xy(F[i], Gi_xy, new_S[i])) {
                 dead[i] = true;
                 dead_cnt++;
                 cand.alive = false;
             } else {
                 cand.alive = true;
-                cand.S = new_S[i];
-                std::vector<Point> F_Si_temp;
-                find_F(P[i], new_S[i], F_Si_temp);
-                cand.F_Si = F_Si_temp;
+                cand.S.clear();
+                cand.S.reserve(new_S[i].size());
+                for (const auto& q : new_S[i]) cand.S.emplace_back(q[0], q[1]);
+                std::vector<std::array<double, 2>> F_Si_temp;
+                find_F_xy(P_xy[i][0], P_xy[i][1], new_S[i], F_Si_temp);
+                cand.F_Si.clear();
+                cand.F_Si.reserve(F_Si_temp.size());
+                for (const auto& q : F_Si_temp) cand.F_Si.emplace_back(q[0], q[1]);
             }
             step.candidates.push_back(std::move(cand));
         }
@@ -275,7 +356,7 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
         for (int i = Pn - 1; i >= 0 && !has_candidate; --i) {
             if (dead[i] || new_S[i].empty()) continue;
             buffer[0] = P[i];
-            buffer[1] = new_S[i].front();
+            buffer[1] = Point(new_S[i].front()[0], new_S[i].front()[1]);
             has_candidate = true;
         }
         step.buffer = buffer;
@@ -344,16 +425,37 @@ std::vector<Point> simplify_web(const std::vector<Point>& stream,
 std::vector<Point> simplify(const std::vector<Point>& stream,
                             double EPSILON, double DELTA) {
     std::vector<Point> simplified;
-    configure_bbox(stream, EPSILON, DELTA);
-    auto t0 = std::chrono::high_resolution_clock::now();
-    int cur = 0;
-    while (cur != int(stream.size()))
-        cur = get_longest_stab(stream, cur, simplified, EPSILON, DELTA);
-    double ms = std::chrono::duration<double, std::milli>(
-        std::chrono::high_resolution_clock::now() - t0).count();
-    
+    double ms = 0.0;
+    {
+        TIMER("total");
+        configure_bbox(stream, EPSILON, DELTA);
+        auto t0 = std::chrono::high_resolution_clock::now();
+        {
+            TIMER("simplify");
+            int cur = 0;
+            while (cur != int(stream.size()))
+                cur = get_longest_stab(stream, cur, simplified, EPSILON, DELTA);
+        }
+        ms = std::chrono::duration<double, std::milli>(
+            std::chrono::high_resolution_clock::now() - t0).count();
+    }
+
     std::cerr << "SIMPLIFY_CORE_MS: " << std::fixed << std::setprecision(4) << ms << '\n';
-    
+    if (time_flag) {
+        // Extra counters that are not TIMER scopes: emit as KEY: value lines
+        // so the benchmark harness can scrape them without parsing the tree.
+        std::cerr << "BOUNDARY_CANDIDATES_SUM: "
+                  << timer_detail::counters()["boundary_candidates"] << '\n';
+        std::cerr << "STAB_STEPS: "
+                  << timer_detail::counters()["stab_steps"] << '\n';
+        std::cerr << "ALIVE_CANDIDATE_ITERS: "
+                  << timer_detail::counters()["alive_candidate_iters"] << '\n';
+        std::cerr << "WEDGE_PRUNE_HITS: "
+                  << timer_detail::counters()["wedge_prune_hits"] << '\n';
+        std::cerr << "SIMPLIFIED_POINTS: " << simplified.size() << '\n';
+        print_timing_summary();
+    }
+
     return simplified;
 }
 
@@ -363,7 +465,7 @@ std::vector<Point> simplify(const std::vector<Point>& stream,
 
 int main(int argc, char** argv) {
     std::ios::sync_with_stdio(false);
-    
+
     int test_case_no = -1;
     int code = get_repo_root(argv, repo_root);
     if (code != 0) {
@@ -374,6 +476,7 @@ int main(int argc, char** argv) {
     if (code != 0) {
         return code;
     }
+    if (time_flag) timer_detail::enabled() = true;
 
     std::vector<Point> stream;
     if (help_flag) {

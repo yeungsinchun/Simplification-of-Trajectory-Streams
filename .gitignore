@@ -44,9 +44,8 @@ results/*.png
 # Generated report artifacts (tracked report sources and snapshots remain tracked)
 /report/
 
-# Per-intersection-pair dumps produced by `simplify --dump-intersect <id>`.
-# These are intermediate artifacts for the test_convex_intersect benchmark
-# and can be very large (case 10's dump is 270 MB).
+# Generated intermediates under data/ (can be very large; e.g. intersection-pair
+# dumps used by local convex-intersect experiments).
 # (Only the carve-out entries above are allowed under data/; everything else
 # under data/ remains ignored.)
 data/**/*
