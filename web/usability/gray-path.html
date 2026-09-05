@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gray path overlay label</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+  }
+  * { box-sizing: border-box; }
+  html, body { width: 900px; max-width: 900px; overflow-x: hidden; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    padding: 16px;
+  }
+  h1 { font-size: 15px; margin: 0 0 6px; }
+  p { margin: 0 0 12px; color: var(--text-dim); font-size: 12px; max-width: 720px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .label {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: #1a1f2b;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    margin-bottom: 6px;
+  }
+  .swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .tour {
+    margin-top: 8px;
+    padding: 8px;
+    background: #1a1f2b;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.45;
+  }
+  #check {
+    margin-top: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+  <h1>Original path → Gray path</h1>
+  <p>
+    Before: Map overlays labeled the input overlay <b>Original path</b>, while the playback tour
+    and Path so far / Full green path already used <b>gray</b> / <b>green path</b> wording.
+    After: the label is <b>Gray path</b>, with a tooltip that names Path so far and Full green path.
+  </p>
+  <div class="grid">
+    <div class="frame" id="before">
+      <div class="label">Before</div>
+      <div class="toggle-row" title="The original trajectory path before simplification">
+        <span class="swatch" style="background:#5a6272"></span>Original path
+      </div>
+      <div class="toggle-row" title="Green path built so far as you Step or Play through the run">
+        <span class="swatch" style="background:#3ddc97"></span>Path so far
+      </div>
+      <div class="toggle-row" title="Full green path for the whole trajectory.">
+        <span class="swatch" style="background:#3ddc97"></span>Full green path
+      </div>
+      <div class="tour">
+        Map overlays toggles what the map draws (original path, path so far, …).
+      </div>
+    </div>
+    <div class="frame" id="after">
+      <div class="label">After</div>
+      <div class="toggle-row" id="grayRow" title="Gray path: the original trajectory before simplification. Contrast with the green Path so far / Full green path.">
+        <span class="swatch" style="background:#5a6272"></span>Gray path
+      </div>
+      <div class="toggle-row" title="Green path built so far as you Step or Play through the run">
+        <span class="swatch" style="background:#3ddc97"></span>Path so far
+      </div>
+      <div class="toggle-row" title="Full green path for the whole trajectory. Same green path as Path so far and Segment.">
+        <span class="swatch" style="background:#3ddc97"></span>Full green path
+      </div>
+      <div class="tour" id="tourAfter">
+        Map overlays toggles what the map draws (gray path, path so far, …).
+      </div>
+    </div>
+  </div>
+  <div id="check"></div>
+  <script>
+    const before = document.getElementById("before").innerText;
+    const after = document.getElementById("after").innerText;
+    const tip = document.getElementById("grayRow").title;
+    const tour = document.getElementById("tourAfter").innerText;
+    const beforeOld = before.includes("Original path")
+      && before.includes("original path")
+      && !before.includes("Gray path");
+    const afterNew = after.includes("Gray path")
+      && !after.includes("Original path")
+      && tour.includes("gray path")
+      && !tour.includes("original path");
+    const tipOk = tip.includes("Gray path")
+      && tip.includes("Path so far")
+      && tip.includes("Full green path")
+      && !tip.includes("Original path");
+    const scroll = document.documentElement.scrollWidth;
+    const ok = beforeOld && afterNew && tipOk && scroll <= 900;
+    document.getElementById("check").textContent =
+      `ok=${ok} scrollWidth=${scroll} beforeOld=${beforeOld} afterNew=${afterNew} tipOk=${tipOk}`;
+  </script>
+</body>
+</html>

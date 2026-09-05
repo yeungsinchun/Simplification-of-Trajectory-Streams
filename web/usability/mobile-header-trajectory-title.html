@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mobile header trajectory title</title>
+  <style>
+    :root {
+      --bg: #0f141d;
+      --panel: #171c27;
+      --panel-border: #2a3142;
+      --text: #e8ecf4;
+      --text-dim: #9aa3b5;
+      --accent: #3ddc97;
+      --bad: #ff8a94;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; overflow-x: hidden; }
+    body {
+      font: 14px/1.45 system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 16px;
+      width: 390px;
+      max-width: 100%;
+    }
+    h1 { font-size: 16px; margin: 0 0 8px; }
+    p { color: var(--text-dim); margin: 0 0 14px; font-size: 13px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .label {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+    header.mock {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: #121722;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+    }
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #262c3d;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    .title {
+      flex: 1 1 0;
+      min-width: 0;
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .help {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid var(--panel-border);
+      background: #1b2130;
+      color: var(--text-dim);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+    }
+    .meta {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--text-dim);
+      font-family: ui-monospace, monospace;
+    }
+    .bad .title { color: var(--bad); }
+    .ok .title { color: var(--accent); }
+    .note { color: var(--accent); font-size: 13px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Mobile loaded header title</h1>
+  <p>After Load, phones hide the picker. The header should name the loaded trajectory and stay one row without sideways scroll.</p>
+
+  <div class="card bad">
+    <div class="label">Before</div>
+    <header class="mock" id="beforeHeader">
+      <span class="back">← Back</span>
+      <h2 class="title" id="beforeTitle">Trajectory Simplification Visualizer</h2>
+      <span class="help">?</span>
+    </header>
+    <div class="meta" id="beforeMeta"></div>
+  </div>
+
+  <div class="card ok">
+    <div class="label">After</div>
+    <header class="mock" id="afterHeader">
+      <span class="back">← Back</span>
+      <h2 class="title" id="afterTitle">Beijing taxi sample (12,345 points)</h2>
+      <span class="help">?</span>
+    </header>
+    <div class="meta" id="afterMeta"></div>
+  </div>
+
+  <p class="note" id="verdict"></p>
+  <script>
+    function measure(header, title) {
+      const hr = header.getBoundingClientRect();
+      const tr = title.getBoundingClientRect();
+      const overflow = title.scrollWidth > title.clientWidth + 1;
+      const pageScroll = document.documentElement.scrollWidth > document.documentElement.clientWidth + 1;
+      return {
+        headerW: Math.round(hr.width),
+        titleW: Math.round(tr.width),
+        titleScroll: Math.round(title.scrollWidth),
+        overflow: overflow ? "yes" : "no",
+        pageScroll: pageScroll ? "yes" : "no",
+      };
+    }
+    const before = measure(document.getElementById("beforeHeader"), document.getElementById("beforeTitle"));
+    const after = measure(document.getElementById("afterHeader"), document.getElementById("afterTitle"));
+    document.getElementById("beforeMeta").textContent =
+      `header=${before.headerW} titleClient=${before.titleW} titleScroll=${before.titleScroll} clipped=${before.overflow} pageScroll=${before.pageScroll}`;
+    document.getElementById("afterMeta").textContent =
+      `header=${after.headerW} titleClient=${after.titleW} titleScroll=${after.titleScroll} ellipsis=${after.overflow} pageScroll=${after.pageScroll}`;
+    const ok = after.pageScroll === "no" && before.headerW === after.headerW;
+    document.getElementById("verdict").textContent = ok
+      ? "Pass: loaded title uses trajectory name with ellipsis; header stays within 390px."
+      : "Check layout metrics above.";
+  </script>
+</body>
+</html>

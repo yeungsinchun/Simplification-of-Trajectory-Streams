@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Compare needs preloaded traces</title>
+  <style>
+    :root {
+      --bg: #0f141d;
+      --panel: #171c27;
+      --panel-border: #2a3142;
+      --text: #e8ecf4;
+      --text-dim: #9aa3b5;
+      --accent: #3ddc97;
+      --danger: #ff5f6d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 14px/1.45 system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px;
+    }
+    h1 { font-size: 18px; margin: 0 0 8px; }
+    p { color: var(--text-dim); margin: 0 0 18px; max-width: 720px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      max-width: 960px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .label {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+    }
+    .pills { display: flex; gap: 8px; margin-bottom: 10px; }
+    .pill {
+      border: 1px solid var(--panel-border);
+      border-radius: 999px;
+      padding: 7px 14px;
+      font-size: 12px;
+      font-weight: 650;
+      color: var(--text-dim);
+      background: #1a1f29;
+    }
+    .pill.active {
+      border-color: var(--accent);
+      color: var(--text);
+      background: #2a4a72;
+    }
+    .pill.disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .status { font-size: 12px; color: var(--text-dim); min-height: 36px; }
+    .status.error { color: var(--danger); }
+    .hint { font-size: 12px; color: var(--text-dim); margin-top: 10px; }
+    .ok { color: var(--accent); margin-top: 18px; }
+    @media (max-width: 720px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Compare after Upload trajectory</h1>
+  <p>
+    Compare algorithms only run against preloaded traces. After choosing an uploaded file,
+    the DOTS / DP / SQUISH pills disable and copy explains that Results still shows Simplify scores.
+  </p>
+  <div class="grid">
+    <div class="card">
+      <div class="label">Before: pills stayed clickable after upload</div>
+      <div class="pills">
+        <span class="pill active">DOTS</span>
+        <span class="pill">DP</span>
+        <span class="pill">SQUISH</span>
+      </div>
+      <div class="status error">Load a preloaded trace to run the compare.</div>
+      <div class="hint">Confusing once an uploaded trace is already loaded.</div>
+    </div>
+    <div class="card">
+      <div class="label">After: pills disabled with plain copy</div>
+      <div class="pills">
+        <span class="pill disabled">DOTS</span>
+        <span class="pill disabled">DP</span>
+        <span class="pill disabled">SQUISH</span>
+      </div>
+      <div class="status">Compare needs a preloaded trace. Uploaded files show Simplify scores only.</div>
+      <div class="hint">Compare works with preloaded traces. Uploaded files show Simplify scores only.</div>
+    </div>
+  </div>
+  <p class="ok">Upload no longer presents a dead-end Compare path; preloaded selection re-enables the pills.</p>
+</body>
+</html>

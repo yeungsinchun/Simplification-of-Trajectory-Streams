@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Green path not simplified-path jargon</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+  }
+  * { box-sizing: border-box; }
+  html, body { width: 900px; max-width: 900px; overflow-x: hidden; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    padding: 16px;
+  }
+  h1 { font-size: 15px; margin: 0 0 6px; }
+  p { margin: 0 0 12px; color: var(--text-dim); font-size: 12px; max-width: 720px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .label {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .chip, .tip, .load {
+    display: block;
+    padding: 6px 10px;
+    background: #1a1f2b;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .chip b { color: #9ecbff; font-weight: 600; }
+  #check {
+    margin-top: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+  <h1>simplified path → green path</h1>
+  <p>
+    Before: Match / Grid / Load / Scores / This run / Gray path tips still said
+    <b>simplified path</b> or <b>simplification</b> after green-path vocabulary landed.
+    After: those tips share <b>green path</b> / <b>this run</b> wording.
+  </p>
+  <div class="grid">
+    <div class="frame" id="before">
+      <div class="label">Before</div>
+      <span class="chip" title="Match tolerance (ε): how closely the simplified path must match the original. Smaller keeps more detail.">Match <b>0.9</b></span>
+      <span class="chip" title="Search-grid spacing (δ) used while finding the simplified path.">Grid <b>500</b></span>
+      <span class="load" title="Load trajectory and run simplification">Load</span>
+      <span class="tip" title="Scores for this simplification run (the green path)">This run</span>
+      <span class="tip" title="Gray path: the original trajectory before simplification.">Gray path</span>
+      <span class="tip" title="How far each simplified path drifts from the original.">Match error</span>
+    </div>
+    <div class="frame" id="after">
+      <div class="label">After</div>
+      <span class="chip" id="matchChip" title="Match tolerance (ε): how closely the green path must match the original. Smaller keeps more detail.">Match <b>0.9</b></span>
+      <span class="chip" id="gridChip" title="Search-grid spacing (δ) used while finding the green path.">Grid <b>500</b></span>
+      <span class="load" id="loadBtn" title="Load trajectory and build the green path">Load</span>
+      <span class="tip" id="thisRun" title="Scores for this run (the green path)">This run</span>
+      <span class="tip" id="grayPath" title="Gray path: the original trajectory before the green path.">Gray path</span>
+      <span class="tip" id="matchError" title="How far each path drifts from the original.">Match error</span>
+    </div>
+  </div>
+  <div id="check"></div>
+  <script>
+    const beforeTips = [...document.querySelectorAll("#before [title]")].map((n) => n.title).join(" | ");
+    const matchTip = document.getElementById("matchChip").title;
+    const gridTip = document.getElementById("gridChip").title;
+    const loadTip = document.getElementById("loadBtn").title;
+    const thisRunTip = document.getElementById("thisRun").title;
+    const grayTip = document.getElementById("grayPath").title;
+    const errTip = document.getElementById("matchError").title;
+    const beforeOld = beforeTips.includes("simplified path")
+      && beforeTips.includes("simplification")
+      && !beforeTips.includes("before the green path")
+      && !beforeTips.includes("build the green path");
+    const afterNew = matchTip.includes("green path")
+      && gridTip.includes("green path")
+      && loadTip.includes("build the green path")
+      && thisRunTip.includes("this run (the green path)")
+      && grayTip.includes("before the green path")
+      && errTip.includes("each path drifts")
+      && !matchTip.includes("simplified")
+      && !gridTip.includes("simplified")
+      && !loadTip.includes("simplification")
+      && !thisRunTip.includes("simplification")
+      && !grayTip.includes("simplification")
+      && !errTip.includes("simplified");
+    const scroll = document.documentElement.scrollWidth;
+    const ok = beforeOld && afterNew && scroll <= 900;
+    document.getElementById("check").textContent =
+      `ok=${ok} scrollWidth=${scroll} beforeOld=${beforeOld} afterNew=${afterNew}`;
+  </script>
+</body>
+</html>

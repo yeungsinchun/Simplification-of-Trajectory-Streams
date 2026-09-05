@@ -77,7 +77,8 @@ class CompareApiTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         payload = resp.get_json()
         self.assertIsNotNone(payload.get("baseline_error"))
-        self.assertIn("binary not found", payload["baseline_error"])
+        self.assertIn("not available", payload["baseline_error"])
+        self.assertNotIn("binary not found", payload["baseline_error"].lower())
         self.assertNotIn("dp", payload["layers"])
         self.assertNotIn("baseline", payload["layers"])
         self.assertIsNone(payload["metrics"]["baseline_points"])
@@ -164,7 +165,7 @@ sys.exit(2)
         resp = self.client.get(f"/api/trace/{self.trace_id}/frechet/baseline")
         self.assertEqual(resp.status_code, 400)
         payload = resp.get_json()
-        self.assertIn("Unknown curve", payload.get("error", ""))
+        self.assertIn("Unknown path for Match error", payload.get("error", ""))
 
 
 class RealBaselineBinariesTests(unittest.TestCase):

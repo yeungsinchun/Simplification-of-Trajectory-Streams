@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DOTS budget and point chips</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+    --accent: #4f9dff;
+    --ok: #3ddc97;
+  }
+  * { box-sizing: border-box; }
+  html, body { max-width: 900px; overflow-x: hidden; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    padding: 16px;
+  }
+  h1 { font-size: 15px; margin: 0 0 6px; }
+  p { margin: 0 0 12px; color: var(--text-dim); font-size: 12px; max-width: 720px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 900px; }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .label {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .strip {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 8px 10px;
+    background: #0f131a;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    min-height: 33px;
+    margin-bottom: 8px;
+  }
+  .name { color: var(--text-dim); font-weight: 600; font-size: 12px; white-space: nowrap; }
+  .pill {
+    border: 1px solid var(--accent);
+    background: #2a4a72;
+    color: var(--text);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 11px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .field {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-dim);
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .field input {
+    width: 56px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--panel-border);
+    background: #1a1f29;
+    color: var(--text);
+  }
+  .unit { font-weight: 650; color: var(--text-dim); }
+  .run {
+    flex-shrink: 0;
+    background: var(--accent);
+    color: #061018;
+    border: none;
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 650;
+    white-space: nowrap;
+  }
+  .params {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .params span { white-space: nowrap; }
+  .params b { color: var(--text); font-weight: 600; }
+  .status { color: var(--ok); font-size: 12px; margin-top: 8px; }
+  .ok {
+    color: var(--ok);
+    margin-top: 12px;
+    font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+</style>
+</head>
+<body>
+  <h1>DOTS budget / load status / point chips</h1>
+  <p>
+    After Load, preloaded success still said <b>✓ Loaded 51</b> (opaque id),
+    DOTS used <b>limit</b> + unit <b>K</b> (“Thousand”), and params chips said
+    bare <b>original</b> / <b>kept</b>. Novices could not read the count chips or
+    the DOTS scale without jargon.
+  </p>
+  <div class="grid">
+    <div class="frame">
+      <div class="label">Before</div>
+      <div class="strip">
+        <span class="name">Compare:</span>
+        <span class="pill">DOTS</span>
+        <label class="field"><span>DOTS limit</span><input value="1000" /><span class="unit">K</span></label>
+        <button type="button" class="run">Run</button>
+      </div>
+      <div class="params">
+        <span>original <b>4521</b></span>
+        <span>kept <b>112</b></span>
+        <span>kept % <b>2.5%</b></span>
+      </div>
+      <div class="status">✓ Loaded 51</div>
+    </div>
+    <div class="frame" id="after">
+      <div class="label">After</div>
+      <div class="strip" id="afterStrip">
+        <span class="name">Compare:</span>
+        <span class="pill">DOTS</span>
+        <label class="field" id="dotsField" title="DOTS distance budget. Entered in thousands (1000 means 1,000,000). Larger keeps fewer points.">
+          <span id="dotsLabel">DOTS budget</span>
+          <input value="1000" aria-label="DOTS distance budget in thousands" />
+          <span class="unit" id="dotsUnit" title="Entered in thousands (×1,000)">×1k</span>
+        </label>
+        <button type="button" class="run">Run</button>
+      </div>
+      <div class="params" id="paramsAfter">
+        <span id="origChip" title="Number of points on the original trajectory.">orig. points <b>4521</b></span>
+        <span id="keptChip" title="Number of points kept on the simplified path.">kept points <b>112</b></span>
+        <span>kept % <b>2.5%</b></span>
+      </div>
+      <div class="status" id="loadStatus">✓ Loaded</div>
+    </div>
+  </div>
+  <p class="ok" id="check">Measuring…</p>
+<script>
+  const strip = document.getElementById("afterStrip");
+  const dotsLabel = document.getElementById("dotsLabel").textContent.trim();
+  const dotsUnit = document.getElementById("dotsUnit").textContent.trim();
+  const dotsTip = document.getElementById("dotsField").getAttribute("title") || "";
+  const unitTip = document.getElementById("dotsUnit").getAttribute("title") || "";
+  const params = document.getElementById("paramsAfter").textContent;
+  const loadStatus = document.getElementById("loadStatus").textContent.trim();
+  const stripH = strip.getBoundingClientRect().height;
+  const scroll = document.documentElement.scrollWidth;
+  const hasDots = dotsLabel === "DOTS budget"
+    && dotsUnit === "×1k"
+    && dotsTip.includes("thousands")
+    && unitTip.includes("×1,000")
+    && !dotsLabel.includes("limit")
+    && dotsUnit !== "K";
+  const hasPoints = params.includes("orig. points")
+    && params.includes("kept points")
+    && !params.includes("original ")
+    && !/\bkept\s+\d/.test(params.replace("kept points", ""));
+  const hasLoad = loadStatus === "✓ Loaded" && !/\d/.test(loadStatus);
+  const oneRow = stripH <= 48;
+  const ok = hasDots && hasPoints && hasLoad && oneRow && scroll <= 900;
+  document.getElementById("check").textContent =
+    `dots=${hasDots} points=${hasPoints} load=${hasLoad} stripH=${Math.round(stripH)} scrollWidth=${scroll} ok=${ok}`;
+</script>
+</body>
+</html>

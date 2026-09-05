@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Desktop empty-canvas start Instructions</title>
+  <style>
+    :root {
+      --bg: #0f141d;
+      --panel: #171c27;
+      --panel-border: #2a3142;
+      --text: #e8ecf4;
+      --text-dim: #9aa3b5;
+      --accent: #3ddc97;
+      --bad: #ff8a94;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 14px/1.45 system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px;
+    }
+    h1 { font-size: 18px; margin: 0 0 8px; }
+    p { color: var(--text-dim); margin: 0 0 18px; max-width: 820px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      max-width: 980px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .label {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+    }
+    .picker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      background: #0f131a;
+      margin-bottom: 12px;
+      font-size: 13px;
+    }
+    .instr {
+      margin-top: 8px;
+      padding: 12px 14px;
+      text-align: left;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+    }
+    .instr h2 {
+      margin: 0 0 8px;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .instr ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--text-dim);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+    .instr b { color: var(--text); font-weight: 500; }
+    kbd {
+      font: 11px ui-monospace, monospace;
+      padding: 1px 5px;
+      border: 1px solid var(--panel-border);
+      border-radius: 4px;
+      background: #0f131a;
+    }
+    .ok {
+      margin-top: 18px;
+      color: var(--accent);
+      font-size: 13px;
+      max-width: 820px;
+    }
+    .bad { color: var(--bad); }
+  </style>
+</head>
+<body>
+  <h1>Desktop empty-canvas Instructions lead with how to start</h1>
+  <p>
+    Before this fix, the desktop empty canvas showed playback keyboard shortcuts
+    (Step / Segment / Candidate) before any trajectory was loaded. Novices who
+    skipped the tour saw expert replay keys instead of the start path.
+    Mobile already listed start steps; desktop now matches, and the picker /
+    status copy says trajectory instead of bare “trace”.
+  </p>
+
+  <div class="grid">
+    <div class="card">
+      <div class="label">Before</div>
+      <div class="picker bad">Select trace…</div>
+      <div class="instr">
+        <h2>Instructions</h2>
+        <ul>
+          <li><kbd>←</kbd> / <kbd>→</kbd>: Previous / next step</li>
+          <li><kbd>Shift</kbd> + <kbd>←</kbd> / <kbd>→</kbd>: Previous / next segment</li>
+          <li><kbd>Space</kbd>: Play / pause</li>
+          <li><kbd>C</kbd> / <kbd>X</kbd>: Next / previous candidate</li>
+          <li><b>Drag</b>: Pan</li>
+          <li><b>Scroll</b>: Zoom</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="label">After</div>
+      <div class="picker" style="color:var(--accent)">Select trajectory…</div>
+      <div class="instr">
+        <h2>Instructions</h2>
+        <ul>
+          <li>Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>.</li>
+          <li>Optionally adjust <b>ε match</b> (accuracy) and <b>δ grid</b> (search spacing), then press <b>Load</b>.</li>
+          <li>After load, open <b>Results</b> for scores. With a preloaded trajectory you can pick optional <b>Compare</b> algorithms and press <b>Run</b>.</li>
+          <li><b>Drag</b> to pan and <b>scroll</b> to zoom. Keyboard shortcuts live in the right-side Instructions after load.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <p class="ok" id="ok">
+    Empty-canvas Instructions teach the start path. Picker placeholder says Select trajectory…
+    (scrollWidth check runs in the screenshot harness).
+  </p>
+  <script>
+    document.getElementById("ok").textContent +=
+      ` documentElement.scrollWidth=${document.documentElement.scrollWidth}.`;
+  </script>
+</body>
+</html>

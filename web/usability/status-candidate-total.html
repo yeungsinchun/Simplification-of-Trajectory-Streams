@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Status Candidate N/total</title>
+<style>
+  html, body { max-width: 900px; margin: 0 auto; }
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+    --accent: #3ddc97;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    padding: 16px;
+  }
+  h1 { font-size: 15px; margin: 0 0 6px; }
+  p { margin: 0 0 12px; color: var(--text-dim); font-size: 12px; max-width: 720px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 900px; }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .label {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  h2 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .status-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .status-grid .mono { color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .pb {
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .pb b { color: var(--text); }
+  .bad { color: #ff8a94; }
+  .ok { color: var(--accent); margin-top: 12px; font-size: 12px; }
+</style>
+</head>
+<body>
+  <h1>Status: Candidate matches playback N / total</h1>
+  <p>
+    Segment and Step already used <b>N / total</b> like the playback bar, but Status still
+    showed <b>Candidates 3 still open</b>. Skip-tour users mapping Status to Candidate on
+    the dock could not tell which option was selected or how many options existed.
+  </p>
+  <div class="grid">
+    <div class="frame">
+      <div class="label">Before</div>
+      <h2>Status</h2>
+      <div class="status-grid">
+        <span>Segment</span><span class="mono"><b>2 / 8</b></span>
+        <span>Step</span><span class="mono"><b>4 / 15</b></span>
+        <span class="bad">Candidates</span><span class="mono bad"><b style="color:#3ddc97">3</b> still open</span>
+      </div>
+      <div class="pb">playback Candidate: <b>2 / 5</b></div>
+    </div>
+    <div class="frame" id="after">
+      <div class="label">After</div>
+      <h2>Status</h2>
+      <div class="status-grid" id="statusGrid">
+        <span title="Jumps between pieces of the simplified path">Segment</span><span class="mono"><b>2 / 8</b></span>
+        <span title="Walks along original points for the current simplified piece">Step</span><span class="mono"><b>4 / 15</b></span>
+        <span id="candLabel" title="Cycles next-point options the search considered. 3 still being considered. Same idea as Candidate on the playback bar.">Candidate</span><span class="mono"><b id="candVal">2 / 5</b></span>
+      </div>
+      <div class="pb">playback Candidate: <b>2 / 5</b></div>
+    </div>
+  </div>
+  <p class="ok" id="check">Measuring…</p>
+<script>
+  const grid = document.getElementById("statusGrid").textContent;
+  const tip = document.getElementById("candLabel").getAttribute("title") || "";
+  const scroll = document.documentElement.scrollWidth;
+  const hasCandidate = grid.includes("Candidate") && grid.includes("2 / 5");
+  const noPluralStillOpen = !grid.includes("Candidates") && !grid.includes("still open");
+  const tipOk = tip.includes("still being considered") && tip.includes("playback");
+  const ok = hasCandidate && noPluralStillOpen && tipOk && scroll <= 900;
+  document.getElementById("check").textContent =
+    `candidate=${hasCandidate} noPluralStillOpen=${noPluralStillOpen} tipOk=${tipOk} scrollWidth=${scroll} ok=${ok}`;
+</script>
+</body>
+</html>

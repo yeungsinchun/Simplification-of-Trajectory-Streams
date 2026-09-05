@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Desktop Compare help uses method glosses</title>
+<style>
+  html, body {
+    width: 900px;
+    max-width: 900px;
+    margin: 0 auto;
+    overflow-x: hidden;
+  }
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+    --accent: #26bf90;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    padding: 16px;
+  }
+  h1 { font-size: 15px; margin: 0 0 6px; }
+  p { margin: 0 0 12px; color: var(--text-dim); font-size: 12px; max-width: 860px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .label {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .help, .sub, .status {
+    margin: 0 0 8px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text);
+  }
+  .help b, .sub b { font-weight: 600; }
+  .status { color: var(--text-dim); }
+  .check {
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--accent);
+  }
+  .check.fail { color: #f87171; }
+</style>
+</head>
+<body>
+  <h1>Desktop drop-hint / Instructions: bare Compare → method glosses</h1>
+  <p>
+    Mobile start help and the tour already named <b>DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %)</b>,
+    but desktop empty-canvas Instructions and the drop-hint subline still said bare
+    <b>Compare methods</b> / <b>Compare (preloaded only)</b>. Selection status also listed bare acronyms.
+  </p>
+  <div class="grid">
+    <div class="frame" id="before">
+      <div class="label">Before</div>
+      <p class="sub">
+        Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>, optionally pick
+        <b>Compare</b> (preloaded only), leave <b>Match</b> / <b>Grid</b> at defaults, then <b>Load</b>
+      </p>
+      <p class="help">
+        After load, open <b>Results</b> for scores. With a preloaded trajectory you can pick optional
+        <b>Compare</b> methods and press <b>Run</b> (or <b>Run compare</b> in Results).
+      </p>
+      <p class="status">Selected DOTS, DP. Press Run compare…</p>
+    </div>
+    <div class="frame" id="after">
+      <div class="label">After</div>
+      <p class="sub" id="afterSub">
+        Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>, optionally pick
+        <b>Compare</b>: DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %) (preloaded only), leave
+        <b>Match</b> / <b>Grid</b> at defaults, then <b>Load</b>
+      </p>
+      <p class="help" id="afterHelp">
+        After load, open <b>Results</b> for scores. With a preloaded trajectory you can pick optional
+        <b>Compare</b>: DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %) and press <b>Run</b>
+        (or <b>Run compare</b> in Results).
+      </p>
+      <p class="status" id="afterStatus">Selected DOTS (as-you-go), DP (all-at-once). Press Run compare…</p>
+    </div>
+  </div>
+  <p class="check" id="status">Checking…</p>
+  <script>
+    const sub = document.getElementById("afterSub").textContent;
+    const help = document.getElementById("afterHelp").textContent;
+    const statusLine = document.getElementById("afterStatus").textContent;
+    const before = document.getElementById("before").textContent;
+    const hasGlosses =
+      sub.includes("as-you-go")
+      && sub.includes("all-at-once")
+      && sub.includes("keep %")
+      && help.includes("as-you-go")
+      && help.includes("all-at-once")
+      && help.includes("keep %")
+      && statusLine.includes("as-you-go")
+      && statusLine.includes("all-at-once");
+    const noBareMethods = !help.includes("Compare methods");
+    const beforeHadBare =
+      before.includes("Compare methods")
+      && before.includes("Selected DOTS, DP");
+    const scrollOk = document.documentElement.scrollWidth <= 900;
+    const ok = hasGlosses && noBareMethods && beforeHadBare && scrollOk;
+    const el = document.getElementById("status");
+    el.textContent = `ok=${ok} scrollWidth=${document.documentElement.scrollWidth} glosses=${hasGlosses} noBareMethods=${noBareMethods}`;
+    el.className = "check" + (ok ? "" : " fail");
+  </script>
+</body>
+</html>

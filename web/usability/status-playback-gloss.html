@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Status and playback glosses</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    padding: 16px;
+  }
+  h1 { font-size: 15px; margin: 0 0 6px; }
+  p { margin: 0 0 12px; color: var(--text-dim); font-size: 12px; max-width: 720px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 900px; }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .label {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  h2 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .status-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .status-grid .mono { color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .pb-caption {
+    display: inline-block;
+    margin-top: 8px;
+    margin-right: 10px;
+    font-size: 11px;
+    color: var(--text-dim);
+    border-bottom: 1px dotted var(--panel-border);
+    cursor: help;
+  }
+  #check {
+    margin-top: 14px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+  <h1>Status and playback use the same Step / Candidate glosses</h1>
+  <p>
+    Status used to say path step and candidates 3 / 12 (alive over anchors),
+    and Candidate tooltips said search boundary. Novices could not match Status
+    to the playback bar or Instructions. Status now says Step / Candidates still
+    open, and playback titles match the Instructions glosses.
+  </p>
+  <div class="grid">
+    <div class="frame">
+      <div class="label">Before</div>
+      <h2>Status</h2>
+      <div class="status-grid">
+        <span>path step</span><span class="mono"><b>4</b></span>
+        <span>candidates</span><span class="mono"><b>3</b> / 12</span>
+      </div>
+      <span class="pb-caption" title="Candidate points on the search boundary">Candidate</span>
+    </div>
+    <div class="frame" id="after">
+      <div class="label">After</div>
+      <h2>Status</h2>
+      <div class="status-grid" id="statusGrid">
+        <span title="Walks along original points for the current simplified piece">Step</span><span class="mono"><b>4</b></span>
+        <span title="Next-point options still being considered for this segment">Candidates</span><span class="mono"><b style="color:#3ddc97">3</b> still open</span>
+      </div>
+      <span class="pb-caption" id="candidateCaption" title="Cycles next-point options the search considered">Candidate</span>
+    </div>
+  </div>
+  <div id="check"></div>
+  <script>
+    const grid = document.getElementById("statusGrid").textContent;
+    const candTitle = document.getElementById("candidateCaption").getAttribute("title") || "";
+    const scroll = document.documentElement.scrollWidth;
+    const hasStep = grid.includes("Step") && !grid.includes("path step");
+    const hasStillOpen = grid.includes("still open") && !grid.includes("/");
+    const candOk = candTitle.includes("next-point") && !candTitle.includes("search boundary");
+    const ok = hasStep && hasStillOpen && candOk && scroll <= 900;
+    document.getElementById("check").textContent =
+      `hasStep=${hasStep} hasStillOpen=${hasStillOpen} candOk=${candOk} scrollWidth=${scroll} ok=${ok}`;
+  </script>
+</body>
+</html>

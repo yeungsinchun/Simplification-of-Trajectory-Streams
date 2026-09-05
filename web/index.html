@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Trajectory Simplification Visualizer</title>
+<title>Trajectory Simplifier</title>
 <script>
   // Assistive MathML copies keep full formula width and can report boxes past the
   // 280px sidebar at 900px even when overflow-x is hidden. Disable the render
@@ -57,6 +57,9 @@
     font-weight: 600;
     margin: 0;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
     color: var(--text);
   }
   header .sub {
@@ -93,14 +96,15 @@
     gap: 4px;
     white-space: nowrap;
   }
+  /* Prefer plain Match / Grid on every viewport; ε / δ stay in titles/aria. */
   .upload-form .param-symbol {
-    color: var(--text);
-    font-weight: 600;
+    display: none;
   }
   .upload-form .param-gloss {
-    color: var(--text-dim);
-    font-weight: 500;
+    color: var(--text);
+    font-weight: 600;
     letter-spacing: 0.01em;
+    text-transform: capitalize;
   }
   .params {
     display: flex;
@@ -375,8 +379,21 @@
     font-weight: 650;
     letter-spacing: 0.02em;
     cursor: pointer;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    line-height: 1.15;
   }
-  .baseline-algo-pill:hover {
+  .baseline-algo-pill .pill-gloss {
+    font-size: 9px;
+    font-weight: 550;
+    letter-spacing: 0;
+    opacity: 0.75;
+    text-transform: none;
+  }
+  .baseline-algo-pill:hover:not(:disabled) {
     border-color: var(--accent);
     color: var(--text);
   }
@@ -384,6 +401,10 @@
     background: var(--accent-dim, #2a4a72);
     border-color: var(--accent);
     color: var(--text);
+  }
+  .baseline-algo-pill:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
   .header-baseline {
     display: inline-flex;
@@ -406,6 +427,11 @@
   .header-baseline .baseline-algo-pill {
     padding: 5px 12px;
     font-size: 11px;
+    flex-direction: row;
+    gap: 0;
+  }
+  .header-baseline .baseline-algo-pill .pill-gloss {
+    display: none;
   }
   .baseline-field {
     display: flex;
@@ -672,6 +698,7 @@
     font-weight: 500;
     white-space: nowrap;
   }
+  .pb-caption-short { display: none; }
   .pb-speed {
     display: flex;
     align-items: center;
@@ -983,6 +1010,19 @@
     flex-shrink: 0;
     display: inline-block;
   }
+  .layer-algo-gloss,
+  .th-algo-gloss {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-dim);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .th-algo-gloss {
+    display: block;
+    margin-top: 1px;
+    font-size: 9px;
+  }
   .toggle-row input[type="checkbox"] {
     accent-color: var(--accent);
     width: 14px; height: 14px;
@@ -1044,6 +1084,18 @@
     color: var(--text-dim);
     font-size: 11px;
     line-height: 1.5;
+  }
+  .instructions-gloss,
+  .status-gloss {
+    margin: 0 0 10px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text-dim);
+  }
+  .instructions-gloss b,
+  .status-gloss b {
+    color: var(--text);
+    font-weight: 600;
   }
   .shortcuts-table {
     width: 100%;
@@ -1200,10 +1252,13 @@
       padding: 10px 12px;
     }
     body.trace-loaded-mobile header h1 {
-      flex: 1;
+      flex: 1 1 0;
       width: auto;
+      min-width: 0;
       text-align: right;
       font-size: 14px;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     body.trace-loaded-mobile .mobile-back { display: inline-flex; }
     body.trace-loaded-mobile .headerBody {
@@ -1612,7 +1667,8 @@
     body.trace-loaded-mobile .status-grid {
       padding: 0 4px;
       font-size: 13px;
-      min-height: 52px;
+      /* Three rows: Segment, Step, Option */
+      min-height: 78px;
     }
     .desktop-shortcuts { display: none; }
     .mobile-shortcuts { display: table; }
@@ -1675,7 +1731,7 @@
     }
     .params:not(:empty) {
       /* Full-width second header row. flex-basis 100% only works when header
-         may wrap; shrink 0 so the chips are not crushed beside Load Trace. */
+         may wrap; shrink 0 so the chips are not crushed beside Load. */
       flex: 1 0 100%;
       margin-left: 0;
       width: 100%;
@@ -1686,7 +1742,9 @@
       flex-wrap: wrap;
     }
     header h1 {
-      flex-shrink: 0;
+      flex: 0 1 auto;
+      min-width: 0;
+      max-width: min(280px, 32vw);
     }
     .ui-tour-relaunch {
       flex-shrink: 0;
@@ -1711,8 +1769,8 @@
       white-space: nowrap;
       flex-shrink: 0;
     }
-    /* Compare strip sits under Load Trace so selecting algos never kicks
-       Load Trace onto a second form row. Keep pills + params on one line. */
+    /* Compare strip sits under Load so selecting algos never kicks
+       Load onto a second form row. Keep pills + params on one line. */
     .upload-form .header-baseline {
       flex: 1 1 100%;
       flex-wrap: nowrap;
@@ -1748,7 +1806,11 @@
   }
 
   @media (min-width: 721px) and (max-width: 820px) {
-    .pb-caption { display: none; }
+    /* Keep short Step / Seg / Opt labels so three identical ← 0/0 → groups
+       stay distinguishable without the wider full captions. */
+    .pb-caption-long { display: none; }
+    .pb-caption-short { display: inline; }
+    .pb-caption { font-size: 9px; }
     .pb-btn { min-width: 36px; }
     .pb-btn--play { min-width: 44px; padding: 4px 6px; }
     .pb-input { width: 50px; font-size: 11px; }
@@ -1759,12 +1821,15 @@
   @media (min-width: 721px) and (max-width: 899px) {
     .upload-form { flex-wrap: wrap; }
     /* Ellipsis preview wraps to 2 rows here; filled numbers need 3. Reserve the
-       taller slot so Load Trace → geometry does not grow the header. */
+       taller slot so Load → geometry does not grow the header. */
     .params:not(:empty) {
       min-height: 76px;
     }
-    /* Keep ε/δ + Load Trace on one row; tooltips and start copy still explain match/grid. */
-    .upload-form .param-gloss { display: none; }
+    /* Narrower number fields so Load stays on the same control row
+       (Match / Grid labels are the default on every viewport). */
+    .upload-form label input[type="number"] {
+      width: 50px;
+    }
   }
 
   @media (max-width: 480px) {
@@ -2101,11 +2166,11 @@
 <body>
 <div id="app">
   <header>
-    <button type="button" id="mobileBackBtn" class="mobile-back" aria-label="Back to trace selection">
+    <button type="button" id="mobileBackBtn" class="mobile-back" aria-label="Back to trajectory selection">
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Back
     </button>
-    <h1>Trajectory Simplification Visualizer</h1>
+    <h1 id="appTitle">Trajectory Simplifier</h1>
     <button type="button" id="uiTourRelaunch" class="ui-tour-relaunch" title="Replay the quick tour" aria-label="Replay the quick tour">?</button>
     <button type="button" id="headerToggle" class="headerToggle" aria-label="Show controls" aria-expanded="false" aria-controls="headerBody">
       <svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
@@ -2115,54 +2180,54 @@
         <div class="upload-form">
           <div class="preloaded-row">
             <button type="button" id="preloadedTrigger" class="preloaded-trigger">
-              <span id="preloadedLabel">Select trace…</span>
+              <span id="preloadedLabel">Select trajectory…</span>
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </button>
             <!-- Real select kept for accessibility, hidden visually on mobile -->
             <select id="traceSelect" class="visually-hidden">
-              <option value="">Select trace...</option>
+              <option value="">Select trajectory...</option>
             </select>
           </div>
           <span class="or-divider" style="color: var(--text-dim); font-size: 12px; margin: 0 8px;">or</span>
-          <button id="uploadBtn" class="primary" title="Upload a plain-text trajectory (first line N, then N lines of x y). Same format as the sample original.txt files.">Upload trajectory</button>
+          <button id="uploadBtn" class="primary" title="Upload a plain-text trajectory: first line is the point count N, then N lines of x y coordinates.">Upload trajectory</button>
           <input type="file" id="trajectoryInput" accept=".txt,text/plain" />
-          <label title="How closely the simplified path must match the original. Smaller keeps more detail.">
+          <label title="Match (ε): how closely the green path must match the Gray path. A smaller Match keeps a more detailed green path.">
             <span class="param-label"><span class="param-symbol">&epsilon;</span> <span class="param-gloss">match</span></span>
-            <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" aria-label="Match tolerance (epsilon)" />
+            <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" aria-label="Match" />
           </label>
-          <label title="Grid spacing used while searching for the simplified path. Preloaded traces set a good default.">
+          <label title="Grid spacing (δ) used while finding the green path. A smaller Grid uses finer spacing; defaults are usually fine.">
             <span class="param-label"><span class="param-symbol">&delta;</span> <span class="param-gloss">grid</span></span>
-            <input type="number" id="deltaInput" value="500" step="10" min="1" aria-label="Search grid spacing (delta)" />
+            <input type="number" id="deltaInput" value="500" step="10" min="1" aria-label="Grid spacing" />
           </label>
-          <button id="loadBtn" class="primary">
+          <button id="loadBtn" class="primary" title="Load trajectory and build the green path" aria-label="Load trajectory and build the green path">
             <span class="button-spinner" aria-hidden="true"></span>
-            <span class="load-btn-label">Load Trace</span>
+            <span class="load-btn-label">Load</span>
           </button>
           <span class="sub" id="uploadStatus"></span>
-          <div class="header-baseline" aria-label="Optional algorithms to compare against">
-            <span class="header-baseline-label" title="Optional. Pick other algorithms to score against after Load Trace. Skip for a first run.">Compare:</span>
-            <div class="baseline-algo-row" id="headerBaselineAlgoRow" role="group" aria-label="Compare algorithms">
-              <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" title="DOTS: another streaming simplifier to score against. Optional; skip for a first run.">DOTS</button>
-              <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Optional compare.">DP</button>
-              <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" title="SQUISH: keeps about this percent of the original points. Optional compare.">SQUISH</button>
+          <div class="header-baseline" aria-label="Optional methods to compare against">
+            <span class="header-baseline-label" title="Optional. Pick other methods to score against after Load. Skip for a first run.">Compare:</span>
+            <div class="baseline-algo-row" id="headerBaselineAlgoRow" role="group" aria-label="Compare methods">
+              <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" aria-label="DOTS as-you-go" title="DOTS: builds a shorter green path as Gray path points arrive (as-you-go). Needs a preloaded trajectory.">DOTS<span class="pill-gloss">as-you-go</span></button>
+              <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP all-at-once" title="DP: builds a shorter green path from the whole Gray path in one pass (all-at-once), while staying within a match limit. Needs a preloaded trajectory.">DP<span class="pill-gloss">all-at-once</span></button>
+              <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" aria-label="SQUISH keep percent" title="SQUISH: builds a shorter green path by keeping about this percent of the original points. Needs a preloaded trajectory.">SQUISH<span class="pill-gloss">keep %</span></button>
             </div>
-            <label class="baseline-field baseline-field--inline" id="headerBaselineLssdField" hidden title="DOTS distance limit in thousands (K). Larger keeps fewer points.">
-              <span><span class="baseline-param-owner owner-dots">DOTS</span> limit</span>
-              <input type="number" id="headerBaselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS distance limit in thousands" />
-              <span class="baseline-field-unit" title="Thousand">K</span>
+            <label class="baseline-field baseline-field--inline" id="headerBaselineLssdField" hidden title="DOTS budget. Entered in thousands (1000 means 1,000,000). A larger budget builds a shorter green path (keeps fewer points).">
+              <span><span class="baseline-param-owner owner-dots">DOTS</span> budget</span>
+              <input type="number" id="headerBaselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS budget in thousands" />
+              <span class="baseline-field-unit" title="Entered in thousands (×1,000)">×1k</span>
             </label>
-            <label class="baseline-field baseline-field--inline" id="headerBaselineDpEpsField" hidden title="DP allowed point-to-edge error (same idea as ε match).">
+            <label class="baseline-field baseline-field--inline" id="headerBaselineDpEpsField" hidden title="DP match limit (same idea as the Match field). A smaller match keeps a more detailed green path.">
               <span><span class="baseline-param-owner owner-dp">DP</span> match</span>
-              <input type="number" id="headerBaselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP match error" />
+              <input type="number" id="headerBaselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP match limit" />
             </label>
-            <label class="baseline-field baseline-field--inline" id="headerBaselineSquishRatioField" hidden title="SQUISH keep ratio: percent of original points to retain.">
+            <label class="baseline-field baseline-field--inline" id="headerBaselineSquishRatioField" hidden title="SQUISH keep percent: percent of original points to keep on the green path.">
               <span><span class="baseline-param-owner owner-squish">SQUISH</span> keep</span>
               <input type="number" id="headerBaselineSquishRatioInput" value="20" step="1" min="0.01" max="100" aria-label="SQUISH keep percent" />
               <span class="baseline-field-unit" title="Percent">%</span>
             </label>
-            <button type="button" id="headerBaselineRunBtn" class="baseline-run-btn" hidden disabled title="Run the selected Compare algorithms and open scores in Results">Run</button>
+            <button type="button" id="headerBaselineRunBtn" class="baseline-run-btn" hidden disabled title="Run the selected Compare methods and open scores in Results">Run</button>
           </div>
         </div>
       </div>
@@ -2171,10 +2236,10 @@
         <h2>Instructions</h2>
         <ul>
           <li>Select a preloaded trajectory.</li>
-          <li>Optionally adjust <b>&epsilon; match</b> (accuracy) and <b>&delta; grid</b> (search spacing), then tap <b>Load Trace</b>.</li>
-          <li>After <b>Load Trace</b>, open <b>Results</b> to pick optional <b>Compare</b> algorithms and tap <b>Run compare</b> for scores.</li>
+          <li>Optionally adjust <b>Match</b> (accuracy) and <b>Grid</b> (spacing), then tap <b>Load</b>.</li>
+          <li>Optionally pick <b>Compare</b>: DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %). After <b>Load</b>, open <b>Results</b> for scores and tap <b>Run compare</b>.</li>
           <li>Drag the visualization to pan and pinch to zoom.</li>
-          <li>Use <b>Controls</b> for status and layers.</li>
+          <li>Use <b>Controls</b> for status and map overlays.</li>
           <li>Tap <b>Back</b> to choose another trajectory.</li>
         </ul>
       </div>
@@ -2183,7 +2248,7 @@
   <main>
     <div id="mainContent">
       <div id="resultsPanelBackdrop" class="results-panel-backdrop" hidden></div>
-      <aside id="resultsPanel" hidden aria-label="Results compare">
+      <aside id="resultsPanel" hidden aria-label="Results scores and Compare">
         <div class="results-panel-header">
           <h2>Results</h2>
           <button type="button" id="resultsPanelClose" class="results-panel-close" aria-label="Close results panel">
@@ -2192,27 +2257,27 @@
         </div>
         <div class="results-panel-body">
           <div>
-            <p class="results-section-label" title="Optional algorithms to compare against the Simplify result">Compare algorithms</p>
+            <p class="results-section-label" title="Optional methods to compare against this run">Compare methods</p>
             <div class="baseline-controls">
-              <div class="baseline-algo-row" id="baselineAlgoRow" role="group" aria-label="Compare algorithms">
-                <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" title="DOTS: another streaming simplifier to score against. Optional; skip for a first run.">DOTS</button>
-                <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Optional compare.">DP</button>
-                <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" title="SQUISH: keeps about this percent of the original points. Optional compare.">SQUISH</button>
+              <div class="baseline-algo-row" id="baselineAlgoRow" role="group" aria-label="Compare methods">
+                <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" aria-label="DOTS as-you-go" title="DOTS: builds a shorter green path as Gray path points arrive (as-you-go). Needs a preloaded trajectory.">DOTS<span class="pill-gloss">as-you-go</span></button>
+                <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP all-at-once" title="DP: builds a shorter green path from the whole Gray path in one pass (all-at-once), while staying within a match limit. Needs a preloaded trajectory.">DP<span class="pill-gloss">all-at-once</span></button>
+                <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" aria-label="SQUISH keep percent" title="SQUISH: builds a shorter green path by keeping about this percent of the original points. Needs a preloaded trajectory.">SQUISH<span class="pill-gloss">keep %</span></button>
               </div>
               <div id="baselineParamFields" class="baseline-param-fields">
-                <label class="baseline-field" id="baselineLssdField" hidden title="DOTS distance limit in thousands (K). Larger keeps fewer points.">
-                  <span><span class="baseline-param-owner owner-dots">DOTS</span> distance limit</span>
+                <label class="baseline-field" id="baselineLssdField" hidden title="DOTS budget. Entered in thousands (1000 means 1,000,000). A larger budget builds a shorter green path (keeps fewer points).">
+                  <span><span class="baseline-param-owner owner-dots">DOTS</span> budget</span>
                   <div class="baseline-field-input-row">
-                    <input type="number" id="baselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS distance limit in thousands" />
-                    <span class="baseline-field-unit" title="Thousand">K</span>
+                    <input type="number" id="baselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS budget in thousands" />
+                    <span class="baseline-field-unit" title="Entered in thousands (×1,000)">×1k</span>
                   </div>
                 </label>
-                <label class="baseline-field" id="baselineDpEpsField" hidden title="DP allowed point-to-edge error (same idea as ε match).">
-                  <span><span class="baseline-param-owner owner-dp">DP</span> match error</span>
-                  <input type="number" id="baselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP match error" />
+                <label class="baseline-field" id="baselineDpEpsField" hidden title="DP match limit (same idea as the Match field). A smaller match keeps a more detailed green path.">
+                  <span><span class="baseline-param-owner owner-dp">DP</span> match</span>
+                  <input type="number" id="baselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP match limit" />
                 </label>
-                <label class="baseline-field" id="baselineSquishRatioField" hidden title="SQUISH keep ratio: percent of original points to retain.">
-                  <span><span class="baseline-param-owner owner-squish">SQUISH</span> keep %</span>
+                <label class="baseline-field" id="baselineSquishRatioField" hidden title="SQUISH keep percent: percent of original points to keep on the green path.">
+                  <span><span class="baseline-param-owner owner-squish">SQUISH</span> keep</span>
                   <div class="baseline-field-input-row">
                     <input type="number" id="baselineSquishRatioInput" value="20" step="1" min="0.01" max="100" aria-label="SQUISH keep percent" />
                     <span class="baseline-field-unit" title="Percent">%</span>
@@ -2224,31 +2289,32 @@
             </div>
           </div>
           <div>
-            <p class="results-section-label">Compare</p>
+            <p class="results-section-label" title="Scores for this run. Optional Compare methods add columns when you run them.">Scores</p>
             <p id="compareOriginalCount" class="compare-original-count" hidden></p>
             <div class="compare-metrics-wrap">
             <table class="compare-metrics-table" id="compareMetricsTable">
               <thead>
                 <tr id="compareMetricsHead">
-                  <th>Metric</th>
-                  <th>Simplify</th>
+                  <th>Score</th>
+                  <th title="Scores for this run (the green path)">This run</th>
                 </tr>
               </thead>
               <tbody id="compareMetricsBody">
-                <tr><td colspan="2" class="compare-metrics-empty">Load a trace to see scores. Optional: run Compare above.</td></tr>
+                <tr><td colspan="2" class="compare-metrics-empty">Load a trajectory to see scores. Optional: run Compare above (preloaded trajectories).</td></tr>
               </tbody>
             </table>
             </div>
             <p class="compare-metrics-footer">
-              Match error is how far each simplified path drifts from the original (discrete Fréchet distance). Lower is better.
-              <a href="https://en.wikipedia.org/wiki/Fr%C3%A9chet_distance" target="_blank" rel="noopener noreferrer">What is Fréchet distance?</a>
+              Match error is how far each path drifts from the Gray path. Lower is better.
+              Optional reading:
+              <a href="https://en.wikipedia.org/wiki/Fr%C3%A9chet_distance" target="_blank" rel="noopener noreferrer">Fréchet distance (technical)</a>.
             </p>
             <p id="compareFrechetNote" class="compare-frechet-note" hidden></p>
           </div>
         </div>
         <div id="resultsPanelResizer" class="results-panel-resizer" role="separator" aria-orientation="vertical" aria-label="Resize results panel"></div>
       </aside>
-      <button type="button" id="resultsPanelOpen" class="results-panel-open-btn" aria-controls="resultsPanel" aria-expanded="false" title="Open Results: scores and optional Compare algorithms" aria-label="Open Results panel for scores and Compare">
+      <button type="button" id="resultsPanelOpen" class="results-panel-open-btn" aria-controls="resultsPanel" aria-expanded="false" title="Open Results: scores and optional Compare methods" aria-label="Open Results panel for scores and Compare">
         <span class="results-panel-open-arrow" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </span>
@@ -2259,7 +2325,7 @@
           <canvas id="canvas"></canvas>
           <div id="traceLoadingHud" role="status" aria-live="polite" aria-hidden="true">
             <span class="button-spinner" aria-hidden="true"></span>
-            <span id="traceLoadingText">Loading details…</span>
+            <span id="traceLoadingText">Loading trajectory…</span>
           </div>
           <div id="dropHint">
             <div class="dropHint-icon" aria-hidden="true">
@@ -2271,22 +2337,20 @@
                 <circle cx="44" cy="32" r="2.5" fill="currentColor"/>
               </svg>
             </div>
-            <div class="big">Upload a trajectory to get started</div>
+            <div class="big">Choose a trajectory to get started</div>
             <div class="dropHint-sub">
-              Click <b>Upload trajectory</b> or select a <b>preloaded trace</b>, optionally pick <b>Compare</b> algorithms, leave <b>&epsilon; match</b> / <b>&delta; grid</b> at defaults (or tweak them), then <b>Load Trace</b>
+              Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>, optionally pick <b>Compare</b>: DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %) (preloaded only), leave <b>Match</b> / <b>Grid</b> at defaults (or tweak them), then <b>Load</b>
             </div>
             <div class="dropHint-format">
-              Format: first line <code>N</code>, then <code>N</code> lines of <code>"x y"</code>
+              Format: first line <code>N</code> (point count), then <code>N</code> lines of <code>x y</code>
             </div>
             <div class="desktop-instructions">
               <h2>Instructions</h2>
               <ul>
-                <li><kbd>←</kbd> / <kbd>→</kbd>: Previous / next step</li>
-                <li><kbd>Shift</kbd> + <kbd>←</kbd> / <kbd>→</kbd>: Previous / next segment</li>
-                <li><kbd>Space</kbd>: Play / pause</li>
-                <li><kbd>C</kbd> / <kbd>X</kbd>: Next / previous candidate</li>
-                <li><b>Drag</b>: Pan</li>
-                <li><b>Scroll</b>: Zoom</li>
+                <li>Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>.</li>
+                <li>Optionally adjust <b>Match</b> (accuracy) and <b>Grid</b> (spacing), then press <b>Load</b>.</li>
+                <li>After load, open <b>Results</b> for scores. With a preloaded trajectory you can pick optional <b>Compare</b>: DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %) and press <b>Run</b> (or <b>Run compare</b> in Results). Uploads show scores only.</li>
+                <li><b>Drag</b> to pan and <b>scroll</b> to zoom. Keyboard shortcuts for Step / Segment / Option live in the right-side Instructions after load.</li>
               </ul>
             </div>
           </div>
@@ -2295,55 +2359,55 @@
           <span class="playback-handle" aria-hidden="true"></span>
           <div class="playbackBody" id="playbackBody">
           <!-- Step navigation with input -->
-          <div class="pb-nav">
+          <div class="pb-nav" role="group" aria-label="Step: walk along Gray path points within the current Segment">
             <div class="pb-nav-row">
-              <button id="stepBackBtn" class="pb-btn" title="Previous step (←)">
+              <button id="stepBackBtn" class="pb-btn" title="Previous Step: walk along Gray path points within the current Segment (←)">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
-              <input id="stepInput" class="pb-input" type="text" placeholder="0 / 0" title="Current step / total steps">
-              <button id="stepForwardBtn" class="pb-btn" title="Next step (→)">
+              <input id="stepInput" class="pb-input" type="text" placeholder="0 / 0" title="Current Step / total Steps within the current Segment" aria-label="Current Step / total Steps">
+              <button id="stepForwardBtn" class="pb-btn" title="Next Step: walk along Gray path points within the current Segment (→)">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
             </div>
-            <span class="pb-caption" title="Points covered by the current simplified segment">Step</span>
+            <span class="pb-caption" title="Walks along Gray path points within the current Segment"><span class="pb-caption-long">Step</span><span class="pb-caption-short">Step</span></span>
           </div>
 
           <div class="pb-divider"></div>
 
           <!-- Segment navigation with input -->
-          <div class="pb-nav">
+          <div class="pb-nav" role="group" aria-label="Segment: jump between pieces of the green path">
             <div class="pb-nav-row">
-              <button id="prefixBackBtn" class="pb-btn" title="Previous simplified segment (Shift+←)">
+              <button id="prefixBackBtn" class="pb-btn" title="Previous Segment: jump between pieces of the green path (Shift+←)">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M19 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><line x1="5" y1="6" x2="5" y2="18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
               </button>
-              <input id="segmentInput" class="pb-input" type="text" placeholder="0 / 0" title="Current segment / total segments">
-              <button id="prefixForwardBtn" class="pb-btn" title="Next simplified segment (Shift+→)">
+              <input id="segmentInput" class="pb-input" type="text" placeholder="0 / 0" title="Current Segment / total Segments (pieces of the green path)" aria-label="Current Segment / total Segments">
+              <button id="prefixForwardBtn" class="pb-btn" title="Next Segment: jump between pieces of the green path (Shift+→)">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M5 18l6-6-6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><line x1="19" y1="6" x2="19" y2="18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
               </button>
             </div>
-            <span class="pb-caption" title="Segments in the simplified curve">Segment</span>
+            <span class="pb-caption" title="Jumps between pieces of the green path"><span class="pb-caption-long">Segment</span><span class="pb-caption-short">Seg</span></span>
           </div>
 
           <div class="pb-divider"></div>
 
-          <!-- Candidate navigation with input -->
-          <div class="pb-nav">
+          <!-- Option navigation with input -->
+          <div class="pb-nav" role="group" aria-label="Option: cycle next-point options">
             <div class="pb-nav-row">
-              <button id="candidateBackBtn" class="pb-btn" title="Previous candidate">
+              <button id="candidateBackBtn" class="pb-btn" title="Previous Option: cycle next-point options">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
-              <input id="candidateInput" class="pb-input" type="text" placeholder="0 / 0" title="Current candidate / total candidates">
-              <button id="candidateForwardBtn" class="pb-btn" title="Next candidate (C)">
+              <input id="candidateInput" class="pb-input" type="text" placeholder="0 / 0" title="Current Option / total Options (next-point options)" aria-label="Current Option / total Options">
+              <button id="candidateForwardBtn" class="pb-btn" title="Next Option: cycle next-point options (C)">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
             </div>
-            <span class="pb-caption" title="Candidate points on the search boundary">Candidate</span>
+            <span class="pb-caption" title="Cycles next-point options near the current point (same options as Options near current)"><span class="pb-caption-long">Option</span><span class="pb-caption-short">Opt</span></span>
           </div>
 
           <div class="pb-divider"></div>
 
           <!-- Play/Pause -->
-          <button id="playBtn" class="pb-btn pb-btn--play" title="Play / pause (Space)">
+          <button id="playBtn" class="pb-btn pb-btn--play" title="Play / pause: auto-advance through Steps (Space)">
             <svg viewBox="0 0 24 24" fill="none">
               <path class="play-icon" d="M8 5v14l11-7z" fill="currentColor"/>
               <path class="pause-icon" d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" fill="currentColor" style="display:none;"/>
@@ -2352,13 +2416,13 @@
           </button>
 
           <!-- Speed -->
-          <div class="pb-speed">
+          <div class="pb-speed" title="Playback speed" role="group" aria-label="Playback speed">
             <span class="pb-speed-label">Speed</span>
-            <button class="speed-preset" data-speed="0.25">0.25×</button>
-            <button class="speed-preset" data-speed="0.5">0.5×</button>
-            <button class="speed-preset active" data-speed="1">1×</button>
-            <button class="speed-preset" data-speed="2">2×</button>
-            <button class="speed-preset" data-speed="4">4×</button>
+            <button class="speed-preset" data-speed="0.25" title="Playback speed 0.25×" aria-label="Playback speed 0.25×">0.25×</button>
+            <button class="speed-preset" data-speed="0.5" title="Playback speed 0.5×" aria-label="Playback speed 0.5×">0.5×</button>
+            <button class="speed-preset active" data-speed="1" title="Playback speed 1×" aria-label="Playback speed 1×">1×</button>
+            <button class="speed-preset" data-speed="2" title="Playback speed 2×" aria-label="Playback speed 2×">2×</button>
+            <button class="speed-preset" data-speed="4" title="Playback speed 4×" aria-label="Playback speed 4×">4×</button>
           </div>
           </div>
         </div>
@@ -2371,52 +2435,56 @@
 
       <div class="section">
         <h2>Status</h2>
+        <p class="status-gloss" id="statusGloss">
+          <b>Start point</b> and <b>current point</b> match the colored markers on the map.
+          <b>Segment</b>, <b>Step</b>, and <b>Option</b> match the playback controls.
+        </p>
         <div id="statusIndices" class="status-indices"></div>
         <div class="status-grid" id="statusGrid"></div>
       </div>
 
       <div class="section" id="layersSection">
-        <h2>Layers</h2>
+        <h2>Map overlays</h2>
         <button type="button" id="mobileLayersToggle" class="mobile-layers-toggle" aria-expanded="false" aria-controls="layersSection">
-          Layers
+          Map overlays
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <div class="layer-accordion" id="layerAccordion">
           <details class="layer-acc" id="accordionSimplify" open>
-            <summary>Simplify</summary>
+            <summary title="Overlays for this run (the green path and next-point options). Same This run as in Results scores.">This run</summary>
             <div class="layer-acc-body">
               <div class="toggle-row">
-                <label title="The original trajectory path before simplification"><input type="checkbox" id="toggle-stream" checked /><span class="swatch" style="background:#5a6272"></span>Original path</label>
+                <label title="Gray path: the full input trajectory shown in gray before the green path. Contrast with Green path so far / Full green path."><input type="checkbox" id="toggle-stream" checked /><span class="swatch" style="background:#5a6272"></span>Gray path</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-simplified" checked /><span class="swatch" style="background:#3ddc97"></span>Simplified so far</label>
+                <label title="Green path built so far as you Step or Play through the run. Same green path as Full green path and Segment."><input type="checkbox" id="toggle-simplified" checked /><span class="swatch" style="background:#3ddc97"></span>Green path so far</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-final-simplify" /><span class="swatch" style="background:#3ddc97"></span>Final simplified</label>
+                <label title="Full green path for the whole trajectory. Turn on to see the finished path anytime, even mid-playback. Same green path as Green path so far and Segment."><input type="checkbox" id="toggle-final-simplify" /><span class="swatch" style="background:#3ddc97"></span>Full green path</label>
               </div>
               <div class="toggle-row">
-                <label title="Search circle around the start of the current simplified piece (radius δ)"><input type="checkbox" id="toggle-ball-p0" checked /><span class="swatch" style="background:#c47aff"></span>\(B_p\) (search circle at segment start)</label>
+                <label title="Purple Start-point circle around the start point of the current Segment. Size matches the circle radius chip. Same start point as in Status."><input type="checkbox" id="toggle-ball-p0" checked /><span class="swatch" style="background:#c47aff"></span>Start-point circle</label>
               </div>
               <div class="toggle-row">
-                <label title="Search circle around the path point currently being processed (radius δ)"><input type="checkbox" id="toggle-ball-pi" checked /><span class="swatch" style="background:#ff7ae8"></span>\(B_{v_i}\) (search circle at current point)</label>
+                <label title="Pink Current-point circle around the current point on the Gray path. Size matches the circle radius chip. Same current point as in Status."><input type="checkbox" id="toggle-ball-pi" checked /><span class="swatch" style="background:#ff7ae8"></span>Current-point circle</label>
               </div>
               <div class="toggle-row">
-                <label title="Yellow region covering open candidate points near the current path point"><input type="checkbox" id="toggle-Gi" checked /><span class="swatch" style="background:#e8c547"></span>\(\mathrm{conv}(G_{v_i})\) (candidate region)</label>
+                <label title="Yellow area covering next-point options still open near the current point. Same current point as in Status."><input type="checkbox" id="toggle-Gi" checked /><span class="swatch" style="background:#e8c547"></span>Options near current</label>
               </div>
               <div class="toggle-row">
-                <label title="Blue area still allowed by the accuracy limit after the previous simplified piece"><input type="checkbox" id="toggle-F" checked /><span class="swatch" style="background:#4f9dff"></span>\(F(S_{i-1}[p], p)\) (allowed area so far)</label>
+                <label title="Blue Match-safe area after previous Segments (within the Match limit). Next-point zone is cut from this area."><input type="checkbox" id="toggle-F" checked /><span class="swatch" style="background:#4f9dff"></span>Match-safe area</label>
               </div>
               <div class="toggle-row">
-                <label title="Cyan area that would still be allowed if this candidate becomes the next simplified point"><input type="checkbox" id="toggle-F-Si" /><span class="swatch" style="background:#22d3ee"></span>\(F(S_i[p], p)\) (allowed area if chosen)</label>
+                <label title="Cyan preview of the Match-safe area if this option (the selected Option on the playback bar) becomes the next green-path point."><input type="checkbox" id="toggle-F-Si" /><span class="swatch" style="background:#22d3ee"></span>Match-safe (this option)</label>
               </div>
               <div class="toggle-row">
-                <label title="Purple overlap of the candidate region and the allowed area - where the next point can land"><input type="checkbox" id="toggle-S" checked /><span class="swatch" style="background:#a78bfa"></span>\(S_i[p]\) (current search region)</label>
+                <label title="Purple zone where the next green-path point can go (overlap of Options near current and the Match-safe area). Same next-point idea as Option on the playback bar."><input type="checkbox" id="toggle-S" checked /><span class="swatch" style="background:#a78bfa"></span>Next-point zone</label>
               </div>
               <div class="toggle-row">
-                <label title="Orange dots kept as anchors on the search boundary"><input type="checkbox" id="toggle-P" checked /><span class="swatch" style="background:#ff9f43"></span>\(P\) (anchor points)</label>
+                <label title="Orange markers for next-point options still open (same options as Options near current; cycle them with Option on the playback bar). Pairs with Rejected options."><input type="checkbox" id="toggle-P" checked /><span class="swatch" style="background:#ff9f43"></span>Option markers</label>
               </div>
               <div class="toggle-row">
-                <label title="Candidate points the search already ruled out (shown in red)"><input type="checkbox" id="toggle-dead-candidates" checked /><span class="swatch" style="background:#ff3c3c"></span>Rejected candidates</label>
+                <label title="Next-point options already rejected (shown in red). Pairs with Option markers; contrast with Options near current."><input type="checkbox" id="toggle-dead-candidates" checked /><span class="swatch" style="background:#ff3c3c"></span>Rejected options</label>
               </div>
             </div>
           </details>
@@ -2424,7 +2492,7 @@
             <summary id="accordionBaselineSummary">Compare</summary>
             <div class="layer-acc-body">
               <div id="baselineLayerToggles"></div>
-              <p id="baselineLayerHint" class="baseline-layer-hint">Open Results, pick Compare algorithms, then press Run compare to enable these layers. On wider screens you can also use Run beside Compare in the header.</p>
+              <p id="baselineLayerHint" class="baseline-layer-hint">Compare works with preloaded trajectories. Open Results, pick DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %), then press Run compare (on wider screens, Run beside Compare also works).</p>
             </div>
           </details>
         </div>
@@ -2433,18 +2501,25 @@
       <div class="section">
         <h2>View</h2>
         <div class="stepper">
-          <button id="fitBtn" title="Reset pan and zoom so the whole trajectory fits in the canvas">Fit to data</button>
+          <button id="fitBtn" title="Reset pan and zoom so the whole trajectory fits in the canvas">Fit view</button>
         </div>
       </div>
 
       <div class="section">
         <h2>Instructions</h2>
+        <p class="instructions-gloss" id="playbackInstructionsGloss">
+          <b>Step</b> walks along Gray path points within the current Segment.
+          <b>Segment</b> jumps between pieces of the green path.
+          <b>Option</b> cycles next-point options near the current point (same options as Options near current).
+          <b>Play</b> auto-advances; use <b>Speed</b> to go faster or slower.
+          <b>Fit view</b> resets pan and zoom.
+        </p>
         <table class="shortcuts-table desktop-shortcuts">
           <tbody>
-            <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Previous / next step</td></tr>
-            <tr><td><kbd>Shift</kbd>+<kbd>←</kbd>/<kbd>→</kbd></td><td>Previous / next simplified segment</td></tr>
-            <tr><td><kbd>Space</kbd></td><td>Play / pause auto-advance</td></tr>
-            <tr><td><kbd>C</kbd> / <kbd>X</kbd></td><td>Cycle through open candidates forward / backward</td></tr>
+            <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Previous / next Step</td></tr>
+            <tr><td><kbd>Shift</kbd>+<kbd>←</kbd>/<kbd>→</kbd></td><td>Previous / next Segment</td></tr>
+            <tr><td><kbd>Space</kbd></td><td>Play / pause</td></tr>
+            <tr><td><kbd>C</kbd> / <kbd>X</kbd></td><td>Next / previous Option</td></tr>
             <tr><td>Drag</td><td>Pan the view</td></tr>
             <tr><td>Scroll / pinch</td><td>Zoom in / out</td></tr>
           </tbody>
@@ -2452,13 +2527,13 @@
         <table class="shortcuts-table mobile-shortcuts">
           <tbody>
             <tr><td>Step ← / →</td><td>Previous / next step on the bottom bar</td></tr>
-            <tr><td>Segment « / »</td><td>Previous / next simplified segment</td></tr>
-            <tr><td>Candidate ‹ / ›</td><td>Previous / next candidate</td></tr>
-            <tr><td>Play</td><td>Play / pause auto-advance</td></tr>
+            <tr><td>Segment « / »</td><td>Previous / next Segment</td></tr>
+            <tr><td>Option ‹ / ›</td><td>Previous / next Option</td></tr>
+            <tr><td>Play</td><td>Play / pause</td></tr>
             <tr><td>Speed 0.25×-4×</td><td>Playback speed on the bottom bar</td></tr>
             <tr><td>Drag</td><td>Pan the view</td></tr>
             <tr><td>Pinch</td><td>Zoom in / out</td></tr>
-            <tr><td>Hide / Controls</td><td>Hide or show Status and layers</td></tr>
+            <tr><td>Hide / Controls</td><td>Hide or show Status and Map overlays</td></tr>
           </tbody>
         </table>
       </div>
@@ -2474,7 +2549,7 @@
 <!-- Full-screen trace picker overlay (mobile) -->
 <div id="tracePicker" class="trace-picker" aria-hidden="true">
   <div class="trace-picker-header">
-    <h2>Choose a preloaded trace</h2>
+    <h2>Choose a preloaded trajectory</h2>
     <button type="button" id="tracePickerClose" class="trace-picker-close" aria-label="Close">
       <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
     </button>
@@ -2485,42 +2560,42 @@
 
 <!-- Mobile touch controls for steps, candidates, segments, and playback -->
 <nav id="mobileTransport" class="mobile-transport" aria-label="Playback navigation" aria-hidden="true">
-  <button type="button" id="mobileStepBackBtn" aria-label="Previous step">
+  <button type="button" id="mobileStepBackBtn" aria-label="Previous Step: walk along Gray path points within the current Segment" title="Previous Step: walk along Gray path points within the current Segment">
     ←
     <span>Step</span>
   </button>
-  <button type="button" id="mobileCandidateBackBtn" aria-label="Previous candidate">
+  <button type="button" id="mobileCandidateBackBtn" aria-label="Previous Option: cycle next-point options" title="Previous Option: cycle next-point options">
     ‹
-    <span>Candidate</span>
+    <span>Option</span>
   </button>
-  <button type="button" id="mobilePlayBtn" class="mobile-play" aria-label="Play">
+  <button type="button" id="mobilePlayBtn" class="mobile-play" aria-label="Play" title="Play / pause: auto-advance through Steps">
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path class="mobile-play-icon" d="M8 5v14l11-7z" fill="currentColor"/>
       <path class="mobile-pause-icon" d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" fill="currentColor" style="display:none;"/>
     </svg>
     <span class="mobile-play-label">Play</span>
   </button>
-  <button type="button" id="mobileCandidateForwardBtn" aria-label="Next candidate">
+  <button type="button" id="mobileCandidateForwardBtn" aria-label="Next Option: cycle next-point options" title="Next Option: cycle next-point options">
     ›
-    <span>Candidate</span>
+    <span>Option</span>
   </button>
-  <button type="button" id="mobileStepForwardBtn" aria-label="Next step">
+  <button type="button" id="mobileStepForwardBtn" aria-label="Next Step: walk along Gray path points within the current Segment" title="Next Step: walk along Gray path points within the current Segment">
     →
     <span>Step</span>
   </button>
-  <button type="button" id="mobileSegmentBackBtn" class="mobile-segment" aria-label="Previous simplified segment">
+  <button type="button" id="mobileSegmentBackBtn" class="mobile-segment" aria-label="Previous Segment: jump between pieces of the green path" title="Previous Segment: jump between pieces of the green path">
     «
     <span>Segment</span>
   </button>
-  <button type="button" id="mobileSegmentForwardBtn" class="mobile-segment" aria-label="Next simplified segment">
+  <button type="button" id="mobileSegmentForwardBtn" class="mobile-segment" aria-label="Next Segment: jump between pieces of the green path" title="Next Segment: jump between pieces of the green path">
     »
     <span>Segment</span>
   </button>
-  <button type="button" class="speed-preset" data-speed="0.25" aria-label="Playback speed 0.25×">0.25×</button>
-  <button type="button" class="speed-preset" data-speed="0.5" aria-label="Playback speed 0.5×">0.5×</button>
-  <button type="button" class="speed-preset active" data-speed="1" aria-label="Playback speed 1×">1×</button>
-  <button type="button" class="speed-preset" data-speed="2" aria-label="Playback speed 2×">2×</button>
-  <button type="button" class="speed-preset" data-speed="4" aria-label="Playback speed 4×">4×</button>
+  <button type="button" class="speed-preset" data-speed="0.25" title="Playback speed 0.25×" aria-label="Playback speed 0.25×">0.25×</button>
+  <button type="button" class="speed-preset" data-speed="0.5" title="Playback speed 0.5×" aria-label="Playback speed 0.5×">0.5×</button>
+  <button type="button" class="speed-preset active" data-speed="1" title="Playback speed 1×" aria-label="Playback speed 1×">1×</button>
+  <button type="button" class="speed-preset" data-speed="2" title="Playback speed 2×" aria-label="Playback speed 2×">2×</button>
+  <button type="button" class="speed-preset" data-speed="4" title="Playback speed 4×" aria-label="Playback speed 4×">4×</button>
 </nav>
 
 <!-- Mobile playback FAB (opens bottom sheet) -->
@@ -2545,6 +2620,6 @@
   </div>
 </div>
 
-<script src="viewer.js?v=eps-delta-gloss-1"></script>
+<script src="viewer.js?v=compare-method-glosses-1"></script>
 </body>
 </html>

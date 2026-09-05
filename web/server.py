@@ -156,21 +156,30 @@ def stream_simplify_trace(cmd, label):
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
-            yield json.dumps({'type': 'error', 'message': 'Processing timeout (>5min)'}) + '\n'
+            yield json.dumps({
+                'type': 'error',
+                'message': 'Building the green path took too long. Try a shorter trajectory or a larger Match / Grid.',
+            }) + '\n'
             return
         except Exception as e:
             proc.kill()
             proc.wait()
-            yield json.dumps({'type': 'error', 'message': str(e)}) + '\n'
+            print(f"[{label}] simplify exception: {e}")
+            yield json.dumps({
+                'type': 'error',
+                'message': 'Could not build the green path for this trajectory. Try again in a moment.',
+            }) + '\n'
             return
 
         err = ''.join(stderr_chunks).strip()
         if err:
             print(f"[{label}] C++ stderr:\n{err}")
         if proc.returncode != 0:
-            message = err or 'Binary execution failed'
-            print(f"[{label}] simplify failed: {message}")
-            yield json.dumps({'type': 'error', 'message': message}) + '\n'
+            print(f"[{label}] simplify failed: {err or 'no stderr'}")
+            yield json.dumps({
+                'type': 'error',
+                'message': 'Could not build the green path for this trajectory. Try again, or pick another trajectory.',
+            }) + '\n'
 
     return Response(
         generate(),
@@ -250,7 +259,7 @@ def get_original_trace(trace_id):
     trace_dir = DATA_DIR / str(trace_id)
     original_file = trace_dir / "original.txt"
     if not original_file.exists():
-        return jsonify({'error': f'Trace {trace_id} not found'}), 404
+        return jsonify({'error': f'Trajectory {trace_id} was not found.'}), 404
     
     try:
         with open(original_file, 'r') as f:
@@ -264,7 +273,8 @@ def get_original_trace(trace_id):
         
         return jsonify({'points': points, 'trace_id': trace_id})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"[original {trace_id}] {e}")
+        return jsonify({'error': 'Could not read this trajectory. Try another one.'}), 500
 
 
 @app.route('/api/trace/<int:trace_id>/compare', methods=['GET'])
@@ -274,13 +284,13 @@ def get_trace_compare(trace_id):
     Query:
       algorithm: none|dots|dp|squish (default none)
       run: 1 to execute the baseline binary
-      lssd: DOTS LSSD threshold (default 1e6 / 1000K)
-      epsilon: DP PED epsilon (default 0.9)
-      ratio: SQUISH compression ratio in (0, 1] (default 0.2)
+      lssd: DOTS budget (default 1e6 / 1000×1k)
+      epsilon: DP match limit (default 0.9)
+      ratio: SQUISH keep fraction in (0, 1] (default 0.2)
     """
     trace_dir = DATA_DIR / str(trace_id)
     if not trace_dir.exists() or not (trace_dir / 'original.txt').exists():
-        return jsonify({'error': f'Trace {trace_id} not found'}), 404
+        return jsonify({'error': f'Trajectory {trace_id} was not found.'}), 404
 
     algorithm = (request.args.get('algorithm') or 'none').lower().strip()
     if algorithm in ('', 'none', 'null'):
@@ -288,7 +298,7 @@ def get_trace_compare(trace_id):
     run = request.args.get('run', '0') in ('1', 'true', 'yes')
 
     if algorithm not in ('none',) and algorithm not in BASELINE_ALGOS:
-        return jsonify({'error': f'Unknown algorithm: {algorithm}'}), 400
+        return jsonify({'error': 'Unknown Compare method. Choose DOTS, DP, or SQUISH.'}), 400
 
     lssd = 1e6
     dp_eps = 0.9
@@ -297,17 +307,17 @@ def get_trace_compare(trace_id):
         if request.args.get('lssd') is not None:
             lssd = float(request.args.get('lssd'))
             if lssd <= 0:
-                return jsonify({'error': 'lssd must be positive'}), 400
+                return jsonify({'error': 'DOTS budget must be a positive number.'}), 400
         if request.args.get('epsilon') is not None:
             dp_eps = float(request.args.get('epsilon'))
             if dp_eps <= 0:
-                return jsonify({'error': 'epsilon must be positive'}), 400
+                return jsonify({'error': 'DP match limit must be a positive number.'}), 400
         if request.args.get('ratio') is not None:
             squish_ratio = float(request.args.get('ratio'))
             if squish_ratio <= 0 or squish_ratio > 1:
-                return jsonify({'error': 'ratio must be in (0, 1]'}), 400
+                return jsonify({'error': 'SQUISH keep percent must be greater than 0 and at most 100.'}), 400
     except ValueError:
-        return jsonify({'error': 'Invalid numeric baseline parameter'}), 400
+        return jsonify({'error': 'Compare settings must be valid numbers.'}), 400
 
     baseline_core_ms = None
     baseline_error = None
@@ -316,8 +326,10 @@ def get_trace_compare(trace_id):
     if algorithm in BASELINE_ALGOS and run:
         meta = BASELINE_ALGOS[algorithm]
         binary = meta['bin']
+        algo_label = meta['label']
         if not binary.exists():
-            baseline_error = f'{algorithm} binary not found at {binary}'
+            print(f"[{algorithm}] binary not found at {binary}")
+            baseline_error = f'{algo_label} is not available on this server right now.'
         else:
             original = (trace_dir / 'original.txt').resolve()
             out_name = meta['files'][0]
@@ -343,12 +355,18 @@ def get_trace_compare(trace_id):
                 elapsed_ms = (time.perf_counter() - started) * 1000.0
                 out = (result.stdout or '') + (result.stderr or '')
                 if result.returncode != 0:
-                    baseline_error = (result.stderr or result.stdout or f'{algorithm} failed').strip()
+                    detail = (result.stderr or result.stdout or f'{algorithm} failed').strip()
+                    print(f"[{algorithm}] failed: {detail}")
+                    baseline_error = (
+                        f'{algo_label} could not finish. '
+                        'Try different settings or another trajectory.'
+                    )
                 else:
                     m = re.search(meta['core_ms_re'], out)
                     baseline_core_ms = float(m.group(1)) if m else elapsed_ms
             except Exception as e:
-                baseline_error = str(e)
+                print(f"[{algorithm}] exception: {e}")
+                baseline_error = f'{algo_label} could not finish. Try again in a moment.'
 
     layers, sources = load_trace_layers(trace_id)
     if algorithm in BASELINE_ALGOS and run and baseline_error:
@@ -383,13 +401,13 @@ def get_trace_compare(trace_id):
         'dots_error': baseline_error if algorithm == 'dots' else None,
         'algorithms': [
             {'id': 'dots', 'label': 'DOTS', 'params': [
-                {'id': 'lssd', 'label': 'DOTS LSSD', 'type': 'number', 'default': 1e6, 'unit': 'K', 'min': 1e-3, 'step': 1},
+                {'id': 'lssd', 'label': 'DOTS budget', 'type': 'number', 'default': 1e6, 'unit': '×1k', 'min': 1e-3, 'step': 1},
             ]},
             {'id': 'dp', 'label': 'DP', 'params': [
-                {'id': 'epsilon', 'label': 'DP PED ε', 'type': 'number', 'default': 0.9, 'min': 1e-9, 'step': 0.1},
+                {'id': 'epsilon', 'label': 'DP match', 'type': 'number', 'default': 0.9, 'min': 1e-9, 'step': 0.1},
             ]},
             {'id': 'squish', 'label': 'SQUISH', 'params': [
-                {'id': 'ratio', 'label': 'SQUISH Ratio', 'type': 'number', 'default': 20, 'unit': '%', 'min': 0.01, 'max': 100, 'step': 1},
+                {'id': 'ratio', 'label': 'SQUISH keep', 'type': 'number', 'default': 20, 'unit': '%', 'min': 0.01, 'max': 100, 'step': 1},
             ]},
         ],
     })
@@ -410,12 +428,12 @@ def frechet_existing_curve(trace_id, curve):
         'squish': ('squish_simplified.txt', 'SQUISH.txt'),
     }
     if curve not in name_map:
-        return jsonify({'error': f'Unknown curve {curve}'}), 400
+        return jsonify({'error': 'Unknown path for Match error.'}), 400
 
     trace_dir = DATA_DIR / str(trace_id)
     original = trace_dir / 'original.txt'
     if not original.exists():
-        return jsonify({'error': f'Trace {trace_id} not found'}), 404
+        return jsonify({'error': f'Trajectory {trace_id} was not found.'}), 404
 
     simplified = None
     for name in name_map[curve]:
@@ -424,7 +442,7 @@ def frechet_existing_curve(trace_id, curve):
             simplified = candidate
             break
     if simplified is None:
-        return jsonify({'error': f'No {curve} polyline file for trace {trace_id}'}), 404
+        return jsonify({'error': 'No green path is ready for Match error yet.'}), 404
 
     request_id = f'{trace_id}_{curve}_{uuid.uuid4().hex[:8]}'
     try:
@@ -436,7 +454,8 @@ def frechet_existing_curve(trace_id, curve):
             'distance': distance,
         })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"[Fréchet {request_id}] {e}")
+        return jsonify({'error': 'Could not compute Match error. Try again in a moment.'}), 500
 
 
 @app.route('/api/trace/<int:trace_id>', methods=['GET'])
@@ -451,13 +470,13 @@ def get_trace(trace_id):
     """
     trace_dir = DATA_DIR / str(trace_id)
     if not trace_dir.exists() or not (trace_dir / "original.txt").exists():
-        return jsonify({'error': f'Trace {trace_id} not found'}), 404
+        return jsonify({'error': f'Trajectory {trace_id} was not found.'}), 404
     
     try:
         epsilon = float(request.args.get('epsilon', 0.5))
         delta = float(request.args.get('delta', 300))
     except ValueError:
-        return jsonify({'error': 'Invalid epsilon or delta'}), 400
+        return jsonify({'error': 'Match and Grid must be valid numbers.'}), 400
     
     try:
         import time
@@ -483,7 +502,8 @@ def get_trace(trace_id):
         return response
     
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"[Trace {trace_id}] {e}")
+        return jsonify({'error': 'Could not build the green path for this trajectory. Try again in a moment.'}), 500
 
 # --- Trace generation endpoint ---
 
@@ -499,29 +519,36 @@ def generate_trace():
     Returns JSON trace or error.
     """
     if 'file' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
+        return jsonify({'error': 'Choose a trajectory file to upload.'}), 400
     
     uploaded_file = request.files['file']
     if uploaded_file.filename == '':
-        return jsonify({'error': 'Empty filename'}), 400
+        return jsonify({'error': 'Choose a trajectory file to upload.'}), 400
     
     try:
         epsilon = float(request.form.get('epsilon', 0.5))
         delta = float(request.form.get('delta', 300))
     except ValueError:
-        return jsonify({'error': 'Invalid epsilon or delta'}), 400
+        return jsonify({'error': 'Match and Grid must be valid numbers.'}), 400
     
     # Validate basic format (first line should be an integer N)
     content = uploaded_file.read().decode('utf-8')
     lines = content.strip().split('\n')
     if len(lines) < 1:
-        return jsonify({'error': 'Empty file'}), 400
+        return jsonify({'error': 'This file is empty. Upload a trajectory with a point count and coordinates.'}), 400
     try:
         n = int(lines[0])
         if n < 2 or len(lines) < n + 1:
-            return jsonify({'error': f'Invalid format: expected {n} points'}), 400
+            return jsonify({
+                'error': (
+                    f'This file says it has {n} points, but fewer lines were found. '
+                    'Check the point count and x y lines.'
+                ),
+            }), 400
     except ValueError:
-        return jsonify({'error': 'First line must be point count'}), 400
+        return jsonify({
+            'error': 'First line must be the point count N, then N lines of x y.',
+        }), 400
     
     # Create a temp directory for this request. The simplify binary's --in
     # flag parses its argument with std::stoi, so the id must be numeric
@@ -563,7 +590,8 @@ def generate_trace():
     except Exception as e:
         if temp_dir.exists():
             shutil.rmtree(temp_dir, ignore_errors=True)
-        return jsonify({'error': str(e)}), 500
+        print(f"[Upload] {e}")
+        return jsonify({'error': 'Could not build the green path for this trajectory. Try again in a moment.'}), 500
 
 
 # --- Fréchet distance ---
@@ -641,13 +669,13 @@ def start_frechet():
             src_orig = trace_dir / "original.txt"
             print(f"[Fréchet {request_id}] Using trace_id={data['trace_id']}, path={src_orig}")
             if not src_orig.exists():
-                return jsonify({'error': f"Trace {data['trace_id']} not found"}), 404
+                return jsonify({'error': f"Trajectory {data['trace_id']} was not found."}), 404
             shutil.copy2(src_orig, original_path)
         elif 'file_content' in data:
             print(f"[Fréchet {request_id}] Using file_content")
             original_path.write_text(data['file_content'])
         else:
-            return jsonify({'error': 'Provide trace_id or file_content'}), 400
+            return jsonify({'error': 'Load a trajectory before computing Match error.'}), 400
 
         # Run simplify to get the simplified curve
         tmp_id = str(900000000 + uuid.uuid4().int % 99999999)
@@ -661,7 +689,7 @@ def start_frechet():
         simp_out = tmp_simp_dir / "simplify.txt"
         if result.returncode != 0 or not simp_out.exists():
             print(f"[Fréchet {request_id}] Simplify failed: {result.stderr}")
-            return jsonify({'error': 'Simplify failed', 'stderr': result.stderr}), 500
+            return jsonify({'error': 'Could not compute Match error. Try again in a moment.'}), 500
         shutil.copy2(simp_out, simplified_path)
         shutil.rmtree(tmp_simp_dir, ignore_errors=True)
         tmp_simp_dir = None
@@ -671,7 +699,7 @@ def start_frechet():
         return jsonify({'distance': distance})
     except Exception as e:
         print(f"[Fréchet {request_id}] Exception: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Could not compute Match error. Try again in a moment.'}), 500
     finally:
         if tmp_simp_dir is not None:
             shutil.rmtree(tmp_simp_dir, ignore_errors=True)

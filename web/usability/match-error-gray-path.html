@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Match error uses Gray path</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+  }
+  * { box-sizing: border-box; }
+  html, body { width: 900px; max-width: 900px; overflow-x: hidden; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    padding: 16px;
+  }
+  h1 { font-size: 15px; margin: 0 0 6px; }
+  p { margin: 0 0 12px; color: var(--text-dim); font-size: 12px; max-width: 720px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .label {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .tip, .gloss, .footer {
+    display: block;
+    padding: 6px 10px;
+    background: #1a1f2b;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .gloss b { color: #e6e8ec; font-weight: 600; }
+  #check {
+    margin-top: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+  <h1>the original → Gray path</h1>
+  <p>
+    Before: Match / Match error / tour tips still said <b>the original</b> / <b>gray original</b>
+    after Map overlays renamed the input overlay to <b>Gray path</b>.
+    After: those tips share <b>Gray path</b> wording. Leave <b>original points</b> as the count metric.
+  </p>
+  <div class="grid">
+    <div class="frame" id="before">
+      <div class="label">Before</div>
+      <span class="tip" title="Match tolerance (ε): how closely the green path must match the original. Smaller keeps more detail.">Match</span>
+      <span class="tip" title="How far the green path drifts from the original. Lower is better.">Match error</span>
+      <span class="footer">Match error is how far each path drifts from the original.</span>
+      <span class="tip" title="Gray path: the original trajectory before the green path.">Gray path</span>
+      <span class="gloss"><b>Match</b> must match the original. The green path is shorter than the gray original.</span>
+      <span class="tip" title="Kept points as a percent of the original.">kept %</span>
+      <span class="tip" title="Number of points on the original trajectory.">original points</span>
+    </div>
+    <div class="frame" id="after">
+      <div class="label">After</div>
+      <span class="tip" id="matchTip" title="Match tolerance (ε): how closely the green path must match the Gray path. Smaller keeps more detail.">Match</span>
+      <span class="tip" id="matchErrorTip" title="How far the green path drifts from the Gray path. Lower is better.">Match error</span>
+      <span class="footer" id="footer">Match error is how far each path drifts from the Gray path.</span>
+      <span class="tip" id="grayPath" title="Gray path: the full input trajectory shown in gray before the green path. Contrast with Green path so far / Full green path.">Gray path</span>
+      <span class="gloss" id="tour"><b>Match</b> must match the Gray path. The green path is shorter than the Gray path.</span>
+      <span class="tip" id="keptPct" title="Kept points as a percent of original points.">kept %</span>
+      <span class="tip" id="origPts" title="Number of points on the original trajectory.">original points</span>
+    </div>
+  </div>
+  <div id="check"></div>
+  <script>
+    const beforeTips = [...document.querySelectorAll("#before [title]")].map((n) => n.title).join(" | ");
+    const beforeText = document.querySelector("#before .footer").textContent
+      + " | " + document.querySelector("#before .gloss").textContent;
+    const matchTip = document.getElementById("matchTip").title;
+    const matchErrorTip = document.getElementById("matchErrorTip").title;
+    const footer = document.getElementById("footer").textContent;
+    const grayPath = document.getElementById("grayPath").title;
+    const tour = document.getElementById("tour").textContent;
+    const keptPct = document.getElementById("keptPct").title;
+    const origPts = document.getElementById("origPts").title;
+    const beforeOld = beforeTips.includes("match the original")
+      && beforeTips.includes("from the original")
+      && beforeTips.includes("the original trajectory")
+      && beforeText.includes("gray original")
+      && !beforeTips.includes("match the Gray path");
+    const afterNew = matchTip.includes("match the Gray path")
+      && matchErrorTip.includes("from the Gray path")
+      && footer.includes("from the Gray path")
+      && grayPath.includes("full input trajectory shown in gray")
+      && tour.includes("match the Gray path")
+      && tour.includes("shorter than the Gray path")
+      && keptPct.includes("original points")
+      && origPts.includes("original trajectory")
+      && !matchTip.includes("the original")
+      && !matchErrorTip.includes("the original")
+      && !footer.includes("the original")
+      && !tour.includes("gray original")
+      && !tour.includes("the original");
+    const scroll = document.documentElement.scrollWidth;
+    const ok = beforeOld && afterNew && scroll <= 900;
+    document.getElementById("check").textContent =
+      `ok=${ok} scrollWidth=${scroll} beforeOld=${beforeOld} afterNew=${afterNew}`;
+  </script>
+</body>
+</html>

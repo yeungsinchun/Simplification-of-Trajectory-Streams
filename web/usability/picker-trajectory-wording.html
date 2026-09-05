@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Picker trajectory wording</title>
+  <style>
+    :root {
+      --bg: #0f141d;
+      --panel: #171c27;
+      --panel-border: #2a3142;
+      --text: #e8ecf4;
+      --text-dim: #9aa3b5;
+      --accent: #3ddc97;
+      --bad: #ff8a94;
+    }
+    * { box-sizing: border-box; }
+    html, body { overflow-x: hidden; }
+    body {
+      margin: 0;
+      font: 14px/1.45 system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px;
+      width: 900px;
+      max-width: 100%;
+    }
+    h1 { font-size: 18px; margin: 0 0 8px; }
+    p { color: var(--text-dim); margin: 0 0 16px; max-width: 100%; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      max-width: 100%;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .label {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+    }
+    .divider {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin: 10px 0 6px;
+    }
+    .item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #121722;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    .meta { color: var(--text-dim); font-size: 12px; }
+    .alert {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      background: #24161a;
+      color: var(--bad);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .alert.ok {
+      background: #13241c;
+      color: var(--accent);
+    }
+    .ok { color: var(--accent); margin-top: 18px; max-width: 100%; }
+  </style>
+</head>
+<body>
+  <h1>Picker / error trajectory wording</h1>
+  <p>
+    After other screens said trajectory, the picker divider still said
+    <b>Other traces</b>, unlabeled items said <b>Trace N</b>, and a bad file
+    alert mentioned <b>simplify --web-server trace</b>.
+  </p>
+  <div class="grid">
+    <div class="card">
+      <div class="label">Before (mixed jargon)</div>
+      <div class="item"><span>Sample A</span><span class="meta">120 pts</span></div>
+      <div class="divider">Other traces</div>
+      <div class="item"><span>Trace 7</span><span class="meta">2,400 pts</span></div>
+      <div class="alert">This does not look like a simplify --web-server trace (missing 'prefixes').</div>
+    </div>
+    <div class="card">
+      <div class="label">After (consistent)</div>
+      <div class="item"><span>Sample A</span><span class="meta">120 pts</span></div>
+      <div class="divider">Other trajectories</div>
+      <div class="item"><span>Trajectory 7</span><span class="meta">2,400 pts</span></div>
+      <div class="alert ok">This file is not a valid trajectory for this viewer. Upload a plain-text trajectory (first line N, then N lines of x y), or pick a preloaded trajectory.</div>
+    </div>
+  </div>
+  <p class="ok">Picker divider, unlabeled ids, and invalid-file alert all say trajectory.</p>
+</body>
+</html>

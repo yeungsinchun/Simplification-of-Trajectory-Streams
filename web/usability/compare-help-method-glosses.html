@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Compare help uses method glosses</title>
+<style>
+  html, body {
+    width: 900px;
+    max-width: 900px;
+    margin: 0 auto;
+    overflow-x: hidden;
+  }
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+    --accent: #26bf90;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    padding: 16px;
+  }
+  h1 { font-size: 15px; margin: 0 0 6px; }
+  p { margin: 0 0 12px; color: var(--text-dim); font-size: 12px; max-width: 860px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .label {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .help {
+    margin: 0 0 8px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text);
+  }
+  .help b { font-weight: 600; }
+  .hint {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text-dim);
+  }
+  .tour {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: #1a1f2b;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .check {
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--accent);
+  }
+  .check.fail { color: #f87171; }
+</style>
+</head>
+<body>
+  <h1>Compare help / tour / hint: bare acronyms → method glosses</h1>
+  <p>
+    After Compare pills already showed <b>as-you-go</b> / <b>all-at-once</b> / <b>keep %</b>,
+    start Instructions, Map overlays Compare hint, and tour steps still said bare
+    <b>DOTS / DP / SQUISH</b>. Skip-tour users reading help could not map those acronyms to the pills.
+  </p>
+  <div class="grid">
+    <div class="frame" id="before">
+      <div class="label">Before</div>
+      <p class="help">
+        Optionally pick <b>Compare</b> (DOTS / DP / SQUISH) above. After <b>Load</b>, open
+        <b>Results</b> for scores and tap <b>Run compare</b>.
+      </p>
+      <p class="hint">
+        Compare works with preloaded trajectories. Open Results, pick DOTS / DP / SQUISH, then press Run compare
+        (on wider screens, Run beside Compare also works).
+      </p>
+      <div class="tour">
+        Optional: with a <b>preloaded</b> trajectory, tap <b>Compare</b> (DOTS / DP / SQUISH) to score other methods later - or skip.
+      </div>
+    </div>
+    <div class="frame" id="after">
+      <div class="label">After</div>
+      <p class="help" id="afterHelp">
+        Optionally pick <b>Compare</b>: DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %). After <b>Load</b>, open
+        <b>Results</b> for scores and tap <b>Run compare</b>.
+      </p>
+      <p class="hint" id="afterHint">
+        Compare works with preloaded trajectories. Open Results, pick DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %), then press Run compare
+        (on wider screens, Run beside Compare also works).
+      </p>
+      <div class="tour" id="afterTour">
+        Optional: with a <b>preloaded</b> trajectory, tap <b>Compare</b>: DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %) to score other methods later - or skip.
+      </div>
+    </div>
+  </div>
+  <p class="check" id="status">Checking…</p>
+  <script>
+    const help = document.getElementById("afterHelp").textContent;
+    const hint = document.getElementById("afterHint").textContent;
+    const tour = document.getElementById("afterTour").textContent;
+    const before = document.getElementById("before").textContent;
+    const hasGlosses =
+      help.includes("as-you-go")
+      && help.includes("all-at-once")
+      && help.includes("keep %")
+      && hint.includes("as-you-go")
+      && hint.includes("all-at-once")
+      && hint.includes("keep %")
+      && tour.includes("as-you-go")
+      && tour.includes("all-at-once")
+      && tour.includes("keep %");
+    const noBareAcronymList =
+      !help.includes("DOTS / DP / SQUISH")
+      && !hint.includes("DOTS / DP / SQUISH")
+      && !tour.includes("DOTS / DP / SQUISH");
+    const beforeHadBare = before.includes("DOTS / DP / SQUISH");
+    const scrollOk = document.documentElement.scrollWidth <= 900;
+    const ok = hasGlosses && noBareAcronymList && beforeHadBare && scrollOk;
+    const status = document.getElementById("status");
+    status.textContent = `ok=${ok} scrollWidth=${document.documentElement.scrollWidth} glosses=${hasGlosses} noBare=${noBareAcronymList}`;
+    status.className = "check" + (ok ? "" : " fail");
+  </script>
+</body>
+</html>

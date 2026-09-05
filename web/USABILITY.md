@@ -519,5 +519,877 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 ## Still open
 
-No open layout or novice-copy items from this pass. First live Cloud Run publish still needs a successful `main` merge of [PR #11](https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/pull/11) (or a `workflow_dispatch` once Deploy is on `main`). Until then GitHub only lists Benchmark and Correctness.
+### Live Cloud Run still serves pre–PR #12 novice copy
+
+**Where:** https://simplify-viewer-522405269791.asia-east2.run.app (last Deploy from merge of PR #11).
+
+**Problem:** Local usability work after PR #11 (Load / Match-Grid-first labels, green path / Gray path / Option / Map overlays vocabulary, Compare method glosses, smaller/outcome tips) was branch-only. The live site still shows older copy such as `Load Trace`, `algorithms`, and `Smaller keeps more detail`.
+
+**Next step:** Merge https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/pull/12 so Deploy publishes a new revision. No layout or CI/CD wiring gaps remain in this pass.
+
+### match limit chip tip lagged Match’s smaller/outcome guidance (resolved)
+
+**Where:** Loaded `#paramsBar` `match limit` chip title in `web/viewer.js`.
+
+**Problem:** After Match and DP tips said `A smaller Match/match keeps a more detailed green path`, the `match limit` chip still led with `Upper Match limit` and had no smaller/outcome sentence. Skip-tour users long-pressing that chip could not map it to the same Match vocabulary.
+
+**Fix:** Tip says `Match limit for this run (same idea as the Match field)` plus `A smaller match limit keeps a more detailed green path`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/match-limit-detailed-green-path.html`
+- Fixture screenshot (900px): `web/usability/match-limit-detailed-green-path.png`
+
+### Grid tips lagged Match’s smaller/outcome guidance (resolved)
+
+**Where:** Grid form/chip titles and Accuracy tour in `web/index.html` / `web/viewer.js`.
+
+**Problem:** After Match tips said `A smaller Match keeps a more detailed green path`, Grid still only named spacing (`Preloaded trajectories set a good default` / bare spacing) with no smaller/finer outcome. Skip-tour users and phone long-press could not tell what changing Grid does.
+
+**Fix:** Grid tips say `A smaller Grid uses finer spacing` (form also notes defaults are usually fine); Accuracy tour uses the same phrasing. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/grid-finer-spacing.html`
+- Fixture screenshot (900px): `web/usability/grid-finer-spacing.png`
+
+### Match / DP tips still said Smaller keeps more detail (resolved)
+
+**Where:** Match form/chip titles and Accuracy tour in `web/index.html` / `web/viewer.js`, plus DP match Compare field titles.
+
+**Problem:** After Compare budget / keep tips named the green-path outcome, Match and DP match still said `Smaller keeps more detail` with no green-path wording. Skip-tour users and phone long-press could not map those tips to the same green-path vocabulary.
+
+**Fix:** Match and DP tips say `A smaller Match/match keeps a more detailed green path`; Accuracy tour uses the same phrasing. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/match-keeps-detailed-green-path.html`
+- Fixture screenshot (900px): `web/usability/match-keeps-detailed-green-path.png`
+
+### SQUISH tips still omitted builds a shorter green path (resolved)
+
+**Where:** Compare SQUISH pill titles and keep-percent field titles in `web/index.html`, plus `COMPARE_PILL_TITLES` in `web/viewer.js`.
+
+**Problem:** After DOTS / DP already said `builds a shorter green path`, SQUISH still said only `keeps about this percent of the original points`, and the keep field tip said `percent of original points to keep` with no green-path outcome. Skip-tour users and phone long-press could not map SQUISH to the same green-path vocabulary.
+
+**Fix:** SQUISH pills say `builds a shorter green path by keeping about this percent of the original points`; keep field tips say `percent of original points to keep on the green path`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/squish-builds-green-path.html`
+- Fixture screenshot (900px): `web/usability/squish-builds-green-path.png`
+
+### Compare tips still said dropping points / Larger keeps (resolved)
+
+**Where:** Compare DP pill titles and DOTS budget field titles in `web/index.html`, plus `COMPARE_PILL_TITLES` in `web/viewer.js`.
+
+**Problem:** After green-path Compare pill titles landed, DP still said `dropping points within a match limit`, and DOTS budget still said `Larger keeps fewer points`. Skip-tour users and phone long-press could not map those tips to Match / green path vocabulary used elsewhere.
+
+**Fix:** DP says `while staying within a match limit`; DOTS budget says `A larger budget builds a shorter green path (keeps fewer points)`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-match-limit-green-path-budget.html`
+- Fixture screenshot (900px): `web/usability/compare-match-limit-green-path-budget.png`
+
+### Compare tips still said shortens the path (resolved)
+
+**Where:** Compare DOTS / DP pill titles in `web/index.html` and `COMPARE_PILL_TITLES` / welcome tour in `web/viewer.js`.
+
+**Problem:** After as-you-go / all-at-once glosses landed, DOTS and DP titles (and the welcome tour) still said `shortens the path` / `shortens a GPS-style path`. Skip-tour users and phone long-press could not map those tips to the Gray path / green path vocabulary used elsewhere.
+
+**Fix:** Tips and welcome tour say `builds a shorter green path` and name `Gray path`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-builds-green-path.html`
+- Fixture screenshot (900px): `web/usability/compare-builds-green-path.png`
+
+### Desktop Compare help still said bare methods (resolved)
+
+**Where:** desktop empty-canvas `#dropHint` subline and Instructions in `web/index.html`, and Compare selection status labels in `web/viewer.js`.
+
+**Problem:** Mobile start help and the tour already named `DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %)`, but desktop empty-canvas Instructions still said bare `Compare methods` and the drop-hint subline said bare `Compare (preloaded only)`. Selection status also listed bare `DOTS, DP`. Skip-tour desktop users could not map that help to the pill glosses.
+
+**Fix:** Desktop drop-hint / Instructions name the same method glosses; selection status uses `DOTS (as-you-go)`-style labels. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/desktop-compare-help-glosses.html`
+- Fixture screenshot (900px): `web/usability/desktop-compare-help-glosses.png`
+
+### Compare help still said bare DOTS / DP / SQUISH (resolved)
+
+**Where:** mobile start Instructions, Map overlays `#baselineLayerHint` (markup + `updateCompareAvailabilityCopy`), and start/playback tour Compare steps in `web/viewer.js`.
+
+**Problem:** Compare pills already showed `as-you-go` / `all-at-once` / `keep %`, but help, Map overlays Compare hint, and tour steps still said bare `DOTS / DP / SQUISH`. Skip-tour users reading Instructions or the Compare hint could not map those acronyms to the pill glosses.
+
+**Fix:** Help, hint, and tour copy name `DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %)`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-help-method-glosses.html`
+- Fixture screenshot (900px): `web/usability/compare-help-method-glosses.png`
+
+### Results SQUISH still said keep % beside a % unit (resolved)
+
+**Where:** Results Compare `#baselineSquishRatioField`, client SQUISH validation status in `web/viewer.js`, and Compare API param metadata in `web/server.py`.
+
+**Problem:** Header Compare already said `SQUISH keep` with a separate `%` unit, but Results still said `keep %` next to another `%`, so the field read like `keep % 20 %`. Client validation still said `SQUISH keep % must…` while titles/server used `keep percent`. Skip-tour users mapping Results to the header saw two labels for the same control.
+
+**Fix:** Results field matches the header as `keep` + `%`; validation says `keep percent`; API metadata says `SQUISH keep` with unit `%`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/squish-keep-not-keep-pct.html`
+- Fixture screenshot (900px): `web/usability/squish-keep-not-keep-pct.png`
+
+### Compare still said stream / classic path shortener (resolved)
+
+**Where:** Compare DOTS / DP pill glosses and titles (header + Results), Map overlays Compare tip titles, desktop `#paramsBar` circle radius tip, and the rare streaming load-error string in `web/viewer.js`.
+
+**Problem:** After Gray path replaced input-stream wording, DOTS still said `stream` and DP said `classic` with `path shortener` tips, and circle radius still said `looking for`. Skip-tour users mapping Compare methods could not tell those glosses meant as-you-go vs all-at-once, and `stream` collided with the old stream vocabulary.
+
+**Fix:** Gloss/tips say `as-you-go` / `all-at-once` / `finding`; the rare load error says `as it builds`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-as-you-go-all-at-once.html`
+- Fixture screenshot (900px): `web/usability/compare-as-you-go-all-at-once.png`
+
+### Server Match-error / Compare failures still said simplified path / algorithm (resolved)
+
+**Where:** `web/server.py` Match-error and stream failure messages, Compare API param metadata, and the Results tiny-Match-error note in `web/viewer.js`.
+
+**Problem:** Idle UI already used `green path` / `methods` / `budget` / `match` / `keep %`, but rare server failures still said `simplified path` / `Compare algorithm` / `Simplification took too long` / `Could not simplify`, API Compare metadata still said `DOTS LSSD` / `DP PED ε` / `SQUISH Ratio`, and the Scores tiny-value note said `compare match-error`. Those strings bypass most start-screen copy and still reach novices.
+
+**Fix:** Server errors say `green path` / `Compare method` / `Building the green path`; Compare metadata says `DOTS budget` / `DP match` / `SQUISH keep %`; the Scores note says `Compare Match error`. Client `plainUserError` also rewrites residual `simplified path` / simplify-timeout wording. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/server-errors-green-path-methods.html`
+- Fixture screenshot (900px): `web/usability/server-errors-green-path-methods.png`
+
+### Compare DP still said match error / DOTS distance budget (resolved)
+
+**Where:** Results and header Compare param fields for DP / DOTS / SQUISH, plus client and server validation errors.
+
+**Problem:** Results DP field said `match error`, colliding with the Scores `Match error` metric, while the Match chip already used `match limit`. DOTS Results still said `distance budget` beside the shorter header `budget`, and SQUISH tips said `retain` instead of `keep`. Skip-tour users mapping Compare params to Match / Scores hit two different meanings of match error.
+
+**Fix:** DP labels/tips/errors say `match` / `match limit`; DOTS says `budget`; SQUISH tips say `keep`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-params-match-limit-budget.html`
+- Fixture screenshot (900px): `web/usability/compare-params-match-limit-budget.png`
+
+### Compare still said algorithms / Match tolerance (resolved)
+
+**Where:** Results `Compare methods` section label, Compare aria-labels/titles, desktop start Instructions, Match field/chip tips, Compare status strings, and start/playback tour copy.
+
+**Problem:** Compare already used plain DOTS / DP / SQUISH glosses, but help, Results, tour, and status still said `algorithms`, and Match tips still led with `Match tolerance`. Skip-tour users mapping Compare and Match to the controls hit leftover CS jargon instead of `methods` / `Match`.
+
+**Fix:** User-facing copy says `methods` / `Match (ε)` / `how the green path was built`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-methods-not-algorithms.html`
+- Fixture screenshot (900px): `web/usability/compare-methods-not-algorithms.png`
+
+### Grid still said search spacing (resolved)
+
+**Where:** Grid form title/aria-label, mobile and desktop start Instructions, invalid-input alert, Accuracy tour, and desktop `#paramsBar` grid cell tip.
+
+**Problem:** Map overlays already dropped opaque `the search` wording, but Grid help still said `search spacing` / `searching for` / `Search grid spacing`. Skip-tour users mapping Grid to the Grid chip could not tell those tips meant Grid spacing used while finding the green path.
+
+**Fix:** Tips and help say `spacing` / `finding the green path` / `Grid spacing`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/grid-not-search-spacing.html`
+- Fixture screenshot (900px): `web/usability/grid-not-search-spacing.png`
+
+### Rejected options still said the search already ruled out (resolved)
+
+**Where:** Map overlays `#toggle-dead-candidates` / `#toggle-Gi` / `#toggle-P` tips, Status Option open-count tip, and Map overlays This run accordion tip.
+
+**Problem:** Options near current / Option markers already named next-point options, but Rejected options still said `the search already ruled out`, related tips said `still being considered`, and This run said `search options`. Skip-tour users mapping Rejected options to Option markers could not tell those tips meant the same open/rejected pair without an opaque search agent.
+
+**Fix:** Tips say `already rejected` / `still open` / `next-point options`, and Rejected options names Option markers / Options near current. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/rejected-options-not-search.html`
+- Fixture screenshot (900px): `web/usability/rejected-options-not-search.png`
+
+### Option still said the search considered (resolved)
+
+**Where:** Status Option tooltip, desktop playback Option caption, Instructions gloss, playback tour Segment/Option step, and Map overlays Current-point circle tip.
+
+**Problem:** Options near current / Option markers already named next-point options near the current point, but Option tips still said `the search considered`, and Current-point circle said `being processed`. Skip-tour users mapping Option to Options near current and Status current point could not tell those tips meant the same options and point.
+
+**Fix:** Tips say `near the current point` / `Options near current` / `Gray path`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/option-near-current-not-search.html`
+- Fixture screenshot (900px): `web/usability/option-near-current-not-search.png`
+
+### Match / Match error still said the original (resolved)
+
+**Where:** Match form/chip titles, Match error Scores footer and tips, match limit / kept % tips, Gray path overlay tip, Accuracy tour, and playback-tour intro.
+
+**Problem:** Map overlays and Step already used `Gray path`, but Match / Match error / tour tips still said `the original` / `gray original`. Skip-tour users mapping Match error to the Gray path overlay could not tell those tips meant that same path.
+
+**Fix:** Tips say `Gray path` / `original points` (count metric kept). Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/match-error-gray-path.html`
+- Fixture screenshot (900px): `web/usability/match-error-gray-path.png`
+
+### Step still said original points (resolved)
+
+**Where:** Status Step tooltip, desktop/mobile Step titles and aria-labels, Instructions gloss, playback tour Step copy, and Status point-index title.
+
+**Problem:** Map overlays already named the input overlay `Gray path`, but Step still said `original points` / `original path points`, and Status indices said `original trajectory`. Skip-tour users mapping Step and start/current indices to Gray path could not tell those controls meant that same path.
+
+**Fix:** Copy says `Gray path points` / `Gray path`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/step-gray-path-points.html`
+- Fixture screenshot (900px): `web/usability/step-gray-path-points.png`
+
+### Match / Grid / Scores still said simplified path (resolved)
+
+**Where:** Match / Grid form titles, Load title/aria-label, Results This run / Match error / Kept points / Time tips, Map overlays This run / Gray path tips, desktop `#paramsBar` chips, Accuracy tour copy.
+
+**Problem:** Green path so far / Full green path / next green-path point already shared green-path vocabulary, but Match / Grid / Load / Scores / Gray path tips still said `simplified path` or `simplification`. Skip-tour users mapping those controls to the green path could not tell the tips meant that same path.
+
+**Fix:** Tips say `green path` / `this run` / `each path` / `build the green path`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/green-path-not-simplified.html`
+- Fixture screenshot (900px): `web/usability/green-path-not-simplified.png`
+
+### Map overlays / circle radius said next simplified point (resolved)
+
+**Where:** Map overlays `#toggle-F-Si` / `#toggle-S` tooltips and the desktop `#paramsBar` circle radius chip tooltip.
+
+**Problem:** Green path so far / Full green path / Next-point zone already shared green-path and next-point vocabulary, but those tips still said `next simplified point`. Skip-tour users mapping Next-point zone and circle radius to the green path could not tell the tip meant the next point on that green path.
+
+**Fix:** Tips read `next green-path point`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/next-green-path-point.html`
+- Fixture screenshot (900px): `web/usability/next-green-path-point.png`
+
+### Map overlays said Still-allowed area (resolved)
+
+**Where:** Map overlays `#toggle-F` / `#toggle-F-Si` labels/tooltips and `#toggle-S` Next-point zone tooltip.
+
+**Problem:** Match / Match error / Match limit already shared Match vocabulary, but the blue/cyan overlays still said `Still-allowed area` / `Still-allowed (this option)`. Skip-tour users could not tell those areas are the residual region within the Match limit that Next-point zone is cut from.
+
+**Fix:** Labels read `Match-safe area` and `Match-safe (this option)`. Related tooltips and the Next-point zone tip reuse those names. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/match-safe-area.html`
+- Fixture screenshot (900px): `web/usability/match-safe-area.png`
+
+### Map overlays said Path so far (resolved)
+
+**Where:** Map overlays `#toggle-simplified` label/tooltip, Gray path / Full green path tooltips, and playback Map overlays tour copy.
+
+**Problem:** Gray path and Full green path already led with color, but the mid-playback green overlay still said `Path so far`. Skip-tour users mapping Map overlays to the gray/green vocabulary could not tell that toggle was the same green path.
+
+**Fix:** Label reads `Green path so far`. Related tooltips and the Map overlays tour use the same name. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/green-path-so-far.html`
+- Fixture screenshot (900px): `web/usability/green-path-so-far.png`
+
+### Map overlays said Original path (resolved)
+
+**Where:** Map overlays `#toggle-stream` label/tooltip and playback Map overlays tour copy.
+
+**Problem:** Path so far / Full green path and the playback tour already used green / gray wording, but the input overlay toggle still said `Original path`. Skip-tour users mapping Map overlays to the tour’s “gray original” could not tell which toggle was that gray path.
+
+**Fix:** Label reads `Gray path` with a tooltip that names Path so far and Full green path. Tour copy says gray path. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/gray-path.html`
+- Fixture screenshot (900px): `web/usability/gray-path.png`
+
+### Map overlays said Search circle (start/current point) (resolved)
+
+**Where:** Map overlays `#toggle-ball-p0` / `#toggle-ball-pi` labels/tooltips; desktop `#paramsBar` `circle radius` chip tooltip; playback Map overlays tour copy.
+
+**Problem:** Status already led with `start point` / `current point`, but the purple/pink toggles still said `Search circle (start point)` / `Search circle (current point)`. Skip-tour users opening Map overlays first saw algorithm-first naming instead of Status vocabulary, and the circle radius chip tip still said Search circle.
+
+**Fix:** Labels read `Start-point circle` and `Current-point circle`. Tooltips and the circle radius chip tip reuse those names; the Map overlays tour says start-point / current-point circles. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/start-point-circle.html`
+- Fixture screenshot (900px): `web/usability/start-point-circle.png`
+
+### Map overlays said Full result path (resolved)
+
+**Where:** Map overlays `#toggle-final-simplify` label/tooltip.
+
+**Problem:** Segment, Path so far, and This run already shared green-path wording, but the finished-path toggle still said `Full result path`. Skip-tour users could not tell it was the same green path shown mid-playback by Path so far / Segment.
+
+**Fix:** Label reads `Full green path` with a tooltip that names Path so far and Segment. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/full-green-path.html`
+- Fixture screenshot (900px): `web/usability/full-green-path.png`
+
+### Map overlays said Next landing zone (resolved)
+
+**Where:** Map overlays `#toggle-S` label/tooltip, Still-allowed tooltip, and playback Map overlays tour copy.
+
+**Problem:** After Option / Options near current / Option markers shared next-point vocabulary, the purple overlap toggle still said `Next landing zone`. Skip-tour users could not tell that zone is the same next-point idea as Option on the playback bar.
+
+**Fix:** Label reads `Next-point zone` with a tooltip that names Options near current, Still-allowed area, and Option on the playback bar. Still-allowed and tour copy use the same name. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/next-point-zone.html`
+- Fixture screenshot (900px): `web/usability/next-point-zone.png`
+
+### Map overlays said Paths & search (resolved)
+
+**Where:** Map overlays accordion `#accordionSimplify` summary and playback Map overlays tour copy.
+
+**Problem:** Results Scores already labeled the green-path column `This run`, but the Map overlays accordion for the same run still said `Paths & search`. Skip-tour users mapping Scores to overlay toggles saw two names for one run.
+
+**Fix:** Accordion summary reads `This run` with a Scores-aligned tooltip. Tour copy uses the same name and mentions the Scores column. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/this-run-overlays-accordion.html`
+- Fixture screenshot (900px): `web/usability/this-run-overlays-accordion.png`
+
+### Playback and Status said Candidate (resolved)
+
+**Where:** Status Option row, desktop `#playbackBar` Option caption, mobile Option dock buttons, Instructions / tour / Map overlays tooltips that named Candidate.
+
+**Problem:** After Option markers / Options near current landed, Status, playback, and Instructions still said `Candidate`. Skip-tour users could not tell that the playback control cycles the same next-point options as those overlays.
+
+**Fix:** Visible labels read `Option` (narrow desktop short `Opt`). Status, Instructions, tour, and overlay tooltips use the same Option vocabulary. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/option-playback-label.html`
+- Fixture screenshot (900px): `web/usability/option-playback-label.png`
+
+### Map overlays said Candidate markers (resolved)
+
+**Where:** Map overlays Paths & search toggles `#toggle-P` / `#toggle-dead-candidates` / `#toggle-F-Si`.
+
+**Problem:** After Options near current landed, orange/red marker toggles still said `Candidate markers` / `Rejected candidates`, and the cyan toggle said `Still-allowed (this candidate)`. Skip-tour users could not map those markers to Options near current, or tell that Candidate on the playback bar cycles the same options.
+
+**Fix:** Labels read `Option markers`, `Rejected options`, and `Still-allowed (this option)`. Tooltips link Options near current and Candidate playback. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/option-markers.html`
+- Fixture screenshot (900px): `web/usability/option-markers.png`
+
+### Map overlays said Candidate region (resolved)
+
+**Where:** Map overlays Paths & search toggle `#toggle-Gi`, `#toggle-S` tooltip, and playback Map overlays tour copy.
+
+**Problem:** After Next landing zone and Still-allowed area landed, the yellow overlay still said `Candidate region`. Skip-tour users could not tell it is the set of next-point options near the Status current point, and the tour still said “candidate regions”.
+
+**Fix:** Label reads `Options near current` with a Status-linked tooltip. Next landing zone tooltip and the Map overlays tour use the same capitalized name. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/options-near-current.html`
+- Fixture screenshot (900px): `web/usability/options-near-current.png`
+
+### Map overlays said Allowed area so far (resolved)
+
+**Where:** Map overlays Paths & search toggles `#toggle-F` / `#toggle-F-Si` and `#toggle-S` tooltip.
+
+**Problem:** After Path so far and Next landing zone landed, the blue/cyan overlays still said `Allowed area so far` / `Allowed area (this candidate)`. Skip-tour users could confuse “so far” with Path so far, and the Next landing zone tooltip already said “still-allowed” without a matching toggle name.
+
+**Fix:** Labels read `Still-allowed area` and `Still-allowed (this candidate)`. Tooltips lead with Still-allowed / Match / Candidate / Next landing zone vocabulary. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/still-allowed-area.html`
+- Fixture screenshot (900px): `web/usability/still-allowed-area.png`
+
+### Map overlays said Current search region (resolved)
+
+**Where:** Map overlays Paths & search toggle `#toggle-S`.
+
+**Problem:** After Candidate region / Allowed area / Search circle labels landed, the purple overlap toggle still said `Current search region`. Skip-tour users could not tell that the zone is where the next simplified point can land.
+
+**Fix:** Label reads `Next landing zone`. Tooltip leads with that purpose and mentions the candidate / still-allowed overlap. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/next-landing-zone.html`
+- Fixture screenshot (900px): `web/usability/next-landing-zone.png`
+
+### Params chip said search radius instead of Search circle (resolved)
+
+**Where:** desktop `#paramsBar` `search radius` chip; Map overlays Search circle (start / current) tooltips.
+
+**Problem:** After Match / Grid / grid cell / saved Match landed, the radius chip still said `search radius` while Map overlays said `Search circle`. Circle tooltips also claimed the size was “from Grid”, so skip-tour users could not map the chip number to the purple/pink overlays.
+
+**Fix:** Chip reads `circle radius` with a Search circle tooltip. Overlay titles say the size matches the circle radius chip. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/circle-radius-search-circle.html`
+- Fixture screenshot (900px): `web/usability/circle-radius-search-circle.png`
+
+### Params chips still said cell size / file match (resolved)
+
+**Where:** desktop `#paramsBar` secondary chips after Load.
+
+**Problem:** After Match / Grid / match limit landed, chips still said `cell size` and `file match`. Skip-tour users could not tell that the first is a Grid-derived length, or that the second is a saved Match error (distinct from the live Match error chip).
+
+**Fix:** Chips read `grid cell` and `saved Match` with Grid- and Match-aligned tooltips. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/saved-match-grid-cell.html`
+- Fixture screenshot (900px): `web/usability/saved-match-grid-cell.png`
+
+### Params chips still said max error / orig. points (resolved)
+
+**Where:** desktop `#paramsBar` secondary chips; SQUISH Compare field titles (header + Results).
+
+**Problem:** After Match error / kept points landed, chips still said `max error` beside Match error and abbreviated `orig. points` beside `kept points`. SQUISH titles still said `keep ratio`. Skip-tour users could not tell the Match limit from the live Match error, or map the count chips to one vocabulary.
+
+**Fix:** Chips read `match limit` and `original points` with Match-aligned tooltips. SQUISH titles say `keep percent`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/match-limit-original-points.html`
+- Fixture screenshot (900px): `web/usability/match-limit-original-points.png`
+
+### Scores Metric and DP/DOTS tooltips stayed paper-jargon (resolved)
+
+**Where:** Results Scores table first column; Compare pill / overlay titles and DP match field titles (header + Results).
+
+**Problem:** The Scores table headed the first column `Metric`, and Compare tooltips still said `Douglas-Peucker`, `point-to-edge`, and `streaming simplifier`. Skip-tour users mapping Scores to Compare could not tell what those algorithms do from long-press titles alone.
+
+**Fix:** Scores uses `Score` to match the section name. DOTS / DP titles say stream / classic path shortener with a plain match-limit gloss; DP fields say match error. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-score-plain-tooltips.html`
+- Fixture screenshot (900px): `web/usability/compare-score-plain-tooltips.png`
+
+### Step / Segment still said “simplified piece” (resolved)
+
+**Where:** Instructions gloss, Status Segment/Step tooltips, desktop playback captions/titles, mobile Step/Segment controls, Map overlays search-circle / Allowed area tooltips, and the playback tour Step / Segment steps.
+
+**Problem:** After Status and playback already shared Segment / Step / Candidate labels, the glosses still said “simplified piece” / “pieces of the simplified path”. Skip-tour users could not tell that Step walks inside the current Segment, or that Segment pieces are the green path.
+
+**Fix:** Step reads “within the current Segment”; Segment / tour / tooltips say “pieces of the green path” (and Map overlays use current/previous Segment). Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/step-segment-green-path.html`
+- Fixture screenshot (900px): `web/usability/step-segment-green-path.png`
+
+### Wide desktop form still led with Greek ε / δ (resolved)
+
+**Where:** start-screen `#epsilonInput` / `#deltaInput` labels at ≥900px (and the shared base form CSS used on every viewport).
+
+**Problem:** Narrow desktop and phones already showed plain `Match` / `Grid`, and help / tour / chips used the same words, but wide desktop still painted Greek-first `ε match` / `δ grid`. Skip-tour users on a typical laptop saw a different vocabulary than Instructions.
+
+**Fix:** Base CSS now hides `.param-symbol` and capitalizes Match / Grid on every viewport (ε / δ remain in titles). Narrow-desktop still shrinks the number inputs so Load stays one row. Fixture `scrollWidth` stays within 1280.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/wide-match-grid-labels.html`
+- Fixture screenshot (1280px): `web/usability/wide-match-grid-labels.png`
+
+### Start help / tour / alerts still led with Greek ε / δ (resolved)
+
+**Where:** mobile and desktop start Instructions, empty-canvas drop hint, Accuracy tour step, invalid Match/Grid alert, server timeout / invalid-εδ JSON, DP Compare tooltips, search-circle layer tooltips; mobile form labels at max-width 720px.
+
+**Problem:** After loaded params chips and 721–899px fields preferred plain `Match` / `Grid`, start help, the first-visit Accuracy tour, validation alerts, and server errors still led with Greek `ε match` / `δ grid`. Phones also kept Greek symbols above the stacked number fields, so skip-tour users saw a different vocabulary than the chips.
+
+**Fix:** Instructions, tour, alerts, and server copy now lead with `Match` / `Grid`. Form labels on every viewport (including phones and wide desktop) hide Greek symbols and capitalize the glosses. ε / δ remain only in tooltips. Fixture `scrollWidth` stays within 390.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/match-grid-help-copy.html`
+- Fixture screenshot (390px): `web/usability/match-grid-help-copy.png`
+
+### Narrow desktop hid Match / Grid glosses (resolved)
+
+**Where:** start-screen `#epsilonInput` / `#deltaInput` labels at 721–899px; loaded `#paramsBar` chips for ε / δ.
+
+**Problem:** To keep Load on one row, the 721–899px rule hid `.param-gloss`, leaving bare Greek `ε` / `δ`. Skip-tour users (and anyone who forgot the tour) could not tell what the fields meant without hovering tooltips. Loaded params chips also led with `ε match` / `δ grid`.
+
+**Fix:** At 721–899px the form keeps capitalized Match / Grid glosses (now the default on every viewport) and slightly narrower number inputs so Load stays on the same row (`scrollWidth` 820 / 900). Loaded params chips read `Match` / `Grid` with ε / δ only in tooltips.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/narrow-match-grid-labels.html`
+- Fixture screenshot (820px): `web/usability/narrow-match-grid-labels.png`
+
+### Server / Match error failures still said binary jargon (resolved)
+
+**Where:** `web/server.py` API error payloads (`type:error` stream messages, Compare `baseline_error`, Frechet / upload / missing-trajectory JSON); Match error chip in `viewer.js` `renderParamsBar`.
+
+**Problem:** After client load/stream copy was plain, server-authored failures still said `Binary execution failed`, `Trace N not found`, `Simplify failed`, `lssd must be positive`, and raw binary paths / stderr. The Match error chip also showed bare `failed`. Novices who hit a timeout, missing Compare binary, or Match error outage saw developer wording.
+
+**Fix:** Server responses now use plain trajectory / Compare / Match error guidance (technical detail stays in server logs). The client sanitizes residual technical `error` / `baseline_error` strings, and the Match error chip shows `unavailable` with a short tooltip. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/server-error-plain-copy.html`
+- Fixture screenshot (900px): `web/usability/server-error-plain-copy.png`
+
+### Load/stream failures still said JSON / prefix jargon (resolved)
+
+**Where:** `loadTraceStream` / `loadTraceText` failure paths in `viewer.js` (status text and alerts when a response or fallback file cannot be read).
+
+**Problem:** Rare load failures still said `Invalid stream JSON`, `Received prefix before header`, `Received done before header`, `Could not parse JSON` plus raw parser text, and `Parsing NKB JSON…`. Novices who hit a bad server response or unreadable fallback file saw developer wording instead of what to try next.
+
+**Fix:** Those paths now say plain trajectory copy (`Could not read trajectory data…`, `Trajectory data arrived out of order…`, `Reading trajectory…`, and a plain-text upload/pick alert). Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/load-error-plain-copy.html`
+- Fixture screenshot (900px): `web/usability/load-error-plain-copy.png`
+
+### Narrow desktop hid Step/Segment/Candidate captions (resolved)
+
+**Where:** desktop `#playbackBar` `.pb-caption` at 721-820px.
+
+**Problem:** To keep the playback bar one row, full captions were `display: none` below 820px, so Step / Segment / Candidate became three identical `← 0/0 →` groups. Skip-tour users (and anyone who forgot the tour) could not tell the controls apart without hovering tooltips.
+
+**Fix:** At 721-820px the bar keeps short `Step` / `Seg` / `Cand` labels instead of hiding captions. Each nav group and input also has an aria-label matching the Instructions glosses. Fixture stays one row with `scrollWidth` within 820.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/playback-short-captions.html`
+- Fixture screenshot (820px): `web/usability/playback-short-captions.png`
+
+### Speed chips lost meaning when the label hid; upload format showed quotes (resolved)
+
+**Where:** desktop `#playbackBar` `.speed-preset` buttons (especially 721-1100px where `.pb-speed-label` is `display: none`); empty-canvas `#dropHint .dropHint-format`.
+
+**Problem:** Narrow desktop hides the Speed caption so the playback bar stays one row, but the `0.25×`–`4×` chips had no `title` / `aria-label`, so skip-tour users saw bare multipliers. The upload format line also rendered `"x y"` with quotes, which novices could copy into trajectory files even though samples are bare `x y`.
+
+**Fix:** Each speed chip (desktop and mobile) has a Playback speed title and aria-label; the speed group is labeled too. The format line reads `N (point count)` then `x y` without quotes. Fixture Speed row stays one line with `scrollWidth` within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/speed-titles-upload-format.html`
+- Fixture screenshot (900px): `web/usability/speed-titles-upload-format.png`
+
+### Status lacked a map/playback gloss; empty Load said upload (resolved)
+
+**Where:** sidebar `#statusGloss`; empty `#loadBtn` status in `viewer.js`; default `#baselineLayerHint` (preloaded path).
+
+**Problem:** Skip-tour users opening Status first saw bare start point / current point / Segment numbers with no link to the colored map markers or the playback bar. Pressing Load with nothing chosen said “select or upload”, which is unreachable on phones where Upload is `display: none`. The preloaded Compare map-overlay hint still ended with an Upload aside even when Compare was already available.
+
+**Fix:** Status leads with a plain gloss mapping start/current to map markers and Segment/Step/Candidate to playback. Empty Load says “Please choose a trajectory first”. The default Compare hint keeps Results → Run compare and drops the Upload aside (upload-blocked copy still explains uploads when needed). Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/status-gloss-map-playback.html`
+- Fixture screenshot (900px): `web/usability/status-gloss-map-playback.png`
+
+### Mobile start help still mentioned Upload (resolved)
+
+**Where:** header `.mobile-start-help` Instructions (max-width 720px); start-tour Load step and playback Results tour copy in `viewer.js`.
+
+**Problem:** On phones, `#uploadBtn` / `.or-divider` are `display: none`, so Upload is unreachable. Start Instructions still said “Uploaded files show scores only” and over-qualified Compare as if Upload were an option. Tour Load / Results steps repeated that Upload dead-end language for every visitor.
+
+**Fix:** Mobile start help points at Compare above, then Results → Run compare, with no Upload wording. Start-tour Load and Results tour keep the preloaded Compare path but drop the “Uploaded files show scores only” aside (desktop Upload remains explained only in the Choose trajectory step). Fixture `scrollWidth` stays within 390.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/mobile-start-no-upload-copy.html`
+- Fixture screenshot (390px): `web/usability/mobile-start-no-upload-copy.png`
+
+### Compare overlays / Scores headers lacked glosses (resolved)
+
+**Where:** Map overlays → Compare `#baselineLayerToggles` after Run compare; Results Scores `#compareMetricsHead` algorithm columns.
+
+**Problem:** Results Compare pills already showed `stream` / `classic` / `keep %`, but after a Compare run the Map overlays toggles and Scores table headers were bare `DOTS` / `DP` / `SQUISH`. Skip-tour users mapping dashed map paths or score columns to the pills lost the plain gloss.
+
+**Fix:** Overlay toggles show the same short glosses with map-path tooltips. Scores headers reuse those glosses under the acronym (accordion summary stays short `DOTS / DP / SQUISH`). Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-overlay-glosses.html`
+- Fixture screenshot (900px): `web/usability/compare-overlay-glosses.png`
+
+### Outer Layers section still used GIS jargon (resolved)
+
+**Where:** sidebar `#layersSection` h2 / `#mobileLayersToggle`, playback tour step, mobile Instructions / start help after Load.
+
+**Problem:** Iteration 32 renamed the inner Simplify accordion to `Paths & search`, but the outer section heading and mobile toggle still said `Layers`. Tour, Instructions, and start help used the same GIS word, so skip-tour users saw two names for one sidebar block that also holds Compare.
+
+**Fix:** Outer section and mobile toggle read `Map overlays`. Tour, Hide/Controls shortcut, and mobile start help use the same wording and mention Paths & search / Compare. Upload Compare hint drops the leftover “layers” suffix. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/map-overlays-label.html`
+- Fixture screenshot (900px): `web/usability/map-overlays-label.png`
+
+### Layers still said segment start / Anchor points (resolved)
+
+**Where:** Layers `#toggle-ball-p0` / `#toggle-P` / `#toggle-F-Si` and related layer tooltips after Load.
+
+**Problem:** Status and the map already used `start point` / `current point`, but Layers still said `Search circle (segment start)` and `Anchor points`, and tooltips led with paper symbols (`Paper: Bp.`, `Paper: P.`). Skip-tour users opening Layers first could not map toggles to Status, and long-press titles on phones dumped math notation.
+
+**Fix:** Layers read `Search circle (start point)`, `Allowed area (this candidate)`, and `Candidate markers` (paired with Rejected candidates). Tooltips use the same start point / current point / δ grid wording and drop `Paper:` math. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/layers-start-point-labels.html`
+- Fixture screenshot (900px): `web/usability/layers-start-point-labels.png`
+
+### Status Candidates did not match playback Candidate (resolved)
+
+**Where:** sidebar Status `#statusGrid` Candidates row after Load.
+
+**Problem:** Segment and Step already used `N / total` like the playback bar, but Status still showed `Candidates 3 still open`. Skip-tour users mapping Status to Candidate on the dock could not tell which option was selected or how many options existed.
+
+**Fix:** Status labels the row `Candidate` and shows the same `current / total` as the playback Candidate control (still-open + just-rejected cycle pool). The still-open count moves into the tooltip. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/status-candidate-total.html`
+- Fixture screenshot (900px): `web/usability/status-candidate-total.png`
+
+### Status omitted Segment and used # point indices (resolved)
+
+**Where:** sidebar Status `#statusGrid` / `#statusIndices` after Load.
+
+**Problem:** Status showed Step as a bare number with no total and never listed Segment, while the playback bar already used `N / total` for both. Point indices also used a cryptic `#` prefix (`#0`, `#12`). Skip-tour users opening Status first could not map it to Segment / Step on the dock.
+
+**Fix:** Status lists Segment and Step as `current / total` with the same tooltips as the playback captions. Point indices are plain numbers with a “Point number on the original trajectory” tooltip. Mobile Status reserves height for the third row so the panel does not jump.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/status-segment-step-totals.html`
+- Fixture screenshot (900px): `web/usability/status-segment-step-totals.png`
+
+### Results still said Simplified points (resolved)
+
+**Where:** Results Scores first metric row after Load; Kept % tooltip; header `kept %` chip tooltip.
+
+**Problem:** Header chips already said `kept points` / `kept %`, but Results still labeled the count row `Simplified points` and Kept % tooltips still led with that phrase. Novices mapping Scores to the header saw two names for the same keep count.
+
+**Fix:** Scores row is `Kept points` with a tooltip that points at the header chip. Kept % tooltips (Scores + header chip) say “Kept points as a percent…”. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/scores-kept-points.html`
+- Fixture screenshot (900px): `web/usability/scores-kept-points.png`
+
+### DOTS K unit and opaque Loaded id (resolved)
+
+**Where:** header / Results DOTS Compare field (`limit` + unit `K`); preloaded load success `#uploadStatus`; desktop `#paramsBar` count chips `original` / `kept`.
+
+**Problem:** Preloaded success still said `✓ Loaded 51` (internal id) while Upload already said `✓ Loaded`. DOTS used `limit` with unit `K` titled only “Thousand”, so novices could not tell the field was a distance budget entered in thousands. Params chips `original` / `kept` looked like bare adjectives next to numbers.
+
+**Fix:** Preloaded success matches Upload as `✓ Loaded` (header title already names the trajectory). DOTS reads `budget` / `distance budget` with unit `×1k` and tooltips that spell out thousands. Count chips are `orig. points` / `kept points`. Fixture Compare strip stays one row with `scrollWidth` within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/dots-budget-point-chips.html`
+- Fixture screenshot (900px): `web/usability/dots-budget-point-chips.png`
+
+### Results / Layers still said Simplify (resolved)
+
+**Where:** Results Scores first data column; Layers accordion summary; path toggles under that accordion; desktop `#paramsBar` `search r` chip.
+
+**Problem:** After Compare glosses and Match error work, novices still saw a Scores column labeled `Simplify` next to DOTS / DP / SQUISH with no plain meaning, a Layers group also named `Simplify`, and path toggles `Simplified so far` / `Final simplified` with no tooltips. Params kept abbreviated `search r`. Skip-tour users could not tell which column was this run, or when to turn on the full green path.
+
+**Fix:** Scores column is `This run` with a green-path tooltip. Layers accordion is `Paths & search`. Path toggles are `Path so far` / `Full result path` with tooltips. Params chip is `search radius`. User-facing “Simplify scores” copy is just “scores”. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/this-run-path-labels.html`
+- Fixture screenshot (900px): `web/usability/this-run-path-labels.png`
+
+### Params chips still said grid step / error budget / recorded (resolved)
+
+**Where:** desktop `#paramsBar` secondary chips after Load; Results Scores `Time (ms)` row.
+
+**Problem:** Match error / kept % were plain, but secondary chips still said `grid step`, `radius`, `error budget`, and `recorded`. Novices could not tell the orange file-saved value from the live Match error chip. Results also said `Time (ms)` while the header chip said `Time`.
+
+**Fix:** Chips read `cell size`, `search r`, `max error`, and `file match` with tooltips. Results Scores uses `Time` with a milliseconds tooltip, matching the header.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/params-chip-plain-labels.html`
+- Fixture screenshot (900px): `web/usability/params-chip-plain-labels.png`
+
+### Status and playback Candidate wording disagreed (resolved)
+
+**Where:** sidebar Status `path step` / `candidates` rows after Load; desktop `#playbackBar` Step / Segment / Candidate titles; mobile `#mobileTransport` aria-labels; Layers Anchor points tooltip.
+
+**Problem:** Instructions and the playback tour already explained Step / Segment / Candidate in plain language, but Status still said `path step` and showed `candidates 3 / 12` (alive over anchor count). That ratio looks like “3 of 12 candidates” and does not match the dock. Candidate tooltips still said “search boundary”.
+
+**Fix:** Status labels are `Step` / `Candidates` with `N still open`. Playback captions, button titles, and mobile aria-labels reuse the Instructions glosses (walk original points / jump simplified pieces / cycle next-point options). Anchor points drop “search boundary”. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/status-playback-gloss.html`
+- Fixture screenshot (900px): `web/usability/status-playback-gloss.png`
+
+### Post-load Instructions were shortcut-only (resolved)
+
+**Where:** sidebar Instructions after Load (`#playbackInstructionsGloss`, desktop / mobile shortcut tables); View `#fitBtn`; Layers tour copy.
+
+**Problem:** After Load, Instructions listed only keyboard / dock shortcuts. Novices who skipped the playback tour still saw Step / Segment / Candidate with no meaning. View also said `Fit to data`, which reads like a data action rather than resetting the map.
+
+**Fix:** Instructions lead with a plain gloss for Step / Segment / Candidate / Play / Speed / Fit view (same ideas as the playback tour). Shortcut tables keep the keys underneath. The View button reads `Fit view`.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/playback-instructions-gloss.html`
+- Fixture screenshot (900px): `web/usability/playback-instructions-gloss.png`
+
+### Results Scores still said Compression and led with Fréchet (resolved)
+
+**Where:** Results Scores table keep-share row; Match error footer / tooltips; upload success status; SQUISH keep validation.
+
+**Problem:** The keep-share metric was labeled `Compression` even though the value is points kept (same idea as header `kept %`), so a novice reading `12.4%` could think only 12% was removed. Match error help still led with “discrete Fréchet distance”. Upload success said `✓ Generated`, and the SQUISH keep error used interval notation `(0, 100]`.
+
+**Fix:** Scores row is `Kept %` with a plain tooltip. Match error footer / tooltips lead with drift-from-original wording and demote Fréchet to an optional technical link. Upload success is `✓ Loaded`. SQUISH validation says keep % must be greater than 0 and at most 100. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/scores-kept-pct.html`
+- Fixture screenshot (900px): `web/usability/scores-kept-pct.png`
+
+### Compare algorithm names and canvas “cur” stayed opaque (resolved)
+
+**Where:** Results / header Compare pills (`DOTS` / `DP` / `SQUISH`); canvas overlay label beside the current path point; Status candidates tooltip; desktop keyboard shortcut for C/X; canvas loading HUD.
+
+**Problem:** Compare pills were acronym-only. Desktop users could hover titles, but phones cannot, so novices who opened Results still did not know what DOTS / DP / SQUISH meant. The map still said `cur` while Status said `current point`. Shortcut copy still said `open candidates`, and the HUD said `Loading details…`.
+
+**Fix:** Results pills show short visible glosses (`stream` / `classic` / `keep %`); the header strip hides those glosses so the Compare row stays one line. Canvas label is `current`. Status / Layers tooltips say “still being considered”. Shortcut text drops `open`. HUD reads `Loading trajectory…`.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-algo-glosses.html`
+- Fixture screenshot (900px): `web/usability/compare-algo-glosses.png`
+
+### Mobile loaded header kept the long product name (resolved)
+
+**Where:** mobile `#appTitle` / `header h1` after `body.trace-loaded-mobile` (Back + title + `?`).
+
+**Problem:** After Load, phones hide the trajectory picker, but the header still showed the long product name `Trajectory Simplification Visualizer` with `white-space: nowrap`. Beside Back and `?` that title needed more width than a 390px row, so the name clipped or risked horizontal scroll, and novices could not see which trajectory was loaded.
+
+**Fix:** Brand shortens to `Trajectory Simplifier`. On load / loading the header title becomes the selected trajectory label (or upload filename) with ellipsis (`min-width: 0`, `text-overflow: ellipsis`); failure or clear restores the brand. Fixture header width stays 390 with no page scroll.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/mobile-header-trajectory-title.html`
+- Fixture screenshot (390px): `web/usability/mobile-header-trajectory-title.png`
+
+### Status / canvas / Layers still led with paper notation (resolved)
+
+**Where:** desktop `#statusIndices` labels; canvas `p` / `vN` overlays; Simplify layer toggle rows; loading / picker point-count copy.
+
+**Problem:** Mobile Status already said `start point` / `current point`, but desktop still prefixed MathJax `p` / `vᵢ`, the map drew `p` / `v42`, and Layers kept symbols first (`Bp`, `Si[p]`, …). Novices could not match Status wording to the map, and loading still said `Loading pts…`.
+
+**Fix:** Status uses plain `start point` / `current point` on every viewport. Canvas overlays say `start` / `current` in the same colors. Layer rows lead with plain glosses (paper symbols only in tooltips). Progress and picker counts say `points` / `Loading points…`; load failures say `Could not load trajectory`.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/status-canvas-plain-labels.html`
+- Fixture screenshot (900px): `web/usability/status-canvas-plain-labels.png`
+
+### Picker / load errors still said “trace” (resolved)
+
+**Where:** mobile `#tracePicker` divider and unlabeled items; desktop `#traceSelect` fallback option labels; NDJSON load error strings; invalid JSON-upload `alert`; Results panel `aria-label`.
+
+**Problem:** Start screens already said trajectory, but the picker divider still read `Other traces`, unlabeled ids fell back to `Trace N`, and failure alerts mentioned `simplify --web-server trace` / `Trace stream…`. Novices who skipped jargon elsewhere still hit mixed vocabulary on pick and error paths.
+
+**Fix:** Divider is `Other trajectories`; unlabeled items / select options use `Trajectory N`. Load failures say plain “Loading failed” / “No data received…” / “Loading stopped…”. Invalid upload alert points at the plain-text format or preloaded list. Results `aria-label` is `Results scores and Compare`.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/picker-trajectory-wording.html`
+- Fixture screenshot (900px): `web/usability/picker-trajectory-wording.png`
+
+### Load Trace CTA still mixed “trace” with trajectory wording (resolved)
+
+**Where:** `#loadBtn`, start Instructions / drop hint / tour, Compare status strings, mobile Back aria-label, and the params `trace error` chip.
+
+**Problem:** Picker and Upload already said trajectory, but the primary CTA still read `Load Trace`, help copy repeated that label, Back said “trace selection”, and the params bar kept a `trace error` chip. Novices who skipped jargon elsewhere still hit mixed vocabulary on the same screen.
+
+**Fix:** The button reads `Load` (shorter than `Load Trace`, with title / aria-label `Load trajectory and run simplification`). Instructions, tour, Compare status, and Results empty copy say `Load`. Back is “trajectory selection”. The params chip is `recorded` with the same Fréchet tooltip. Fixture row stays nowrap with no page overflow.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/load-button-trajectory.html`
+- Fixture screenshot (900px): `web/usability/load-button-trajectory.png`
+
+### Desktop empty-canvas Instructions showed playback keys before load (resolved)
+
+**Where:** `#dropHint .desktop-instructions` on the empty canvas (desktop only); start picker `#preloadedLabel` / `#tracePicker` heading; loading status strings.
+
+**Problem:** Before any trajectory loaded, desktop Instructions listed ←/→ Step, Segment, Candidate, and Space Play shortcuts. Novices who skipped the tour saw expert replay keys instead of how to start. The picker still said `Select trace…` / `Choose a preloaded trace` while Upload already said `trajectory`, and status used `Computing trace…` / `Loaded Trace N`.
+
+**Fix:** Desktop empty Instructions now mirror the mobile start path (pick / upload → ε match / δ grid → Load Trace → Results / Compare), and point to the sidebar for keyboard shortcuts after load. Picker and user-facing copy say `trajectory`; status reads `Computing…` / `✓ Loaded <id>`.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/desktop-start-instructions.html`
+- Fixture screenshot (900px): `web/usability/desktop-start-instructions.png`
+
+### Results metrics heading said Compare while scores appear without it (resolved)
+
+**Where:** Results panel `#resultsPanel` second section label; empty-canvas `#dropHint` headline.
+
+**Problem:** After Load Trace, Simplify Match error / Time / points already fill the metrics table with no Compare algorithm selected. The section was still labeled `Compare`, so novices who only wanted scores thought they had to pick DOTS / DP / SQUISH first. The empty canvas headline also led with `Upload a trajectory…`, which underplayed the primary preloaded path (and on phones Upload is hidden).
+
+**Fix:** The metrics block is labeled `Scores` with a tooltip that Compare adds columns when run. The drop hint reads `Choose a trajectory to get started` and lists preloaded before Upload.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/results-scores-label.html`
+- Fixture screenshot (900px): `web/usability/results-scores-label.png`
+
+### Compare looked available after Upload trajectory (resolved)
+
+**Where:** header / Results Compare pills, `#baselineStatus`, `#baselineLayerHint`, start Instructions, and the load / Results tour steps after choosing Upload trajectory.
+
+**Problem:** Compare only runs against preloaded traces (`/api/trace/<id>/compare`). After Upload trajectory, pills stayed clickable and status still said “Load a preloaded trace…”, which reads like the upload did not count even though Simplify scores already appear in Results.
+
+**Fix:** Choosing an upload clears Compare selection, disables the DOTS / DP / SQUISH pills with a plain tooltip, and sets status / Layers hint / Results empty copy to “Compare needs a preloaded trace. Uploaded files show Simplify scores only.” Tour and mobile Instructions say the same. Picking a preloaded trace re-enables the pills.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-upload-preloaded-only.html`
+- Fixture screenshot (900px): `web/usability/compare-upload-preloaded-only.png`
+
+### Cloud Run Deploy landed on main (resolved)
+
+**Where:** `.github/workflows/deploy.yml` on `main`, GitHub Actions Deploy workflow, Cloud Run service `simplify-viewer`.
+
+**Problem:** Deploy existed only on the usability branch, so GitHub listed only Benchmark and Correctness until a main merge.
+
+**Fix:** [PR #11](https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/pull/11) merged to `main`. The push registered Deploy and published revision `simplify-viewer-00011-lzj` via Workload Identity Federation ([run 33982295165](https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/actions/runs/33982295165)). Live URL: https://simplify-viewer-522405269791.asia-east2.run.app (HTTP 200).
 
