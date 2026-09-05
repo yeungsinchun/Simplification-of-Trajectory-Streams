@@ -2748,13 +2748,14 @@
       }
 
       // 5/6/7/8/10. Candidate display — single shared cycle pool.
-      // Cycle pool = alive + just-died (dead but have F data from this step).
-      // Previously-dead (no F this step) are dimmed but not cycled through.
+      // Cycle pool = alive + justDied (clip-failure deaths that still emit F).
+      // No-F dead (prior-step dead, or prune deaths that skip find_F) are
+      // dimmed but not cycled through. See get_longest_stab_web.
       if (step) {
         const allCandidates = step.candidates
           .map((c, i) => ({ ...c, originalIdx: i }));
 
-        // 'alive' | 'justDied' (dead but has F this step) | 'dead' (previously dead)
+        // 'alive' | 'justDied' (dead this step, F present) | 'dead' (no F)
         const statusOf = c =>
           c.alive ? 'alive' : (c.F && c.F.length >= 3 ? 'justDied' : 'dead');
 

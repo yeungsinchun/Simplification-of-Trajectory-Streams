@@ -949,7 +949,7 @@ inline bool wedge_gi_disjoint(const Point& p, const std::vector<Point>& S,
  *      else copy the wrap-around arc t1..end + begin..t0.
  *
  * @param tangent_in Optional precomputed supporting vertices (size==2);
- *                   skips find_tangent_idx (e.g. after a prune miss).
+ *                   skips find_tangent_idx_xy (e.g. after a prune miss).
  */
 inline void find_F_xy(double px, double py,
                       const std::vector<std::array<double, 2>>& S,
