@@ -4,60 +4,35 @@ This directory contains CI/CD workflows for the trajectory simplification projec
 
 ## Workflows
 
-### ci.yml - Basic CI
-**Triggers:** Push to any branch, Pull requests
-**Duration:** ~2-3 minutes
+### correctness.yml - Correctness regression
+**Triggers:** Push to main, pull requests to main, manual dispatch
 
-Tests:
-- Builds the project in Release mode
-- Runs correctness test on dataset 1
-- Measures performance baseline (ε=299, δ=1)
-- Posts results as PR comment
-
-Pass criteria:
-- Build succeeds
-- Output has correct number of points (92 for dataset 1)
-- Performance is under 200ms threshold
+Compares Fréchet distance and point counts for datasets 1..10 against the previous commit.
 
 ### benchmark.yml - Comprehensive Benchmarks
-**Triggers:** Push to main, Pull requests, Daily at 00:00 UTC, Manual dispatch
-**Duration:** ~3-5 minutes
+**Triggers:** Push to main, pull requests, daily schedule, manual dispatch
 
-Tests:
-- Builds in Release mode
-- Tests 5 different epsilon values (50, 100, 200, 299, 500)
-- Calculates compression ratios and throughput
-- Stores historical data on main branch
-- Posts detailed report as PR comment
+Builds in Release mode, sweeps epsilon values, and stores historical results.
 
-Pass criteria:
-- All builds succeed
-- Baseline performance (ε=299) under 200ms
-- Results stored in benchmark_history/ for trending
+### deploy.yml - Cloud Run deploy
+**Triggers:** Push to main, manual dispatch
 
-## Expected Performance
+Builds the repo `Dockerfile` with Cloud Build (`gcloud run deploy --source .`) and publishes the web viewer to Cloud Run.
 
-With Release build on modern hardware:
-- **Target:** ~10-20ms for 588 points
-- **Threshold:** 200ms (workflow fails if exceeded)
-- **Throughput:** ~30,000-60,000 points/second
+Defaults (override with repository variables):
 
-## Local Testing
+| Variable | Default |
+| --- | --- |
+| `GCP_PROJECT_ID` | `project-ec366840-6857-446e-852` |
+| `GCP_REGION` | `asia-east2` |
+| `CLOUD_RUN_SERVICE` | `simplify-viewer` |
 
-To run the same tests locally:
+Required repository secret:
 
-```bash
-# Build
-mkdir -p build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-cmake --build . --target simplify -j$(nproc)
+- `GCP_SA_KEY` - JSON key for a service account that can deploy Cloud Run from source (Cloud Run Admin, Cloud Build Editor, Service Account User, and Storage access for source upload). Enable the Cloud Run, Cloud Build, and Artifact Registry APIs in the project.
 
-# Test
-cd ..
-./build/simplify 1 -e 299 -d 1
+Service flags match the former local `deploy.sh`: 4 GiB RAM, 2 CPU, 300s timeout, max 10 instances, `--no-cpu-throttling` (needed so background Julia Fréchet work keeps CPU after `/api/frechet` returns), `--allow-unauthenticated`.
 
-# Should see:
-# Loaded 588 points.
-# SIMPLIFY_CORE_MS: 10-20
-# Simplified to 92 points (15.6%)
-```
+## Local deploy
+
+Keep a machine-local `deploy.sh` (gitignored) or run the same `gcloud run deploy` command from `deploy.yml`.

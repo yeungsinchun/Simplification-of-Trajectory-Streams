@@ -1,0 +1,82 @@
+name: Deploy
+
+# Build the Dockerfile via Cloud Build and publish the web viewer to Cloud Run.
+# Requires repository secret GCP_SA_KEY (service-account JSON with Run + Cloud Build).
+# Optional repository variables: GCP_PROJECT_ID, GCP_REGION, CLOUD_RUN_SERVICE.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-cloud-run
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID || 'project-ec366840-6857-446e-852' }}
+      REGION: ${{ vars.GCP_REGION || 'asia-east2' }}
+      SERVICE_NAME: ${{ vars.CLOUD_RUN_SERVICE || 'simplify-viewer' }}
+
+    steps:
+      - name: Check GCP credentials
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          if [ -z "$GCP_SA_KEY" ]; then
+            echo "::error::Missing repository secret GCP_SA_KEY."
+            echo "Create a GCP service account with Cloud Run Admin, Cloud Build Editor,"
+            echo "Service Account User, and Storage Admin (source upload), then store its"
+            echo "JSON key as the GCP_SA_KEY repository secret."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Cloud Run
+        # Matches the former local deploy.sh flags:
+        # --no-cpu-throttling keeps CPU for background Julia Fréchet work after /api/frechet returns
+        # --memory 4Gi covers large traces + CGAL + Julia
+        run: |
+          gcloud run deploy "$SERVICE_NAME" \
+            --source . \
+            --platform managed \
+            --region "$REGION" \
+            --project "$PROJECT_ID" \
+            --allow-unauthenticated \
+            --memory 4Gi \
+            --cpu 2 \
+            --timeout 300 \
+            --max-instances 10 \
+            --no-cpu-throttling
+
+      - name: Publish service URL
+        run: |
+          url=$(gcloud run services describe "$SERVICE_NAME" \
+            --region "$REGION" \
+            --project "$PROJECT_ID" \
+            --format='value(status.url)')
+          echo "Deployed: $url"
+          {
+            echo "## Cloud Run"
+            echo ""
+            echo "- Service: \`$SERVICE_NAME\`"
+            echo "- Region: \`$REGION\`"
+            echo "- URL: $url"
+          } >> "$GITHUB_STEP_SUMMARY"

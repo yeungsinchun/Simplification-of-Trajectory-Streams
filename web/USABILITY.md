@@ -315,4 +315,4 @@ A 721 / 900 / 1280 / 390 loading-to-loaded pass now keeps header height stable (
 
 - At 900px a nested MathJax assistive `mjx-container` for \(S_i[p]\) still has a bounding box about 10px past the window. The visible formula ends at 882px, `#sidebar` clips overflow-x, and `documentElement.scrollWidth` stays 900.
 - Desktop playback-bar height still grows from 91px (1280) to about 108px (1024/900) because the bar wraps; treat wrap as a problem only if a control is clipped or untappable.
-- Automatic gcloud / Cloud Run deploy via GitHub Actions is still missing (local `deploy.sh` was intentionally untracked; Dockerfile already targets Cloud Run).
+- Cloud Run auto-deploy workflow exists (`.github/workflows/deploy.yml`) but still needs the `GCP_SA_KEY` repository secret before pushes to `main` can publish.
