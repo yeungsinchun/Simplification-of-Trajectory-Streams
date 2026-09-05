@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Grid tips lagged Match’s smaller/outcome guidance (resolved)
+
+**Where:** Grid form/chip titles and Accuracy tour in `web/index.html` / `web/viewer.js`.
+
+**Problem:** After Match tips said `A smaller Match keeps a more detailed green path`, Grid still only named spacing (`Preloaded trajectories set a good default` / bare spacing) with no smaller/finer outcome. Skip-tour users and phone long-press could not tell what changing Grid does.
+
+**Fix:** Grid tips say `A smaller Grid uses finer spacing` (form also notes defaults are usually fine); Accuracy tour uses the same phrasing. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/grid-finer-spacing.html`
+- Fixture screenshot (900px): `web/usability/grid-finer-spacing.png`
+
 ### Match / DP tips still said Smaller keeps more detail (resolved)
 
 **Where:** Match form/chip titles and Accuracy tour in `web/index.html` / `web/viewer.js`, plus DP match Compare field titles.
