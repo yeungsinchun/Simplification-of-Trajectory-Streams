@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Params chips still said max error / orig. points (resolved)
+
+**Where:** desktop `#paramsBar` secondary chips; SQUISH Compare field titles (header + Results).
+
+**Problem:** After Match error / kept points landed, chips still said `max error` beside Match error and abbreviated `orig. points` beside `kept points`. SQUISH titles still said `keep ratio`. Skip-tour users could not tell the Match limit from the live Match error, or map the count chips to one vocabulary.
+
+**Fix:** Chips read `match limit` and `original points` with Match-aligned tooltips. SQUISH titles say `keep percent`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/match-limit-original-points.html`
+- Fixture screenshot (900px): `web/usability/match-limit-original-points.png`
+
 ### Scores Metric and DP/DOTS tooltips stayed paper-jargon (resolved)
 
 **Where:** Results Scores table first column; Compare pill / overlay titles and DP match field titles (header + Results).
