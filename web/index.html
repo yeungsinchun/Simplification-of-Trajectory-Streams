@@ -385,6 +385,8 @@
   }
   .header-baseline .baseline-algo-row {
     gap: 6px;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
   }
   .header-baseline .baseline-algo-pill {
     padding: 5px 12px;
@@ -1640,6 +1642,23 @@
       margin-left: 0;
       width: 100%;
     }
+    /* Keep title + controls on one header row. Compare params must not wrap
+       the title onto its own line and shift Load Trace down. */
+    header {
+      flex-wrap: nowrap;
+    }
+    header h1 {
+      flex-shrink: 0;
+    }
+    .file-controls {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .upload-form {
+      flex-wrap: wrap;
+      width: 100%;
+      min-width: 0;
+    }
     .upload-form button,
     #trajectoryFileName {
       white-space: nowrap;
@@ -1650,6 +1669,20 @@
       gap: 4px;
       white-space: nowrap;
       flex-shrink: 0;
+    }
+    /* Compare strip sits under Load Trace so selecting algos never kicks
+       Load Trace onto a second form row. Keep pills + params on one line. */
+    .upload-form .header-baseline {
+      flex: 1 1 100%;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      min-height: 33px;
+      max-width: 100%;
+      padding: 2px 0 0;
+    }
+    .upload-form .header-baseline .baseline-field--inline {
+      flex-shrink: 0;
+      white-space: nowrap;
     }
     #uploadStatus {
       min-width: 126px;
@@ -2051,33 +2084,33 @@
           <input type="file" id="trajectoryInput" accept=".txt,text/plain" />
           <label title="How closely the simplified path must match the original. Smaller keeps more detail.">&epsilon; <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" /></label>
           <label title="Grid spacing used while searching for the simplified path. Preloaded traces set a good default.">&delta; <input type="number" id="deltaInput" value="500" step="10" min="1" /></label>
-          <div class="header-baseline" aria-label="Baseline algorithm to benchmark against">
-            <span class="header-baseline-label">Baseline:</span>
-            <div class="baseline-algo-row" id="headerBaselineAlgoRow" role="group" aria-label="Baseline algorithms">
-              <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false">DOTS</button>
-              <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false">DP</button>
-              <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false">SQUISH</button>
-            </div>
-            <label class="baseline-field baseline-field--inline" id="headerBaselineLssdField" hidden>
-              <span><span class="baseline-param-owner owner-dots">DOTS</span> LSSD</span>
-              <input type="number" id="headerBaselineLssdInput" value="1000" step="1" min="0.000001" />
-              <span class="baseline-field-unit" title="Thousand">K</span>
-            </label>
-            <label class="baseline-field baseline-field--inline" id="headerBaselineDpEpsField" hidden>
-              <span><span class="baseline-param-owner owner-dp">DP</span> PED ε</span>
-              <input type="number" id="headerBaselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" />
-            </label>
-            <label class="baseline-field baseline-field--inline" id="headerBaselineSquishRatioField" hidden>
-              <span><span class="baseline-param-owner owner-squish">SQUISH</span> Ratio</span>
-              <input type="number" id="headerBaselineSquishRatioInput" value="20" step="1" min="0.01" max="100" />
-              <span class="baseline-field-unit" title="Percent">%</span>
-            </label>
-          </div>
           <button id="loadBtn" class="primary">
             <span class="button-spinner" aria-hidden="true"></span>
             <span class="load-btn-label">Load Trace</span>
           </button>
           <span class="sub" id="uploadStatus"></span>
+          <div class="header-baseline" aria-label="Optional algorithms to compare against">
+            <span class="header-baseline-label" title="Optional. Pick other algorithms to compare against after Load Trace. Skip for a first run.">Compare:</span>
+            <div class="baseline-algo-row" id="headerBaselineAlgoRow" role="group" aria-label="Compare algorithms">
+              <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" title="DOTS: a streaming simplification baseline. Optional compare; defaults are fine.">DOTS</button>
+              <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" title="DP: Douglas-Peucker style baseline using point-to-edge distance. Optional compare.">DP</button>
+              <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" title="SQUISH: keeps a target fraction of points. Optional compare.">SQUISH</button>
+            </div>
+            <label class="baseline-field baseline-field--inline" id="headerBaselineLssdField" hidden title="DOTS distance threshold in thousands (K). Larger keeps fewer points.">
+              <span><span class="baseline-param-owner owner-dots">DOTS</span> thresh</span>
+              <input type="number" id="headerBaselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS threshold in thousands" />
+              <span class="baseline-field-unit" title="Thousand">K</span>
+            </label>
+            <label class="baseline-field baseline-field--inline" id="headerBaselineDpEpsField" hidden title="DP allowed point-to-edge error (same idea as ε).">
+              <span><span class="baseline-param-owner owner-dp">DP</span> ε</span>
+              <input type="number" id="headerBaselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP error epsilon" />
+            </label>
+            <label class="baseline-field baseline-field--inline" id="headerBaselineSquishRatioField" hidden title="SQUISH keep ratio: percent of original points to retain.">
+              <span><span class="baseline-param-owner owner-squish">SQUISH</span> keep</span>
+              <input type="number" id="headerBaselineSquishRatioInput" value="20" step="1" min="0.01" max="100" aria-label="SQUISH keep percent" />
+              <span class="baseline-field-unit" title="Percent">%</span>
+            </label>
+          </div>
         </div>
       </div>
       <div class="params" id="paramsBar"></div>
@@ -2085,7 +2118,7 @@
         <h2>Instructions</h2>
         <ul>
           <li>Select a preloaded trajectory.</li>
-          <li>Optionally pick a <b>Baseline</b> (e.g. DOTS) to benchmark against.</li>
+          <li>Optionally tap <b>Compare</b> algorithms (DOTS / DP / SQUISH) to benchmark against.</li>
           <li>Adjust <b>&epsilon;</b> and <b>&delta;</b>, then tap <b>Load Trace</b>.</li>
           <li>Drag the visualization to pan and pinch to zoom.</li>
           <li>Use <b>Controls</b> to view status and toggle layers.</li>
@@ -2106,34 +2139,34 @@
         </div>
         <div class="results-panel-body">
           <div>
-            <p class="results-section-label">Baseline algorithm</p>
+            <p class="results-section-label" title="Optional algorithms to compare against the Simplify result">Compare algorithms</p>
             <div class="baseline-controls">
-              <div class="baseline-algo-row" id="baselineAlgoRow" role="group" aria-label="Baseline algorithms">
-                <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false">DOTS</button>
-                <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false">DP</button>
-                <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false">SQUISH</button>
+              <div class="baseline-algo-row" id="baselineAlgoRow" role="group" aria-label="Compare algorithms">
+                <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" title="DOTS: a streaming simplification baseline. Optional compare; defaults are fine.">DOTS</button>
+                <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" title="DP: Douglas-Peucker style baseline using point-to-edge distance. Optional compare.">DP</button>
+                <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" title="SQUISH: keeps a target fraction of points. Optional compare.">SQUISH</button>
               </div>
               <div id="baselineParamFields" class="baseline-param-fields">
-                <label class="baseline-field" id="baselineLssdField" hidden>
-                  <span><span class="baseline-param-owner owner-dots">DOTS</span> LSSD</span>
+                <label class="baseline-field" id="baselineLssdField" hidden title="DOTS distance threshold in thousands (K). Larger keeps fewer points.">
+                  <span><span class="baseline-param-owner owner-dots">DOTS</span> threshold</span>
                   <div class="baseline-field-input-row">
-                    <input type="number" id="baselineLssdInput" value="1000" step="1" min="0.000001" />
+                    <input type="number" id="baselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS threshold in thousands" />
                     <span class="baseline-field-unit" title="Thousand">K</span>
                   </div>
                 </label>
-                <label class="baseline-field" id="baselineDpEpsField" hidden>
-                  <span><span class="baseline-param-owner owner-dp">DP</span> PED ε</span>
-                  <input type="number" id="baselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" />
+                <label class="baseline-field" id="baselineDpEpsField" hidden title="DP allowed point-to-edge error (same idea as ε).">
+                  <span><span class="baseline-param-owner owner-dp">DP</span> error ε</span>
+                  <input type="number" id="baselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP error epsilon" />
                 </label>
-                <label class="baseline-field" id="baselineSquishRatioField" hidden>
-                  <span><span class="baseline-param-owner owner-squish">SQUISH</span> Ratio</span>
+                <label class="baseline-field" id="baselineSquishRatioField" hidden title="SQUISH keep ratio: percent of original points to retain.">
+                  <span><span class="baseline-param-owner owner-squish">SQUISH</span> keep %</span>
                   <div class="baseline-field-input-row">
-                    <input type="number" id="baselineSquishRatioInput" value="20" step="1" min="0.01" max="100" />
+                    <input type="number" id="baselineSquishRatioInput" value="20" step="1" min="0.01" max="100" aria-label="SQUISH keep percent" />
                     <span class="baseline-field-unit" title="Percent">%</span>
                   </div>
                 </label>
               </div>
-              <button type="button" id="baselineRunBtn" class="baseline-run-btn" disabled>Run baseline</button>
+              <button type="button" id="baselineRunBtn" class="baseline-run-btn" disabled>Run compare</button>
               <p id="baselineStatus" class="baseline-status"></p>
             </div>
           </div>
@@ -2187,7 +2220,7 @@
             </div>
             <div class="big">Upload a trajectory to get started</div>
             <div class="dropHint-sub">
-              Click <b>Upload original.txt</b> or select a <b>preloaded trace</b>, pick a <b>Baseline</b> to benchmark against, set &epsilon;/&delta;, then <b>Load Trace</b>
+              Click <b>Upload original.txt</b> or select a <b>preloaded trace</b>, optionally pick <b>Compare</b> algorithms, set &epsilon;/&delta;, then <b>Load Trace</b>
             </div>
             <div class="dropHint-format">
               Format: first line <code>N</code>, then <code>N</code> lines of <code>"x y"</code>
@@ -2358,7 +2391,7 @@
             <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Previous / next step</td></tr>
             <tr><td><kbd>Shift</kbd>+<kbd>←</kbd>/<kbd>→</kbd></td><td>Previous / next simplified segment</td></tr>
             <tr><td><kbd>Space</kbd></td><td>Play / pause auto-advance</td></tr>
-            <tr><td><kbd>C</kbd> / <kbd>X</kbd></td><td>Cycle through alive candidates forward / backward</td></tr>
+            <tr><td><kbd>C</kbd> / <kbd>X</kbd></td><td>Cycle through open candidates forward / backward</td></tr>
             <tr><td>Drag</td><td>Pan the view</td></tr>
             <tr><td>Scroll / pinch</td><td>Zoom in / out</td></tr>
           </tbody>

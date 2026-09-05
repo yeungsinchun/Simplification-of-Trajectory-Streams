@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Desktop Compare bar single-row layout</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+    --accent: #4f9dff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+  }
+  h1 { font-size: 16px; margin: 0 0 6px; }
+  p { margin: 0 0 14px; color: var(--text-dim); font-size: 12px; }
+  section { padding: 16px; border-bottom: 1px solid var(--panel-border); }
+  .label {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .callout {
+    background: rgba(255,95,109,0.08);
+    border: 1px solid rgba(255,95,109,0.35);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text-dim);
+    font-size: 12px;
+    margin-bottom: 12px;
+  }
+  .ok {
+    background: rgba(61,220,151,0.08);
+    border: 1px solid rgba(61,220,151,0.35);
+  }
+  .mock-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+  }
+  .mock-header h2 {
+    margin: 0;
+    font-size: 15px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .pill {
+    border: 1px solid var(--panel-border);
+    background: #1a1f29;
+    color: var(--text-dim);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 11px;
+  }
+  .pill.active {
+    border-color: var(--accent);
+    color: var(--text);
+    background: #2a4a72;
+  }
+  .btn {
+    background: var(--accent);
+    color: #061018;
+    border: none;
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 650;
+  }
+  .field {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .field input {
+    width: 56px;
+    background: #1a1f29;
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 4px 8px;
+  }
+  .before .compare {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .after .compare {
+    flex: 1 1 100%;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    align-items: center;
+    overflow-x: auto;
+    min-height: 33px;
+  }
+  .measure {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .measure b { color: var(--text); }
+</style>
+</head>
+<body>
+  <section>
+    <h1>Before</h1>
+    <p class="callout">Compare / Baseline sat on the same form row as Load Trace. Choosing DOTS + DP + SQUISH wrapped params onto extra rows, kicked Load Trace around, and at ~1280px could wrap the page title onto its own line so the whole header jumped.</p>
+    <div class="label">1280px · all three selected</div>
+    <div class="mock-header before" style="flex-wrap: wrap;">
+      <h2>Trajectory Simplification Visualizer</h2>
+      <div class="form">
+        <span>Trace 1</span>
+        <span>ε 0.9</span>
+        <span>δ 500</span>
+        <div class="compare">
+          <span>Baseline:</span>
+          <span class="pill active">DOTS</span>
+          <span class="pill active">DP</span>
+          <span class="pill active">SQUISH</span>
+          <label class="field">DOTS LSSD <input value="1000" /> K</label>
+          <label class="field">DP PED ε <input value="0.9" /></label>
+          <label class="field">SQUISH Ratio <input value="20" /> %</label>
+        </div>
+        <button class="btn">Load Trace</button>
+      </div>
+    </div>
+    <div class="measure">Header wraps · Load Trace no longer on the first controls row</div>
+  </section>
+  <section>
+    <h1>After</h1>
+    <p class="callout ok">Compare sits on its own full-width nowrap strip under Load Trace. Pills and params stay one row (horizontal scroll if needed). The title stays beside the controls, so selecting algorithms does not change header height or Load Trace position. Acronyms expose plain-language tooltips.</p>
+    <div class="label">1280px · all three selected</div>
+    <div class="mock-header after" style="flex-wrap: nowrap;">
+      <h2>Trajectory Simplification Visualizer</h2>
+      <div class="form">
+        <span>Trace 1</span>
+        <span>ε 0.9</span>
+        <span>δ 500</span>
+        <button class="btn">Load Trace</button>
+        <div class="compare" title="Optional. Pick other algorithms to compare against after Load Trace.">
+          <span>Compare:</span>
+          <span class="pill active" title="DOTS: a streaming simplification baseline">DOTS</span>
+          <span class="pill active" title="DP: Douglas-Peucker style baseline">DP</span>
+          <span class="pill active" title="SQUISH: keeps a target fraction of points">SQUISH</span>
+          <label class="field" title="DOTS distance threshold in thousands">DOTS thresh <input value="1000" /> K</label>
+          <label class="field" title="DP allowed point-to-edge error">DP ε <input value="0.9" /></label>
+          <label class="field" title="SQUISH keep percent">SQUISH keep <input value="20" /> %</label>
+        </div>
+      </div>
+    </div>
+    <div class="measure">Header height stable · Load Trace stays on the first controls row · <b>Compare</b> params share one strip</div>
+  </section>
+</body>
+</html>

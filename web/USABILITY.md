@@ -343,6 +343,25 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture: `web/usability/desktop-layer-glosses.html`
 - Fixture screenshot: `web/usability/desktop-layer-glosses.png`
 
+### Compare / Baseline selection wrapped the header and Load Trace
+
+**Where:** desktop header `.header-baseline` (and mobile start form), when selecting DOTS / DP / SQUISH before Load Trace.
+
+**Problem:** Compare controls lived on the same form row as Load Trace. Choosing algorithms revealed LSSD / PED ε / Ratio fields that wrapped onto extra rows, moved Load Trace, and at wider desktop widths could make `header { flex-wrap: wrap }` put the title on its own line so the whole header jumped (for example 54px → 142px at 1280 with all three selected). Acronyms also had no plain-language help.
+
+**Fix:** Compare sits on its own full-width strip under Load Trace. Desktop keeps that strip `nowrap` with horizontal scroll if needed, and the header itself is `nowrap` with a shrinking `.file-controls` so the title stays beside the controls. Labels read `Compare:` with short param names (`thresh` / `ε` / `keep`) plus tooltips; Status uses `start point` / `current point` / `open` instead of bare `alive`. Selecting none → all three keeps header height at 88px (1280), 122px (900), and 123px (721) with Load Trace unmoved.
+
+**Evidence:**
+
+- Desktop live idle (1280px): `web/usability/desktop-compare-bar-wrap-1280-idle-live.png`
+- Desktop live all three (1280px): `web/usability/desktop-compare-bar-wrap-1280-live.png`
+- Desktop live all three (900px): `web/usability/desktop-compare-bar-wrap-900-live.png`
+- Desktop live all three (721px): `web/usability/desktop-compare-bar-wrap-721-live.png`
+- Mobile live all three (390px): `web/usability/desktop-compare-bar-wrap-390-live.png`
+- Status glosses after load (1280px): `web/usability/desktop-compare-bar-wrap-status-live.png`
+- Before/after markup fixture: `web/usability/desktop-compare-bar-wrap.html`
+- Fixture screenshot: `web/usability/desktop-compare-bar-wrap.png`
+
 ## Still open
 
 Remaining item for a later pass:

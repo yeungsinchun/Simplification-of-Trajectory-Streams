@@ -251,8 +251,8 @@
     setBaselineStatus(
       labels.length
         ? (currentTraceId
-          ? `Selected ${labels.join(", ")}. Click Run baseline (or reload the trace to auto-run).`
-          : `Selected ${labels.join(", ")}. Load a preloaded trace to run the benchmark.`)
+          ? `Selected ${labels.join(", ")}. Click Run compare (or reload the trace to auto-run).`
+          : `Selected ${labels.join(", ")}. Load a preloaded trace to run the compare.`)
         : ""
     );
     syncBaselinePills();
@@ -350,12 +350,12 @@
     );
     if (baselineRunBtn) {
       baselineRunBtn.disabled = !currentTraceId || selected.size === 0 || baselineRunBtn.dataset.busy === "1";
-      baselineRunBtn.textContent = selected.size > 1 ? "Run baselines" : "Run baseline";
+      baselineRunBtn.textContent = "Run compare";
     }
   }
 
   function emptyCompareMessage(colspan) {
-    return `<tr><td colspan="${colspan}" class="compare-metrics-empty">Load a trace, then run a baseline.</td></tr>`;
+    return `<tr><td colspan="${colspan}" class="compare-metrics-empty">Load a trace, then run a compare algorithm.</td></tr>`;
   }
 
   function clearCompare() {
@@ -595,10 +595,10 @@
       applyComparePayload(data);
       showResultsPanel(false);
       if (selectedBaselineAlgos().length) {
-        setBaselineStatus(`Running selected baseline(s)…`);
+        setBaselineStatus(`Running selected compare algorithm(s)…`);
         await runSelectedBaseline();
       } else {
-        setBaselineStatus("Choose one or more baseline algorithms and click Run.");
+        setBaselineStatus("Choose one or more compare algorithms and click Run.");
       }
     } catch (err) {
       console.warn("[Compare] Failed to load compare shell:", err);
@@ -613,7 +613,7 @@
     }
     const algos = selectedBaselineAlgos();
     if (!algos.length) {
-      setBaselineStatus("Select a baseline algorithm first.", "error");
+      setBaselineStatus("Select a compare algorithm first.", "error");
       return;
     }
 
@@ -623,14 +623,14 @@
     if (algos.includes("dots")) {
       lssd = readBaselineLssdFromInputs();
       if (!Number.isFinite(lssd) || lssd <= 0) {
-        setBaselineStatus("LSSD must be a positive number.", "error");
+        setBaselineStatus("DOTS threshold must be a positive number.", "error");
         return;
       }
     }
     if (algos.includes("dp")) {
       dpEps = readPairedNumber(baselineDpEpsInput, headerBaselineDpEpsInput, state.baselineDpEps);
       if (!Number.isFinite(dpEps) || dpEps <= 0) {
-        setBaselineStatus("DP PED ε must be a positive number.", "error");
+        setBaselineStatus("DP error ε must be a positive number.", "error");
         return;
       }
       state.baselineDpEps = dpEps;
@@ -706,7 +706,7 @@
         const extra = skipped.length && !ran.length
           ? " Parameters unchanged; reused previous run."
           : (skipped.length ? ` Reused ${skipped.join(", ")} (unchanged).` : "");
-        setBaselineStatus((bits.length ? `${bits.join(", ")} ready.` : "Baselines ready.") + extra, "ok");
+        setBaselineStatus((bits.length ? `${bits.join(", ")} ready.` : "Compare ready.") + extra, "ok");
       }
       showResultsPanel(anyReady);
       if (anyReady) {
@@ -895,9 +895,9 @@
 
   function statusIndexLabels() {
     if (isMobileUI()) {
-      return { p: "p (start)", vi: "v_i (current)" };
+      return { p: "start point", vi: "current point" };
     }
-    return { p: "\\(p\\) (start)", vi: "\\(v_i\\) (current)" };
+    return { p: "\\(p\\) start point", vi: "\\(v_i\\) current point" };
   }
 
   function typesetStatus(el) {
@@ -923,8 +923,8 @@
         <span class="idx-coord">${viPoint ? ptStr(viPoint) : ""}</span>
       </div>`;
     statusGrid.innerHTML = `
-      <span>step</span><span class="mono"><b>1</b></span>
-      <span>alive</span><span class="mono"><b>…</b></span>`;
+      <span title="How far this simplified segment has walked along the original path">step</span><span class="mono"><b>1</b></span>
+      <span title="Candidate anchors still open for this segment">open</span><span class="mono"><b>…</b></span>`;
     typesetStatus(statusIndices);
     typesetStatus(statusGrid);
   }
@@ -1813,11 +1813,11 @@
     // Detail rows — present-state only, no future end vertex
     const rows = [];
     const alive = step.candidates.filter((c) => c.alive).length;
-    rows.push(["step", `${state.stepIdx + 1}`]);
-    rows.push(["alive", `<b style="color:#3ddc97">${alive}</b> / ${pfx.P.length}`]);
+    rows.push(["step", `${state.stepIdx + 1}`, "How far this simplified segment has walked along the original path"]);
+    rows.push(["open", `<b style="color:#3ddc97">${alive}</b> / ${pfx.P.length}`, "Candidate anchors still open for this segment"]);
 
     statusGrid.innerHTML = rows
-      .map(([k, v]) => `<span>${k}</span><span class="mono"><b>${v}</b></span>`)
+      .map(([k, v, tip]) => `<span title="${tip}">${k}</span><span class="mono"><b>${v}</b></span>`)
       .join("");
     typesetStatus(statusGrid);
   }
