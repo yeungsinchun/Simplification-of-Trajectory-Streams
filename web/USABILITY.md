@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Load Trace CTA still mixed “trace” with trajectory wording (resolved)
+
+**Where:** `#loadBtn`, start Instructions / drop hint / tour, Compare status strings, mobile Back aria-label, and the params `trace error` chip.
+
+**Problem:** Picker and Upload already said trajectory, but the primary CTA still read `Load Trace`, help copy repeated that label, Back said “trace selection”, and the params bar kept a `trace error` chip. Novices who skipped jargon elsewhere still hit mixed vocabulary on the same screen.
+
+**Fix:** The button reads `Load` (shorter than `Load Trace`, with title / aria-label `Load trajectory and run simplification`). Instructions, tour, Compare status, and Results empty copy say `Load`. Back is “trajectory selection”. The params chip is `recorded` with the same Fréchet tooltip. Fixture row stays nowrap with no page overflow.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/load-button-trajectory.html`
+- Fixture screenshot (900px): `web/usability/load-button-trajectory.png`
+
 ### Desktop empty-canvas Instructions showed playback keys before load (resolved)
 
 **Where:** `#dropHint .desktop-instructions` on the empty canvas (desktop only); start picker `#preloadedLabel` / `#tracePicker` heading; loading status strings.

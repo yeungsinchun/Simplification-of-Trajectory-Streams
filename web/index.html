@@ -1679,7 +1679,7 @@
     }
     .params:not(:empty) {
       /* Full-width second header row. flex-basis 100% only works when header
-         may wrap; shrink 0 so the chips are not crushed beside Load Trace. */
+         may wrap; shrink 0 so the chips are not crushed beside Load. */
       flex: 1 0 100%;
       margin-left: 0;
       width: 100%;
@@ -1715,8 +1715,8 @@
       white-space: nowrap;
       flex-shrink: 0;
     }
-    /* Compare strip sits under Load Trace so selecting algos never kicks
-       Load Trace onto a second form row. Keep pills + params on one line. */
+    /* Compare strip sits under Load so selecting algos never kicks
+       Load onto a second form row. Keep pills + params on one line. */
     .upload-form .header-baseline {
       flex: 1 1 100%;
       flex-wrap: nowrap;
@@ -1763,11 +1763,11 @@
   @media (min-width: 721px) and (max-width: 899px) {
     .upload-form { flex-wrap: wrap; }
     /* Ellipsis preview wraps to 2 rows here; filled numbers need 3. Reserve the
-       taller slot so Load Trace → geometry does not grow the header. */
+       taller slot so Load → geometry does not grow the header. */
     .params:not(:empty) {
       min-height: 76px;
     }
-    /* Keep ε/δ + Load Trace on one row; tooltips and start copy still explain match/grid. */
+    /* Keep ε/δ + Load on one row; tooltips and start copy still explain match/grid. */
     .upload-form .param-gloss { display: none; }
   }
 
@@ -2105,7 +2105,7 @@
 <body>
 <div id="app">
   <header>
-    <button type="button" id="mobileBackBtn" class="mobile-back" aria-label="Back to trace selection">
+    <button type="button" id="mobileBackBtn" class="mobile-back" aria-label="Back to trajectory selection">
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Back
     </button>
@@ -2136,17 +2136,17 @@
             <span class="param-label"><span class="param-symbol">&epsilon;</span> <span class="param-gloss">match</span></span>
             <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" aria-label="Match tolerance (epsilon)" />
           </label>
-          <label title="Grid spacing used while searching for the simplified path. Preloaded traces set a good default.">
+          <label title="Grid spacing used while searching for the simplified path. Preloaded trajectories set a good default.">
             <span class="param-label"><span class="param-symbol">&delta;</span> <span class="param-gloss">grid</span></span>
             <input type="number" id="deltaInput" value="500" step="10" min="1" aria-label="Search grid spacing (delta)" />
           </label>
-          <button id="loadBtn" class="primary">
+          <button id="loadBtn" class="primary" title="Load trajectory and run simplification" aria-label="Load trajectory and run simplification">
             <span class="button-spinner" aria-hidden="true"></span>
-            <span class="load-btn-label">Load Trace</span>
+            <span class="load-btn-label">Load</span>
           </button>
           <span class="sub" id="uploadStatus"></span>
           <div class="header-baseline" aria-label="Optional algorithms to compare against">
-            <span class="header-baseline-label" title="Optional. Pick other algorithms to score against after Load Trace. Skip for a first run.">Compare:</span>
+            <span class="header-baseline-label" title="Optional. Pick other algorithms to score against after Load. Skip for a first run.">Compare:</span>
             <div class="baseline-algo-row" id="headerBaselineAlgoRow" role="group" aria-label="Compare algorithms">
               <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" title="DOTS: another streaming simplifier to score against. Needs a preloaded trajectory.">DOTS</button>
               <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Needs a preloaded trajectory.">DP</button>
@@ -2175,8 +2175,8 @@
         <h2>Instructions</h2>
         <ul>
           <li>Select a preloaded trajectory.</li>
-          <li>Optionally adjust <b>&epsilon; match</b> (accuracy) and <b>&delta; grid</b> (search spacing), then tap <b>Load Trace</b>.</li>
-          <li>After <b>Load Trace</b>, open <b>Results</b> for scores. With a <b>preloaded</b> trajectory you can pick optional <b>Compare</b> algorithms and tap <b>Run compare</b>. Uploaded files show Simplify scores only.</li>
+          <li>Optionally adjust <b>&epsilon; match</b> (accuracy) and <b>&delta; grid</b> (search spacing), then tap <b>Load</b>.</li>
+          <li>After <b>Load</b>, open <b>Results</b> for scores. With a <b>preloaded</b> trajectory you can pick optional <b>Compare</b> algorithms and tap <b>Run compare</b>. Uploaded files show Simplify scores only.</li>
           <li>Drag the visualization to pan and pinch to zoom.</li>
           <li>Use <b>Controls</b> for status and layers.</li>
           <li>Tap <b>Back</b> to choose another trajectory.</li>
@@ -2277,7 +2277,7 @@
             </div>
             <div class="big">Choose a trajectory to get started</div>
             <div class="dropHint-sub">
-              Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>, optionally pick <b>Compare</b> (preloaded only), leave <b>&epsilon; match</b> / <b>&delta; grid</b> at defaults (or tweak them), then <b>Load Trace</b>
+              Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>, optionally pick <b>Compare</b> (preloaded only), leave <b>&epsilon; match</b> / <b>&delta; grid</b> at defaults (or tweak them), then <b>Load</b>
             </div>
             <div class="dropHint-format">
               Format: first line <code>N</code>, then <code>N</code> lines of <code>"x y"</code>
@@ -2286,7 +2286,7 @@
               <h2>Instructions</h2>
               <ul>
                 <li>Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>.</li>
-                <li>Optionally adjust <b>&epsilon; match</b> (accuracy) and <b>&delta; grid</b> (search spacing), then press <b>Load Trace</b>.</li>
+                <li>Optionally adjust <b>&epsilon; match</b> (accuracy) and <b>&delta; grid</b> (search spacing), then press <b>Load</b>.</li>
                 <li>After load, open <b>Results</b> for scores. With a preloaded trajectory you can pick optional <b>Compare</b> algorithms and press <b>Run</b> (or <b>Run compare</b> in Results). Uploads show Simplify scores only.</li>
                 <li><b>Drag</b> to pan and <b>scroll</b> to zoom. Keyboard shortcuts for Step / Segment / Candidate live in the right-side Instructions after load.</li>
               </ul>

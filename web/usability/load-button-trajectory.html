@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Load button trajectory wording</title>
+  <style>
+    :root {
+      --bg: #0f141d;
+      --panel: #171c27;
+      --panel-border: #2a3142;
+      --text: #e8ecf4;
+      --text-dim: #9aa3b5;
+      --accent: #3ddc97;
+      --bad: #ff8a94;
+    }
+    * { box-sizing: border-box; }
+    html, body { overflow-x: hidden; }
+    body {
+      margin: 0;
+      font: 14px/1.45 system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px;
+      width: 900px;
+      max-width: 100%;
+    }
+    h1 { font-size: 18px; margin: 0 0 8px; }
+    p { color: var(--text-dim); margin: 0 0 16px; max-width: 100%; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      max-width: 100%;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .label {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+    }
+    .row {
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 8px 0;
+    }
+    .ghost {
+      color: var(--text-dim);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .btn {
+      flex-shrink: 0;
+      border: 0;
+      border-radius: 8px;
+      padding: 8px 12px;
+      background: var(--accent);
+      color: #0b1220;
+      font-weight: 600;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .btn.bad { background: #2a3142; color: var(--bad); }
+    .hint {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+    .hint b { color: var(--text); font-weight: 500; }
+    .ok { color: var(--accent); margin-top: 18px; max-width: 100%; }
+    .chip {
+      display: inline-flex;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #0f131a;
+      border: 1px solid var(--panel-border);
+      font-size: 12px;
+      color: var(--text-dim);
+      white-space: nowrap;
+    }
+    .chip b { color: #C4612F; }
+  </style>
+</head>
+<body>
+  <h1>Load button matches trajectory wording</h1>
+  <p>
+    After Select / Upload trajectory, the primary CTA still said <b>Load Trace</b>,
+    and the params chip said <b>trace error</b>. Novices who already learned
+    “trajectory” hit mixed jargon on the same start screen.
+  </p>
+
+  <div class="grid">
+    <div class="card">
+      <div class="label">Before</div>
+      <div class="row">
+        <span class="ghost">Select trajectory…</span>
+        <span class="ghost">or</span>
+        <span class="ghost">Upload trajectory</span>
+        <span class="ghost">ε match</span>
+        <span class="ghost">δ grid</span>
+        <button class="btn bad" type="button">Load Trace</button>
+      </div>
+      <div class="hint">…then <b>Load Trace</b>. Params: <span class="chip">trace error <b>…</b></span></div>
+    </div>
+
+    <div class="card">
+      <div class="label">After</div>
+      <div class="row" id="afterRow">
+        <span class="ghost">Select trajectory…</span>
+        <span class="ghost">or</span>
+        <span class="ghost">Upload trajectory</span>
+        <span class="ghost">ε match</span>
+        <span class="ghost">δ grid</span>
+        <button class="btn" id="loadBtn" type="button" title="Load trajectory and run simplification">Load</button>
+      </div>
+      <div class="hint">…then <b>Load</b>. Params: <span class="chip" title="Match error recorded in this preloaded trajectory">recorded <b>…</b></span></div>
+    </div>
+  </div>
+
+  <p class="ok" id="ok">
+    Button label is Load (shorter than Load Trace) with a Load trajectory tooltip.
+    Instructional copy and the recorded chip match trajectory wording.
+  </p>
+  <script>
+    const row = document.getElementById("afterRow");
+    const btn = document.getElementById("loadBtn");
+    const ok = document.getElementById("ok");
+    const wrap = row.scrollWidth > row.clientWidth;
+    ok.textContent +=
+      ` Load width=${Math.round(btn.getBoundingClientRect().width)}px` +
+      ` rowScroll=${wrap ? "yes" : "no"}` +
+      ` documentElement.scrollWidth=${document.documentElement.scrollWidth}.`;
+  </script>
+</body>
+</html>

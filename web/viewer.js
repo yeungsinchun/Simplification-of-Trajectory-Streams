@@ -269,7 +269,7 @@
         : "";
     }
     if (compareBlockedByUpload()) {
-      return `Selected ${labels.join(", ")}. Compare needs a preloaded trajectory - choose one and press Load Trace. Uploaded files show Simplify scores only.`;
+      return `Selected ${labels.join(", ")}. Compare needs a preloaded trajectory - choose one and press Load. Uploaded files show Simplify scores only.`;
     }
     if (currentTraceId) {
       return `Selected ${labels.join(", ")}. Press Run compare (on wider screens, Run beside Compare also works).`;
@@ -405,8 +405,8 @@
       const isHeader = btn === headerBaselineRunBtn;
       btn.textContent = busy ? "Running…" : (isHeader ? "Run" : "Run compare");
       if (isHeader) {
-        // Header Run appears only after Load Trace (Results tab available).
-        // Before that, Load Trace auto-runs any selected Compare algorithms.
+        // Header Run appears only after Load (Results tab available).
+        // Before that, Load auto-runs any selected Compare algorithms.
         btn.hidden = !traceReady;
       }
       if (!isHeader && compareBlockedByUpload()) {
@@ -428,7 +428,7 @@
 
   function emptyCompareMessage(colspan) {
     const msg = compareBlockedByUpload()
-      ? "Simplify scores appear after Load Trace. Compare needs a preloaded trajectory."
+      ? "Simplify scores appear after Load. Compare needs a preloaded trajectory."
       : "Load a trajectory to see scores. Optional: run Compare above (preloaded trajectories).";
     return `<tr><td colspan="${colspan}" class="compare-metrics-empty">${msg}</td></tr>`;
   }
@@ -1064,7 +1064,7 @@
       paramChip("radius", diskRadius, "Search-circle radius around path points while looking for the next simplified point."),
       paramChip("error budget", expectedFrechet, "Upper bound on how far the simplified path may drift from the original (Fréchet)."),
       paramChip(
-        "trace error",
+        "recorded",
         actualFrechet,
         "Match error recorded in this preloaded trajectory (Fréchet distance).",
         "color:#C4612F;font-weight:600",
@@ -3126,7 +3126,7 @@
     },
     {
       title: "Load the trajectory",
-      body: "Optional: with a <b>preloaded</b> trajectory, tap <b>Compare</b> (DOTS / DP / SQUISH) to score other algorithms later - or skip. Uploaded files show Simplify scores only. Press <b>Load Trace</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Candidate, Layers, and Results.",
+      body: "Optional: with a <b>preloaded</b> trajectory, tap <b>Compare</b> (DOTS / DP / SQUISH) to score other algorithms later - or skip. Uploaded files show Simplify scores only. Press <b>Load</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Candidate, Layers, and Results.",
       targets: ["#loadBtn", ".header-baseline"],
     },
   ];
@@ -3155,7 +3155,7 @@
     },
     {
       title: "Results and Compare",
-      body: "Open the left-edge <b>Results</b> tab to see scores. On a <b>preloaded</b> trace, pick DOTS / DP / SQUISH and press <b>Run compare</b> inside Results (on wider screens you can also use <b>Run</b> beside Compare in the header). Uploaded files show Simplify scores only - skip Compare if that is enough.",
+      body: "Open the left-edge <b>Results</b> tab to see scores. On a <b>preloaded</b> trajectory, pick DOTS / DP / SQUISH and press <b>Run compare</b> inside Results (on wider screens you can also use <b>Run</b> beside Compare in the header). Uploaded files show Simplify scores only - skip Compare if that is enough.",
       targets: ["#resultsPanelOpen"],
     },
   ];
