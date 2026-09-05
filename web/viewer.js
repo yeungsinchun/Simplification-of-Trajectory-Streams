@@ -229,10 +229,10 @@
 
   function baselineAlgoOverlayTitle(algo) {
     if (algo === "dots") {
-      return "DOTS path (streaming). Toggle the dashed overlay on the map.";
+      return "DOTS path (stream). Toggle the dashed overlay on the map.";
     }
     if (algo === "dp") {
-      return "DP path (classic point-to-edge). Toggle the dashed overlay on the map.";
+      return "DP path (classic). Toggle the dashed overlay on the map.";
     }
     if (algo === "squish") {
       return "SQUISH path (keep %). Toggle the dashed overlay on the map.";
@@ -249,8 +249,8 @@
   }
 
   const COMPARE_PILL_TITLES = {
-    dots: "DOTS: another streaming simplifier to score against. Needs a preloaded trajectory.",
-    dp: "DP: classic point-to-edge simplifier (Douglas-Peucker style). Needs a preloaded trajectory.",
+    dots: "DOTS: another stream path shortener to score against. Needs a preloaded trajectory.",
+    dp: "DP: classic path shortener that drops points within a match limit. Needs a preloaded trajectory.",
     squish: "SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.",
   };
   const COMPARE_PILL_UPLOAD_TITLE =
@@ -538,7 +538,7 @@
 
     if (compareMetricsHead) {
       compareMetricsHead.innerHTML =
-        `<th>Metric</th><th title="Scores for this simplification run (the green path)">This run</th>` +
+        `<th>Score</th><th title="Scores for this simplification run (the green path)">This run</th>` +
         algos.map((a) => {
           const gloss = baselineAlgoGloss(a);
           const glossHtml = gloss

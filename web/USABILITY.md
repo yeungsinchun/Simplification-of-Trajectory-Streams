@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Scores Metric and DP/DOTS tooltips stayed paper-jargon (resolved)
+
+**Where:** Results Scores table first column; Compare pill / overlay titles and DP match field titles (header + Results).
+
+**Problem:** The Scores table headed the first column `Metric`, and Compare tooltips still said `Douglas-Peucker`, `point-to-edge`, and `streaming simplifier`. Skip-tour users mapping Scores to Compare could not tell what those algorithms do from long-press titles alone.
+
+**Fix:** Scores uses `Score` to match the section name. DOTS / DP titles say stream / classic path shortener with a plain match-limit gloss; DP fields say match error. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-score-plain-tooltips.html`
+- Fixture screenshot (900px): `web/usability/compare-score-plain-tooltips.png`
+
 ### Step / Segment still said “simplified piece” (resolved)
 
 **Where:** Instructions gloss, Status Segment/Step tooltips, desktop playback captions/titles, mobile Step/Segment controls, Map overlays search-circle / Allowed area tooltips, and the playback tour Step / Segment steps.

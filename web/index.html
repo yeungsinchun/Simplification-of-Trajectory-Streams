@@ -2209,8 +2209,8 @@
           <div class="header-baseline" aria-label="Optional algorithms to compare against">
             <span class="header-baseline-label" title="Optional. Pick other algorithms to score against after Load. Skip for a first run.">Compare:</span>
             <div class="baseline-algo-row" id="headerBaselineAlgoRow" role="group" aria-label="Compare algorithms">
-              <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" aria-label="DOTS streaming" title="DOTS: another streaming simplifier to score against. Needs a preloaded trajectory.">DOTS<span class="pill-gloss">stream</span></button>
-              <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP classic" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Needs a preloaded trajectory.">DP<span class="pill-gloss">classic</span></button>
+              <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" aria-label="DOTS stream" title="DOTS: another stream path shortener to score against. Needs a preloaded trajectory.">DOTS<span class="pill-gloss">stream</span></button>
+              <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP classic" title="DP: classic path shortener that drops points within a match limit. Needs a preloaded trajectory.">DP<span class="pill-gloss">classic</span></button>
               <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" aria-label="SQUISH keep percent" title="SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.">SQUISH<span class="pill-gloss">keep %</span></button>
             </div>
             <label class="baseline-field baseline-field--inline" id="headerBaselineLssdField" hidden title="DOTS distance budget. Entered in thousands (1000 means 1,000,000). Larger keeps fewer points.">
@@ -2218,7 +2218,7 @@
               <input type="number" id="headerBaselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS distance budget in thousands" />
               <span class="baseline-field-unit" title="Entered in thousands (×1,000)">×1k</span>
             </label>
-            <label class="baseline-field baseline-field--inline" id="headerBaselineDpEpsField" hidden title="DP allowed point-to-edge error (same idea as Match).">
+            <label class="baseline-field baseline-field--inline" id="headerBaselineDpEpsField" hidden title="DP allowed match error (same idea as Match).">
               <span><span class="baseline-param-owner owner-dp">DP</span> match</span>
               <input type="number" id="headerBaselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP match error" />
             </label>
@@ -2260,8 +2260,8 @@
             <p class="results-section-label" title="Optional algorithms to compare against this run">Compare algorithms</p>
             <div class="baseline-controls">
               <div class="baseline-algo-row" id="baselineAlgoRow" role="group" aria-label="Compare algorithms">
-                <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" aria-label="DOTS streaming" title="DOTS: another streaming simplifier to score against. Needs a preloaded trajectory.">DOTS<span class="pill-gloss">stream</span></button>
-                <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP classic" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Needs a preloaded trajectory.">DP<span class="pill-gloss">classic</span></button>
+                <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" aria-label="DOTS stream" title="DOTS: another stream path shortener to score against. Needs a preloaded trajectory.">DOTS<span class="pill-gloss">stream</span></button>
+                <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP classic" title="DP: classic path shortener that drops points within a match limit. Needs a preloaded trajectory.">DP<span class="pill-gloss">classic</span></button>
                 <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" aria-label="SQUISH keep percent" title="SQUISH: keeps about this percent of the original points. Needs a preloaded trajectory.">SQUISH<span class="pill-gloss">keep %</span></button>
               </div>
               <div id="baselineParamFields" class="baseline-param-fields">
@@ -2272,7 +2272,7 @@
                     <span class="baseline-field-unit" title="Entered in thousands (×1,000)">×1k</span>
                   </div>
                 </label>
-                <label class="baseline-field" id="baselineDpEpsField" hidden title="DP allowed point-to-edge error (same idea as Match).">
+                <label class="baseline-field" id="baselineDpEpsField" hidden title="DP allowed match error (same idea as Match).">
                   <span><span class="baseline-param-owner owner-dp">DP</span> match error</span>
                   <input type="number" id="baselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP match error" />
                 </label>
@@ -2295,7 +2295,7 @@
             <table class="compare-metrics-table" id="compareMetricsTable">
               <thead>
                 <tr id="compareMetricsHead">
-                  <th>Metric</th>
+                  <th>Score</th>
                   <th title="Scores for this simplification run (the green path)">This run</th>
                 </tr>
               </thead>
