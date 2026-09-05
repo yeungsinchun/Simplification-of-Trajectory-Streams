@@ -2333,7 +2333,7 @@
               Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>, optionally pick <b>Compare</b> (preloaded only), leave <b>&epsilon; match</b> / <b>&delta; grid</b> at defaults (or tweak them), then <b>Load</b>
             </div>
             <div class="dropHint-format">
-              Format: first line <code>N</code>, then <code>N</code> lines of <code>"x y"</code>
+              Format: first line <code>N</code> (point count), then <code>N</code> lines of <code>x y</code>
             </div>
             <div class="desktop-instructions">
               <h2>Instructions</h2>
@@ -2407,13 +2407,13 @@
           </button>
 
           <!-- Speed -->
-          <div class="pb-speed">
+          <div class="pb-speed" title="Playback speed" role="group" aria-label="Playback speed">
             <span class="pb-speed-label">Speed</span>
-            <button class="speed-preset" data-speed="0.25">0.25×</button>
-            <button class="speed-preset" data-speed="0.5">0.5×</button>
-            <button class="speed-preset active" data-speed="1">1×</button>
-            <button class="speed-preset" data-speed="2">2×</button>
-            <button class="speed-preset" data-speed="4">4×</button>
+            <button class="speed-preset" data-speed="0.25" title="Playback speed 0.25×" aria-label="Playback speed 0.25×">0.25×</button>
+            <button class="speed-preset" data-speed="0.5" title="Playback speed 0.5×" aria-label="Playback speed 0.5×">0.5×</button>
+            <button class="speed-preset active" data-speed="1" title="Playback speed 1×" aria-label="Playback speed 1×">1×</button>
+            <button class="speed-preset" data-speed="2" title="Playback speed 2×" aria-label="Playback speed 2×">2×</button>
+            <button class="speed-preset" data-speed="4" title="Playback speed 4×" aria-label="Playback speed 4×">4×</button>
           </div>
           </div>
         </div>
@@ -2582,11 +2582,11 @@
     »
     <span>Segment</span>
   </button>
-  <button type="button" class="speed-preset" data-speed="0.25" aria-label="Playback speed 0.25×">0.25×</button>
-  <button type="button" class="speed-preset" data-speed="0.5" aria-label="Playback speed 0.5×">0.5×</button>
-  <button type="button" class="speed-preset active" data-speed="1" aria-label="Playback speed 1×">1×</button>
-  <button type="button" class="speed-preset" data-speed="2" aria-label="Playback speed 2×">2×</button>
-  <button type="button" class="speed-preset" data-speed="4" aria-label="Playback speed 4×">4×</button>
+  <button type="button" class="speed-preset" data-speed="0.25" title="Playback speed 0.25×" aria-label="Playback speed 0.25×">0.25×</button>
+  <button type="button" class="speed-preset" data-speed="0.5" title="Playback speed 0.5×" aria-label="Playback speed 0.5×">0.5×</button>
+  <button type="button" class="speed-preset active" data-speed="1" title="Playback speed 1×" aria-label="Playback speed 1×">1×</button>
+  <button type="button" class="speed-preset" data-speed="2" title="Playback speed 2×" aria-label="Playback speed 2×">2×</button>
+  <button type="button" class="speed-preset" data-speed="4" title="Playback speed 4×" aria-label="Playback speed 4×">4×</button>
 </nav>
 
 <!-- Mobile playback FAB (opens bottom sheet) -->

@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Speed chips lost meaning when the label hid; upload format showed quotes (resolved)
+
+**Where:** desktop `#playbackBar` `.speed-preset` buttons (especially 721-1100px where `.pb-speed-label` is `display: none`); empty-canvas `#dropHint .dropHint-format`.
+
+**Problem:** Narrow desktop hides the Speed caption so the playback bar stays one row, but the `0.25×`–`4×` chips had no `title` / `aria-label`, so skip-tour users saw bare multipliers. The upload format line also rendered `"x y"` with quotes, which novices could copy into trajectory files even though samples are bare `x y`.
+
+**Fix:** Each speed chip (desktop and mobile) has a Playback speed title and aria-label; the speed group is labeled too. The format line reads `N (point count)` then `x y` without quotes. Fixture Speed row stays one line with `scrollWidth` within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/speed-titles-upload-format.html`
+- Fixture screenshot (900px): `web/usability/speed-titles-upload-format.png`
+
 ### Status lacked a map/playback gloss; empty Load said upload (resolved)
 
 **Where:** sidebar `#statusGloss`; empty `#loadBtn` status in `viewer.js`; default `#baselineLayerHint` (preloaded path).
