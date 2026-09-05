@@ -1311,7 +1311,7 @@
     }
 
     if (!resp.body) {
-      throw new Error("Streaming not supported by this browser");
+      throw new Error("This browser cannot load streaming trajectories. Try a newer browser.");
     }
 
     const reader = resp.body.getReader();
@@ -1335,7 +1335,7 @@
         try {
           msg = JSON.parse(line);
         } catch (e) {
-          throw new Error(`Invalid stream JSON: ${e.message}`);
+          throw new Error("Could not read trajectory data from the server. Try again in a moment.");
         }
 
         // Batch JSON accidentally delivered as one NDJSON line.
@@ -1348,7 +1348,7 @@
         }
 
         if (msg.type === "error") {
-          throw new Error(msg.message || "Loading failed");
+          throw new Error(msg.message || "Could not load trajectory");
         }
         if (msg.type === "header") {
           applySampleTraceYOffset(msg);
@@ -1377,7 +1377,7 @@
           render();
         } else if (msg.type === "prefix") {
           if (!state.trace) {
-            throw new Error("Received prefix before header");
+            throw new Error("Trajectory data arrived out of order. Try loading again.");
           }
           const prefix = msg.data;
           applySampleTraceYOffsetToPrefix(prefix);
@@ -1397,7 +1397,7 @@
           render();
         } else if (msg.type === "done") {
           if (!state.trace) {
-            throw new Error("Received done before header");
+            throw new Error("Trajectory data arrived out of order. Try loading again.");
           }
           state.trace.time_ms = msg.time_ms;
           state.trace.simplified = msg.simplified;
@@ -1418,7 +1418,7 @@
       try {
         msg = JSON.parse(trailing);
       } catch (e) {
-        throw new Error(`Invalid stream JSON: ${e.message}`);
+        throw new Error("Could not read trajectory data from the server. Try again in a moment.");
       }
       if (!msg.type && Array.isArray(msg.prefixes)) {
         applySampleTraceYOffset(msg);
@@ -1428,7 +1428,7 @@
         return;
       }
       if (msg.type === "error") {
-        throw new Error(msg.message || "Loading failed");
+        throw new Error(msg.message || "Could not load trajectory");
       }
     }
 
@@ -1445,7 +1445,7 @@
     try {
       const sizeKB = (text.length / 1024).toFixed(0);
       console.log(`[Client] Starting JSON.parse of ${sizeKB}KB string...`);
-      uploadStatus.textContent = `Parsing ${sizeKB}KB JSON...`;
+      uploadStatus.textContent = "Reading trajectory…";
       uploadStatus.style.color = "#e8c547";
       
       const parseStart = performance.now();
@@ -1453,8 +1453,8 @@
       const parseTime = ((performance.now() - parseStart) / 1000).toFixed(2);
       console.log(`[Client] JSON.parse completed in ${parseTime}s`);
     } catch (e) {
-      alert("Could not parse JSON: " + e.message);
-      uploadStatus.textContent = `Error: ${e.message}`;
+      alert("This file could not be read as a trajectory. Upload a plain-text trajectory (first line N, then N lines of x y), or pick a preloaded trajectory.");
+      uploadStatus.textContent = "Could not read trajectory file";
       uploadStatus.style.color = "#ff5f6d";
       return;
     }

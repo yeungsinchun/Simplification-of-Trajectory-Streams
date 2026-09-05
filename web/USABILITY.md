@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Load/stream failures still said JSON / prefix jargon (resolved)
+
+**Where:** `loadTraceStream` / `loadTraceText` failure paths in `viewer.js` (status text and alerts when a response or fallback file cannot be read).
+
+**Problem:** Rare load failures still said `Invalid stream JSON`, `Received prefix before header`, `Received done before header`, `Could not parse JSON` plus raw parser text, and `Parsing NKB JSON…`. Novices who hit a bad server response or unreadable fallback file saw developer wording instead of what to try next.
+
+**Fix:** Those paths now say plain trajectory copy (`Could not read trajectory data…`, `Trajectory data arrived out of order…`, `Reading trajectory…`, and a plain-text upload/pick alert). Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/load-error-plain-copy.html`
+- Fixture screenshot (900px): `web/usability/load-error-plain-copy.png`
+
 ### Narrow desktop hid Step/Segment/Candidate captions (resolved)
 
 **Where:** desktop `#playbackBar` `.pb-caption` at 721-820px.
