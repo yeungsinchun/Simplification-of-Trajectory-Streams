@@ -1014,25 +1014,31 @@
     // Status uses plain labels only; no MathJax typesetting needed.
   }
 
+  function pointIndexTitle() {
+    return "Point number on the original trajectory (0 = first point)";
+  }
+
   function renderBootstrapStatus(trace) {
     const labels = statusIndexLabels();
     const startPoint = trace && trace.stream && trace.stream[0] ? trace.stream[0] : null;
     const viPoint = trace && trace.stream && trace.stream.length > 1 ? trace.stream[1] : null;
     state.currentStartPoint = startPoint;
+    const idxTip = pointIndexTitle();
 
     statusIndices.innerHTML = `
       <div class="status-idx-block">
         <span class="idx-label" style="color:#ff9f43">${labels.p}</span>
-        <span class="idx-num" style="color:#ff9f43">#0</span>
+        <span class="idx-num" style="color:#ff9f43" title="${idxTip}">0</span>
         <span class="idx-coord">${startPoint ? ptStr(startPoint) : ""}</span>
       </div>
       <div class="status-idx-block">
         <span class="idx-label" style="color:#ff7ae8">${labels.vi}</span>
-        <span class="idx-num" style="color:#ff7ae8">#1</span>
+        <span class="idx-num" style="color:#ff7ae8" title="${idxTip}">1</span>
         <span class="idx-coord">${viPoint ? ptStr(viPoint) : ""}</span>
       </div>`;
     statusGrid.innerHTML = `
-      <span title="Walks along original points for the current simplified piece">Step</span><span class="mono"><b>1</b></span>
+      <span title="Jumps between pieces of the simplified path">Segment</span><span class="mono"><b>1 / …</b></span>
+      <span title="Walks along original points for the current simplified piece">Step</span><span class="mono"><b>1 / …</b></span>
       <span title="Next-point options still being considered for this segment">Candidates</span><span class="mono"><b>…</b></span>`;
     typesetStatus(statusIndices);
     typesetStatus(statusGrid);
@@ -1931,17 +1937,18 @@
 
     const viPoint = step.pi;
     const viIdx = curIdx;
+    const idxTip = pointIndexTitle();
 
-    // Big index numbers
+    // Big index numbers (plain point numbers - no "#" code-style prefix)
     statusIndices.innerHTML = `
       <div class="status-idx-block">
         <span class="idx-label" style="color:#ff9f43">${labels.p}</span>
-        <span class="idx-num" style="color:#ff9f43">#${startIdx}</span>
+        <span class="idx-num" style="color:#ff9f43" title="${idxTip}">${startIdx}</span>
         <span class="idx-coord">${ptStr(startPoint)}</span>
       </div>
       <div class="status-idx-block">
         <span class="idx-label" style="color:#ff7ae8">${labels.vi}</span>
-        <span class="idx-num" style="color:#ff7ae8">#${viIdx}</span>
+        <span class="idx-num" style="color:#ff7ae8" title="${idxTip}">${viIdx}</span>
         <span class="idx-coord">${ptStr(viPoint)}</span>
       </div>`;
     typesetStatus(statusIndices);
@@ -1949,7 +1956,18 @@
     // Detail rows — present-state only, no future end vertex
     const rows = [];
     const alive = step.candidates.filter((c) => c.alive).length;
-    rows.push(["Step", `${state.stepIdx + 1}`, "Walks along original points for the current simplified piece"]);
+    const stepTotal = pfx.steps.length;
+    const segmentTotal = t.prefixes.length;
+    rows.push([
+      "Segment",
+      `${state.prefixIdx + 1} / ${segmentTotal}`,
+      "Jumps between pieces of the simplified path",
+    ]);
+    rows.push([
+      "Step",
+      `${state.stepIdx + 1} / ${stepTotal}`,
+      "Walks along original points for the current simplified piece",
+    ]);
     rows.push([
       "Candidates",
       `<b style="color:#3ddc97">${alive}</b> still open`,

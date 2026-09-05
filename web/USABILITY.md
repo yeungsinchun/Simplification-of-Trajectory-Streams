@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Status omitted Segment and used # point indices (resolved)
+
+**Where:** sidebar Status `#statusGrid` / `#statusIndices` after Load.
+
+**Problem:** Status showed Step as a bare number with no total and never listed Segment, while the playback bar already used `N / total` for both. Point indices also used a cryptic `#` prefix (`#0`, `#12`). Skip-tour users opening Status first could not map it to Segment / Step on the dock.
+
+**Fix:** Status lists Segment and Step as `current / total` with the same tooltips as the playback captions. Point indices are plain numbers with a “Point number on the original trajectory” tooltip. Mobile Status reserves height for the third row so the panel does not jump.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/status-segment-step-totals.html`
+- Fixture screenshot (900px): `web/usability/status-segment-step-totals.png`
+
 ### Results still said Simplified points (resolved)
 
 **Where:** Results Scores first metric row after Load; Kept % tooltip; header `kept %` chip tooltip.
