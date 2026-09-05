@@ -4,14 +4,17 @@ Flask backend for the trajectory simplification web visualizer.
 
 Accepts an uploaded original.txt trajectory file + epsilon/delta params,
 runs the C++ simplify binary with --web-server --json-stream, and streams
-the trace as NDJSON (header, one prefix per line, done).
+the trace as NDJSON (header, one prefix per line, done). Preloaded traces
+can be compared against DOTS, DP, or SQUISH via GET /api/trace/<id>/compare.
 """
 import os
 import subprocess
+import time
 import uuid
 import shutil
 import json
 import gzip
+import re
 from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory, Response
 
@@ -21,9 +24,84 @@ app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max upload
 # Resolve repo root (server.py lives in web/, repo root is parent)
 REPO_ROOT = Path(__file__).parent.parent.resolve()
 SIMPLIFY_BIN = REPO_ROOT / "build" / "simplify"
+DOTS_BIN = REPO_ROOT / "build" / "dots"
+DP_BIN = REPO_ROOT / "build" / "dp"
+SQUISH_BIN = REPO_ROOT / "build" / "squish"
 FRECHET_BIN  = REPO_ROOT / "scripts" / "frechet.jl"
 DATA_DIR = REPO_ROOT / "data"
 WEB_DIR = REPO_ROOT / "web"
+
+# Baseline polyline files under data/<id>/ (first hit wins per layer key).
+LAYER_FILES = {
+    'dots': ('dots_simplified.txt', 'DOTS.txt'),
+    'dp': ('dp_simplified.txt', 'DP.txt'),
+    'squish': ('squish_simplified.txt', 'SQUISH.txt'),
+    'simplify': ('simplify.txt',),
+}
+
+BASELINE_ALGOS = {
+    'dots': {
+        'label': 'DOTS',
+        'bin': DOTS_BIN,
+        'core_ms_re': r'DOTS_CORE_MS:\s*([\d.]+)',
+        'files': LAYER_FILES['dots'],
+    },
+    'dp': {
+        'label': 'DP',
+        'bin': DP_BIN,
+        'core_ms_re': r'DP_CORE_MS:\s*([\d.]+)',
+        'files': LAYER_FILES['dp'],
+    },
+    'squish': {
+        'label': 'SQUISH',
+        'bin': SQUISH_BIN,
+        'core_ms_re': r'SQUISH_CORE_MS:\s*([\d.]+)',
+        'files': LAYER_FILES['squish'],
+    },
+}
+
+
+def read_xy_polyline(path: Path):
+    """Parse N\\n x y files used by simplify and baseline outputs. Returns list[[x,y]] or None."""
+    if not path.exists():
+        return None
+    try:
+        with open(path, 'r') as f:
+            first = f.readline().strip()
+            if not first:
+                return None
+            n = int(first)
+            points = []
+            for _ in range(n):
+                line = f.readline()
+                if not line:
+                    break
+                parts = line.split()
+                if len(parts) >= 2:
+                    points.append([float(parts[0]), float(parts[1])])
+            return points if points else None
+    except Exception:
+        return None
+
+
+def load_trace_layers(trace_id: int):
+    """Load available compare layers for a preloaded trace id."""
+    trace_dir = DATA_DIR / str(trace_id)
+    layers = {}
+    sources = {}
+    for key, names in LAYER_FILES.items():
+        for name in names:
+            pts = read_xy_polyline(trace_dir / name)
+            if pts is not None:
+                layers[key] = pts
+                sources[key] = name
+                break
+    original = read_xy_polyline(trace_dir / 'original.txt')
+    if original is not None:
+        layers['original'] = original
+        sources['original'] = 'original.txt'
+    return layers, sources
+
 
 def trace_json_response(tracejson):
     """Return compact JSON, gzipped when the client supports it."""
@@ -187,6 +265,179 @@ def get_original_trace(trace_id):
         return jsonify({'points': points, 'trace_id': trace_id})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/trace/<int:trace_id>/compare', methods=['GET'])
+def get_trace_compare(trace_id):
+    """
+    GET /api/trace/<id>/compare
+    Query:
+      algorithm: none|dots|dp|squish (default none)
+      run: 1 to execute the baseline binary
+      lssd: DOTS LSSD threshold (default 1e6 / 1000K)
+      epsilon: DP PED epsilon (default 0.9)
+      ratio: SQUISH compression ratio in (0, 1] (default 0.2)
+    """
+    trace_dir = DATA_DIR / str(trace_id)
+    if not trace_dir.exists() or not (trace_dir / 'original.txt').exists():
+        return jsonify({'error': f'Trace {trace_id} not found'}), 404
+
+    algorithm = (request.args.get('algorithm') or 'none').lower().strip()
+    if algorithm in ('', 'none', 'null'):
+        algorithm = 'none'
+    run = request.args.get('run', '0') in ('1', 'true', 'yes')
+
+    if algorithm not in ('none',) and algorithm not in BASELINE_ALGOS:
+        return jsonify({'error': f'Unknown algorithm: {algorithm}'}), 400
+
+    lssd = 1e6
+    dp_eps = 0.9
+    squish_ratio = 0.2
+    try:
+        if request.args.get('lssd') is not None:
+            lssd = float(request.args.get('lssd'))
+            if lssd <= 0:
+                return jsonify({'error': 'lssd must be positive'}), 400
+        if request.args.get('epsilon') is not None:
+            dp_eps = float(request.args.get('epsilon'))
+            if dp_eps <= 0:
+                return jsonify({'error': 'epsilon must be positive'}), 400
+        if request.args.get('ratio') is not None:
+            squish_ratio = float(request.args.get('ratio'))
+            if squish_ratio <= 0 or squish_ratio > 1:
+                return jsonify({'error': 'ratio must be in (0, 1]'}), 400
+    except ValueError:
+        return jsonify({'error': 'Invalid numeric baseline parameter'}), 400
+
+    baseline_core_ms = None
+    baseline_error = None
+    baseline_label = BASELINE_ALGOS[algorithm]['label'] if algorithm in BASELINE_ALGOS else None
+
+    if algorithm in BASELINE_ALGOS and run:
+        meta = BASELINE_ALGOS[algorithm]
+        binary = meta['bin']
+        if not binary.exists():
+            baseline_error = f'{algorithm} binary not found at {binary}'
+        else:
+            original = (trace_dir / 'original.txt').resolve()
+            out_name = meta['files'][0]
+            out_path = (trace_dir / out_name).resolve()
+            binary_abs = str(binary.resolve())
+            # DOTS resolves data/<id>/original.txt from cwd; always run from
+            # the repo root with an absolute binary path (not from build/).
+            if algorithm == 'dots':
+                cmd = [binary_abs, str(trace_id), '-lssd', str(lssd)]
+            elif algorithm == 'dp':
+                cmd = [binary_abs, str(original), str(dp_eps), str(out_path)]
+            else:
+                cmd = [binary_abs, str(original), str(squish_ratio), str(out_path)]
+            try:
+                started = time.perf_counter()
+                result = subprocess.run(
+                    cmd,
+                    cwd=REPO_ROOT,
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                )
+                elapsed_ms = (time.perf_counter() - started) * 1000.0
+                out = (result.stdout or '') + (result.stderr or '')
+                if result.returncode != 0:
+                    baseline_error = (result.stderr or result.stdout or f'{algorithm} failed').strip()
+                else:
+                    m = re.search(meta['core_ms_re'], out)
+                    baseline_core_ms = float(m.group(1)) if m else elapsed_ms
+            except Exception as e:
+                baseline_error = str(e)
+
+    layers, sources = load_trace_layers(trace_id)
+    if algorithm in BASELINE_ALGOS and run and baseline_error:
+        layers.pop(algorithm, None)
+        sources.pop(algorithm, None)
+    elif algorithm in BASELINE_ALGOS and algorithm in layers:
+        layers['baseline'] = layers[algorithm]
+        sources['baseline'] = sources.get(algorithm)
+
+    metrics = {
+        'algorithm': algorithm,
+        'baseline_label': baseline_label,
+        'lssd': lssd if algorithm == 'dots' else None,
+        'epsilon': dp_eps if algorithm == 'dp' else None,
+        'ratio': squish_ratio if algorithm == 'squish' else None,
+        'original_points': len(layers['original']) if 'original' in layers else None,
+        'simplify_points': len(layers['simplify']) if 'simplify' in layers else None,
+        'baseline_points': len(layers['baseline']) if 'baseline' in layers else None,
+        'baseline_core_ms': baseline_core_ms,
+        'simplify_core_ms': None,
+        'dots_points': len(layers['dots']) if 'dots' in layers else None,
+        'dots_core_ms': baseline_core_ms if algorithm == 'dots' else None,
+    }
+    return jsonify({
+        'trace_id': trace_id,
+        'algorithm': algorithm,
+        'layers': layers,
+        'sources': sources,
+        'available': sorted(layers.keys()),
+        'metrics': metrics,
+        'baseline_error': baseline_error,
+        'dots_error': baseline_error if algorithm == 'dots' else None,
+        'algorithms': [
+            {'id': 'dots', 'label': 'DOTS', 'params': [
+                {'id': 'lssd', 'label': 'DOTS LSSD', 'type': 'number', 'default': 1e6, 'unit': 'K', 'min': 1e-3, 'step': 1},
+            ]},
+            {'id': 'dp', 'label': 'DP', 'params': [
+                {'id': 'epsilon', 'label': 'DP PED ε', 'type': 'number', 'default': 0.9, 'min': 1e-9, 'step': 0.1},
+            ]},
+            {'id': 'squish', 'label': 'SQUISH', 'params': [
+                {'id': 'ratio', 'label': 'SQUISH Ratio', 'type': 'number', 'default': 20, 'unit': '%', 'min': 0.01, 'max': 100, 'step': 1},
+            ]},
+        ],
+    })
+
+
+@app.route('/api/trace/<int:trace_id>/frechet/<curve>', methods=['GET'])
+def frechet_existing_curve(trace_id, curve):
+    """
+    GET /api/trace/<id>/frechet/<curve>
+    Frechet distance between original.txt and an existing result file.
+    curve: simplify | dots | dp | squish
+    """
+    curve = curve.lower()
+    name_map = {
+        'simplify': ('simplify.txt',),
+        'dots': ('dots_simplified.txt', 'DOTS.txt'),
+        'dp': ('dp_simplified.txt', 'DP.txt'),
+        'squish': ('squish_simplified.txt', 'SQUISH.txt'),
+    }
+    if curve not in name_map:
+        return jsonify({'error': f'Unknown curve {curve}'}), 400
+
+    trace_dir = DATA_DIR / str(trace_id)
+    original = trace_dir / 'original.txt'
+    if not original.exists():
+        return jsonify({'error': f'Trace {trace_id} not found'}), 404
+
+    simplified = None
+    for name in name_map[curve]:
+        candidate = trace_dir / name
+        if candidate.exists():
+            simplified = candidate
+            break
+    if simplified is None:
+        return jsonify({'error': f'No {curve} polyline file for trace {trace_id}'}), 404
+
+    request_id = f'{trace_id}_{curve}_{uuid.uuid4().hex[:8]}'
+    try:
+        distance = _run_frechet(request_id, original, simplified)
+        return jsonify({
+            'trace_id': trace_id,
+            'curve': curve,
+            'path': simplified.name,
+            'distance': distance,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/api/trace/<int:trace_id>', methods=['GET'])
 def get_trace(trace_id):
@@ -433,8 +684,14 @@ if __name__ == '__main__':
         print(f"Error: simplify binary not found at {SIMPLIFY_BIN}")
         print("Build it first: cmake -B build && cmake --build build")
         exit(1)
-    
-    port = int(os.environ.get('PORT', 5050))
+
+    for name, path in (('dots', DOTS_BIN), ('dp', DP_BIN), ('squish', SQUISH_BIN)):
+        if not path.exists():
+            print(f"Warning: {name} binary not found at {path}")
+            print(f"  Compare pane for {name} will fail until you build it:")
+            print(f"  cmake -B build && cmake --build build --target {name}")
+
+    port = int(os.environ.get('PORT', 5051))
     # Bind to 0.0.0.0 by default. Cloud Run's request router and Docker's
     # published-port forwarding both require a non-loopback bind inside the
     # container; binding to 127.0.0.1 works for `python server.py` on a dev
@@ -443,10 +700,11 @@ if __name__ == '__main__':
     host = os.environ.get('HOST', '0.0.0.0')
     print(f"Repo root: {REPO_ROOT}")
     print(f"Binary: {SIMPLIFY_BIN}")
+    print(f"Baselines: dots={DOTS_BIN.exists()} dp={DP_BIN.exists()} squish={SQUISH_BIN.exists()}")
     print(f"Starting Flask server on http://{host}:{port}")
     # Note: on macOS, port 5000 is claimed by AirPlay Receiver (AirTunes),
-    # which silently returns 403 for any request. Use 5050 or set PORT= to
-    # override.
+    # which silently returns 403 for any request. Default is 5051; set PORT=
+    # to override (the Docker image sets PORT=5050).
     # threaded=True so concurrent requests (e.g. the long-running Julia
     # frechet job) don't block simpler endpoints.
     app.run(debug=False, host=host, port=port, threaded=True)

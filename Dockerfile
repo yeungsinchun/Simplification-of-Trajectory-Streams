@@ -4,28 +4,38 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
     libcgal-dev \
+    qt6-base-dev \
+    git \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy source code
 WORKDIR /build
+
+# Headless simplify sources
 COPY simplify.cpp simplify_geometry.h simplify_io.h timer.h CMakeLists.txt ./
 
-# Build the headless simplify binary only. BUILD_GUI=OFF skips the Qt viewer
-# and the DOTS baseline so the resulting image has no Qt6 dependency.
+# Pin traj-compression to the gitlink SHA. The Docker context excludes .git
+# (and Cloud Run uploads exclude the submodule), so baseline sources are
+# fetched here. BUILD_GUI=OFF skips the Qt viewer; dots still builds via
+# Qt6 Core from qt6-base-dev.
+RUN git clone https://github.com/yeungsinchun/traj-compression.git traj-compression && \
+    git -C traj-compression checkout ce40df79a77db8eb4bb31d7316a187c07b2ad921
+
 RUN cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF && \
-    cmake --build build --target simplify
+    cmake --build build --target simplify dots dp squish -j"$(nproc)"
 
 # Final stage: Python runtime on Ubuntu
 FROM ubuntu:22.04
 
-# Install Python and runtime dependencies
-# Note: CGAL (header-only) and Julia ship their own dependencies.
-# The simplify binary only needs GMP/MPFR; Boost is not needed at runtime.
+# Install Python and runtime dependencies.
+# CGAL is header-only at build time; simplify needs GMP/MPFR at runtime.
+# dots needs Qt6 Core (libQt6Core).
 RUN apt-get update && apt-get install -y \
     python3.11 \
     python3-pip \
     libgmp10 \
     libmpfr6 \
+    libqt6core6 \
     curl \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -51,8 +61,11 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 &
 
 WORKDIR /app
 
-# Copy the compiled binary from builder
+# Copy compiled binaries from builder (web compare pane needs all four)
 COPY --from=builder /build/build/simplify /app/build/simplify
+COPY --from=builder /build/build/dots /app/build/dots
+COPY --from=builder /build/build/dp /app/build/dp
+COPY --from=builder /build/build/squish /app/build/squish
 
 # Copy web application files
 COPY web/ /app/web/
@@ -68,9 +81,10 @@ RUN pip install --no-cache-dir -r /app/web/requirements.txt
 # --raw flag parsing.
 RUN julia -e 'using Pkg; Pkg.add(["FrechetDist", "ArgParse"])'
 
-# Set environment variables
-# Default to 5050 to match local Flask (`python server.py`) and avoid macOS
-# AirPlay on 5000. Cloud Run still injects PORT (typically 8080) at runtime.
+# Set environment variables.
+# Image default PORT=5050 avoids macOS AirPlay on 5000 when published locally.
+# Local `python web/server.py` defaults to 5051 when PORT is unset; Cloud Run
+# still injects PORT (typically 8080) at runtime.
 ENV PORT=5050
 ENV PYTHONUNBUFFERED=1
 

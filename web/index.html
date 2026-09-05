@@ -98,6 +98,415 @@
     border-width: 2px;
     flex-shrink: 0;
   }
+
+  /* Results compare — left off-canvas panel (not in header) */
+  #resultsPanel {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--results-panel-width, 340px);
+    max-width: min(80vw, 720px);
+    min-width: 260px;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    background: var(--panel);
+    border-right: 1px solid var(--panel-border);
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.35);
+    transform: translateX(-105%);
+    transition: transform 0.2s ease;
+    pointer-events: none;
+  }
+  #resultsPanel[hidden] { display: none !important; }
+  body.results-panel-open #resultsPanel {
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+  body.results-panel-resizing #resultsPanel {
+    transition: none;
+  }
+  .results-panel-resizer {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 41;
+    background: transparent;
+  }
+  .results-panel-resizer:hover,
+  body.results-panel-resizing .results-panel-resizer {
+    background: rgba(79, 157, 255, 0.35);
+  }
+  .results-panel-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 35;
+    background: rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  body.results-panel-open .results-panel-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .results-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--panel-border);
+    flex-shrink: 0;
+  }
+  .results-panel-header h2 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .results-panel-close {
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 6px;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .results-panel-close:hover { background: #262c3d; }
+  .results-panel-close svg { width: 16px; height: 16px; }
+  .results-panel-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 12px 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .results-section-label {
+    margin: 0 0 8px;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .results-chips {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .results-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 9px 11px;
+    font-size: 13px;
+    color: var(--text-dim);
+    background: #1a1f29;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+  }
+  .results-chip.on {
+    color: var(--text);
+    border-color: var(--accent-dim, #2a4a72);
+    background: #1c2533;
+  }
+  .results-chip .swatch {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+  .results-chip[hidden] { display: none !important; }
+  .compare-metrics-wrap { overflow-x: auto; }
+  .compare-metrics-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    background: #0f131a;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .compare-metrics-table th,
+  .compare-metrics-table td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--panel-border);
+    font-variant-numeric: tabular-nums;
+  }
+  .compare-metrics-table th {
+    color: var(--text-dim);
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .compare-metrics-table tr:last-child td { border-bottom: none; }
+  .compare-metrics-table .win { color: var(--ok); font-weight: 650; }
+  .compare-metrics-empty { color: var(--text-dim); text-align: center; }
+  .results-panel-open-btn {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    z-index: 25;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 36px;
+    padding: 14px 8px;
+    transform: translateY(-50%);
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-left: none;
+    border-radius: 0 10px 10px 0;
+    color: var(--text);
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.35);
+  }
+  .results-panel-open-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .results-panel-open-btn .results-panel-open-arrow {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--accent-dim, #2a4a72);
+    color: var(--accent);
+  }
+  .results-panel-open-btn .results-panel-open-arrow svg {
+    width: 14px;
+    height: 14px;
+  }
+  .results-panel-open-btn .results-panel-open-label {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    line-height: 1.1;
+  }
+  .baseline-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .baseline-algo-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .baseline-algo-pill {
+    appearance: none;
+    border: 1px solid var(--panel-border);
+    background: #1a1f29;
+    color: var(--text-dim);
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+  }
+  .baseline-algo-pill:hover {
+    border-color: var(--accent);
+    color: var(--text);
+  }
+  .baseline-algo-pill.active {
+    background: var(--accent-dim, #2a4a72);
+    border-color: var(--accent);
+    color: var(--text);
+  }
+  .header-baseline {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 4px 0;
+  }
+  .header-baseline-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .header-baseline .baseline-algo-row {
+    gap: 6px;
+  }
+  .header-baseline .baseline-algo-pill {
+    padding: 5px 12px;
+    font-size: 11px;
+  }
+  .baseline-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .baseline-param-owner {
+    font-weight: 750;
+    letter-spacing: 0.04em;
+    margin-right: 2px;
+  }
+  .baseline-param-owner.owner-dots { color: #f472b6; }
+  .baseline-param-owner.owner-dp { color: #a78bfa; }
+  .baseline-param-owner.owner-squish { color: #fb923c; }
+  .baseline-field-input-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .baseline-field input {
+    background: #1a1f29;
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+  .baseline-field-unit {
+    font-weight: 650;
+    color: var(--text-dim);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+  }
+  .baseline-field--inline {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+  }
+  .baseline-field--inline input {
+    width: 56px;
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  .baseline-param-fields { display: flex; flex-direction: column; gap: 8px; }
+  #baselineLssdField[hidden],
+  #headerBaselineLssdField[hidden],
+  #baselineDpEpsField[hidden],
+  #headerBaselineDpEpsField[hidden],
+  #baselineSquishRatioField[hidden],
+  #headerBaselineSquishRatioField[hidden] { display: none !important; }
+  .baseline-run-btn {
+    align-self: stretch;
+    background: var(--accent);
+    color: #061018;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  .baseline-run-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .baseline-status {
+    margin: 0;
+    min-height: 1.2em;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .baseline-status.error { color: #ff5f6d; }
+  .baseline-status.ok { color: var(--ok); }
+  .compare-original-count {
+    margin: 0 0 8px;
+    font-size: 12px;
+    color: var(--text);
+  }
+  .compare-original-count[hidden] { display: none !important; }
+  .compare-original-count b { font-weight: 650; }
+  .compare-frechet-note {
+    margin: 8px 0 0;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--text-dim);
+  }
+  .compare-frechet-note a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .compare-frechet-note a:hover { text-decoration: underline; }
+  .compare-metrics-footer {
+    margin: 8px 0 0;
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--text-dim);
+  }
+  .compare-metrics-footer a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .compare-metrics-footer a:hover { text-decoration: underline; }
+  .compare-frechet-note[hidden] { display: none !important; }
+  .layer-accordion {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .layer-acc {
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    background: #12151c;
+    overflow: hidden;
+  }
+  .layer-acc > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 10px 12px;
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--text);
+    user-select: none;
+  }
+  .layer-acc > summary::-webkit-details-marker { display: none; }
+  .layer-acc > summary::after {
+    content: "▸";
+    float: right;
+    color: var(--text-dim);
+    transition: transform 0.15s ease;
+  }
+  .layer-acc[open] > summary::after { transform: rotate(90deg); }
+  .layer-acc-body {
+    padding: 0 10px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .baseline-layer-hint {
+    margin: 6px 2px 0;
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.4;
+  }
+  .baseline-layer-hint[hidden] { display: none !important; }
+  body.results-available .results-panel-open-btn { display: inline-flex; }
+  body.results-panel-open .results-panel-open-btn { display: none; }
+
   #uploadStatus.upload-status-loading {
     display: inline-flex;
     align-items: center;
@@ -383,13 +792,6 @@
     accent-color: var(--accent);
   }
   input[type="file"] { display: none; }
-  #trajectoryFileName {
-    font-size: 12px;
-    color: var(--text-dim);
-  }
-  @media (max-width: 720px) {
-    #trajectoryFileName { display: none; }
-  }
   input[type="number"] {
     width: 62px;
     background: #1e2330;
@@ -553,6 +955,14 @@
       padding: 10px 12px;
       font-size: 14px;
       box-sizing: border-box;
+    }
+    .upload-form .header-baseline .baseline-algo-pill {
+      width: auto;
+      padding: 8px 14px;
+      min-height: 0;
+    }
+    .upload-form .header-baseline .baseline-field--inline input {
+      width: 80px;
     }
     .upload-form #traceSelect { max-width: none; }
     .upload-form .or-divider { text-align: center; }
@@ -741,9 +1151,9 @@
     }
     .preloaded-row,
     .upload-form #uploadBtn,
-    .upload-form #trajectoryFileName,
     .upload-form #loadBtn,
-    .upload-form #uploadStatus {
+    .upload-form #uploadStatus,
+    .upload-form .header-baseline {
       grid-column: 1 / -1;
     }
     .upload-form .or-divider {
@@ -752,8 +1162,7 @@
       font-size: 11px !important;
     }
     .upload-form .or-divider,
-    .upload-form #uploadBtn,
-    .upload-form #trajectoryFileName {
+    .upload-form #uploadBtn {
       display: none;
     }
     .upload-form label {
@@ -766,6 +1175,12 @@
       border-radius: 8px;
       color: var(--text);
       font-size: 14px;
+    }
+    .upload-form .header-baseline .baseline-field--inline {
+      padding: 6px 10px;
+      background: #1e2330;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
     }
     .upload-form label input[type="number"] {
       min-width: 0;
@@ -985,11 +1400,6 @@
     gap: 8px;
     flex-wrap: nowrap;
   }
-  .preloaded-label {
-    font-size: 12px;
-    color: var(--text-dim);
-    flex-shrink: 0;
-  }
   .preloaded-trigger {
     display: none; /* hidden on desktop — the real <select> is used */
     flex: 1 1 auto;
@@ -1124,28 +1534,33 @@
   @media (max-width: 720px) {
     /* On mobile, hide the real <select> and show the trigger button. */
     .preloaded-row { width: 100%; }
-    .preloaded-label { display: none; }
     .preloaded-trigger { display: flex; }
     #traceSelect.visually-hidden-mobile { display: none; }
   }
   @media (min-width: 721px) {
-    /* On desktop, show the native select inline. */
+    /* On desktop, show the native select inline — width set to fit longest option. */
     .preloaded-trigger { display: none !important; }
+    .preloaded-row {
+      flex: 0 0 auto;
+      width: auto;
+    }
     #traceSelect {
       position: static !important;
-      width: auto !important;
+      width: max-content;
       height: auto !important;
       padding: 3px 6px !important;
       margin: 0 !important;
       overflow: visible !important;
       clip: auto !important;
-      white-space: normal !important;
+      white-space: nowrap !important;
       background: #1e2330;
       color: var(--text);
       border: 1px solid var(--panel-border);
       border-radius: 5px;
       font-size: 12px;
-      max-width: 170px;
+      max-width: none;
+      flex: 0 0 auto;
+      field-sizing: content;
     }
   }
 </style>
@@ -1165,7 +1580,6 @@
       <div class="file-controls">
         <div class="upload-form">
           <div class="preloaded-row">
-            <span class="preloaded-label">Preloaded:</span>
             <button type="button" id="preloadedTrigger" class="preloaded-trigger">
               <span id="preloadedLabel">Select trace…</span>
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -1180,9 +1594,30 @@
           <span class="or-divider" style="color: var(--text-dim); font-size: 12px; margin: 0 8px;">or</span>
           <button id="uploadBtn" class="primary">Upload original.txt</button>
           <input type="file" id="trajectoryInput" accept=".txt,text/plain" />
-          <span id="trajectoryFileName">no file chosen</span>
           <label>&epsilon; <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" /></label>
           <label>&delta; <input type="number" id="deltaInput" value="500" step="10" min="1" /></label>
+          <div class="header-baseline" aria-label="Baseline algorithm to benchmark against">
+            <span class="header-baseline-label">Baseline:</span>
+            <div class="baseline-algo-row" id="headerBaselineAlgoRow" role="group" aria-label="Baseline algorithms">
+              <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false">DOTS</button>
+              <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false">DP</button>
+              <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false">SQUISH</button>
+            </div>
+            <label class="baseline-field baseline-field--inline" id="headerBaselineLssdField" hidden>
+              <span><span class="baseline-param-owner owner-dots">DOTS</span> LSSD</span>
+              <input type="number" id="headerBaselineLssdInput" value="1000" step="1" min="0.000001" />
+              <span class="baseline-field-unit" title="Thousand">K</span>
+            </label>
+            <label class="baseline-field baseline-field--inline" id="headerBaselineDpEpsField" hidden>
+              <span><span class="baseline-param-owner owner-dp">DP</span> PED ε</span>
+              <input type="number" id="headerBaselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" />
+            </label>
+            <label class="baseline-field baseline-field--inline" id="headerBaselineSquishRatioField" hidden>
+              <span><span class="baseline-param-owner owner-squish">SQUISH</span> Ratio</span>
+              <input type="number" id="headerBaselineSquishRatioInput" value="20" step="1" min="0.01" max="100" />
+              <span class="baseline-field-unit" title="Percent">%</span>
+            </label>
+          </div>
           <button id="loadBtn" class="primary">Load Trace</button>
           <span class="sub" id="uploadStatus"></span>
         </div>
@@ -1192,6 +1627,7 @@
         <h2>Instructions</h2>
         <ul>
           <li>Select a preloaded trajectory.</li>
+          <li>Optionally pick a <b>Baseline</b> (e.g. DOTS) to benchmark against.</li>
           <li>Adjust <b>&epsilon;</b> and <b>&delta;</b>, then tap <b>Load Trace</b>.</li>
           <li>Drag the visualization to pan and pinch to zoom.</li>
           <li>Use <b>Controls</b> to view status and toggle layers.</li>
@@ -1202,6 +1638,78 @@
   </header>
   <main>
     <div id="mainContent">
+      <div id="resultsPanelBackdrop" class="results-panel-backdrop" hidden></div>
+      <aside id="resultsPanel" hidden aria-label="Results compare">
+        <div class="results-panel-header">
+          <h2>Results</h2>
+          <button type="button" id="resultsPanelClose" class="results-panel-close" aria-label="Close results panel">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="results-panel-body">
+          <div>
+            <p class="results-section-label">Baseline algorithm</p>
+            <div class="baseline-controls">
+              <div class="baseline-algo-row" id="baselineAlgoRow" role="group" aria-label="Baseline algorithms">
+                <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false">DOTS</button>
+                <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false">DP</button>
+                <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false">SQUISH</button>
+              </div>
+              <div id="baselineParamFields" class="baseline-param-fields">
+                <label class="baseline-field" id="baselineLssdField" hidden>
+                  <span><span class="baseline-param-owner owner-dots">DOTS</span> LSSD</span>
+                  <div class="baseline-field-input-row">
+                    <input type="number" id="baselineLssdInput" value="1000" step="1" min="0.000001" />
+                    <span class="baseline-field-unit" title="Thousand">K</span>
+                  </div>
+                </label>
+                <label class="baseline-field" id="baselineDpEpsField" hidden>
+                  <span><span class="baseline-param-owner owner-dp">DP</span> PED ε</span>
+                  <input type="number" id="baselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" />
+                </label>
+                <label class="baseline-field" id="baselineSquishRatioField" hidden>
+                  <span><span class="baseline-param-owner owner-squish">SQUISH</span> Ratio</span>
+                  <div class="baseline-field-input-row">
+                    <input type="number" id="baselineSquishRatioInput" value="20" step="1" min="0.01" max="100" />
+                    <span class="baseline-field-unit" title="Percent">%</span>
+                  </div>
+                </label>
+              </div>
+              <button type="button" id="baselineRunBtn" class="baseline-run-btn" disabled>Run baseline</button>
+              <p id="baselineStatus" class="baseline-status"></p>
+            </div>
+          </div>
+          <div>
+            <p class="results-section-label">Compare</p>
+            <p id="compareOriginalCount" class="compare-original-count" hidden></p>
+            <div class="compare-metrics-wrap">
+            <table class="compare-metrics-table" id="compareMetricsTable">
+              <thead>
+                <tr id="compareMetricsHead">
+                  <th>Metric</th>
+                  <th>Simplify</th>
+                </tr>
+              </thead>
+              <tbody id="compareMetricsBody">
+                <tr><td colspan="2" class="compare-metrics-empty">Load a trace, then run a baseline.</td></tr>
+              </tbody>
+            </table>
+            </div>
+            <p class="compare-metrics-footer">
+              Frechet is the discrete Fréchet distance of each simplified curve against the original trajectory.
+              <a href="https://en.wikipedia.org/wiki/Fr%C3%A9chet_distance" target="_blank" rel="noopener noreferrer">What is Fréchet distance?</a>
+            </p>
+            <p id="compareFrechetNote" class="compare-frechet-note" hidden></p>
+          </div>
+        </div>
+        <div id="resultsPanelResizer" class="results-panel-resizer" role="separator" aria-orientation="vertical" aria-label="Resize results panel"></div>
+      </aside>
+      <button type="button" id="resultsPanelOpen" class="results-panel-open-btn" aria-controls="resultsPanel" aria-expanded="false" title="Open results panel">
+        <span class="results-panel-open-arrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span class="results-panel-open-label">Results</span>
+      </button>
       <div id="canvasWrap">
         <div id="canvasContainer">
           <canvas id="canvas"></canvas>
@@ -1221,7 +1729,7 @@
             </div>
             <div class="big">Upload a trajectory to get started</div>
             <div class="dropHint-sub">
-              Click <b>Upload original.txt</b> or select a <b>preloaded trace</b>, pick &epsilon;/&delta;, then <b>Load Trace</b>
+              Click <b>Upload original.txt</b> or select a <b>preloaded trace</b>, pick a <b>Baseline</b> to benchmark against, set &epsilon;/&delta;, then <b>Load Trace</b>
             </div>
             <div class="dropHint-format">
               Format: first line <code>N</code>, then <code>N</code> lines of <code>"x y"</code>
@@ -1329,35 +1837,52 @@
           Layers
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-        <div class="toggle-row">
-          <label><input type="checkbox" id="toggle-stream" checked /><span class="swatch" style="background:#5a6272"></span>Full stream</label>
-        </div>
-        <div class="toggle-row">
-          <label><input type="checkbox" id="toggle-simplified" checked /><span class="swatch" style="background:#3ddc97"></span>Simplified so far</label>
-        </div>
-        <div class="toggle-row">
-          <label><input type="checkbox" id="toggle-ball-p0" checked /><span class="swatch" style="background:#c47aff"></span>\(B_p\) (δ-ball at start vertex)</label>
-        </div>
-        <div class="toggle-row">
-          <label><input type="checkbox" id="toggle-ball-pi" checked /><span class="swatch" style="background:#ff7ae8"></span>\(B_{v_i}\) (δ-ball at current vertex)</label>
-        </div>
-        <div class="toggle-row">
-          <label><input type="checkbox" id="toggle-Gi" checked /><span class="swatch" style="background:#e8c547"></span>\(\mathrm{conv}(G_{v_i})\)</label>
-        </div>
-        <div class="toggle-row">
-          <label><input type="checkbox" id="toggle-F" checked /><span class="swatch" style="background:#4f9dff"></span>\(F(S_{i-1}[p], p)\)</label>
-        </div>
-        <div class="toggle-row">
-          <label><input type="checkbox" id="toggle-F-Si" /><span class="swatch" style="background:#22d3ee"></span>\(F(S_i[p], p)\)</label>
-        </div>
-        <div class="toggle-row">
-          <label><input type="checkbox" id="toggle-S" checked /><span class="swatch" style="background:#a78bfa"></span>\(S_i[p] = \mathrm{conv}(G_{v_i}) \cap F(S_{i-1}[p], p)\)</label>
-        </div>
-        <div class="toggle-row">
-          <label><input type="checkbox" id="toggle-P" checked /><span class="swatch" style="background:#ff9f43"></span>\(P\) (boundary anchors in \(G_{v_0}\) )</label>
-        </div>
-        <div class="toggle-row">
-          <label><input type="checkbox" id="toggle-dead-candidates" checked /><span class="swatch" style="background:#ff3c3c"></span>Dead candidates</label>
+        <div class="layer-accordion" id="layerAccordion">
+          <details class="layer-acc" id="accordionSimplify" open>
+            <summary>Simplify</summary>
+            <div class="layer-acc-body">
+              <div class="toggle-row">
+                <label><input type="checkbox" id="toggle-stream" checked /><span class="swatch" style="background:#5a6272"></span>Full stream</label>
+              </div>
+              <div class="toggle-row">
+                <label><input type="checkbox" id="toggle-simplified" checked /><span class="swatch" style="background:#3ddc97"></span>Simplified so far</label>
+              </div>
+              <div class="toggle-row">
+                <label><input type="checkbox" id="toggle-final-simplify" /><span class="swatch" style="background:#3ddc97"></span>Final simplified</label>
+              </div>
+              <div class="toggle-row">
+                <label><input type="checkbox" id="toggle-ball-p0" checked /><span class="swatch" style="background:#c47aff"></span>\(B_p\) (δ-ball at start vertex)</label>
+              </div>
+              <div class="toggle-row">
+                <label><input type="checkbox" id="toggle-ball-pi" checked /><span class="swatch" style="background:#ff7ae8"></span>\(B_{v_i}\) (δ-ball at current vertex)</label>
+              </div>
+              <div class="toggle-row">
+                <label><input type="checkbox" id="toggle-Gi" checked /><span class="swatch" style="background:#e8c547"></span>\(\mathrm{conv}(G_{v_i})\)</label>
+              </div>
+              <div class="toggle-row">
+                <label><input type="checkbox" id="toggle-F" checked /><span class="swatch" style="background:#4f9dff"></span>\(F(S_{i-1}[p], p)\)</label>
+              </div>
+              <div class="toggle-row">
+                <label><input type="checkbox" id="toggle-F-Si" /><span class="swatch" style="background:#22d3ee"></span>\(F(S_i[p], p)\)</label>
+              </div>
+              <div class="toggle-row">
+                <label><input type="checkbox" id="toggle-S" checked /><span class="swatch" style="background:#a78bfa"></span>\(S_i[p] = \mathrm{conv}(G_{v_i}) \cap F(S_{i-1}[p], p)\)</label>
+              </div>
+              <div class="toggle-row">
+                <label><input type="checkbox" id="toggle-P" checked /><span class="swatch" style="background:#ff9f43"></span>\(P\) (boundary anchors in \(G_{v_0}\) )</label>
+              </div>
+              <div class="toggle-row">
+                <label><input type="checkbox" id="toggle-dead-candidates" checked /><span class="swatch" style="background:#ff3c3c"></span>Dead candidates</label>
+              </div>
+            </div>
+          </details>
+          <details class="layer-acc" id="accordionBaseline">
+            <summary id="accordionBaselineSummary">Baseline</summary>
+            <div class="layer-acc-body">
+              <div id="baselineLayerToggles"></div>
+              <p id="baselineLayerHint" class="baseline-layer-hint">Run a baseline from the Results panel to enable these layers.</p>
+            </div>
+          </details>
         </div>
       </div>
 
@@ -1437,6 +1962,6 @@
   </svg>
 </button>
 
-<script src="viewer.js"></script>
+<script src="viewer.js?v=baseline-hidden-1"></script>
 </body>
 </html>

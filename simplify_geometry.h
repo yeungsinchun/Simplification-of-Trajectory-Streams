@@ -21,114 +21,146 @@ using Point  = Kernel::Point_2;
 using Polygon = CGAL::Polygon_2<Kernel>;
 
 // ===========================================================================
-//  Convex-convex intersection by double-precision Sutherland-Hodgman
+//  Polygon intersection: double-precision Sutherland-Hodgman
 // ===========================================================================
 //
-// Both inputs are convex (F(S,p) is a convex wedge clipped to the axis-aligned
-// bbox; conv(G) is a convex grid-cell polygon), so their intersection is the
-// subject polygon successively clipped by each half-plane of the clip polygon.
-// Sutherland-Hodgman only ever *removes* subject area against each clip
-// half-plane, so the output is always a subset of the subject and can never
-// balloon; it needs no convexity guard, no containment guard, and no exact
-// fallback.  Complexity is O(n*m) but both polygons are tiny (n,m ~ 4..20) and
-// every operation is a plain double.
+// Used for F(S,p) ∩ conv(G_i). Both are convex here, but SH only requires the
+// cropping polygon to be convex. O(n*m) in doubles; n,m are small (~4..20).
 namespace sh_double {
 
-// Reverse the polygon in place if it is clockwise, so callers can assume CCW.
-inline void to_ccw(std::vector<std::array<double, 2>>& v) {
-    double a = 0.0;
-    const int n = static_cast<int>(v.size());
+using Vec2 = std::array<double, 2>;
+
+inline Vec2 sub(const Vec2& u, const Vec2& v) {
+    return {u[0] - v[0], u[1] - v[1]};
+}
+
+inline double cross(const Vec2& u, const Vec2& v) {
+    return u[0] * v[1] - u[1] * v[0];
+}
+
+inline Vec2 lerp(const Vec2& p, const Vec2& q, double t) {
+    return {p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])};
+}
+
+// orient(a,b,p) = cross(b-a, p-a) = 2 * signed area of triangle (a,b,p).
+// Positive => p is left of directed edge a→b.
+inline double orient(const Vec2& a, const Vec2& b, const Vec2& p) {
+    return cross(sub(b, a), sub(p, a));
+}
+
+// Point on segment p→q where orient along that segment is zero:
+//   (1-t)*orient_p + t*orient_q = 0  =>  t = orient_p / (orient_p - orient_q).
+inline Vec2 crossing_on_segment(const Vec2& p, const Vec2& q,
+                                double orient_p, double orient_q) {
+    return lerp(p, q, orient_p / (orient_p - orient_q));
+}
+
+inline void make_ccw(std::vector<Vec2>& polygon) {
+    double twice_area = 0.0;
+    const int n = static_cast<int>(polygon.size());
+    for (int i = 0; i < n; ++i)
+        twice_area += cross(polygon[i], polygon[(i + 1) % n]);
+    if (twice_area < 0.0) std::reverse(polygon.begin(), polygon.end());
+}
+
+inline Vec2 to_vec2(const Point& p) {
+    return {CGAL::to_double(p.x()), CGAL::to_double(p.y())};
+}
+
+inline void assign_ccw_doubles(const std::vector<Point>& src, std::vector<Vec2>& dst) {
+    dst.clear();
+    dst.reserve(src.size());
+    for (const auto& p : src) dst.push_back(to_vec2(p));
+    make_ccw(dst);
+}
+
+inline void assign_points(const std::vector<Vec2>& src, std::vector<Point>& dst) {
+    dst.clear();
+    dst.reserve(src.size());
+    for (const auto& p : src) dst.emplace_back(p[0], p[1]);
+}
+
+inline const Vec2& next_ccw_vertex(const std::vector<Vec2>& polygon, int i) {
+    const int n = static_cast<int>(polygon.size());
+    return polygon[i + 1 == n ? 0 : i + 1];
+}
+
+// Keep the part of `polygon` that lies in the closed left half-plane of edge
+// edge_start→edge_end. Writes the cropped ring into `cropped` (O(|polygon|)).
+inline void crop_to_left_of_edge(const std::vector<Vec2>& polygon,
+                                 const Vec2& edge_start,
+                                 const Vec2& edge_end,
+                                 std::vector<Vec2>& cropped) {
+    cropped.clear();
+    const int n = static_cast<int>(polygon.size());
+    if (n == 0) return;
+
+    int prev_i = n - 1;
     for (int i = 0; i < n; ++i) {
-        const auto& p = v[i];
-        const auto& q = v[(i + 1) % n];
-        a += p[0] * q[1] - q[0] * p[1];
-    }
-    if (a < 0.0) std::reverse(v.begin(), v.end());
-}
+        const Vec2& curr = polygon[i];
+        const Vec2& prev = polygon[prev_i];
+        prev_i = i;
 
-// Thread-local workspace to avoid repeated allocations in clip().
-// Each thread gets its own workspace, reused across all clip() calls.
-struct ClipWorkspace {
-    std::vector<std::array<double, 2>> subj;
-    std::vector<std::array<double, 2>> clipv;
-    std::vector<std::array<double, 2>> out;
-    std::vector<std::array<double, 2>> in;
-    std::vector<Point> result;
-};
+        const double orient_curr = orient(edge_start, edge_end, curr);
+        const double orient_prev = orient(edge_start, edge_end, prev);
+        const bool curr_inside = orient_curr >= 0.0;
+        const bool prev_inside = orient_prev >= 0.0;
 
-inline ClipWorkspace& get_clip_workspace() {
-    thread_local ClipWorkspace ws;
-    return ws;
-}
-
-// Clip convex subject P by convex clip Q; both given as Epick points.  Returns
-// a const reference to the thread-local intersection polygon (CCW, no closing
-// duplicate) in Epick points, or an empty vector when the intersection is
-// degenerate (<3 vertices).  The returned reference is valid until the next
-// clip() call on the same thread.
-inline const std::vector<Point>& clip(const std::vector<Point>& P_verts,
-                                      const std::vector<Point>& Q_verts) {
-    // Reuse thread-local workspace to avoid allocations
-    ClipWorkspace& ws = get_clip_workspace();
-
-    const int n = static_cast<int>(P_verts.size());
-    const int m = static_cast<int>(Q_verts.size());
-    if (n < 3 || m < 3) { ws.result.clear(); return ws.result; }
-
-    ws.subj.clear();
-    ws.clipv.clear();
-    ws.subj.reserve(n);
-    ws.clipv.reserve(m);
-    for (const auto& p : P_verts)
-        ws.subj.push_back({CGAL::to_double(p.x()), CGAL::to_double(p.y())});
-    for (const auto& q : Q_verts)
-        ws.clipv.push_back({CGAL::to_double(q.x()), CGAL::to_double(q.y())});
-    to_ccw(ws.subj);
-    to_ccw(ws.clipv);
-
-    // subj is not read after this; swap avoids copying the subject polygon.
-    ws.out.swap(ws.subj);
-    ws.in.clear();
-    for (int e = 0; e < m && ws.out.size() >= 3; ++e) {
-        const int e1 = (e + 1 == m) ? 0 : e + 1;   // avoid per-iteration modulo
-        const double ax = ws.clipv[e][0],  ay = ws.clipv[e][1];
-        const double bx = ws.clipv[e1][0], by = ws.clipv[e1][1];
-        const double ex = bx - ax, ey = by - ay;
-        // Signed area of triangle (a,b,pt); >=0 means pt is on/left of edge a->b
-        // (inside, since the clip is CCW).
-        auto side = [&](const std::array<double, 2>& pt) {
-            return ex * (pt[1] - ay) - ey * (pt[0] - ax);
-        };
-        ws.in.swap(ws.out);
-        ws.out.clear();
-        const int sz = static_cast<int>(ws.in.size());
-        int prev = sz - 1;                          // walk the previous index
-        for (int i = 0; i < sz; ++i) {
-            const auto& cur = ws.in[i];
-            const auto& prv = ws.in[prev];
-            prev = i;
-            const double sc = side(cur), sp = side(prv);
-            const bool cin = sc >= 0.0, pin = sp >= 0.0;
-            if (cin) {
-                if (!pin) {
-                    const double t = sp / (sp - sc);
-                    ws.out.push_back({prv[0] + t * (cur[0] - prv[0]),
-                                      prv[1] + t * (cur[1] - prv[1])});
-                }
-                ws.out.push_back(cur);
-            } else if (pin) {
-                const double t = sp / (sp - sc);
-                ws.out.push_back({prv[0] + t * (cur[0] - prv[0]),
-                                  prv[1] + t * (cur[1] - prv[1])});
-            }
+        if (curr_inside) {
+            if (!prev_inside)
+                cropped.push_back(
+                    crossing_on_segment(prev, curr, orient_prev, orient_curr));
+            cropped.push_back(curr);
+        } else if (prev_inside) {
+            cropped.push_back(
+                crossing_on_segment(prev, curr, orient_prev, orient_curr));
         }
     }
-    ws.result.clear();
-    if (ws.out.size() < 3) return ws.result;
+}
 
-    ws.result.reserve(ws.out.size());
-    for (const auto& p : ws.out) ws.result.emplace_back(p[0], p[1]);
-    return ws.result;
+// Retains vector capacity across clip() calls on this thread so steady-state
+// intersection work does not heap-allocate.
+struct ReusableClipBuffers {
+    std::vector<Vec2> current_polygon;
+    std::vector<Vec2> cropped_polygon;
+    std::vector<Vec2> cropping_polygon;
+    std::vector<Point> intersection;
+};
+
+inline ReusableClipBuffers& reusable_clip_buffers() {
+    thread_local ReusableClipBuffers buffers;
+    return buffers;
+}
+
+// Crop current_polygon by each left half-plane of CCW convex cropping_polygon.
+// O(n·m). Returned reference is valid until the next clip() on this thread.
+inline const std::vector<Point>& clip(const std::vector<Point>& current_polygon,
+                                      const std::vector<Point>& cropping_polygon) {
+    auto& buffers = reusable_clip_buffers();
+
+    if (current_polygon.size() < 3 || cropping_polygon.size() < 3) {
+        buffers.intersection.clear();
+        return buffers.intersection;
+    }
+
+    assign_ccw_doubles(current_polygon, buffers.current_polygon);
+    assign_ccw_doubles(cropping_polygon, buffers.cropping_polygon);
+
+    const int num_halfplanes = static_cast<int>(buffers.cropping_polygon.size());
+    for (int e = 0; e < num_halfplanes && buffers.current_polygon.size() >= 3; ++e) {
+        const Vec2& edge_start = buffers.cropping_polygon[e];
+        const Vec2& edge_end   = next_ccw_vertex(buffers.cropping_polygon, e);
+        crop_to_left_of_edge(buffers.current_polygon, edge_start, edge_end,
+                             buffers.cropped_polygon);
+        buffers.current_polygon.swap(buffers.cropped_polygon);
+    }
+
+    if (buffers.current_polygon.size() < 3) {
+        buffers.intersection.clear();
+        return buffers.intersection;
+    }
+    assign_points(buffers.current_polygon, buffers.intersection);
+    return buffers.intersection;
 }
 
 }  // namespace sh_double
@@ -137,13 +169,15 @@ inline const std::vector<Point>& clip(const std::vector<Point>& P_verts,
 //  Intersection (public API)
 // ===========================================================================
 
-// Collapse consecutive near-coincident vertices (including the wrap-around
-// pair).  Near-duplicate points reach the intersector via find_F, producing
-// edges only a few ULPs long; removing them up front avoids spurious
-// near-zero-length clip edges.  EPS2 is a squared distance: 1e-12 == (1e-6)^2,
-// far above the ~1e-13 duplicate noise yet far below any real feature.
-// Core dedup, writing into a caller-provided buffer (reused across calls to
-// avoid per-call allocation).  `out` must not alias `poly`.
+/**
+ * @brief Remove consecutive near-duplicates (incl. wrap-around first/last).
+ *
+ * @param poly Input ring (must not alias @p out).
+ * @param out  Cleared then filled; reused by callers to avoid allocation.
+ *
+ * Threshold EPS2 = 1e-12 (= (1e-6)^2): above ULP noise from find_F, below
+ * real feature size. Prevents near-zero-length edges from reaching clip().
+ */
 inline void dedup_into(const std::vector<Point>& poly, std::vector<Point>& out) {
     out.clear();
     const int n = static_cast<int>(poly.size());
@@ -162,26 +196,29 @@ inline void dedup_into(const std::vector<Point>& poly, std::vector<Point>& out) 
     while (out.size() >= 2 && close(out.front(), out.back())) out.pop_back();
 }
 
+/** @brief Allocating wrapper around dedup_into(). */
 inline std::vector<Point> dedup_consecutive(const std::vector<Point>& poly) {
     std::vector<Point> out;
     dedup_into(poly, out);
     return out;
 }
 
-// Convex-convex intersection of P_in and Q_in.  Deduplicates both inputs,
-// runs the Sutherland-Hodgman clip, and returns true with the CCW result in
-// `result` when the intersection is a non-degenerate polygon (>=3 vertices).
+/**
+ * @brief Convex-convex intersection P ∩ Q via dedup + Sutherland-Hodgman.
+ *
+ * @param P_in   Subject polygon (typically F(S,p)).
+ * @param Q_in   Clip polygon; must be convex (typically conv(G_i)).
+ * @param result Cleared; on success holds CCW intersection (>=3 verts).
+ * @return true iff result is a non-degenerate polygon.
+ */
 inline bool intersect(const std::vector<Point>& P_in,
                       const std::vector<Point>& Q_in,
                       std::vector<Point>& result) {
-    // Thread-local scratch for the deduplicated inputs; reused across calls so
-    // the steady state performs no heap allocation here.
     thread_local std::vector<Point> P_verts, Q_verts;
     dedup_into(P_in, P_verts);
     dedup_into(Q_in, Q_verts);
 
-    // clip returns a reference to its own thread-local buffer, distinct from
-    // `result`, so deduping straight into `result` is safe.
+    // clip's thread-local buffer is distinct from result, so this is safe.
     dedup_into(sh_double::clip(P_verts, Q_verts), result);
     if (result.size() < 3) {
         result.clear();
@@ -497,9 +534,8 @@ inline std::vector<Point> get_conv_from_grid(const Point& p, double EPSILON, dou
     return conv;
 }
 
-// Boundary anchors for P: every grid sample on the convex-hull boundary.
-// CGAL's hull keeps extreme vertices only; flat hull edges still contain
-// collinear grid corners that must remain boundary anchors.
+// Boundary anchors for P: leftmost and rightmost grid sample on every y-row,
+// plus every sample on the topmost and bottommost rows.
 inline std::vector<Point> get_boundary_points_from_grid(const Point& p, double EPSILON, double DELTA, int multiplier = 1) {
     thread_local double cached_eps   = std::numeric_limits<double>::quiet_NaN();
     thread_local double cached_delta = std::numeric_limits<double>::quiet_NaN();
@@ -507,29 +543,29 @@ inline std::vector<Point> get_boundary_points_from_grid(const Point& p, double E
     thread_local std::vector<std::array<double, 2>> boundary_offsets;
 
     if (EPSILON != cached_eps || DELTA != cached_delta || multiplier != cached_mult) {
+        // get_points_from_grid is row-major: y descending, then x ascending.
         const std::vector<Point> all = get_points_from_grid(Point(0, 0), EPSILON, DELTA, multiplier);
-        std::vector<Point> hull;
-        if (all.size() <= 2) {
-            hull = all;
-        } else {
-            CGAL::convex_hull_2(all.begin(), all.end(), std::back_inserter(hull));
-        }
-
         std::vector<Point> boundary;
         boundary.reserve(all.size());
-        if (hull.size() < 3) {
-            boundary = all;
-        } else {
-            for (const Point& q : all) {
-                if (!strictly_inside_convex(q, hull)) boundary.push_back(q);
+        if (!all.empty()) {
+            const double y_top = CGAL::to_double(all.front().y());
+            const double y_bot = CGAL::to_double(all.back().y());
+            for (size_t i = 0; i < all.size(); ) {
+                size_t j = i + 1;
+                const double y = CGAL::to_double(all[i].y());
+                while (j < all.size() && CGAL::to_double(all[j].y()) == y)
+                    ++j;
+                if (y == y_top || y == y_bot) {
+                    boundary.insert(boundary.end(), all.begin() + static_cast<std::ptrdiff_t>(i),
+                                    all.begin() + static_cast<std::ptrdiff_t>(j));
+                } else {
+                    boundary.push_back(all[i]);
+                    if (j - 1 != i)
+                        boundary.push_back(all[j - 1]);
+                }
+                i = j;
             }
         }
-
-        std::sort(boundary.begin(), boundary.end(), [](const Point& a, const Point& b) {
-            const double ay = CGAL::to_double(a.y()), by = CGAL::to_double(b.y());
-            if (ay != by) return ay > by;
-            return CGAL::to_double(a.x()) < CGAL::to_double(b.x());
-        });
 
         boundary_offsets.clear();
         boundary_offsets.reserve(boundary.size());
@@ -549,12 +585,19 @@ inline std::vector<Point> get_boundary_points_from_grid(const Point& p, double E
     return out;
 }
 
-// The two tangent (supporting) vertices from external point p to convex
-// polygon S.  Since p lies outside S, all of S falls within an angular wedge
-// of <180 degrees where bearing is a total order, so a single linear scan
-// keeping the most-clockwise and most-counterclockwise vertices finds both
-// tangents in O(n).  The orientation sign is pure-double: on a collinear tie
-// either vertex is an equally valid supporting vertex.
+/**
+ * @brief Indices of the two supporting (tangent) vertices from p to convex S.
+ *
+ * @pre p lies outside convex S. Then all of S sits in a <180° angular wedge
+ *      from p, so bearing is a total order.
+ * @param p External query point.
+ * @param S Convex polygon vertices.
+ * @return {min_idx, max_idx} of the most-CW and most-CCW vertices, or empty
+ *         if both coincide (degenerate).
+ *
+ * Algorithm: O(n) scan; keep argmin / argmax of orientation(p, S[i], S[j])
+ * in pure doubles. Collinear ties: either vertex is a valid support.
+ */
 inline std::vector<int> find_tangent_idx(const Point& p, const std::vector<Point>& S) {
     std::vector<int> tangent;
     tangent.reserve(2);
@@ -594,24 +637,21 @@ inline std::vector<int> find_tangent_idx(const Point& p, const std::vector<Point
     return tangent;
 }
 
-// Conservative separating-axis prune for the stab loop.  Returns true only when
-// the delta-disk region Gi is *provably* disjoint from the free-space wedge
-// F(S,p), so the caller can skip the expensive clip and declare the candidate
-// dead without computing F at all.
-//
-// F(S,p) is always contained in the cone with apex p bounded by the two tangent
-// rays p->S[t0] and p->S[t1] (all of S, its arc, and the bbox hits lie inside
-// that angular wedge).  The cone is the intersection of two half-planes H0, H1
-// whose boundary lines pass through p.  Hence if every vertex of the convex Gi
-// lies strictly outside H0 (or strictly outside H1), then Gi cannot meet the
-// cone and therefore cannot meet F, so F n Gi is empty.
-//
-// The test is one-sided: it uses the same raw-double tangents as find_F and an
-// a-priori rounding margin, so it fires only when the separation is robust.
-// Near-boundary cases fall through to the exact clip.  It can therefore never
-// drop a candidate the exact intersection would have kept -- the Frechet
-// guarantee is preserved (a wrongly-kept candidate is impossible; a wrongly
-// dropped one cannot occur because we only prune on robust separation).
+/**
+ * @brief Conservative prune: true ⇒ Gi is provably disjoint from F(S,p).
+ *
+ * Lets the stab loop skip find_F + clip when separation is robust.
+ *
+ * Idea: F ⊆ cone(p; rays to tangent verts t0,t1) = H0 ∩ H1. If every vertex
+ * of convex Gi lies strictly outside H0 (or outside H1), then Gi ∩ F = ∅.
+ *
+ * One-sided: uses raw-double tangents + a-priori rounding margin. Near-boundary
+ * cases return false and fall through to the exact clip. Never drops a
+ * candidate that exact intersection would keep.
+ *
+ * Early exits (return false = "not proven disjoint"):
+ *   |S|<3, p ∈ S, no two tangents, or degenerate cone (orient == 0).
+ */
 inline bool wedge_gi_disjoint(const Point& p, const std::vector<Point>& S,
                               const std::vector<Point>& Gi) {
     const int sn = static_cast<int>(S.size());
@@ -658,11 +698,26 @@ inline bool wedge_gi_disjoint(const Point& p, const std::vector<Point>& S,
     return sep0 || sep1;
 }
 
-// The free-space wedge F(S,p): the region of the bbox reachable from the
-// convex stab region S through the external point p.  When p is inside S (or S
-// is a single point) every bbox point is reachable, so F is the whole bbox;
-// otherwise F is bounded by the two tangent rays from p to S, the arc of S
-// between the tangent vertices, and the bbox boundary between the two ray hits.
+/**
+ * @brief Build free-space wedge F(S,p) into @p F (cleared first).
+ *
+ * F is the region of the working bbox reachable from convex stab region S
+ * through external point p.
+ *
+ * Cases:
+ *   1. |S|==1 or p ∈ S     → F = whole bbox.
+ *   2. No two tangents     → F left empty (return).
+ *   3. Ray miss / unclassified hit → F = whole bbox.
+ *   4. Otherwise (p outside S):
+ *        F = S-arc between tangents  ∪  bbox chain between ray hits
+ *            ∪  the two ray-hit points.
+ *      Arc choice: if (S[t0]-p)×(S[t1]-p) < 0 (right turn), copy t0..t1;
+ *      else copy the wrap-around arc t1..end + begin..t0.
+ *
+ * @param p External (or interior) query point.
+ * @param S Convex stab region; must not have exactly 2 vertices (assert).
+ * @param F Output polygon, CCW.
+ */
 inline void find_F(const Point& p, const std::vector<Point>& S,
                    std::vector<Point>& F) {
     F.clear();

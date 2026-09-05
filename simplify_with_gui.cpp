@@ -31,6 +31,7 @@ bool showS = false;
 bool keep_polygons = false;
 bool show_simplified = true;
 bool show_labels = false;
+bool help_flag = false;
 
 // ===========================================================================
 //  Help
@@ -72,6 +73,7 @@ int parse_arguments(int argc, char** argv, int& test_case_no) {
         }
         else if (std::strcmp(argv[i], "-h") == 0) {
             print_help();
+            help_flag = true;
             return 0;
         }
         else if (std::strcmp(argv[i], "--in") == 0 && i + 1 < argc) {
@@ -94,6 +96,7 @@ int parse_arguments(int argc, char** argv, int& test_case_no) {
 
     if (argc == 1) {
         print_help();
+        help_flag = true;
         return 0;
     }
     return 0;
@@ -288,6 +291,7 @@ int main(int argc, char** argv) {
 
     code = parse_arguments(argc, argv, test_case_no);
     if (code != 0) return code;
+    if (help_flag) return 0;
 
     std::vector<Point> stream;
     code = read_stream(test_case_no, stream);

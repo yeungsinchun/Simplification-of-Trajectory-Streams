@@ -20,6 +20,13 @@
 
   const state = {
     trace: null,        // parsed JSON
+    compare: null,      // baseline compare payload for Results panel
+    resultVisible: { original: true, simplify: false, dots: false, dp: false, squish: false },
+    baselineAlgos: [],
+    baselineLssd: 1e6, // stored as raw DOTS threshold; UI shows thousands (K)
+    baselineDpEps: 0.9,
+    baselineSquishRatio: 0.2,
+    baselineCache: {},
     prefixIdx: 0,
     stepIdx: 0,
     candidateIdx: 0,     // which candidate to show F/S for (cycles through alive and dead)
@@ -52,7 +59,6 @@
 
   const uploadBtn = el("uploadBtn");
   const trajectoryInput = el("trajectoryInput");
-  const trajectoryFileName = el("trajectoryFileName");
   const epsilonInput = el("epsilonInput");
   const deltaInput = el("deltaInput");
   const uploadStatus = el("uploadStatus");
@@ -99,6 +105,642 @@
   const toggles = {};
   for (const key of ["stream", "simplified", "ball-p0", "ball-pi", "Gi", "F", "F-Si", "S", "P", "dead-candidates"]) {
     toggles[key] = el(`toggle-${key}`);
+  }
+
+  const resultsPanel = el("resultsPanel");
+  const resultsPanelBackdrop = el("resultsPanelBackdrop");
+  const resultsPanelOpen = el("resultsPanelOpen");
+  const resultsPanelClose = el("resultsPanelClose");
+  const compareMetricsBody = el("compareMetricsBody");
+  const compareMetricsHead = el("compareMetricsHead");
+  const compareOriginalCount = el("compareOriginalCount");
+  const compareFrechetNote = el("compareFrechetNote");
+  const toggleFinalSimplify = el("toggle-final-simplify");
+  const accordionBaseline = el("accordionBaseline");
+  const accordionBaselineSummary = el("accordionBaselineSummary");
+  const baselineLayerHint = el("baselineLayerHint");
+  const baselineLayerToggles = el("baselineLayerToggles");
+  const baselineAlgoRow = el("baselineAlgoRow");
+  const headerBaselineAlgoRow = el("headerBaselineAlgoRow");
+  const resultsPanelResizer = el("resultsPanelResizer");
+  const baselineLssdField = el("baselineLssdField");
+  const baselineLssdInput = el("baselineLssdInput");
+  const headerBaselineLssdField = el("headerBaselineLssdField");
+  const headerBaselineLssdInput = el("headerBaselineLssdInput");
+  const baselineDpEpsField = el("baselineDpEpsField");
+  const baselineDpEpsInput = el("baselineDpEpsInput");
+  const headerBaselineDpEpsField = el("headerBaselineDpEpsField");
+  const headerBaselineDpEpsInput = el("headerBaselineDpEpsInput");
+  const baselineSquishRatioField = el("baselineSquishRatioField");
+  const baselineSquishRatioInput = el("baselineSquishRatioInput");
+  const headerBaselineSquishRatioField = el("headerBaselineSquishRatioField");
+  const headerBaselineSquishRatioInput = el("headerBaselineSquishRatioInput");
+  const baselineRunBtn = el("baselineRunBtn");
+  const baselineStatus = el("baselineStatus");
+
+  function baselineAlgoRows() {
+    return [headerBaselineAlgoRow, baselineAlgoRow].filter(Boolean);
+  }
+
+  const LSSD_UNIT_K = 1000; // UI unit "K" = thousands
+
+  function lssdDisplayFromRaw(raw) {
+    return raw / LSSD_UNIT_K;
+  }
+
+  function lssdRawFromDisplay(display) {
+    return display * LSSD_UNIT_K;
+  }
+
+  function syncBaselineLssdInputs() {
+    const display = lssdDisplayFromRaw(state.baselineLssd);
+    const text = Number.isInteger(display) ? String(display) : String(display);
+    if (baselineLssdInput && document.activeElement !== baselineLssdInput) {
+      baselineLssdInput.value = text;
+    }
+    if (headerBaselineLssdInput && document.activeElement !== headerBaselineLssdInput) {
+      headerBaselineLssdInput.value = text;
+    }
+  }
+
+  function readBaselineLssdFromInputs() {
+    const rawDisplay = (document.activeElement === headerBaselineLssdInput && headerBaselineLssdInput)
+      ? headerBaselineLssdInput.value
+      : (baselineLssdInput?.value ?? headerBaselineLssdInput?.value);
+    const display = parseFloat(rawDisplay);
+    if (Number.isFinite(display) && display > 0) {
+      state.baselineLssd = lssdRawFromDisplay(display);
+      syncBaselineLssdInputs();
+    }
+    return state.baselineLssd;
+  }
+
+  function closeResultsPanel() {
+    document.body.classList.remove("results-panel-open");
+    if (resultsPanelOpen) resultsPanelOpen.setAttribute("aria-expanded", "false");
+    if (resultsPanelBackdrop) resultsPanelBackdrop.hidden = true;
+  }
+
+  function openResultsPanel() {
+    if (!resultsPanel || resultsPanel.hidden) return;
+    document.body.classList.add("results-panel-open");
+    if (resultsPanelOpen) resultsPanelOpen.setAttribute("aria-expanded", "true");
+    if (resultsPanelBackdrop) resultsPanelBackdrop.hidden = false;
+  }
+
+  function fmtNum(v, digits = 4) {
+    if (v == null || Number.isNaN(v)) return "—";
+    if (typeof v !== "number") return String(v);
+    if (v === 0) return "0";
+    const abs = Math.abs(v);
+    // Avoid showing 3.8e-10 as "0.0000" (looks wrongly exact).
+    if (abs < 1e-3 || abs >= 1e6) return v.toExponential(3);
+    return v.toFixed(digits);
+  }
+
+  const BASELINE_ORDER = ["dots", "dp", "squish"];
+  const BASELINE_COLORS = { dots: "#f472b6", dp: "#a78bfa", squish: "#fb923c" };
+
+  function baselineAlgoLabel(algo) {
+    if (algo === "dots") return "DOTS";
+    if (algo === "dp") return "DP";
+    if (algo === "squish") return "SQUISH";
+    return "Baseline";
+  }
+
+  function selectedBaselineAlgos() {
+    return BASELINE_ORDER.filter((a) => state.baselineAlgos.includes(a));
+  }
+
+  function setBaselineStatus(text, kind) {
+    if (!baselineStatus) return;
+    baselineStatus.textContent = text || "";
+    baselineStatus.classList.remove("error", "ok");
+    if (kind) baselineStatus.classList.add(kind);
+  }
+
+  function syncBaselinePills() {
+    const selected = new Set(state.baselineAlgos);
+    for (const row of baselineAlgoRows()) {
+      for (const btn of row.querySelectorAll(".baseline-algo-pill")) {
+        const on = selected.has(btn.dataset.algo);
+        btn.classList.toggle("active", on);
+        btn.setAttribute("aria-pressed", String(on));
+      }
+    }
+  }
+
+  function toggleBaselineAlgo(algo) {
+    if (!BASELINE_ORDER.includes(algo)) return;
+    const i = state.baselineAlgos.indexOf(algo);
+    if (i >= 0) {
+      state.baselineAlgos.splice(i, 1);
+      state.resultVisible[algo] = false;
+    } else {
+      state.baselineAlgos.push(algo);
+    }
+    const labels = selectedBaselineAlgos().map(baselineAlgoLabel);
+    setBaselineStatus(
+      labels.length
+        ? (currentTraceId
+          ? `Selected ${labels.join(", ")}. Click Run baseline (or reload the trace to auto-run).`
+          : `Selected ${labels.join(", ")}. Load a preloaded trace to run the benchmark.`)
+        : ""
+    );
+    syncBaselinePills();
+    syncBaselineParamFields();
+    renderBaselineLayerToggles();
+    renderCompareMetrics();
+    render();
+  }
+
+  function baselineParamsFor(algo, { lssd, dpEps, squishRatio }) {
+    if (algo === "dots") return { lssd };
+    if (algo === "dp") return { epsilon: dpEps };
+    if (algo === "squish") return { ratio: squishRatio };
+    return {};
+  }
+
+  function baselineParamsEqual(a, b) {
+    if (!a || !b) return false;
+    const keys = Object.keys(a);
+    if (keys.length !== Object.keys(b).length) return false;
+    return keys.every((k) => a[k] === b[k]);
+  }
+
+  function baselineCacheKey(algo) {
+    return `${currentTraceId}:${algo}`;
+  }
+
+  function rememberBaselineRun(algo, params) {
+    if (!currentTraceId || !algo || !state.compare) return;
+    state.baselineCache[baselineCacheKey(algo)] = {
+      params: { ...params },
+      layers: state.compare.layers?.[algo] || null,
+      metrics: state.compare.metricsByAlgo?.[algo] || null,
+      frechet: state.compare.frechet?.byAlgo?.[algo] || null,
+    };
+  }
+
+  function restoreCachedBaseline(algo, params) {
+    const hit = state.baselineCache[baselineCacheKey(algo)];
+    if (!hit || !baselineParamsEqual(hit.params, params)) return false;
+    if (!Array.isArray(hit.layers) || !hit.layers.length) return false;
+    if (!state.compare) {
+      state.compare = {
+        layers: {},
+        metrics: {},
+        metricsByAlgo: {},
+        frechet: { simplify: null, byAlgo: {} },
+      };
+    }
+    state.compare.layers[algo] = hit.layers;
+    state.resultVisible[algo] = true;
+    if (hit.metrics) state.compare.metricsByAlgo[algo] = hit.metrics;
+    state.compare.frechet = state.compare.frechet || { simplify: null, byAlgo: {} };
+    state.compare.frechet.byAlgo = state.compare.frechet.byAlgo || {};
+    if (hit.frechet) state.compare.frechet.byAlgo[algo] = hit.frechet;
+    return true;
+  }
+
+  function squishDisplayFromRaw(raw) {
+    return raw * 100;
+  }
+
+  function squishRawFromDisplay(display) {
+    return display / 100;
+  }
+
+  function syncPairedNumberInputs(a, b, value) {
+    const text = String(value);
+    if (a && document.activeElement !== a) a.value = text;
+    if (b && document.activeElement !== b) b.value = text;
+  }
+
+  function readPairedNumber(a, b, fallback) {
+    const raw = (document.activeElement === a && a)
+      ? a.value
+      : (a?.value ?? b?.value);
+    const v = parseFloat(raw);
+    return Number.isFinite(v) ? v : fallback;
+  }
+
+  function syncBaselineParamFields() {
+    const selected = new Set(selectedBaselineAlgos());
+    if (baselineLssdField) baselineLssdField.hidden = !selected.has("dots");
+    if (headerBaselineLssdField) headerBaselineLssdField.hidden = !selected.has("dots");
+    if (baselineDpEpsField) baselineDpEpsField.hidden = !selected.has("dp");
+    if (headerBaselineDpEpsField) headerBaselineDpEpsField.hidden = !selected.has("dp");
+    if (baselineSquishRatioField) baselineSquishRatioField.hidden = !selected.has("squish");
+    if (headerBaselineSquishRatioField) headerBaselineSquishRatioField.hidden = !selected.has("squish");
+    syncBaselineLssdInputs();
+    syncPairedNumberInputs(baselineDpEpsInput, headerBaselineDpEpsInput, state.baselineDpEps);
+    syncPairedNumberInputs(
+      baselineSquishRatioInput,
+      headerBaselineSquishRatioInput,
+      squishDisplayFromRaw(state.baselineSquishRatio)
+    );
+    if (baselineRunBtn) {
+      baselineRunBtn.disabled = !currentTraceId || selected.size === 0 || baselineRunBtn.dataset.busy === "1";
+      baselineRunBtn.textContent = selected.size > 1 ? "Run baselines" : "Run baseline";
+    }
+  }
+
+  function emptyCompareMessage(colspan) {
+    return `<tr><td colspan="${colspan}" class="compare-metrics-empty">Load a trace, then run a baseline.</td></tr>`;
+  }
+
+  function clearCompare() {
+    state.compare = null;
+    for (const a of BASELINE_ORDER) state.resultVisible[a] = false;
+    closeResultsPanel();
+    document.body.classList.remove("results-available");
+    if (resultsPanel) resultsPanel.hidden = true;
+    if (accordionBaselineSummary) accordionBaselineSummary.textContent = "Baseline";
+    if (baselineLayerHint) baselineLayerHint.hidden = false;
+    if (compareFrechetNote) {
+      compareFrechetNote.hidden = true;
+      compareFrechetNote.textContent = "";
+    }
+    if (compareOriginalCount) {
+      compareOriginalCount.hidden = true;
+      compareOriginalCount.textContent = "";
+    }
+    setBaselineStatus("");
+    renderBaselineLayerToggles();
+    renderCompareMetrics();
+    syncBaselineParamFields();
+  }
+
+  function syncLayerTogglesFromState() {
+    if (toggles.stream) toggles.stream.checked = !!state.resultVisible.original;
+    if (toggleFinalSimplify) toggleFinalSimplify.checked = !!state.resultVisible.simplify;
+    if (baselineLayerToggles) {
+      for (const input of baselineLayerToggles.querySelectorAll("input[data-baseline-algo]")) {
+        input.checked = !!state.resultVisible[input.dataset.baselineAlgo];
+      }
+    }
+  }
+
+  function renderBaselineLayerToggles() {
+    if (!baselineLayerToggles) return;
+    const ready = selectedBaselineAlgos().filter((a) => state.compare?.layers?.[a]?.length);
+    baselineLayerToggles.innerHTML = ready.map((a) => `
+      <div class="toggle-row">
+        <label>
+          <input type="checkbox" data-baseline-algo="${a}" ${state.resultVisible[a] ? "checked" : ""} />
+          <span class="swatch" style="background:${BASELINE_COLORS[a]}"></span>${baselineAlgoLabel(a)}
+        </label>
+      </div>`).join("");
+    if (baselineLayerHint) baselineLayerHint.hidden = ready.length > 0;
+    if (accordionBaselineSummary) {
+      accordionBaselineSummary.textContent = ready.length
+        ? ready.map(baselineAlgoLabel).join(" / ")
+        : "Baseline";
+    }
+  }
+
+  function winClass(values, idx) {
+    const nums = values.filter((v) => v != null && Number.isFinite(v));
+    if (nums.length < 2) return "";
+    const best = Math.min(...nums);
+    return values[idx] === best ? "win" : "";
+  }
+
+  function renderCompareMetrics() {
+    if (!compareMetricsBody) return;
+    const t = state.trace;
+    const c = state.compare;
+    const algos = selectedBaselineAlgos();
+    const colCount = 2 + algos.length;
+    const frechetSpinner =
+      '<span class="button-spinner params-spinner" aria-hidden="true"></span>';
+
+    if (compareMetricsHead) {
+      compareMetricsHead.innerHTML =
+        `<th>Metric</th><th>Simplify</th>` +
+        algos.map((a) => `<th>${baselineAlgoLabel(a)}</th>`).join("");
+    }
+
+    if (!t && !c) {
+      if (compareOriginalCount) {
+        compareOriginalCount.hidden = true;
+        compareOriginalCount.textContent = "";
+      }
+      compareMetricsBody.innerHTML = emptyCompareMessage(colCount);
+      return;
+    }
+
+    const nOrig = c?.metrics?.original_points ?? t?.stream?.length ?? null;
+    if (compareOriginalCount) {
+      if (nOrig != null) {
+        compareOriginalCount.hidden = false;
+        compareOriginalCount.innerHTML = `Original points: <b>${nOrig}</b>`;
+      } else {
+        compareOriginalCount.hidden = true;
+        compareOriginalCount.textContent = "";
+      }
+    }
+    const nSimp = t?.simplified?.length ?? c?.metrics?.simplify_points ?? null;
+    const simpMs = t?.time_ms ?? c?.metrics?.simplify_core_ms ?? null;
+    const simpFr = state.computedFrechet ?? c?.frechet?.simplify ?? null;
+    const simpFrLoading = !!state.computingFrechet;
+
+    const pct = (n, total) =>
+      (n != null && total) ? `${((100 * n) / total).toFixed(1)}%` : "—";
+
+    const basePts = algos.map((a) =>
+      c?.layers?.[a]?.length ?? c?.metricsByAlgo?.[a]?.points ?? null);
+    const baseMs = algos.map((a) => c?.metricsByAlgo?.[a]?.core_ms ?? null);
+    const baseFrLoading = algos.map((a) => !!c?.frechet?.byAlgo?.[a]?.loading);
+    const baseFr = algos.map((a) =>
+      baseFrLoading[algos.indexOf(a)] ? null : (c?.frechet?.byAlgo?.[a]?.value ?? null));
+
+    const ptsAll = [nSimp, ...basePts];
+    const msAll = [simpMs, ...baseMs];
+    const frAll = [
+      simpFrLoading ? null : simpFr,
+      ...algos.map((_, i) => (baseFrLoading[i] ? null : baseFr[i])),
+    ];
+
+    const cell = (html, win) => `<td class="${win ? "win" : ""}">${html}</td>`;
+    const numOrDash = (v, digits) => (v == null ? "—" : (typeof v === "number" ? fmtNum(v, digits) : String(v)));
+
+    const frSimpCell = simpFrLoading ? frechetSpinner : numOrDash(simpFr, 4);
+    const frBaseCells = algos.map((_, i) => baseFrLoading[i] ? frechetSpinner : numOrDash(baseFr[i], 4));
+
+    if (compareFrechetNote) {
+      const tiny = algos.some((a, i) => {
+        const v = baseFr[i];
+        const n = basePts[i];
+        return !baseFrLoading[i] && n != null && v != null && Math.abs(v) > 0 && Math.abs(v) < 1e-3;
+      });
+      if (tiny) {
+        compareFrechetNote.hidden = false;
+        compareFrechetNote.textContent =
+          "A baseline Frechet value is tiny but not exact zero; that can happen when the baseline keeps most of the original points.";
+      } else {
+        compareFrechetNote.hidden = true;
+        compareFrechetNote.textContent = "";
+      }
+    }
+
+    if (!algos.length) {
+      compareMetricsBody.innerHTML = `
+      <tr><td>Simplified points</td>${cell(nSimp ?? "—", false)}</tr>
+      <tr><td>Compression</td>${cell(pct(nSimp, nOrig), false)}</tr>
+      <tr><td>time (ms)</td>${cell(numOrDash(simpMs, 4), false)}</tr>
+      <tr><td>Frechet</td>${cell(frSimpCell, false)}</tr>`;
+      return;
+    }
+
+    compareMetricsBody.innerHTML = `
+      <tr>
+        <td>Simplified points</td>
+        ${cell(nSimp ?? "—", winClass(ptsAll, 0))}
+        ${algos.map((_, i) => cell(basePts[i] ?? "—", winClass(ptsAll, i + 1))).join("")}
+      </tr>
+      <tr>
+        <td>Compression</td>
+        ${cell(pct(nSimp, nOrig), winClass(ptsAll, 0))}
+        ${algos.map((_, i) => cell(pct(basePts[i], nOrig), winClass(ptsAll, i + 1))).join("")}
+      </tr>
+      <tr>
+        <td>time (ms)</td>
+        ${cell(numOrDash(simpMs, 4), winClass(msAll, 0))}
+        ${algos.map((_, i) => cell(numOrDash(baseMs[i], 4), winClass(msAll, i + 1))).join("")}
+      </tr>
+      <tr>
+        <td>Frechet</td>
+        ${cell(frSimpCell, winClass(frAll, 0))}
+        ${algos.map((_, i) => cell(frBaseCells[i], winClass(frAll, i + 1))).join("")}
+      </tr>
+    `;
+  }
+
+  function showResultsPanel(hasBaseline) {
+    if (!resultsPanel) return;
+    resultsPanel.hidden = false;
+    document.body.classList.add("results-available");
+    closeResultsPanel();
+
+    if (accordionBaseline) accordionBaseline.open = false;
+    renderBaselineLayerToggles();
+    syncLayerTogglesFromState();
+    syncBaselineParamFields();
+    renderCompareMetrics();
+  }
+
+  function applyComparePayload(data) {
+    const layersIn = data.layers || {};
+    const algo = data.algorithm || data.metrics?.algorithm || null;
+    if (!state.compare) {
+      state.compare = {
+        layers: {},
+        metrics: {},
+        metricsByAlgo: {},
+        frechet: { simplify: null, byAlgo: {} },
+      };
+    }
+    if (layersIn.original) state.compare.layers.original = layersIn.original;
+    if (layersIn.simplify) state.compare.layers.simplify = layersIn.simplify;
+    if (data.metrics) {
+      if (data.metrics.original_points != null) state.compare.metrics.original_points = data.metrics.original_points;
+      if (data.metrics.simplify_points != null) state.compare.metrics.simplify_points = data.metrics.simplify_points;
+      if (data.metrics.simplify_core_ms != null) state.compare.metrics.simplify_core_ms = data.metrics.simplify_core_ms;
+    }
+    if (algo && algo !== "none") {
+      const failed = !!(data.baseline_error || data.dots_error);
+      const pts = failed ? null : (layersIn[algo] || layersIn.baseline);
+      if (Array.isArray(pts) && pts.length) {
+        const copy = pts.map((p) => [p[0], p[1]]);
+        if (isSampleTraceId()) copy.forEach((p) => { p[1] += 500; });
+        state.compare.layers[algo] = copy;
+        state.resultVisible[algo] = true;
+      } else if (failed) {
+        delete state.compare.layers[algo];
+        state.resultVisible[algo] = false;
+      }
+      state.compare.metricsByAlgo[algo] = {
+        label: data.metrics?.baseline_label || baselineAlgoLabel(algo),
+        points: failed ? null : (data.metrics?.baseline_points ?? state.compare.layers[algo]?.length ?? null),
+        core_ms: failed ? null : (data.metrics?.baseline_core_ms ?? null),
+        error: data.baseline_error || data.dots_error || null,
+      };
+    }
+    return selectedBaselineAlgos().some((a) => Array.isArray(state.compare.layers[a]) && state.compare.layers[a].length > 0);
+  }
+
+  async function loadCompare() {
+    clearCompare();
+    if (!currentTraceId) {
+      if (state.trace) showResultsPanel(false);
+      return;
+    }
+    try {
+      const resp = await fetch(`/api/trace/${currentTraceId}/compare?algorithm=none`);
+      if (!resp.ok) {
+        if (state.trace) showResultsPanel(false);
+        return;
+      }
+      const data = await resp.json();
+      applyComparePayload(data);
+      showResultsPanel(false);
+      if (selectedBaselineAlgos().length) {
+        setBaselineStatus(`Running selected baseline(s)…`);
+        await runSelectedBaseline();
+      } else {
+        setBaselineStatus("Choose one or more baseline algorithms and click Run.");
+      }
+    } catch (err) {
+      console.warn("[Compare] Failed to load compare shell:", err);
+      if (state.trace) showResultsPanel(false);
+    }
+  }
+
+  async function runSelectedBaseline() {
+    if (!currentTraceId) {
+      setBaselineStatus("Load a preloaded trace first.", "error");
+      return;
+    }
+    const algos = selectedBaselineAlgos();
+    if (!algos.length) {
+      setBaselineStatus("Select a baseline algorithm first.", "error");
+      return;
+    }
+
+    let lssd = state.baselineLssd;
+    let dpEps = state.baselineDpEps;
+    let squishRatio = state.baselineSquishRatio;
+    if (algos.includes("dots")) {
+      lssd = readBaselineLssdFromInputs();
+      if (!Number.isFinite(lssd) || lssd <= 0) {
+        setBaselineStatus("LSSD must be a positive number.", "error");
+        return;
+      }
+    }
+    if (algos.includes("dp")) {
+      dpEps = readPairedNumber(baselineDpEpsInput, headerBaselineDpEpsInput, state.baselineDpEps);
+      if (!Number.isFinite(dpEps) || dpEps <= 0) {
+        setBaselineStatus("DP PED ε must be a positive number.", "error");
+        return;
+      }
+      state.baselineDpEps = dpEps;
+      syncPairedNumberInputs(baselineDpEpsInput, headerBaselineDpEpsInput, dpEps);
+    }
+    if (algos.includes("squish")) {
+      const pct = readPairedNumber(
+        baselineSquishRatioInput,
+        headerBaselineSquishRatioInput,
+        squishDisplayFromRaw(state.baselineSquishRatio)
+      );
+      if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
+        setBaselineStatus("SQUISH ratio must be in (0, 100].", "error");
+        return;
+      }
+      squishRatio = squishRawFromDisplay(pct);
+      state.baselineSquishRatio = squishRatio;
+      syncPairedNumberInputs(
+        baselineSquishRatioInput,
+        headerBaselineSquishRatioInput,
+        squishDisplayFromRaw(squishRatio)
+      );
+    }
+
+    if (baselineRunBtn) {
+      baselineRunBtn.dataset.busy = "1";
+      baselineRunBtn.disabled = true;
+      baselineRunBtn.textContent = "Running…";
+    }
+
+    const errors = [];
+    const skipped = [];
+    const ran = [];
+    const needFrechet = [];
+    let anyReady = false;
+    try {
+      for (const algo of algos) {
+        const params = baselineParamsFor(algo, { lssd, dpEps, squishRatio });
+        if (restoreCachedBaseline(algo, params)) {
+          skipped.push(baselineAlgoLabel(algo));
+          anyReady = true;
+          const fr = state.compare.frechet?.byAlgo?.[algo];
+          if (fr == null || (fr.value == null && !fr.loading)) needFrechet.push(algo);
+          renderCompareMetrics();
+          renderBaselineLayerToggles();
+          continue;
+        }
+        setBaselineStatus(`Running ${baselineAlgoLabel(algo)}…`);
+        const qs = new URLSearchParams({ algorithm: algo, run: "1" });
+        if (algo === "dots") qs.set("lssd", String(lssd));
+        if (algo === "dp") qs.set("epsilon", String(dpEps));
+        if (algo === "squish") qs.set("ratio", String(squishRatio));
+        const resp = await fetch(`/api/trace/${currentTraceId}/compare?${qs.toString()}`);
+        if (!resp.ok) throw new Error(await apiErrorMessage(resp));
+        const data = await resp.json();
+        if (data.baseline_error || data.dots_error) {
+          errors.push(`${baselineAlgoLabel(algo)}: ${data.baseline_error || data.dots_error}`);
+        } else {
+          ran.push(algo);
+        }
+        if (applyComparePayload(data)) anyReady = true;
+        if (!(data.baseline_error || data.dots_error)) rememberBaselineRun(algo, params);
+        renderCompareMetrics();
+        renderBaselineLayerToggles();
+      }
+      if (errors.length) setBaselineStatus(errors.join(" "), "error");
+      else {
+        const ready = selectedBaselineAlgos().filter((a) => state.compare?.layers?.[a]?.length);
+        const bits = ready.map((a) => {
+          const n = state.compare.metricsByAlgo?.[a]?.points ?? state.compare.layers[a].length;
+          return `${baselineAlgoLabel(a)} (${n} pts)`;
+        });
+        const extra = skipped.length && !ran.length
+          ? " Parameters unchanged; reused previous run."
+          : (skipped.length ? ` Reused ${skipped.join(", ")} (unchanged).` : "");
+        setBaselineStatus((bits.length ? `${bits.join(", ")} ready.` : "Baselines ready.") + extra, "ok");
+      }
+      showResultsPanel(anyReady);
+      if (anyReady) {
+        openResultsPanel();
+        for (const algo of [...ran, ...needFrechet]) startBaselineFrechet(algo);
+        render();
+      }
+    } catch (err) {
+      console.warn("[Compare] Baseline run failed:", err);
+      setBaselineStatus(err.message || "Baseline run failed", "error");
+    } finally {
+      if (baselineRunBtn) {
+        baselineRunBtn.dataset.busy = "0";
+        syncBaselineParamFields();
+      }
+    }
+  }
+
+  function startBaselineFrechet(algo) {
+    if (!currentTraceId || !algo || !state.compare?.layers?.[algo]) return;
+    state.compare.frechet = state.compare.frechet || { byAlgo: {} };
+    state.compare.frechet.byAlgo = state.compare.frechet.byAlgo || {};
+    state.compare.frechet.byAlgo[algo] = { loading: true, value: null };
+    renderCompareMetrics();
+    fetch(`/api/trace/${currentTraceId}/frechet/${encodeURIComponent(algo)}`)
+      .then(async (r) => {
+        if (!r.ok) throw new Error(await apiErrorMessage(r));
+        return r.json();
+      })
+      .then((j) => {
+        if (!state.compare) return;
+        state.compare.frechet.byAlgo[algo] = { loading: false, value: j.distance };
+        const hit = state.baselineCache[baselineCacheKey(algo)];
+        if (hit) hit.frechet = state.compare.frechet.byAlgo[algo];
+        renderCompareMetrics();
+      })
+      .catch((err) => {
+        console.warn("[Compare] Baseline Frechet failed:", err);
+        if (!state.compare) return;
+        state.compare.frechet.byAlgo[algo] = { loading: false, value: null };
+        renderCompareMetrics();
+      });
   }
 
   // -------------------------------------------------------------------------
@@ -375,6 +1017,8 @@
     if (window.MathJax) {
       MathJax.typesetPromise([paramsBar]).catch(() => {});
     }
+    // Fire-and-forget: Results strip + DOTS metrics after the live simplify trace.
+    loadCompare().then(() => render());
   }
 
   async function loadTraceStream(resp) {
@@ -551,16 +1195,14 @@
   uploadBtn.addEventListener("click", () => trajectoryInput.click());
   trajectoryInput.addEventListener("change", async (e) => {
     const f = e.target.files && e.target.files[0];
-    trajectoryFileName.textContent = f ? f.name : "no file chosen";
-    
     if (!f) return;
-    
+
     currentFile = f;
     currentTraceId = null;
+    clearCompare();
     traceSelect.value = "";
     syncPreloadedTrigger();
-    uploadStatus.textContent = "File selected. Click 'Load Trace' to generate.";
-    uploadStatus.style.color = "#8b93a3";
+    uploadStatus.textContent = "";
   });
 
   // Load button handler - generates trace from current file or preloaded trace
@@ -745,6 +1387,36 @@
     }
   }
 
+  function fitTraceSelectWidth() {
+    if (!traceSelect) return;
+    // Mobile uses the full-width trigger; only size the desktop native select.
+    if (window.matchMedia && window.matchMedia("(max-width: 720px)").matches) {
+      traceSelect.style.width = "";
+      return;
+    }
+    const probe = document.createElement("span");
+    const cs = getComputedStyle(traceSelect);
+    probe.style.cssText = [
+      "position:absolute",
+      "visibility:hidden",
+      "white-space:nowrap",
+      "pointer-events:none",
+      `font:${cs.font}`,
+      `letter-spacing:${cs.letterSpacing}`,
+    ].join(";");
+    document.body.appendChild(probe);
+    let max = 0;
+    for (const opt of traceSelect.options) {
+      if (opt.disabled) continue;
+      probe.textContent = opt.textContent || "";
+      max = Math.max(max, probe.offsetWidth);
+    }
+    probe.remove();
+    // Native select needs room for padding + dropdown arrow.
+    traceSelect.style.width = `${Math.ceil(max + 28)}px`;
+    traceSelect.style.maxWidth = "none";
+  }
+
   if (preloadedTrigger) preloadedTrigger.addEventListener("click", openTracePicker);
   if (tracePickerClose) tracePickerClose.addEventListener("click", closeTracePicker);
   if (tracePickerBackdrop) tracePickerBackdrop.addEventListener("click", closeTracePicker);
@@ -897,6 +1569,7 @@
             traceSelect.appendChild(opt);
           });
           renderTracePicker();
+          fitTraceSelectWidth();
           console.log(`[Traces] Added ${data.traces.length} traces to dropdown`);
         } else {
           console.warn('[Traces] No traces in response');
@@ -917,6 +1590,7 @@
       state.trace = null;
       currentFile = null;
       currentTraceId = null;
+      clearCompare();
       render();
       uploadStatus.textContent = "";
       dropHint.style.display = "flex";
@@ -929,7 +1603,6 @@
 
     currentTraceId = traceId;
     currentFile = null;
-    trajectoryFileName.textContent = "no file chosen";
     syncPreloadedTrigger();
     if (headerBody && headerBody.classList.contains("open")) closeHeader();
 
@@ -938,9 +1611,7 @@
     if (meta && meta.epsilon != null) epsilonInput.value = meta.epsilon;
     if (meta && meta.delta   != null) deltaInput.value   = meta.delta;
 
-    const name = (meta && meta.label) ? meta.label : `Trace ${traceId}`;
-    uploadStatus.textContent = `${name} selected. Click 'Load Trace' to generate.`;
-    uploadStatus.style.color = "#8b93a3";
+    uploadStatus.textContent = "";
   });
 
   function computeBBox(points) {
@@ -1405,7 +2076,9 @@
     if (!state.trace) return;
     resetFrechetState();
     state.computingFrechet = true;
+    if (state.compare?.frechet) state.compare.frechet.simplify = null;
     renderParamsBar();
+    renderCompareMetrics();
 
     try {
       let body;
@@ -1432,11 +2105,13 @@
       state.computedFrechet = data.distance;
       state.computingFrechet = false;
       renderParamsBar();
+      renderCompareMetrics();
     } catch (e) {
       console.error('Fréchet computation error:', e);
       state.computingFrechet = false;
       state.frechetError = e.message || "failed";
       renderParamsBar();
+      renderCompareMetrics();
     }
   }
 
@@ -1487,7 +2162,131 @@
     }
   });
 
-  for (const t of Object.values(toggles)) t.addEventListener("change", render);
+  for (const t of Object.values(toggles)) {
+    if (t) t.addEventListener("change", () => {
+      if (t === toggles.stream) state.resultVisible.original = t.checked;
+      render();
+    });
+  }
+  if (toggleFinalSimplify) {
+    toggleFinalSimplify.addEventListener("change", () => {
+      state.resultVisible.simplify = toggleFinalSimplify.checked;
+      render();
+    });
+  }
+  if (baselineLayerToggles) {
+    baselineLayerToggles.addEventListener("change", (e) => {
+      const input = e.target.closest("input[data-baseline-algo]");
+      if (!input) return;
+      state.resultVisible[input.dataset.baselineAlgo] = input.checked;
+      render();
+    });
+  }
+
+  function onBaselineAlgoPillClick(e) {
+    const btn = e.target.closest(".baseline-algo-pill");
+    if (!btn) return;
+    const row = btn.closest(".baseline-algo-row");
+    if (!row || !baselineAlgoRows().includes(row)) return;
+    toggleBaselineAlgo(btn.dataset.algo || "none");
+  }
+
+  for (const row of baselineAlgoRows()) {
+    row.addEventListener("click", onBaselineAlgoPillClick);
+  }
+
+  function onBaselineLssdChange(input) {
+    if (!input) return;
+    input.addEventListener("change", () => {
+      const display = parseFloat(input.value);
+      if (Number.isFinite(display) && display > 0) {
+        state.baselineLssd = lssdRawFromDisplay(display);
+        syncBaselineLssdInputs();
+      }
+    });
+  }
+  onBaselineLssdChange(baselineLssdInput);
+  onBaselineLssdChange(headerBaselineLssdInput);
+
+  function onPairedNumberChange(input, key, validate) {
+    if (!input) return;
+    input.addEventListener("change", () => {
+      const v = parseFloat(input.value);
+      if (!validate(v)) return;
+      if (key === "baselineDpEps") {
+        state.baselineDpEps = v;
+        syncPairedNumberInputs(baselineDpEpsInput, headerBaselineDpEpsInput, v);
+      } else if (key === "baselineSquishRatio") {
+        state.baselineSquishRatio = squishRawFromDisplay(v);
+        syncPairedNumberInputs(
+          baselineSquishRatioInput,
+          headerBaselineSquishRatioInput,
+          v
+        );
+      }
+    });
+  }
+  onPairedNumberChange(baselineDpEpsInput, "baselineDpEps", (v) => Number.isFinite(v) && v > 0);
+  onPairedNumberChange(headerBaselineDpEpsInput, "baselineDpEps", (v) => Number.isFinite(v) && v > 0);
+  onPairedNumberChange(baselineSquishRatioInput, "baselineSquishRatio", (v) => Number.isFinite(v) && v > 0 && v <= 100);
+  onPairedNumberChange(headerBaselineSquishRatioInput, "baselineSquishRatio", (v) => Number.isFinite(v) && v > 0 && v <= 100);
+
+  if (baselineRunBtn) {
+    baselineRunBtn.addEventListener("click", () => { runSelectedBaseline(); });
+  }
+  syncBaselinePills();
+  syncBaselineParamFields();
+
+  if (resultsPanelOpen) {
+    resultsPanelOpen.addEventListener("click", () => openResultsPanel());
+  }
+  if (resultsPanelClose) {
+    resultsPanelClose.addEventListener("click", () => closeResultsPanel());
+  }
+  if (resultsPanelBackdrop) {
+    resultsPanelBackdrop.addEventListener("click", () => {
+      if (document.body.classList.contains("results-panel-resizing")) return;
+      closeResultsPanel();
+    });
+  }
+
+  // Adjustable Results panel width.
+  if (resultsPanel && resultsPanelResizer) {
+    const storedWidth = Number.parseFloat(localStorage.getItem("resultsPanelWidth") || "");
+    if (Number.isFinite(storedWidth) && storedWidth >= 260) {
+      document.documentElement.style.setProperty("--results-panel-width", `${storedWidth}px`);
+    }
+    let resizing = false;
+    let startX = 0;
+    let startWidth = 0;
+    const onMove = (e) => {
+      if (!resizing) return;
+      const dx = e.clientX - startX;
+      const maxW = Math.min(window.innerWidth * 0.8, 720);
+      const next = Math.max(260, Math.min(maxW, startWidth + dx));
+      document.documentElement.style.setProperty("--results-panel-width", `${next}px`);
+    };
+    const onUp = () => {
+      if (!resizing) return;
+      resizing = false;
+      document.body.classList.remove("results-panel-resizing");
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      const raw = getComputedStyle(document.documentElement).getPropertyValue("--results-panel-width").trim();
+      const px = Number.parseFloat(raw);
+      if (Number.isFinite(px)) localStorage.setItem("resultsPanelWidth", String(px));
+    };
+    resultsPanelResizer.addEventListener("pointerdown", (e) => {
+      if (resultsPanel.hidden || !document.body.classList.contains("results-panel-open")) return;
+      e.preventDefault();
+      resizing = true;
+      startX = e.clientX;
+      startWidth = resultsPanel.getBoundingClientRect().width;
+      document.body.classList.add("results-panel-resizing");
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    });
+  }
 
   // -------------------------------------------------------------------------
   //  Drawing helpers
@@ -1711,7 +2510,10 @@
     if (mobilePlayBtn) mobilePlayBtn.disabled = traceNotReady;
 
     // 1. Full input stream (faint polyline + small filled dots).
-    if (toggles.stream.checked) {
+    const showOriginal = toggles.stream
+      ? toggles.stream.checked
+      : !!state.resultVisible.original;
+    if (showOriginal) {
       strokePath(t.stream, "#3d4456", 1.25);
       
       // Collect all simplified output points to avoid drawing them twice
@@ -1766,6 +2568,23 @@
         const dotsToShow = committed.length > numToExclude ? committed.slice(0, committed.length - numToExclude) : [];
         for (const p of dotsToShow) dot(p, 1.8, "#3ddc97", null);
       }
+    }
+
+    // DOTS / final Simplify result curves (Results strip — not Layers).
+    // Final simplified result curve (accordion: Simplify → Final simplified).
+    if (state.resultVisible.simplify && t.simplified && t.simplified.length >= 2) {
+      strokePath(t.simplified, "#3ddc97", 2.5);
+      for (const p of t.simplified) dot(p, 1.7, "#3ddc97", null);
+    }
+    // Baseline result curves (one dashed overlay per selected algorithm).
+    for (const algo of BASELINE_ORDER) {
+      if (!state.resultVisible[algo] || !state.compare?.layers?.[algo]) continue;
+      const basePts = state.compare.layers[algo];
+      const color = BASELINE_COLORS[algo] || "#f472b6";
+      ctx.setLineDash([7, 4]);
+      strokePath(basePts, color, 2.25);
+      ctx.setLineDash([]);
+      for (const p of basePts) dot(p, 1.6, color, null);
     }
 
     if (pfx) {
