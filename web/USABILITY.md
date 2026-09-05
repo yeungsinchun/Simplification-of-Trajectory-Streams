@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Step still said original points (resolved)
+
+**Where:** Status Step tooltip, desktop/mobile Step titles and aria-labels, Instructions gloss, playback tour Step copy, and Status point-index title.
+
+**Problem:** Map overlays already named the input overlay `Gray path`, but Step still said `original points` / `original path points`, and Status indices said `original trajectory`. Skip-tour users mapping Step and start/current indices to Gray path could not tell those controls meant that same path.
+
+**Fix:** Copy says `Gray path points` / `Gray path`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/step-gray-path-points.html`
+- Fixture screenshot (900px): `web/usability/step-gray-path-points.png`
+
 ### Match / Grid / Scores still said simplified path (resolved)
 
 **Where:** Match / Grid form titles, Load title/aria-label, Results This run / Match error / Kept points / Time tips, Map overlays This run / Gray path tips, desktop `#paramsBar` chips, Accuracy tour copy.

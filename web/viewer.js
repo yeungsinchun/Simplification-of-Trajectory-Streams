@@ -1090,7 +1090,7 @@
   }
 
   function pointIndexTitle() {
-    return "Point number on the original trajectory (0 = first point)";
+    return "Point number on the Gray path (0 = first point)";
   }
 
   // Same pool as the Option playback control: still-open + just-rejected options.
@@ -1135,7 +1135,7 @@
       </div>`;
     statusGrid.innerHTML = `
       <span title="Jumps between pieces of the green path">Segment</span><span class="mono"><b>1 / …</b></span>
-      <span title="Walks along original points within the current Segment">Step</span><span class="mono"><b>1 / …</b></span>
+      <span title="Walks along Gray path points within the current Segment">Step</span><span class="mono"><b>1 / …</b></span>
       <span title="${candidateStatusTitle()}">Option</span><span class="mono"><b>… / …</b></span>`;
     typesetStatus(statusIndices);
     typesetStatus(statusGrid);
@@ -2067,7 +2067,7 @@
     rows.push([
       "Step",
       `${state.stepIdx + 1} / ${stepTotal}`,
-      "Walks along original points within the current Segment",
+      "Walks along Gray path points within the current Segment",
     ]);
     rows.push([
       "Option",
@@ -3282,7 +3282,7 @@
     },
     {
       title: "Step",
-      body: "<b>Step</b> moves along the original path points within the current Segment. Use ← / → (or the Step buttons) to advance one at a time.",
+      body: "<b>Step</b> moves along Gray path points within the current Segment. Use ← / → (or the Step buttons) to advance one at a time.",
       targets: ["#stepInput", "#mobileStepForwardBtn", "#mobileStepBackBtn"],
     },
     {
