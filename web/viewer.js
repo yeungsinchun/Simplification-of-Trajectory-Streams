@@ -3172,7 +3172,7 @@
     },
     {
       title: "Layers",
-      body: "In the sidebar, <b>Layers</b> toggles what the map draws (original path, simplified path, search circles, candidate regions). Labels use plain wording so you can match them to the map. Use <b>Fit to data</b> in View if you pan or zoom away.",
+      body: "In the sidebar, <b>Layers</b> toggles what the map draws (original path, simplified path, search circles, candidate regions). Labels use plain wording so you can match them to the map. Use <b>Fit view</b> in View if you pan or zoom away.",
       targets: ["#layersSection > h2", "#mobileLayersToggle", "#toggle-stream", "#toggle-simplified"],
       prepare: prepareLayersTourStep,
     },

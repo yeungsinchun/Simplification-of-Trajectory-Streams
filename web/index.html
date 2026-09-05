@@ -1070,6 +1070,16 @@
     font-size: 11px;
     line-height: 1.5;
   }
+  .instructions-gloss {
+    margin: 0 0 10px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text-dim);
+  }
+  .instructions-gloss b {
+    color: var(--text);
+    font-weight: 600;
+  }
   .shortcuts-table {
     width: 100%;
     border-collapse: collapse;
@@ -2462,18 +2472,25 @@
       <div class="section">
         <h2>View</h2>
         <div class="stepper">
-          <button id="fitBtn" title="Reset pan and zoom so the whole trajectory fits in the canvas">Fit to data</button>
+          <button id="fitBtn" title="Reset pan and zoom so the whole trajectory fits in the canvas">Fit view</button>
         </div>
       </div>
 
       <div class="section">
         <h2>Instructions</h2>
+        <p class="instructions-gloss" id="playbackInstructionsGloss">
+          <b>Step</b> walks along original points for the current simplified piece.
+          <b>Segment</b> jumps between pieces of the simplified path.
+          <b>Candidate</b> cycles next-point options the search considered.
+          <b>Play</b> auto-advances; use <b>Speed</b> to go faster or slower.
+          <b>Fit view</b> resets pan and zoom.
+        </p>
         <table class="shortcuts-table desktop-shortcuts">
           <tbody>
             <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Previous / next step</td></tr>
-            <tr><td><kbd>Shift</kbd>+<kbd>←</kbd>/<kbd>→</kbd></td><td>Previous / next simplified segment</td></tr>
-            <tr><td><kbd>Space</kbd></td><td>Play / pause auto-advance</td></tr>
-            <tr><td><kbd>C</kbd> / <kbd>X</kbd></td><td>Cycle through candidates forward / backward</td></tr>
+            <tr><td><kbd>Shift</kbd>+<kbd>←</kbd>/<kbd>→</kbd></td><td>Previous / next Segment</td></tr>
+            <tr><td><kbd>Space</kbd></td><td>Play / pause</td></tr>
+            <tr><td><kbd>C</kbd> / <kbd>X</kbd></td><td>Next / previous Candidate</td></tr>
             <tr><td>Drag</td><td>Pan the view</td></tr>
             <tr><td>Scroll / pinch</td><td>Zoom in / out</td></tr>
           </tbody>
@@ -2481,13 +2498,13 @@
         <table class="shortcuts-table mobile-shortcuts">
           <tbody>
             <tr><td>Step ← / →</td><td>Previous / next step on the bottom bar</td></tr>
-            <tr><td>Segment « / »</td><td>Previous / next simplified segment</td></tr>
-            <tr><td>Candidate ‹ / ›</td><td>Previous / next candidate</td></tr>
-            <tr><td>Play</td><td>Play / pause auto-advance</td></tr>
+            <tr><td>Segment « / »</td><td>Previous / next Segment</td></tr>
+            <tr><td>Candidate ‹ / ›</td><td>Previous / next Candidate</td></tr>
+            <tr><td>Play</td><td>Play / pause</td></tr>
             <tr><td>Speed 0.25×-4×</td><td>Playback speed on the bottom bar</td></tr>
             <tr><td>Drag</td><td>Pan the view</td></tr>
             <tr><td>Pinch</td><td>Zoom in / out</td></tr>
-            <tr><td>Hide / Controls</td><td>Hide or show Status and layers</td></tr>
+            <tr><td>Hide / Controls</td><td>Hide or show Status and Layers</td></tr>
           </tbody>
         </table>
       </div>
@@ -2574,6 +2591,6 @@
   </div>
 </div>
 
-<script src="viewer.js?v=kept-pct-scores-1"></script>
+<script src="viewer.js?v=playback-instructions-gloss-1"></script>
 </body>
 </html>

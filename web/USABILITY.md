@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Post-load Instructions were shortcut-only (resolved)
+
+**Where:** sidebar Instructions after Load (`#playbackInstructionsGloss`, desktop / mobile shortcut tables); View `#fitBtn`; Layers tour copy.
+
+**Problem:** After Load, Instructions listed only keyboard / dock shortcuts. Novices who skipped the playback tour still saw Step / Segment / Candidate with no meaning. View also said `Fit to data`, which reads like a data action rather than resetting the map.
+
+**Fix:** Instructions lead with a plain gloss for Step / Segment / Candidate / Play / Speed / Fit view (same ideas as the playback tour). Shortcut tables keep the keys underneath. The View button reads `Fit view`.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/playback-instructions-gloss.html`
+- Fixture screenshot (900px): `web/usability/playback-instructions-gloss.png`
+
 ### Results Scores still said Compression and led with Fréchet (resolved)
 
 **Where:** Results Scores table keep-share row; Match error footer / tooltips; upload success status; SQUISH keep validation.

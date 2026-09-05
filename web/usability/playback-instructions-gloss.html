@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Playback Instructions gloss</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    padding: 16px;
+  }
+  h1 { font-size: 15px; margin: 0 0 6px; }
+  p { margin: 0 0 12px; color: var(--text-dim); font-size: 12px; max-width: 720px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 900px; }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .label {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .section-card h2 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .instructions-gloss {
+    margin: 0 0 10px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text-dim);
+  }
+  .instructions-gloss b { color: var(--text); font-weight: 600; }
+  .shortcuts-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .shortcuts-table td { padding: 4px 2px; vertical-align: top; }
+  .shortcuts-table td:first-child {
+    white-space: nowrap;
+    padding-right: 10px;
+    color: var(--text);
+  }
+  kbd {
+    background: #1e2330;
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    padding: 2px 5px;
+    font-size: 11px;
+    font-family: inherit;
+  }
+  .chip {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--panel-border);
+    background: #1a2030;
+    font-size: 12px;
+  }
+  #check {
+    margin-top: 14px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+  <h1>Post-load Instructions explain Step / Segment / Candidate</h1>
+  <p>
+    After Load, the sidebar Instructions used to list only keyboard shortcuts.
+    Novices who skipped the playback tour still saw Step / Segment / Candidate
+    with no meaning. The gloss now matches the tour wording; Fit view replaces
+    Fit to data.
+  </p>
+  <div class="grid">
+    <div class="frame">
+      <div class="label">Before</div>
+      <div class="section-card">
+        <h2>Instructions</h2>
+        <table class="shortcuts-table">
+          <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Previous / next step</td></tr>
+          <tr><td><kbd>C</kbd> / <kbd>X</kbd></td><td>Cycle through candidates forward / backward</td></tr>
+        </table>
+        <button type="button" class="chip">Fit to data</button>
+      </div>
+    </div>
+    <div class="frame" id="after">
+      <div class="label">After</div>
+      <div class="section-card">
+        <h2>Instructions</h2>
+        <p class="instructions-gloss" id="gloss">
+          <b>Step</b> walks along original points for the current simplified piece.
+          <b>Segment</b> jumps between pieces of the simplified path.
+          <b>Candidate</b> cycles next-point options the search considered.
+          <b>Play</b> auto-advances; use <b>Speed</b> to go faster or slower.
+          <b>Fit view</b> resets pan and zoom.
+        </p>
+        <table class="shortcuts-table">
+          <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Previous / next step</td></tr>
+          <tr><td><kbd>C</kbd> / <kbd>X</kbd></td><td>Next / previous Candidate</td></tr>
+        </table>
+        <button type="button" class="chip" id="fitBtn">Fit view</button>
+      </div>
+    </div>
+  </div>
+  <div id="check"></div>
+  <script>
+    const gloss = document.getElementById("gloss").textContent;
+    const fit = document.getElementById("fitBtn").textContent.trim();
+    const scroll = document.documentElement.scrollWidth;
+    const hasStep = gloss.includes("Step") && gloss.includes("walks along");
+    const hasSegment = gloss.includes("Segment") && gloss.includes("jumps between");
+    const hasCandidate = gloss.includes("Candidate") && gloss.includes("cycles");
+    const noFitToData = fit === "Fit view" && !gloss.includes("Fit to data");
+    const ok = hasStep && hasSegment && hasCandidate && noFitToData && scroll <= 900;
+    document.getElementById("check").textContent =
+      `hasStep=${hasStep} hasSegment=${hasSegment} hasCandidate=${hasCandidate} fit=${fit} scrollWidth=${scroll} ok=${ok}`;
+  </script>
+</body>
+</html>
