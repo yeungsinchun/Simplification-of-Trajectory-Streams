@@ -227,6 +227,12 @@
     return "";
   }
 
+  function baselineAlgoLabelWithGloss(algo) {
+    const gloss = baselineAlgoGloss(algo);
+    const label = baselineAlgoLabel(algo);
+    return gloss ? `${label} (${gloss})` : label;
+  }
+
   function baselineAlgoOverlayTitle(algo) {
     if (algo === "dots") {
       return "DOTS path (as-you-go). Toggle the dashed overlay on the map.";
@@ -324,7 +330,7 @@
     } else {
       state.baselineAlgos.push(algo);
     }
-    const labels = selectedBaselineAlgos().map(baselineAlgoLabel);
+    const labels = selectedBaselineAlgos().map(baselineAlgoLabelWithGloss);
     setBaselineStatus(compareSelectionStatus(labels));
     syncBaselinePills();
     syncBaselineParamFields();

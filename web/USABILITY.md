@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Desktop Compare help still said bare methods (resolved)
+
+**Where:** desktop empty-canvas `#dropHint` subline and Instructions in `web/index.html`, and Compare selection status labels in `web/viewer.js`.
+
+**Problem:** Mobile start help and the tour already named `DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %)`, but desktop empty-canvas Instructions still said bare `Compare methods` and the drop-hint subline said bare `Compare (preloaded only)`. Selection status also listed bare `DOTS, DP`. Skip-tour desktop users could not map that help to the pill glosses.
+
+**Fix:** Desktop drop-hint / Instructions name the same method glosses; selection status uses `DOTS (as-you-go)`-style labels. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/desktop-compare-help-glosses.html`
+- Fixture screenshot (900px): `web/usability/desktop-compare-help-glosses.png`
+
 ### Compare help still said bare DOTS / DP / SQUISH (resolved)
 
 **Where:** mobile start Instructions, Map overlays `#baselineLayerHint` (markup + `updateCompareAvailabilityCopy`), and start/playback tour Compare steps in `web/viewer.js`.
