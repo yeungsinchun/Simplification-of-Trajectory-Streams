@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ε/δ visible glosses + Status labels</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+    --accent: #4f9dff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+  }
+  h1 { font-size: 16px; margin: 0 0 6px; }
+  p { margin: 0 0 14px; color: var(--text-dim); font-size: 12px; }
+  section { padding: 16px; }
+  .label {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  .param {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 6px 10px;
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    background: #1e2330;
+  }
+  .param-symbol { color: var(--text); font-weight: 600; }
+  .param-gloss { color: var(--text-dim); font-weight: 500; }
+  .param input {
+    width: 62px;
+    background: #12151c;
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    padding: 4px 6px;
+  }
+  .status-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 14px;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 10px;
+  }
+  .status-grid b { color: var(--text); }
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 12px;
+  }
+  .swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    background: #5a6272;
+    display: inline-block;
+  }
+  .ok { color: #3ddc97; margin-top: 12px; font-size: 12px; }
+  .hint {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.45;
+  }
+</style>
+</head>
+<body>
+  <section>
+    <h1>ε/δ visible glosses + Status / Layers wording</h1>
+    <p>Novices who skip the tour should still see match/grid meaning next to ε/δ, Status candidates instead of bare open, and Original path instead of Full stream.</p>
+
+    <div class="label">Before</div>
+    <div class="frame">
+      <div class="row">
+        <label class="param">ε <input type="number" value="0.9" readonly /></label>
+        <label class="param">δ <input type="number" value="500" readonly /></label>
+      </div>
+      <div class="status-grid">
+        <span>step</span><span class="mono"><b>1</b></span>
+        <span>open</span><span class="mono"><b>3</b> / 12</span>
+      </div>
+      <div class="toggle"><span class="swatch"></span>Full stream</div>
+      <div class="hint">…optionally pick Compare algorithms, set ε/δ, then Load Trace</div>
+    </div>
+
+    <div class="label" style="margin-top:18px">After</div>
+    <div class="frame">
+      <div class="row">
+        <label class="param" title="How closely the simplified path must match the original.">
+          <span class="param-symbol">ε</span> <span class="param-gloss">match</span>
+          <input type="number" value="0.9" readonly aria-label="Match tolerance (epsilon)" />
+        </label>
+        <label class="param" title="Grid spacing used while searching for the simplified path.">
+          <span class="param-symbol">δ</span> <span class="param-gloss">grid</span>
+          <input type="number" value="500" readonly aria-label="Search grid spacing (delta)" />
+        </label>
+      </div>
+      <div class="status-grid">
+        <span title="How far this simplified segment has walked along the original path">path step</span><span class="mono"><b>1</b></span>
+        <span title="Candidate anchors still open for this segment">candidates</span><span class="mono"><b>3</b> / 12</span>
+      </div>
+      <div class="toggle" title="The original trajectory path before simplification"><span class="swatch"></span>Original path</div>
+      <div class="hint">…leave <b>ε match</b> / <b>δ grid</b> at defaults (or tweak them), then Load Trace</div>
+      <p class="ok">Visible glosses stay on one row with Load Trace at 1280/900. Below 900px desktop, glosses hide so Load Trace does not wrap early; mobile keeps stacked ε match / δ grid. Tooltips and start-screen copy always explain the meaning.</p>
+    </div>
+  </section>
+</body>
+</html>

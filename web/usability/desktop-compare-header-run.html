@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Desktop Compare header Run control</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+    --accent: #4f9dff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+  }
+  section { padding: 16px; border-bottom: 1px solid var(--panel-border); }
+  .label {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .callout {
+    background: rgba(255,95,109,0.08);
+    border: 1px solid rgba(255,95,109,0.35);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text-dim);
+    font-size: 12px;
+    margin-bottom: 12px;
+  }
+  .ok {
+    background: rgba(61,220,151,0.08);
+    border: 1px solid rgba(61,220,151,0.35);
+  }
+  .strip {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 8px 12px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    min-height: 33px;
+  }
+  .name { color: var(--text-dim); font-weight: 600; font-size: 12px; white-space: nowrap; }
+  .pill {
+    border: 1px solid var(--panel-border);
+    background: #1a1f29;
+    color: var(--text-dim);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 11px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .pill.active {
+    border-color: var(--accent);
+    color: var(--text);
+    background: #2a4a72;
+  }
+  .field {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-dim);
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .field input {
+    width: 56px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--panel-border);
+    background: #1a1f29;
+    color: var(--text);
+  }
+  .run {
+    flex-shrink: 0;
+    background: var(--accent);
+    color: #061018;
+    border: none;
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 650;
+    white-space: nowrap;
+  }
+  .run[disabled] { opacity: 0.45; }
+  .meta { margin-top: 8px; color: var(--text-dim); font-size: 12px; }
+</style>
+</head>
+<body>
+<section>
+  <div class="label">Before - after Load Trace, Compare had no Run in the header</div>
+  <div class="callout">
+    Selecting DOTS / DP / SQUISH after load only updated hidden Results status copy
+    (“Click Run compare…”). Novices never saw a next step unless they opened Results.
+  </div>
+  <div class="strip" id="before" style="width: 900px;">
+    <span class="name">Compare:</span>
+    <span class="pill active">DOTS</span>
+    <span class="pill">DP</span>
+    <span class="pill">SQUISH</span>
+    <label class="field"><span>DOTS limit</span><input value="1000" /><span>K</span></label>
+  </div>
+  <p class="meta">No Run control beside Compare. Results panel closed → stuck.</p>
+</section>
+<section>
+  <div class="label">After - compact Run sits on the same nowrap Compare strip</div>
+  <div class="callout ok">
+    After Load Trace, a compact <b>Run</b> appears beside the Compare pills. Selecting
+    algorithms enables it; pressing Run scores them and opens Results. Strip stays one row
+    with horizontal scroll if needed (no wrap / layout shift).
+  </div>
+  <div class="strip" id="after" style="width: 900px;">
+    <span class="name">Compare:</span>
+    <span class="pill active">DOTS</span>
+    <span class="pill">DP</span>
+    <span class="pill">SQUISH</span>
+    <label class="field"><span>DOTS limit</span><input value="1000" /><span>K</span></label>
+    <button type="button" class="run">Run</button>
+  </div>
+  <p class="meta" id="measure"></p>
+</section>
+<script>
+  const after = document.getElementById("after");
+  const measure = document.getElementById("measure");
+  const height = after.getBoundingClientRect().height;
+  const scroll = after.scrollWidth > after.clientWidth;
+  measure.textContent = `Strip height ${Math.round(height)}px; horizontal scroll ${scroll ? "available if needed" : "not required at 900px"}.`;
+</script>
+</body>
+</html>

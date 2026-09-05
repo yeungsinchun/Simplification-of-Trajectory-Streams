@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Desktop loading params wrap</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+    --accent: #4f9dff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+  }
+  h1 { font-size: 16px; margin: 0 0 6px; }
+  p { margin: 0 0 14px; color: var(--text-dim); font-size: 12px; }
+  section { padding: 16px; }
+  .label {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 16px;
+  }
+  .title {
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+  .ghost {
+    background: #1e2330;
+    border: 1px solid var(--panel-border);
+    border-radius: 5px;
+    padding: 4px 8px;
+    color: var(--text);
+  }
+  .status {
+    color: #4f9dff;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .params {
+    display: flex;
+    gap: 8px 14px;
+    flex-wrap: wrap;
+    width: 100%;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .params b { color: var(--text); }
+  .params-metric--blue {
+    color: #38BDF8;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .params-metric-body {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .params-metric-value {
+    display: inline-flex;
+    align-items: center;
+    min-height: 14px;
+    min-width: 7ch;
+    color: #22D3EE;
+  }
+  .params-metric--time .params-metric-value { min-width: 11ch; }
+  .params-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(255,255,255,0.35);
+    border-top-color: currentColor;
+    border-radius: 50%;
+  }
+  .actual { color: #C4612F; font-weight: 600; }
+  .actual b { color: #A94E22; }
+  .callout { margin-top: 8px; font-size: 12px; color: #ffb4bc; }
+  .ok { color: #3ddc97; }
+  .height-mark {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+<section>
+  <h1>Desktop loading param-chip wrap</h1>
+  <p>After Load Trace the two metric chips sat on one row. The rest of the chips arrived with geometry and wrapped a second row, growing the header.</p>
+
+  <div class="label">Before: loading reserves only the two metrics</div>
+  <div class="frame problem">
+    <div class="title">Trajectory Simplification Visualizer</div>
+    <div class="controls">
+      <span>Preloaded:</span>
+      <span class="ghost">Demo</span>
+      <span>ε</span><span class="ghost">0.9</span>
+      <span>δ</span><span class="ghost">500</span>
+      <span class="ghost">Load Trace</span>
+      <span class="status">Computing trace…</span>
+    </div>
+    <div class="params">
+      <span class="params-metric params-metric--blue params-metric--frechet">
+        <span class="params-metric-body">
+          <span>Computed Fréchet distance</span>
+          <span class="params-metric-value"><span class="params-spinner"></span></span>
+        </span>
+      </span>
+      <span class="params-metric params-metric--blue params-metric--time">
+        <span class="params-metric-body">
+          <span>Simplification time</span>
+          <span class="params-metric-value"><span class="params-spinner"></span></span>
+        </span>
+      </span>
+    </div>
+  </div>
+  <p class="callout">One params row while computing. ε, δ, grid length, disk radius, Fréchet bound, stream counts, and ratio appear later and wrap, so the header grows about 31px.</p>
+
+  <div class="label" style="margin-top:20px">After: loading already occupies the two-row params slot</div>
+  <div class="frame fixed">
+    <div class="title">Trajectory Simplification Visualizer</div>
+    <div class="controls">
+      <span>Preloaded:</span>
+      <span class="ghost">Demo</span>
+      <span>ε</span><span class="ghost">0.9</span>
+      <span>δ</span><span class="ghost">500</span>
+      <span class="ghost">Load Trace</span>
+      <span class="status">Computing trace…</span>
+    </div>
+    <div class="params">
+      <span class="params-metric params-metric--blue params-metric--frechet">
+        <span class="params-metric-body">
+          <span>Computed Fréchet distance</span>
+          <span class="params-metric-value"><span class="params-spinner"></span></span>
+        </span>
+      </span>
+      <span class="params-metric params-metric--blue params-metric--time">
+        <span class="params-metric-body">
+          <span>Simplification time</span>
+          <span class="params-metric-value"><span class="params-spinner"></span></span>
+        </span>
+      </span>
+      <span>ε <b>0.9000</b></span>
+      <span>δ <b>500.0000</b></span>
+      <span>len<sub>grid</sub> <b>…</b></span>
+      <span>R (disk radius) <b>…</b></span>
+      <span>a-priori Fréchet bound <b>…</b></span>
+      <span class="actual">Actual Fréchet distance <b>…</b></span>
+      <span>|stream| <b>…</b></span>
+      <span>|simplified| <b>…</b></span>
+      <span>ratio <b>…</b></span>
+    </div>
+  </div>
+  <p class="ok">ε and δ use the form values immediately. The other chips keep ellipsis slots on a second row, so filling numbers later does not grow the header.</p>
+</section>
+</body>
+</html>

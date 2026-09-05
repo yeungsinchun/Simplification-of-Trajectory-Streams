@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Layers Compare hint - Results-first Run compare</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #171a21;
+      --border: #2a3140;
+      --text: #e8ecf4;
+      --muted: #8b93a3;
+      --accent: #3ddc97;
+      --warn: #e8c547;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 14px/1.45 system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px 16px 48px;
+    }
+    h1 { font-size: 18px; margin: 0 0 8px; }
+    .intro { color: var(--muted); margin: 0 0 20px; max-width: 720px; }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin: 0 auto 20px;
+      max-width: 720px;
+    }
+    .label {
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .callout {
+      border-left: 3px solid var(--warn);
+      padding: 8px 12px;
+      margin: 0 0 14px;
+      color: #d7dce8;
+      background: rgba(232, 197, 71, 0.08);
+    }
+    .callout.ok { border-left-color: var(--accent); background: rgba(61, 220, 151, 0.08); }
+    .hint {
+      margin: 0;
+      padding: 10px 12px;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      color: #c5ccd9;
+      background: #12151c;
+    }
+    .status {
+      margin-top: 10px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: #12151c;
+      color: #9aa3b5;
+      font-size: 13px;
+    }
+    .meta { margin: 12px 0 0; color: var(--muted); font-size: 12px; white-space: pre-wrap; }
+    .phone {
+      width: 390px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Layers Compare hint after Load Trace</h1>
+  <p class="intro">
+    After load, phones hide the header Compare strip (including Run). Layers still told
+    novices to press Run beside Compare. Status text in Results used the same desktop-first wording.
+  </p>
+
+  <section class="phone" id="beforeSec">
+    <div class="label">Before - desktop-first Run beside Compare</div>
+    <div class="callout">
+      Header Compare / Run is hidden on mobile after Load Trace, so this path is unreachable.
+    </div>
+    <p class="hint" id="beforeHint">
+      Pick Compare algorithms, then press Run beside Compare (or Run compare in Results) to enable these layers.
+    </p>
+    <div class="status" id="beforeStatus">
+      Selected DOTS, DP. Press Run beside Compare (or Run compare in Results).
+    </div>
+  </section>
+
+  <section class="phone" id="afterSec">
+    <div class="label">After - Results-first Run compare</div>
+    <div class="callout ok">
+      Layers hint and selection status lead with Results → Run compare, the control that stays available on phones.
+      Wider screens still get a note about header Run.
+    </div>
+    <p class="hint" id="afterHint">
+      Open Results, pick Compare algorithms, then press Run compare to enable these layers. On wider screens you can also use Run beside Compare in the header.
+    </p>
+    <div class="status" id="afterStatus">
+      Selected DOTS, DP. Press Run compare (on wider screens, Run beside Compare also works).
+    </div>
+    <p class="meta" id="measure"></p>
+  </section>
+
+  <script>
+    const after = document.getElementById("afterSec");
+    const measure = document.getElementById("measure");
+    const scrollW = document.documentElement.scrollWidth;
+    measure.textContent = [
+      `afterSec.width=${Math.round(after.getBoundingClientRect().width)}`,
+      `documentElement.scrollWidth=${scrollW}`,
+      `innerWidth=${window.innerWidth}`,
+      scrollW > window.innerWidth ? "(page overflow)" : "(no page overflow)",
+    ].join("\n");
+  </script>
+</body>
+</html>

@@ -81,6 +81,17 @@
   const mobilePlayBtn = el("mobilePlayBtn");
   const mobileCandidateForwardBtn = el("mobileCandidateForwardBtn");
   const mobileStepForwardBtn = el("mobileStepForwardBtn");
+  const mobileSegmentBackBtn = el("mobileSegmentBackBtn");
+  const mobileSegmentForwardBtn = el("mobileSegmentForwardBtn");
+  const mobileTransportButtons = [
+    mobileStepBackBtn,
+    mobileCandidateBackBtn,
+    mobilePlayBtn,
+    mobileCandidateForwardBtn,
+    mobileStepForwardBtn,
+    mobileSegmentBackBtn,
+    mobileSegmentForwardBtn,
+  ];
 
   const stepInput = el("stepInput");
   const segmentInput = el("segmentInput");
@@ -94,9 +105,6 @@
   function setLoadButtonBusy(isBusy) {
     loadBtn.disabled = isBusy;
     loadBtn.setAttribute("aria-busy", String(isBusy));
-    loadBtn.innerHTML = isBusy
-      ? '<span class="button-spinner" aria-hidden="true"></span><span class="visually-hidden">Loading</span>'
-      : "Load Trace";
   }
 
   // Speed presets
@@ -136,7 +144,9 @@
   const headerBaselineSquishRatioField = el("headerBaselineSquishRatioField");
   const headerBaselineSquishRatioInput = el("headerBaselineSquishRatioInput");
   const baselineRunBtn = el("baselineRunBtn");
+  const headerBaselineRunBtn = el("headerBaselineRunBtn");
   const baselineStatus = el("baselineStatus");
+  const compareRunButtons = () => [baselineRunBtn, headerBaselineRunBtn].filter(Boolean);
 
   function baselineAlgoRows() {
     return [headerBaselineAlgoRow, baselineAlgoRow].filter(Boolean);
@@ -243,8 +253,8 @@
     setBaselineStatus(
       labels.length
         ? (currentTraceId
-          ? `Selected ${labels.join(", ")}. Click Run baseline (or reload the trace to auto-run).`
-          : `Selected ${labels.join(", ")}. Load a preloaded trace to run the benchmark.`)
+          ? `Selected ${labels.join(", ")}. Press Run compare (on wider screens, Run beside Compare also works).`
+          : `Selected ${labels.join(", ")}. Load a preloaded trace to run the compare.`)
         : ""
     );
     syncBaselinePills();
@@ -340,23 +350,43 @@
       headerBaselineSquishRatioInput,
       squishDisplayFromRaw(state.baselineSquishRatio)
     );
-    if (baselineRunBtn) {
-      baselineRunBtn.disabled = !currentTraceId || selected.size === 0 || baselineRunBtn.dataset.busy === "1";
-      baselineRunBtn.textContent = selected.size > 1 ? "Run baselines" : "Run baseline";
+    const busy = compareRunButtons().some((btn) => btn.dataset.busy === "1");
+    const canRun = !!currentTraceId && selected.size > 0 && !busy;
+    const traceReady = document.body.classList.contains("results-available");
+    for (const btn of compareRunButtons()) {
+      btn.disabled = !canRun;
+      const isHeader = btn === headerBaselineRunBtn;
+      btn.textContent = busy ? "Running…" : (isHeader ? "Run" : "Run compare");
+      if (isHeader) {
+        // Header Run appears only after Load Trace (Results tab available).
+        // Before that, Load Trace auto-runs any selected Compare algorithms.
+        btn.hidden = !traceReady;
+      }
     }
   }
 
-  function emptyCompareMessage(colspan) {
-    return `<tr><td colspan="${colspan}" class="compare-metrics-empty">Load a trace, then run a baseline.</td></tr>`;
+  function setCompareRunBusy(busy) {
+    for (const btn of compareRunButtons()) {
+      btn.dataset.busy = busy ? "1" : "0";
+    }
+    syncBaselineParamFields();
   }
 
-  function clearCompare() {
+  function emptyCompareMessage(colspan) {
+    return `<tr><td colspan="${colspan}" class="compare-metrics-empty">Load a trace to see scores. Optional: run Compare above.</td></tr>`;
+  }
+
+  function clearCompare(options = {}) {
+    // hideChrome:false keeps the Results tab visible while compare data reloads.
+    const hideChrome = options.hideChrome !== false;
     state.compare = null;
     for (const a of BASELINE_ORDER) state.resultVisible[a] = false;
     closeResultsPanel();
-    document.body.classList.remove("results-available");
-    if (resultsPanel) resultsPanel.hidden = true;
-    if (accordionBaselineSummary) accordionBaselineSummary.textContent = "Baseline";
+    if (hideChrome) {
+      document.body.classList.remove("results-available");
+      if (resultsPanel) resultsPanel.hidden = true;
+    }
+    if (accordionBaselineSummary) accordionBaselineSummary.textContent = "Compare";
     if (baselineLayerHint) baselineLayerHint.hidden = false;
     if (compareFrechetNote) {
       compareFrechetNote.hidden = true;
@@ -396,7 +426,7 @@
     if (accordionBaselineSummary) {
       accordionBaselineSummary.textContent = ready.length
         ? ready.map(baselineAlgoLabel).join(" / ")
-        : "Baseline";
+        : "Compare";
     }
   }
 
@@ -478,19 +508,22 @@
       if (tiny) {
         compareFrechetNote.hidden = false;
         compareFrechetNote.textContent =
-          "A baseline Frechet value is tiny but not exact zero; that can happen when the baseline keeps most of the original points.";
+          "A compare match-error value is tiny but not exact zero; that can happen when the compare path keeps most of the original points.";
       } else {
         compareFrechetNote.hidden = true;
         compareFrechetNote.textContent = "";
       }
     }
 
+    const matchErrorLabel =
+      '<td title="How far each simplified path drifts from the original (discrete Fréchet). Lower is better.">Match error</td>';
+
     if (!algos.length) {
       compareMetricsBody.innerHTML = `
       <tr><td>Simplified points</td>${cell(nSimp ?? "—", false)}</tr>
       <tr><td>Compression</td>${cell(pct(nSimp, nOrig), false)}</tr>
-      <tr><td>time (ms)</td>${cell(numOrDash(simpMs, 4), false)}</tr>
-      <tr><td>Frechet</td>${cell(frSimpCell, false)}</tr>`;
+      <tr><td>Time (ms)</td>${cell(numOrDash(simpMs, 4), false)}</tr>
+      <tr>${matchErrorLabel}${cell(frSimpCell, false)}</tr>`;
       return;
     }
 
@@ -506,12 +539,12 @@
         ${algos.map((_, i) => cell(pct(basePts[i], nOrig), winClass(ptsAll, i + 1))).join("")}
       </tr>
       <tr>
-        <td>time (ms)</td>
+        <td>Time (ms)</td>
         ${cell(numOrDash(simpMs, 4), winClass(msAll, 0))}
         ${algos.map((_, i) => cell(numOrDash(baseMs[i], 4), winClass(msAll, i + 1))).join("")}
       </tr>
       <tr>
-        <td>Frechet</td>
+        ${matchErrorLabel}
         ${cell(frSimpCell, winClass(frAll, 0))}
         ${algos.map((_, i) => cell(frBaseCells[i], winClass(frAll, i + 1))).join("")}
       </tr>
@@ -572,7 +605,7 @@
   }
 
   async function loadCompare() {
-    clearCompare();
+    clearCompare({ hideChrome: false });
     if (!currentTraceId) {
       if (state.trace) showResultsPanel(false);
       return;
@@ -587,10 +620,10 @@
       applyComparePayload(data);
       showResultsPanel(false);
       if (selectedBaselineAlgos().length) {
-        setBaselineStatus(`Running selected baseline(s)…`);
+        setBaselineStatus(`Running selected compare algorithm(s)…`);
         await runSelectedBaseline();
       } else {
-        setBaselineStatus("Choose one or more baseline algorithms and click Run.");
+        setBaselineStatus("Choose one or more compare algorithms and press Run compare.");
       }
     } catch (err) {
       console.warn("[Compare] Failed to load compare shell:", err);
@@ -605,7 +638,7 @@
     }
     const algos = selectedBaselineAlgos();
     if (!algos.length) {
-      setBaselineStatus("Select a baseline algorithm first.", "error");
+      setBaselineStatus("Select a compare algorithm first.", "error");
       return;
     }
 
@@ -615,14 +648,14 @@
     if (algos.includes("dots")) {
       lssd = readBaselineLssdFromInputs();
       if (!Number.isFinite(lssd) || lssd <= 0) {
-        setBaselineStatus("LSSD must be a positive number.", "error");
+        setBaselineStatus("DOTS distance limit must be a positive number.", "error");
         return;
       }
     }
     if (algos.includes("dp")) {
       dpEps = readPairedNumber(baselineDpEpsInput, headerBaselineDpEpsInput, state.baselineDpEps);
       if (!Number.isFinite(dpEps) || dpEps <= 0) {
-        setBaselineStatus("DP PED ε must be a positive number.", "error");
+        setBaselineStatus("DP match error must be a positive number.", "error");
         return;
       }
       state.baselineDpEps = dpEps;
@@ -647,11 +680,7 @@
       );
     }
 
-    if (baselineRunBtn) {
-      baselineRunBtn.dataset.busy = "1";
-      baselineRunBtn.disabled = true;
-      baselineRunBtn.textContent = "Running…";
-    }
+    setCompareRunBusy(true);
 
     const errors = [];
     const skipped = [];
@@ -698,7 +727,7 @@
         const extra = skipped.length && !ran.length
           ? " Parameters unchanged; reused previous run."
           : (skipped.length ? ` Reused ${skipped.join(", ")} (unchanged).` : "");
-        setBaselineStatus((bits.length ? `${bits.join(", ")} ready.` : "Baselines ready.") + extra, "ok");
+        setBaselineStatus((bits.length ? `${bits.join(", ")} ready.` : "Compare ready.") + extra, "ok");
       }
       showResultsPanel(anyReady);
       if (anyReady) {
@@ -707,13 +736,10 @@
         render();
       }
     } catch (err) {
-      console.warn("[Compare] Baseline run failed:", err);
-      setBaselineStatus(err.message || "Baseline run failed", "error");
+      console.warn("[Compare] Compare run failed:", err);
+      setBaselineStatus(err.message || "Compare run failed", "error");
     } finally {
-      if (baselineRunBtn) {
-        baselineRunBtn.dataset.busy = "0";
-        syncBaselineParamFields();
-      }
+      setCompareRunBusy(false);
     }
   }
 
@@ -880,18 +906,16 @@
   function enterMobileTraceLayout() {
     if (!isMobileUI()) return;
     document.body.classList.add("trace-loaded-mobile");
-    el("sidebar").style.display = "flex";
     if (headerBody && headerBody.classList.contains("open")) closeHeader();
-    renderBootstrapStatus(null);
     renderParamsBarPreview();
     resizeCanvas();
   }
 
   function statusIndexLabels() {
     if (isMobileUI()) {
-      return { p: "p (start)", vi: "v_i (current)" };
+      return { p: "start point", vi: "current point" };
     }
-    return { p: "\\(p\\) (start)", vi: "\\(v_i\\) (current)" };
+    return { p: "\\(p\\) start point", vi: "\\(v_i\\) current point" };
   }
 
   function typesetStatus(el) {
@@ -917,8 +941,8 @@
         <span class="idx-coord">${viPoint ? ptStr(viPoint) : ""}</span>
       </div>`;
     statusGrid.innerHTML = `
-      <span>step</span><span class="mono"><b>1</b></span>
-      <span>alive</span><span class="mono"><b>…</b></span>`;
+      <span title="How far this simplified segment has walked along the original path">path step</span><span class="mono"><b>1</b></span>
+      <span title="Candidate anchors still open for this segment">candidates</span><span class="mono"><b>…</b></span>`;
     typesetStatus(statusIndices);
     typesetStatus(statusGrid);
   }
@@ -929,20 +953,102 @@
     state.frechetError = null;
   }
 
-  function renderParamsBarPreview() {
-    if (!isMobileUI()) return;
-    paramsBar.innerHTML = `
-      ${paramsBlueMetric("Simplification time", "", true)}`;
+  function formatTraceNumber(value) {
+    if (typeof value !== "number" || Number.isNaN(value)) {
+      return typeof value === "number" ? "…" : value;
+    }
+    return Math.abs(value) >= 1000 ? value.toFixed(1) : value.toFixed(4);
   }
 
-  function paramsBlueMetric(label, value, loading) {
-    const spinner = loading
-      ? `<span class="button-spinner params-spinner" aria-hidden="true"></span><span class="visually-hidden">Loading</span>`
-      : "";
-    const valueHtml = !loading && value
-      ? `<b>${value}</b>`
-      : "";
-    return `<span class="params-metric params-metric--blue"><span class="params-metric-body">${spinner}<span class="params-metric-label">${label}</span>${valueHtml ? ` ${valueHtml}` : ""}</span></span>`;
+  function paramChip(label, value, title, extraStyle) {
+    const titleAttr = title ? ` title="${String(title).replace(/"/g, "&quot;")}"` : "";
+    const styleAttr = extraStyle ? ` style="${extraStyle}"` : "";
+    return `<span${titleAttr}${styleAttr}>${label} <b>${value}</b></span>`;
+  }
+
+  function desktopTraceParamChips(trace) {
+    const epsilonValue = trace && trace.eps != null
+      ? formatTraceNumber(trace.eps)
+      : formatTraceNumber(parseFloat(epsilonInput.value));
+    const deltaValue = trace && trace.delta != null
+      ? formatTraceNumber(trace.delta)
+      : formatTraceNumber(parseFloat(deltaInput.value));
+    const gridLength = trace && trace.grid_val != null ? formatTraceNumber(trace.grid_val) : "…";
+    const diskRadius = trace && trace.r_val != null ? formatTraceNumber(trace.r_val) : "…";
+    const expectedFrechet = trace && trace.expected_frechet != null
+      ? formatTraceNumber(trace.expected_frechet)
+      : "…";
+    const actualFrechet = trace && trace.frechet_distance != null
+      ? formatTraceNumber(trace.frechet_distance)
+      : "…";
+    const streamLen = trace && trace.stream ? trace.stream.length : "…";
+    const simplifiedLen = trace && trace.simplified ? trace.simplified.length : null;
+    const ratio = simplifiedLen != null
+      ? (typeof streamLen === "number" && streamLen ? `${(100 * simplifiedLen / streamLen).toFixed(1)}%` : "-")
+      : "…";
+    const pendingStyle = simplifiedLen == null ? "color:var(--text-dim)" : "";
+
+    return [
+      paramChip("ε match", epsilonValue, "Match tolerance: how closely the simplified path must follow the original. Smaller keeps more detail."),
+      paramChip("δ grid", deltaValue, "Search-grid spacing used while finding the simplified path."),
+      paramChip("grid step", gridLength, "Length of one search-grid cell (derived from δ)."),
+      paramChip("radius", diskRadius, "Search-circle radius around path points while looking for the next simplified point."),
+      paramChip("error budget", expectedFrechet, "Upper bound on how far the simplified path may drift from the original (Fréchet)."),
+      paramChip(
+        "trace error",
+        actualFrechet,
+        "Match error recorded in this preloaded trace (Fréchet distance).",
+        "color:#C4612F;font-weight:600",
+      ),
+      paramChip("original", streamLen, "Number of points on the original trajectory."),
+      paramChip("kept", simplifiedLen != null ? simplifiedLen : "…", "Number of points kept on the simplified path.", pendingStyle),
+      paramChip("kept %", ratio, "Simplified points as a percent of the original.", pendingStyle),
+    ].join("");
+  }
+
+  function typesetParamsBar() {
+    if (window.MathJax) {
+      MathJax.typesetPromise([paramsBar]).catch(() => {});
+    }
+  }
+
+  function renderParamsBarPreview() {
+    const loadingMetrics = `
+      ${paramsBlueMetric("Match error", "", true, "frechet", "How far the simplified path drifts from the original (discrete Fréchet). Lower is better.")}
+      ${paramsBlueMetric("Time", "", true, "time", "How long the simplification run took.")}`;
+    if (isMobileUI()) {
+      paramsBar.innerHTML = loadingMetrics;
+      return;
+    }
+    paramsBar.innerHTML = `
+      ${loadingMetrics}
+      ${desktopTraceParamChips(null)}`;
+  }
+
+  function paramsBlueMetric(label, value, loading, kind, title) {
+    const kindClass = kind ? ` params-metric--${kind}` : "";
+    const titleAttr = title ? ` title="${String(title).replace(/"/g, "&quot;")}"` : "";
+    const valueSlot = loading
+      ? `<span class="params-metric-value params-metric-value--loading" aria-live="polite"><span class="button-spinner params-spinner" aria-hidden="true"></span><span class="visually-hidden">Loading</span></span>`
+      : `<b class="params-metric-value">${value || ""}</b>`;
+    return `<span class="params-metric params-metric--blue${kindClass}"${titleAttr}><span class="params-metric-body"><span class="params-metric-label">${label}</span>${valueSlot}</span></span>`;
+  }
+
+  function setCanvasLoadingHud(visible) {
+    const hud = el("traceLoadingHud");
+    if (!hud) return;
+    hud.classList.toggle("visible", Boolean(visible));
+    hud.setAttribute("aria-hidden", visible ? "false" : "true");
+  }
+
+  function setPlaybackChromeVisible(visible) {
+    document.body.classList.toggle("playback-ready", Boolean(visible));
+    if (playbackBar) playbackBar.classList.toggle("visible", Boolean(visible));
+    if (playbackToggle) playbackToggle.classList.toggle("visible", Boolean(visible));
+    if (mobileTransport) {
+      mobileTransport.classList.toggle("visible", Boolean(visible));
+      mobileTransport.setAttribute("aria-hidden", visible ? "false" : "true");
+    }
   }
 
   function showTraceLoading() {
@@ -953,15 +1059,23 @@
     state.candidateIdx = 0;
     resetFrechetState();
     dropHint.style.display = "none";
+    canvas.classList.remove("has-trace");
+    el("sidebar").style.display = "none";
+    statusIndices.innerHTML = "";
+    statusGrid.innerHTML = "";
+    setPlaybackChromeVisible(false);
     enterMobileTraceLayout();
+    renderParamsBarPreview();
     document.body.classList.add("trace-loading");
     document.body.classList.remove("trace-loading-error");
+    setCanvasLoadingHud(true);
     setTopBarTraceStatus("Computing trace…");
     render();
   }
 
   function hideTraceLoading() {
     document.body.classList.remove("trace-loading", "trace-loading-error");
+    setCanvasLoadingHud(false);
   }
 
   function failTraceLoading(message) {
@@ -970,6 +1084,10 @@
     paramsBar.innerHTML = "";
     statusIndices.innerHTML = "";
     statusGrid.innerHTML = "";
+    canvas.classList.remove("has-trace");
+    dropHint.style.display = "";
+    setCanvasLoadingHud(false);
+    setPlaybackChromeVisible(false);
     clearTopBarTraceStatus();
     uploadStatus.textContent = message;
     uploadStatus.style.color = "#ff5f6d";
@@ -981,9 +1099,9 @@
     el("sidebar").style.display = "flex";
     el("resizer").style.display = "block";
     canvas.classList.add("has-trace");
+    setCanvasLoadingHud(false);
     document.body.classList.add("trace-loaded-mobile");
-    if (playbackBar) playbackBar.classList.add("visible");
-    if (playbackToggle) playbackToggle.classList.add("visible");
+    setPlaybackChromeVisible(true);
     renderParamsBar();
     setupSliders();
   }
@@ -1014,9 +1132,11 @@
     const stepBackBtn = el("stepBackBtn");
     stepBackBtn.disabled = (state.prefixIdx === 0 && state.stepIdx === 0);
     startFrechetComputation();
-    if (window.MathJax) {
-      MathJax.typesetPromise([paramsBar]).catch(() => {});
-    }
+    typesetParamsBar();
+    // Show the Results tab immediately so the playback tour can spotlight it
+    // without waiting for the compare API shell.
+    showResultsPanel(false);
+    schedulePlaybackTour();
     // Fire-and-forget: Results strip + DOTS metrics after the live simplify trace.
     loadCompare().then(() => render());
   }
@@ -1210,7 +1330,7 @@
     const eps = parseFloat(epsilonInput.value);
     const delta = parseFloat(deltaInput.value);
     if (isNaN(eps) || eps <= 0 || isNaN(delta) || delta <= 0) {
-      alert("Invalid epsilon or delta");
+      alert("Please enter positive numbers for ε match (accuracy) and δ grid (search spacing).");
       return;
     }
 
@@ -1529,6 +1649,12 @@
   if (mobileStepForwardBtn) {
     mobileStepForwardBtn.addEventListener("click", () => el("stepForwardBtn").click());
   }
+  if (mobileSegmentBackBtn) {
+    mobileSegmentBackBtn.addEventListener("click", () => el("prefixBackBtn").click());
+  }
+  if (mobileSegmentForwardBtn) {
+    mobileSegmentForwardBtn.addEventListener("click", () => el("prefixForwardBtn").click());
+  }
 
   // Populate dropdown on page load
   (async () => {
@@ -1595,8 +1721,7 @@
       uploadStatus.textContent = "";
       dropHint.style.display = "flex";
       document.body.classList.remove("trace-loaded-mobile");
-      if (playbackBar) playbackBar.classList.remove("visible");
-      if (playbackToggle) playbackToggle.classList.remove("visible");
+      setPlaybackChromeVisible(false);
       syncPreloadedTrigger();
       return;
     }
@@ -1634,52 +1759,35 @@
   function renderParamsBar() {
     const t = state.trace;
     if (!t) { paramsBar.innerHTML = ""; return; }
-    const fmt = (v) => (typeof v === "number" ? (Math.abs(v) >= 1000 ? v.toFixed(1) : v.toFixed(4)) : v);
 
-    const frechetCanCompute = t.simplified != null;
     const frechetLoading = state.computingFrechet
-      || (frechetCanCompute && state.computedFrechet == null && !state.frechetError);
-    const showComputedFrechet = frechetLoading || state.computedFrechet != null || state.frechetError;
+      || (state.computedFrechet == null && !state.frechetError);
     const computedFrechetValue = !state.computingFrechet && state.computedFrechet != null
-      ? fmt(state.computedFrechet)
+      ? formatTraceNumber(state.computedFrechet)
       : (!state.computingFrechet && state.frechetError ? "failed" : "");
-    const computedFrechetDisplay = showComputedFrechet
-      ? paramsBlueMetric(
-        "Computed Fréchet distance",
-        computedFrechetValue,
-        frechetLoading,
-      )
-      : "";
+    const computedFrechetDisplay = paramsBlueMetric(
+      "Match error",
+      computedFrechetValue,
+      frechetLoading,
+      "frechet",
+      "How far the simplified path drifts from the original (discrete Fréchet). Lower is better.",
+    );
 
-    const frechetDisplay = t.frechet_distance != null
-      ? `<span style="color: #C4612F; font-weight: 600;">Actual Fr&eacute;chet distance <b style="color: #A94E22;">${fmt(t.frechet_distance)}</b></span>`
-      : '';
-
-    const streamLen = t.stream ? t.stream.length : 0;
-    const simpLen = t.simplified ? t.simplified.length : null;
     const timeLoading = t.time_ms == null;
-    const timeValue = t.time_ms != null ? `${fmt(t.time_ms)} ms` : "";
+    const timeValue = t.time_ms != null ? `${formatTraceNumber(t.time_ms)} ms` : "";
 
-    const simpDisplay = simpLen != null
-      ? `<span>|simplified| <b>${simpLen}</b></span>
-      <span>ratio <b>${streamLen ? (100 * simpLen / streamLen).toFixed(1) : "—"}%</b></span>`
-      : `<span style="color:var(--text-dim)">|simplified| <b>…</b></span>`;
+    if (isMobileUI()) {
+      paramsBar.innerHTML = `
+        ${computedFrechetDisplay}
+        ${paramsBlueMetric("Time", timeValue, timeLoading, "time", "How long the simplification run took.")}`;
+      return;
+    }
 
     paramsBar.innerHTML = `
       ${computedFrechetDisplay}
-      ${paramsBlueMetric("Simplification time", timeValue, timeLoading)}
-      <span>\\(\\varepsilon\\) <b>${fmt(t.eps)}</b></span>
-      <span>\\(\\delta\\) <b>${fmt(t.delta)}</b></span>
-      <span>\\(\\text{len}_\\text{grid}\\) <b>${fmt(t.grid_val)}</b></span>
-      <span>\\(R\\) (disk radius) <b>${fmt(t.r_val)}</b></span>
-      <span>a-priori Fréchet bound <b>${fmt(t.expected_frechet)}</b></span>
-      ${frechetDisplay}
-      <span>|stream| <b>${streamLen}</b></span>
-      ${simpDisplay}
+      ${paramsBlueMetric("Time", timeValue, timeLoading, "time", "How long the simplification run took.")}
+      ${desktopTraceParamChips(t)}
     `;
-    if (window.MathJax) {
-      MathJax.typesetPromise([paramsBar]).catch(() => {});
-    }
   }
 
   function currentPrefix() {
@@ -1696,12 +1804,8 @@
   function renderStatus() {
     const t = state.trace;
     if (!t) {
-      if (document.body.classList.contains("trace-loading")) {
-        renderBootstrapStatus(null);
-      } else {
-        statusIndices.innerHTML = "";
-        statusGrid.innerHTML = "";
-      }
+      statusIndices.innerHTML = "";
+      statusGrid.innerHTML = "";
       return;
     }
 
@@ -1742,11 +1846,11 @@
     // Detail rows — present-state only, no future end vertex
     const rows = [];
     const alive = step.candidates.filter((c) => c.alive).length;
-    rows.push(["step", `${state.stepIdx + 1}`]);
-    rows.push(["alive", `<b style="color:#3ddc97">${alive}</b> / ${pfx.P.length}`]);
+    rows.push(["path step", `${state.stepIdx + 1}`, "How far this simplified segment has walked along the original path"]);
+    rows.push(["candidates", `<b style="color:#3ddc97">${alive}</b> / ${pfx.P.length}`, "Candidate anchors still open for this segment"]);
 
     statusGrid.innerHTML = rows
-      .map(([k, v]) => `<span>${k}</span><span class="mono"><b>${v}</b></span>`)
+      .map(([k, v, tip]) => `<span title="${tip}">${k}</span><span class="mono"><b>${v}</b></span>`)
       .join("");
     typesetStatus(statusGrid);
   }
@@ -1955,38 +2059,55 @@
     }
   });
 
-  function advance() {
+  function playbackHasNext() {
     const pfx = currentPrefix();
-    if (!pfx) return;
+    if (!state.trace || !pfx) return false;
     const step = currentStep();
-    
-    // First, try to cycle through candidates at current step
+    if (step && step.candidates.length > 1) {
+      const nextCandidateIdx = (state.candidateIdx + 1) % step.candidates.length;
+      if (nextCandidateIdx !== 0) return true;
+    }
+    if (state.stepIdx < pfx.steps.length - 1) return true;
+    return state.prefixIdx < state.trace.prefixes.length - 1;
+  }
+
+  function advancePlayback() {
+    const pfx = currentPrefix();
+    if (!pfx) return false;
+    const step = currentStep();
+
     if (step && step.candidates.length > 1) {
       const nextCandidateIdx = (state.candidateIdx + 1) % step.candidates.length;
       if (nextCandidateIdx !== 0) {
-        // Still more candidates to show at this step
         state.candidateIdx = nextCandidateIdx;
         render();
-        return;
+        return true;
       }
     }
-    
-    // All candidates shown, advance to next step
+
     if (state.stepIdx < pfx.steps.length - 1) {
       goToStep(state.stepIdx + 1);
-    } else {
-      // Reuse goToStep's all-dead-pause logic.
-      goToStep(pfx.steps.length); // one past the end
+      return true;
     }
+    if (state.prefixIdx < state.trace.prefixes.length - 1) {
+      goToStep(pfx.steps.length);
+      return true;
+    }
+    return false;
   }
 
   function startPlaying() {
     if (!state.trace || state.playing) return;
     state.playing = true;
     updatePlayButton();
-    const baseDelay = 280; // Base delay in ms
+    const baseDelay = 280;
     const tick = () => {
-      advance();
+      if (!state.playing) return;
+      if (!advancePlayback()) {
+        stopPlaying();
+        return;
+      }
+      if (!state.playing) return;
       const delay = baseDelay / currentSpeedMultiplier;
       state.playTimer = setTimeout(tick, delay);
     };
@@ -1998,19 +2119,16 @@
     if (state.playTimer) clearTimeout(state.playTimer);
     state.playTimer = null;
   }
-  playBtn.addEventListener("click", () => {
-    if (state.playing) {
-      stopPlaying();
-    } else {
-      // If at the end, restart from beginning
-      const pfx = currentPrefix();
-      if (pfx && state.prefixIdx === state.trace.prefixes.length - 1 && 
-          state.stepIdx === pfx.steps.length - 1) {
-        goToPrefix(0);
-        goToStep(0);
-      }
-      startPlaying();
+  function beginPlayback() {
+    if (!playbackHasNext()) {
+      goToPrefix(0);
+      goToStep(0);
     }
+    startPlaying();
+  }
+  playBtn.addEventListener("click", () => {
+    if (state.playing) stopPlaying();
+    else beginPlayback();
   });
 
   el("stepBackBtn").addEventListener("click", () => {
@@ -2049,13 +2167,14 @@
     }
   });
 
-  // Speed preset buttons
+  // Speed preset buttons (desktop playback bar and mobile dock)
   speedPresets.forEach((btn) => {
     btn.addEventListener("click", () => {
       const speed = parseFloat(btn.dataset.speed);
       currentSpeedMultiplier = speed;
-      speedPresets.forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
+      speedPresets.forEach((b) => {
+        b.classList.toggle("active", parseFloat(b.dataset.speed) === speed);
+      });
       // If already playing, restart with new speed
       if (state.playing) {
         stopPlaying();
@@ -2127,18 +2246,8 @@
     if (e.key === " ") { 
       console.log("Space pressed - toggling playback");
       e.preventDefault(); 
-      if (state.playing) {
-        stopPlaying();
-      } else {
-        // If at the end, restart from beginning
-        const pfx = currentPrefix();
-        if (pfx && state.prefixIdx === state.trace.prefixes.length - 1 && 
-            state.stepIdx === pfx.steps.length - 1) {
-          goToPrefix(0);
-          goToStep(0);
-        }
-        startPlaying();
-      }
+      if (state.playing) stopPlaying();
+      else beginPlayback();
       return;
     }
     if (e.key === "ArrowRight") {
@@ -2233,6 +2342,9 @@
 
   if (baselineRunBtn) {
     baselineRunBtn.addEventListener("click", () => { runSelectedBaseline(); });
+  }
+  if (headerBaselineRunBtn) {
+    headerBaselineRunBtn.addEventListener("click", () => { runSelectedBaseline(); });
   }
   syncBaselinePills();
   syncBaselineParamFields();
@@ -2466,7 +2578,7 @@
     const traceLoading = document.body.classList.contains("trace-loading");
     if (!t) {
       if (isMobileUI()) {
-        for (const btn of [mobileStepBackBtn, mobileCandidateBackBtn, mobilePlayBtn, mobileCandidateForwardBtn, mobileStepForwardBtn]) {
+        for (const btn of mobileTransportButtons) {
           if (btn) btn.disabled = true;
         }
       }
@@ -2508,6 +2620,13 @@
     if (mobileCandidateBackBtn) mobileCandidateBackBtn.disabled = traceNotReady || !hasCandidates;
     if (mobileCandidateForwardBtn) mobileCandidateForwardBtn.disabled = traceNotReady || !hasCandidates;
     if (mobilePlayBtn) mobilePlayBtn.disabled = traceNotReady;
+    const prefixCount = t.prefixes.length;
+    if (mobileSegmentBackBtn) {
+      mobileSegmentBackBtn.disabled = traceNotReady || state.prefixIdx <= 0;
+    }
+    if (mobileSegmentForwardBtn) {
+      mobileSegmentForwardBtn.disabled = traceNotReady || state.prefixIdx >= prefixCount - 1;
+    }
 
     // 1. Full input stream (faint polyline + small filled dots).
     const showOriginal = toggles.stream
@@ -2897,9 +3016,344 @@
   });
 
   // -------------------------------------------------------------------------
+  //  First-visit UI tour
+  // -------------------------------------------------------------------------
+
+  const TOUR_STORAGE_KEY = "simplify-viewer-tour-v1";
+  const PLAYBACK_TOUR_STORAGE_KEY = "simplify-viewer-playback-tour-v1";
+  const uiTour = el("uiTour");
+  const uiTourSpotlight = el("uiTourSpotlight");
+  const uiTourCard = uiTour ? uiTour.querySelector(".ui-tour-card") : null;
+  const uiTourStepLabel = el("uiTourStepLabel");
+  const uiTourTitle = el("uiTourTitle");
+  const uiTourBody = el("uiTourBody");
+  const uiTourSkip = el("uiTourSkip");
+  const uiTourNext = el("uiTourNext");
+  const uiTourRelaunch = el("uiTourRelaunch");
+
+  const startTourSteps = [
+    {
+      title: "Welcome",
+      body: "This visualizer shortens a GPS-style path while keeping its shape. A short tour shows the controls you need to load your first trace.",
+      targets: [],
+    },
+    {
+      title: "Choose a trajectory",
+      body: "Pick a <b>preloaded trace</b>, or on desktop tap <b>Upload trajectory</b> for your own file (plain text: first line N, then N lines of x y). Preloaded samples already include sensible settings.",
+      targets: [".preloaded-row", "#preloadedTrigger", "#traceSelect", "#uploadBtn"],
+    },
+    {
+      title: "Accuracy controls",
+      body: "<b>ε match</b> is how closely the simplified path must match the original (smaller keeps more detail). <b>δ grid</b> is the search-grid spacing. Defaults are fine for a first run.",
+      targets: ["#epsilonInput", "#deltaInput"],
+    },
+    {
+      title: "Load the trace",
+      body: "Optional: tap <b>Compare</b> (DOTS / DP / SQUISH) to score other algorithms later - or skip them. Press <b>Load Trace</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Candidate, Layers, and Results.",
+      targets: ["#loadBtn", ".header-baseline"],
+    },
+  ];
+
+  const playbackTourSteps = [
+    {
+      title: "Replay how it was built",
+      body: "The green path is shorter than the gray original. These controls walk through the algorithm so you can see each choice over time.",
+      targets: ["#playbackBar", "#mobileTransport"],
+    },
+    {
+      title: "Step",
+      body: "<b>Step</b> moves along the original path points covered by the current simplified piece. Use ← / → (or the Step buttons) to advance one at a time.",
+      targets: ["#stepInput", "#mobileStepForwardBtn", "#mobileStepBackBtn"],
+    },
+    {
+      title: "Segment and Candidate",
+      body: "<b>Segment</b> jumps between pieces of the simplified path. <b>Candidate</b> cycles possible next points the search considered. Press <b>Play</b> to auto-advance; pick a speed if you want it faster or slower.",
+      targets: ["#segmentInput", "#candidateInput", "#playBtn", "#mobileSegmentForwardBtn", "#mobileCandidateForwardBtn", "#mobilePlayBtn"],
+    },
+    {
+      title: "Layers",
+      body: "In the sidebar, <b>Layers</b> toggles what the map draws (original path, simplified path, search circles, candidate regions). Each row keeps a short symbol plus plain wording. Use <b>Fit to data</b> in View if you pan or zoom away.",
+      targets: ["#layersSection > h2", "#mobileLayersToggle", "#toggle-stream", "#toggle-simplified"],
+      prepare: prepareLayersTourStep,
+    },
+    {
+      title: "Results and Compare",
+      body: "Open the left-edge <b>Results</b> tab to see scores. To score other algorithms, pick DOTS / DP / SQUISH and press <b>Run compare</b> inside Results (on wider screens you can also use <b>Run</b> beside Compare in the header). Skip Compare if you only want the green simplified path.",
+      targets: ["#resultsPanelOpen"],
+    },
+  ];
+
+  let tourSteps = startTourSteps;
+  let tourStorageKey = TOUR_STORAGE_KEY;
+  let tourIndex = 0;
+  let tourActive = false;
+  let playbackTourPending = false;
+
+  function prepareLayersTourStep() {
+    document.body.classList.remove("mobile-panel-closed");
+    if (layersSection) {
+      layersSection.classList.add("layers-open");
+      if (mobileLayersToggle) mobileLayersToggle.setAttribute("aria-expanded", "true");
+    }
+    const simplifyAcc = document.getElementById("accordionSimplify");
+    if (simplifyAcc) simplifyAcc.open = true;
+    if (layersSection && typeof layersSection.scrollIntoView === "function") {
+      layersSection.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+  }
+
+  function isTourTargetVisible(node) {
+    if (!node || !(node instanceof Element)) return false;
+    if (node.classList.contains("visually-hidden")) return false;
+    const style = window.getComputedStyle(node);
+    if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") {
+      return false;
+    }
+    const rect = node.getBoundingClientRect();
+    return rect.width > 1 && rect.height > 1;
+  }
+
+  function resolveTourTargets(selectors) {
+    const nodes = [];
+    for (const selector of selectors) {
+      const raw = document.querySelector(selector);
+      if (!raw) continue;
+      const target = raw.closest("label") || raw;
+      if (!isTourTargetVisible(target)) continue;
+      if (!nodes.includes(target)) nodes.push(target);
+    }
+    return nodes;
+  }
+
+  function unionTourRect(nodes) {
+    let top = Infinity;
+    let left = Infinity;
+    let right = -Infinity;
+    let bottom = -Infinity;
+    for (const node of nodes) {
+      const rect = node.getBoundingClientRect();
+      top = Math.min(top, rect.top);
+      left = Math.min(left, rect.left);
+      right = Math.max(right, rect.right);
+      bottom = Math.max(bottom, rect.bottom);
+    }
+    if (!Number.isFinite(top)) return null;
+    const pad = 6;
+    return {
+      top: Math.max(8, top - pad),
+      left: Math.max(8, left - pad),
+      width: Math.min(window.innerWidth - 16, right - left + pad * 2),
+      height: Math.min(window.innerHeight - 16, bottom - top + pad * 2),
+    };
+  }
+
+  function placeTourCard(anchorRect) {
+    if (!uiTourCard) return;
+    const margin = 14;
+    const cardWidth = Math.min(340, window.innerWidth - 28);
+    const cardHeight = uiTourCard.offsetHeight || 160;
+    let top;
+    let left;
+
+    if (!anchorRect) {
+      top = Math.max(margin, (window.innerHeight - cardHeight) / 2);
+      left = Math.max(margin, (window.innerWidth - cardWidth) / 2);
+    } else if (anchorRect.left < 72 && anchorRect.width < 72) {
+      // Left-edge chrome (Results tab): place the card to the right of the spotlight.
+      left = Math.min(
+        window.innerWidth - cardWidth - margin,
+        Math.max(margin, anchorRect.right + 12)
+      );
+      top = Math.min(
+        Math.max(margin, anchorRect.top),
+        window.innerHeight - cardHeight - margin
+      );
+      // Keep clear of the fixed mobile playback dock.
+      const dock = document.getElementById("mobileTransport");
+      if (dock && isTourTargetVisible(dock)) {
+        const dockTop = dock.getBoundingClientRect().top;
+        top = Math.min(top, Math.max(margin, dockTop - cardHeight - 12));
+      }
+    } else {
+      left = Math.min(
+        Math.max(margin, anchorRect.left),
+        window.innerWidth - cardWidth - margin
+      );
+      top = anchorRect.top + anchorRect.height + 12;
+      if (top + cardHeight > window.innerHeight - margin) {
+        top = Math.max(margin, anchorRect.top - cardHeight - 12);
+      }
+    }
+
+    uiTourCard.style.top = `${Math.round(top)}px`;
+    uiTourCard.style.left = `${Math.round(left)}px`;
+  }
+
+  function renderTourStep() {
+    if (!uiTour || !tourActive) return;
+    const step = tourSteps[tourIndex];
+    if (!step) {
+      finishTour();
+      return;
+    }
+
+    if (typeof step.prepare === "function") {
+      try {
+        step.prepare();
+      } catch (err) {
+        console.warn("[Tour] prepare failed:", err);
+      }
+      // Wait one frame so mobile layers-open / scroll layout is applied.
+      requestAnimationFrame(() => {
+        if (!tourActive || tourSteps[tourIndex] !== step) return;
+        paintTourStep(step);
+      });
+      return;
+    }
+
+    paintTourStep(step);
+  }
+
+  function paintTourStep(step) {
+    if (!uiTour || !tourActive || !step) return;
+
+    const total = tourSteps.length;
+    if (uiTourStepLabel) uiTourStepLabel.textContent = `${tourIndex + 1} / ${total}`;
+    if (uiTourTitle) uiTourTitle.textContent = step.title;
+    if (uiTourBody) uiTourBody.innerHTML = step.body;
+    if (uiTourNext) {
+      uiTourNext.textContent = tourIndex === total - 1 ? "Done" : "Next";
+    }
+
+    const targets = resolveTourTargets(step.targets || []);
+    const rect = targets.length ? unionTourRect(targets) : null;
+
+    if (rect && uiTourSpotlight) {
+      uiTour.classList.add("has-spotlight");
+      uiTourSpotlight.hidden = false;
+      uiTourSpotlight.style.top = `${Math.round(rect.top)}px`;
+      uiTourSpotlight.style.left = `${Math.round(rect.left)}px`;
+      uiTourSpotlight.style.width = `${Math.round(rect.width)}px`;
+      uiTourSpotlight.style.height = `${Math.round(rect.height)}px`;
+      placeTourCard(rect);
+      requestAnimationFrame(() => placeTourCard(rect));
+    } else if (uiTourSpotlight) {
+      uiTour.classList.remove("has-spotlight");
+      uiTourSpotlight.hidden = true;
+      placeTourCard(null);
+      requestAnimationFrame(() => placeTourCard(null));
+    }
+  }
+
+  function openTour(fromStart, steps, storageKey) {
+    if (!uiTour) return;
+    tourSteps = steps || startTourSteps;
+    tourStorageKey = storageKey || TOUR_STORAGE_KEY;
+    tourActive = true;
+    tourIndex = fromStart ? 0 : tourIndex;
+    uiTour.hidden = false;
+    document.body.style.overflow = "hidden";
+    renderTourStep();
+    if (uiTourNext) uiTourNext.focus();
+  }
+
+  function finishTour() {
+    if (!uiTour) return;
+    const finishedKey = tourStorageKey;
+    tourActive = false;
+    uiTour.hidden = true;
+    uiTour.classList.remove("has-spotlight");
+    if (uiTourSpotlight) uiTourSpotlight.hidden = true;
+    document.body.style.overflow = "";
+    try {
+      localStorage.setItem(finishedKey, "1");
+    } catch (_) {
+      /* ignore quota / private mode */
+    }
+    if (finishedKey === TOUR_STORAGE_KEY && playbackTourPending) {
+      playbackTourPending = false;
+      requestAnimationFrame(() => maybeStartPlaybackTour());
+    }
+  }
+
+  function advanceTour() {
+    if (tourIndex >= tourSteps.length - 1) {
+      finishTour();
+      return;
+    }
+    tourIndex += 1;
+    renderTourStep();
+  }
+
+  function playbackTourSeen() {
+    try {
+      return localStorage.getItem(PLAYBACK_TOUR_STORAGE_KEY) === "1";
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function maybeStartPlaybackTour() {
+    if (!uiTour || tourActive || playbackTourSeen()) return;
+    if (!document.body.classList.contains("playback-ready")) return;
+    openTour(true, playbackTourSteps, PLAYBACK_TOUR_STORAGE_KEY);
+  }
+
+  function schedulePlaybackTour() {
+    if (playbackTourSeen()) return;
+    if (tourActive && tourStorageKey === TOUR_STORAGE_KEY) {
+      playbackTourPending = true;
+      return;
+    }
+    // Wait for playback chrome layout (desktop bar / mobile dock) to settle.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => maybeStartPlaybackTour());
+    });
+  }
+
+  if (uiTourSkip) uiTourSkip.addEventListener("click", finishTour);
+  if (uiTourNext) uiTourNext.addEventListener("click", advanceTour);
+  if (uiTourRelaunch) {
+    uiTourRelaunch.addEventListener("click", () => {
+      // After a trace is loaded, ? reopens the playback guide; otherwise the start guide.
+      if (document.body.classList.contains("playback-ready")) {
+        openTour(true, playbackTourSteps, PLAYBACK_TOUR_STORAGE_KEY);
+      } else {
+        openTour(true, startTourSteps, TOUR_STORAGE_KEY);
+      }
+    });
+  }
+
+  window.addEventListener("keydown", (event) => {
+    if (!tourActive) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      finishTour();
+    } else if (event.key === "Enter" || event.key === "ArrowRight") {
+      event.preventDefault();
+      advanceTour();
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    if (tourActive) renderTourStep();
+  });
+
+  // -------------------------------------------------------------------------
   //  Boot
   // -------------------------------------------------------------------------
 
   resizeCanvas();
   render();
+
+  let shouldStartTour = false;
+  try {
+    shouldStartTour = localStorage.getItem(TOUR_STORAGE_KEY) !== "1";
+  } catch (_) {
+    shouldStartTour = true;
+  }
+  if (shouldStartTour) {
+    // Wait one frame so header layout (including mobile start screen) is ready.
+    requestAnimationFrame(() => openTour(true, startTourSteps, TOUR_STORAGE_KEY));
+  }
 })();

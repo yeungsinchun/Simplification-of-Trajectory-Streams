@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Compare param glosses and Layers hint</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+    --accent: #4f9dff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+  }
+  section { padding: 16px 0; border-bottom: 1px solid var(--panel-border); width: 900px; margin: 0 auto; }
+  .label {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin: 0 16px 8px;
+  }
+  .callout {
+    background: rgba(255,95,109,0.08);
+    border: 1px solid rgba(255,95,109,0.35);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text-dim);
+    font-size: 12px;
+    margin: 0 16px 12px;
+  }
+  .ok {
+    background: rgba(61,220,151,0.08);
+    border: 1px solid rgba(61,220,151,0.35);
+  }
+  .strip {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 8px 12px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    min-height: 33px;
+    width: calc(100% - 32px);
+    margin: 0 16px;
+    max-width: 868px;
+  }
+  .name { color: var(--text-dim); font-weight: 600; font-size: 12px; white-space: nowrap; }
+  .pill {
+    border: 1px solid var(--accent);
+    background: #2a4a72;
+    color: var(--text);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 11px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .field {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-dim);
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .field input {
+    width: 56px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--panel-border);
+    background: #1a1f29;
+    color: var(--text);
+  }
+  .run {
+    flex-shrink: 0;
+    background: var(--accent);
+    color: #061018;
+    border: none;
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 650;
+    white-space: nowrap;
+  }
+  .hint {
+    margin: 10px 16px 0;
+    padding: 8px 10px;
+    background: #1a1f29;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    color: var(--text-dim);
+    font-size: 12px;
+    max-width: 420px;
+  }
+  .meta { margin: 8px 16px 0; color: var(--text-dim); font-size: 12px; }
+</style>
+</head>
+<body>
+<section>
+  <div class="label">Before - jargon params + Results-only Layers hint</div>
+  <div class="callout">
+    Header fields said <b>DOTS thresh</b> / <b>DP ε</b>. Layers Compare still said
+    “Run a compare from the Results panel…” even after header <b>Run</b> existed.
+  </div>
+  <div class="strip">
+    <span class="name">Compare:</span>
+    <span class="pill">DOTS</span>
+    <span class="pill">DP</span>
+    <span class="pill">SQUISH</span>
+    <label class="field"><span>DOTS thresh</span><input value="1000" /><span>K</span></label>
+    <label class="field"><span>DP ε</span><input value="0.9" /></label>
+    <label class="field"><span>SQUISH keep</span><input value="20" /><span>%</span></label>
+    <button type="button" class="run">Run</button>
+  </div>
+  <p class="hint">Run a compare from the Results panel to enable these layers.</p>
+</section>
+<section>
+  <div class="label">After - plain limit / match labels + Run-aware Layers hint</div>
+  <div class="callout ok">
+    Fields read <b>DOTS limit</b> / <b>DP match</b> / <b>SQUISH keep</b>. Layers hint
+    leads with Results <b>Run compare</b> (header <b>Run</b> noted for wider screens). Strip stays one row at 900px.
+  </div>
+  <div class="strip" id="after">
+    <span class="name">Compare:</span>
+    <span class="pill">DOTS</span>
+    <span class="pill">DP</span>
+    <span class="pill">SQUISH</span>
+    <label class="field"><span>DOTS limit</span><input value="1000" /><span>K</span></label>
+    <label class="field"><span>DP match</span><input value="0.9" /></label>
+    <label class="field"><span>SQUISH keep</span><input value="20" /><span>%</span></label>
+    <button type="button" class="run">Run</button>
+  </div>
+  <p class="hint" id="hint">Open Results, pick Compare algorithms, then press Run compare to enable these layers. On wider screens you can also use Run beside Compare in the header.</p>
+  <p class="meta" id="measure"></p>
+</section>
+<script>
+  const after = document.getElementById("after");
+  const measure = document.getElementById("measure");
+  const height = after.getBoundingClientRect().height;
+  const scrollW = document.documentElement.scrollWidth;
+  measure.textContent =
+    `After strip height ${Math.round(height)}px; document scrollWidth ${scrollW}` +
+    (scrollW > 900 ? " (overflow)" : " (no page overflow at 900px).");
+</script>
+</body>
+</html>

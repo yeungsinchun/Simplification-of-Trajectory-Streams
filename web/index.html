@@ -4,6 +4,19 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Trajectory Simplification Visualizer</title>
+<script>
+  // Assistive MathML copies keep full formula width and can report boxes past the
+  // 280px sidebar at 900px even when overflow-x is hidden. Disable the render
+  // action that injects them; CSS below still clips any leftover copies.
+  window.MathJax = {
+    options: {
+      enableAssistiveMml: false,
+      renderActions: {
+        assistiveMml: [],
+      },
+    },
+  };
+</script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 <style>
   :root {
@@ -50,6 +63,15 @@
     color: var(--text-dim);
     font-size: 12px;
   }
+  #uploadStatus {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-height: 26px;
+    line-height: 1.2;
+  }
   .file-controls {
     display: flex;
     align-items: center;
@@ -64,6 +86,21 @@
   .upload-form label {
     font-size: 11px;
     color: var(--text-dim);
+  }
+  .upload-form .param-label {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    white-space: nowrap;
+  }
+  .upload-form .param-symbol {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .upload-form .param-gloss {
+    color: var(--text-dim);
+    font-weight: 500;
+    letter-spacing: 0.01em;
   }
   .params {
     display: flex;
@@ -88,6 +125,17 @@
   .params-metric-label {
     color: inherit;
   }
+  .params-metric-value {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 14px;
+    color: #22D3EE;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .params-metric--frechet .params-metric-value { min-width: 7ch; }
+  .params-metric--time .params-metric-value { min-width: 11ch; }
   .params-metric-body b {
     color: #22D3EE;
     font-weight: 600;
@@ -352,6 +400,8 @@
   }
   .header-baseline .baseline-algo-row {
     gap: 6px;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
   }
   .header-baseline .baseline-algo-pill {
     padding: 5px 12px;
@@ -422,6 +472,17 @@
   .baseline-run-btn:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+  }
+  .header-baseline .baseline-run-btn {
+    align-self: center;
+    flex-shrink: 0;
+    padding: 5px 12px;
+    font-size: 11px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .header-baseline .baseline-run-btn[hidden] {
+    display: none !important;
   }
   .baseline-status {
     margin: 0;
@@ -508,11 +569,7 @@
   body.results-panel-open .results-panel-open-btn { display: none; }
 
   #uploadStatus.upload-status-loading {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
     color: #4f9dff;
-    min-height: 14px;
   }
   main {
     flex: 1;
@@ -565,7 +622,28 @@
   #canvas.dragging {
     cursor: grabbing;
   }
-  #traceLoadingHud { display: none !important; }
+  #traceLoadingHud {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    pointer-events: none;
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 500;
+    background: rgba(15, 17, 21, 0.28);
+  }
+  #traceLoadingHud.visible { display: flex; }
+  #traceLoadingHud .button-spinner {
+    width: 22px;
+    height: 22px;
+    border-width: 2px;
+    color: var(--accent);
+  }
   #playbackBar {
     display: none;
     align-items: center;
@@ -576,6 +654,46 @@
     flex-wrap: wrap;
   }
   #playbackBar.visible { display: flex; }
+  .pb-nav {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .pb-nav-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .pb-caption {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .pb-speed {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 8px;
+    flex-shrink: 0;
+  }
+  .pb-speed-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .pb-input {
+    width: 80px;
+    text-align: center;
+    background: #1e2330;
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 5px;
+    padding: 4px 8px;
+    font-size: 12px;
+  }
   .pb-group {
     display: flex;
     align-items: center;
@@ -732,6 +850,7 @@
     background: var(--panel);
     border-left: 1px solid var(--panel-border);
     padding: 14px;
+    overflow-x: hidden;
     overflow-y: auto;
     display: none;
     flex-direction: column;
@@ -776,6 +895,27 @@
   button.iconbtn { width: 30px; padding: 5px 0; text-align: center; }
   button.primary { background: var(--accent-dim); border-color: var(--accent); }
   button.primary:hover { background: #345f8f; }
+  #loadBtn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  #loadBtn .button-spinner {
+    position: absolute;
+    opacity: 0;
+  }
+  #loadBtn[aria-busy="true"] .button-spinner {
+    opacity: 1;
+  }
+  #loadBtn[aria-busy="true"] .load-btn-label {
+    visibility: hidden;
+  }
+  button#loadBtn:disabled[aria-busy="true"] {
+    opacity: 1;
+    cursor: progress;
+  }
   .button-spinner {
     display: inline-block;
     width: 14px;
@@ -805,14 +945,37 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    min-width: 0;
     padding: 3px 0;
   }
   .toggle-row label {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 6px 8px;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
     cursor: pointer;
     font-size: 12.5px;
+  }
+  #layersSection mjx-container {
+    max-width: 100%;
+    overflow: hidden;
+  }
+  /* Belt-and-suspenders if a MathJax build still injects assistive MathML. */
+  #layersSection mjx-assistive-mml,
+  #layersSection mjx-assistive-mml math {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    clip: rect(1px, 1px, 1px, 1px) !important;
+    clip-path: inset(50%) !important;
+    white-space: nowrap !important;
+    pointer-events: none !important;
   }
   .swatch {
     width: 12px; height: 12px;
@@ -897,6 +1060,7 @@
     padding-right: 10px;
     color: var(--text);
   }
+  .mobile-shortcuts { display: none; }
   kbd {
     background: #1e2330;
     border: 1px solid var(--panel-border);
@@ -925,7 +1089,13 @@
   }
 
   @media (max-width: 720px) {
-    html, body { font-size: 13px; overflow: auto; }
+    html, body {
+      font-size: 13px;
+      height: auto;
+      min-height: 100%;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
     #app { height: auto; min-height: 100vh; }
     main { min-height: 60vh; }
     header {
@@ -947,7 +1117,7 @@
     }
     .upload-form label,
     .upload-form span { font-size: 11px; }
-    .upload-form select,
+    .upload-form select:not(.visually-hidden),
     .upload-form button,
     .upload-form input[type="number"] {
       width: 100%;
@@ -964,7 +1134,6 @@
     .upload-form .header-baseline .baseline-field--inline input {
       width: 80px;
     }
-    .upload-form #traceSelect { max-width: none; }
     .upload-form .or-divider { text-align: center; }
     .params { margin-left: 0; width: 100%; justify-content: center; }
     .params b { color: var(--text); font-weight: 600; }
@@ -1026,6 +1195,7 @@
     .mobile-back svg { width: 17px; height: 17px; }
     body.trace-loaded-mobile header {
       flex-direction: row;
+      flex-wrap: wrap;
       align-items: center;
       padding: 10px 12px;
     }
@@ -1036,20 +1206,52 @@
       font-size: 14px;
     }
     body.trace-loaded-mobile .mobile-back { display: inline-flex; }
-    body.trace-loaded-mobile .headerBody { display: none; }
+    body.trace-loaded-mobile .headerBody {
+      display: flex;
+      width: 100%;
+      flex-basis: 100%;
+      order: 10;
+      padding: 8px 0 0;
+      margin: 0;
+      gap: 8px;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+    }
+    body.trace-loaded-mobile .headerBody .file-controls,
+    body.trace-loaded-mobile .headerBody .mobile-start-help {
+      display: none;
+    }
+    body.trace-loaded-mobile .params {
+      padding-top: 0;
+      border-top: none;
+      width: 100%;
+      min-height: 20px;
+      justify-content: flex-start;
+    }
     .headerToggle {
       display: none !important;
     }
     .playbackToggle { display: none !important; }
 
-    body.trace-loaded-mobile .mobile-transport {
+    /* Keep Results above the fixed playback dock (dock z-index 900).
+       mainContent grows with Status/Layers, so absolute top/bottom miss the viewport. */
+    body.results-available.playback-ready .results-panel-open-btn {
+      position: fixed;
+      top: auto;
+      bottom: calc(188px + env(safe-area-inset-bottom, 0px));
+      transform: none;
+      z-index: 850;
+    }
+
+    body.trace-loaded-mobile .mobile-transport.visible {
       display: grid;
       position: fixed;
       left: 10px;
       right: 10px;
       bottom: max(10px, env(safe-area-inset-bottom));
       z-index: 900;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(10, minmax(0, 1fr));
       gap: 5px;
       padding: 6px;
       background: rgba(20, 24, 34, 0.94);
@@ -1063,6 +1265,7 @@
     .mobile-transport button {
       min-width: 0;
       min-height: 48px;
+      grid-column: span 2;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -1078,6 +1281,41 @@
       font-weight: 700;
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
+    }
+    .mobile-transport .mobile-segment {
+      grid-column: span 5;
+    }
+    .mobile-transport .speed-preset {
+      grid-column: span 2;
+      min-height: 44px;
+      min-width: 0 !important;
+      padding: 4px 2px !important;
+      background: #242a39;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      color: var(--text);
+      font-size: 12px !important;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .mobile-transport .speed-preset.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #061018;
+    }
+    .mobile-transport .speed-preset:active:not(:disabled),
+    .mobile-transport .speed-preset:focus,
+    .mobile-transport .speed-preset:focus-visible {
+      background: #343d53;
+      border-color: var(--accent);
+      color: #ffffff;
+    }
+    .mobile-transport .speed-preset.active:active:not(:disabled),
+    .mobile-transport .speed-preset.active:focus,
+    .mobile-transport .speed-preset.active:focus-visible {
+      background: #7ec0ff;
+      border-color: #ffffff;
+      color: #061018;
     }
     .mobile-transport button span {
       color: #b8c0d0;
@@ -1122,12 +1360,48 @@
     }
     body.trace-loading-error .mobile-transport { display: none; }
     .mobile-transport svg { width: 20px; height: 20px; }
-    body.trace-loaded-mobile #canvasWrap {
-      padding-bottom: calc(76px + env(safe-area-inset-bottom));
+    body.trace-loaded-mobile.playback-ready #app {
+      height: auto;
+      min-height: 100svh;
+    }
+    body.trace-loaded-mobile.playback-ready main,
+    body.trace-loaded-mobile.playback-ready #mainContent {
+      flex: none;
+      min-height: auto;
+      height: auto;
+    }
+    body.trace-loaded-mobile.playback-ready #canvasWrap {
+      flex: none;
+      padding-bottom: 0;
       box-sizing: border-box;
     }
-    body.trace-loaded-mobile.mobile-panel-closed .mobile-panel-open {
-      bottom: calc(76px + env(safe-area-inset-bottom));
+    body.trace-loaded-mobile.playback-ready #sidebar {
+      padding-bottom: calc(197px + env(safe-area-inset-bottom));
+    }
+    body.trace-loaded-mobile.playback-ready.mobile-panel-closed {
+      height: 100%;
+      overflow: hidden;
+    }
+    body.trace-loaded-mobile.playback-ready.mobile-panel-closed #app {
+      height: 100svh;
+      min-height: 100svh;
+    }
+    body.trace-loaded-mobile.playback-ready.mobile-panel-closed main,
+    body.trace-loaded-mobile.playback-ready.mobile-panel-closed #mainContent,
+    body.trace-loaded-mobile.playback-ready.mobile-panel-closed #canvasWrap {
+      flex: 1 1 auto;
+      min-height: 0;
+      height: auto;
+    }
+    body.trace-loaded-mobile.playback-ready.mobile-panel-closed #canvasContainer {
+      height: auto;
+      min-height: 0;
+    }
+    body.trace-loaded-mobile.playback-ready.mobile-panel-closed #canvasWrap {
+      padding-bottom: calc(185px + env(safe-area-inset-bottom));
+    }
+    body.trace-loaded-mobile.playback-ready.mobile-panel-closed .mobile-panel-open {
+      bottom: calc(185px + env(safe-area-inset-bottom));
     }
 
     .headerBody {
@@ -1167,8 +1441,9 @@
     }
     .upload-form label {
       display: flex;
-      align-items: center;
-      gap: 8px;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
       padding: 8px 10px;
       background: #1e2330;
       border: 1px solid var(--panel-border);
@@ -1183,9 +1458,19 @@
       border-radius: 8px;
     }
     .upload-form label input[type="number"] {
+      width: 100%;
       min-width: 0;
-      padding: 4px 6px;
+      padding: 8px 10px;
       text-align: right;
+      font-variant-numeric: tabular-nums;
+      -webkit-appearance: textfield;
+      appearance: textfield;
+    }
+    .upload-form label input[type="number"]::-webkit-outer-spin-button,
+    .upload-form label input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      appearance: none;
+      margin: 0;
     }
     .upload-form button {
       min-height: 44px;
@@ -1234,6 +1519,26 @@
     body.trace-loaded-mobile #canvasContainer {
       min-height: 52vh;
       height: 52vh;
+    }
+    body.trace-loaded-mobile.playback-ready #canvasContainer {
+      height: 38vh;
+      min-height: 38vh;
+    }
+    body.trace-loaded-mobile:not(.playback-ready) #sidebar,
+    body.trace-loaded-mobile:not(.playback-ready) .mobile-panel-open {
+      display: none !important;
+    }
+    body.trace-loaded-mobile:not(.playback-ready) {
+      height: 100%;
+      overflow: hidden;
+    }
+    body.trace-loaded-mobile:not(.playback-ready) #app {
+      height: 100svh;
+      min-height: 100svh;
+    }
+    body.trace-loaded-mobile:not(.playback-ready) #canvasContainer {
+      height: auto;
+      min-height: 0;
     }
     body.trace-loaded-mobile #sidebar {
       position: relative;
@@ -1309,9 +1614,8 @@
       font-size: 13px;
       min-height: 52px;
     }
-    body.trace-loaded-mobile .params {
-      min-height: 20px;
-    }
+    .desktop-shortcuts { display: none; }
+    .mobile-shortcuts { display: table; }
     .mobile-layers-toggle {
       width: 100%;
       min-height: 44px;
@@ -1363,13 +1667,111 @@
     .headerBody { display: contents; }
     .playbackBody { display: contents; }
     #playbackBar .playback-handle { display: none; }
+    /* Keep step / segment / candidate / play / speed on one row so narrower
+       desktop widths do not grow the bar and shift the canvas. */
+    #playbackBar {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+    }
+    .params:not(:empty) {
+      /* Full-width second header row. flex-basis 100% only works when header
+         may wrap; shrink 0 so the chips are not crushed beside Load Trace. */
+      flex: 1 0 100%;
+      margin-left: 0;
+      width: 100%;
+    }
+    /* Title + controls stay on row 1 (file-controls shrinks). Params uses the
+       wrap row below so chips are not squeezed into a ~160px side column. */
+    header {
+      flex-wrap: wrap;
+    }
+    header h1 {
+      flex-shrink: 0;
+    }
+    .ui-tour-relaunch {
+      flex-shrink: 0;
+    }
+    .file-controls {
+      flex: 1 1 0;
+      min-width: 0;
+    }
+    .upload-form {
+      flex-wrap: wrap;
+      width: 100%;
+      min-width: 0;
+    }
+    .upload-form button,
+    #trajectoryFileName {
+      white-space: nowrap;
+    }
+    .upload-form label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    /* Compare strip sits under Load Trace so selecting algos never kicks
+       Load Trace onto a second form row. Keep pills + params on one line. */
+    .upload-form .header-baseline {
+      flex: 1 1 100%;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      min-height: 33px;
+      max-width: 100%;
+      padding: 2px 0 0;
+    }
+    .upload-form .header-baseline .baseline-field--inline {
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    #uploadStatus {
+      min-width: 126px;
+    }
+  }
+
+  /* Compact the playback chrome so 721-1100px stays one row without scrolling. */
+  @media (min-width: 721px) and (max-width: 1100px) {
+    #playbackBar {
+      gap: 4px;
+      padding: 6px 10px;
+    }
+    .pb-btn { min-width: 40px; padding: 4px 4px; }
+    .pb-btn--play { min-width: 48px; }
+    .pb-btn svg { width: 16px; height: 16px; }
+    .pb-divider { margin: 0 1px; height: 28px; }
+    .pb-nav-row { gap: 4px; }
+    .pb-speed { margin-left: 2px; gap: 3px; }
+    .pb-speed-label { display: none; }
+    .speed-preset { padding: 3px 5px !important; min-width: 28px; font-size: 11px; }
+    .pb-input { width: 56px; padding: 4px 4px; }
+  }
+
+  @media (min-width: 721px) and (max-width: 820px) {
+    .pb-caption { display: none; }
+    .pb-btn { min-width: 36px; }
+    .pb-btn--play { min-width: 44px; padding: 4px 6px; }
+    .pb-input { width: 50px; font-size: 11px; }
+    .speed-preset { padding: 2px 4px !important; min-width: 26px; font-size: 10px; }
+    #playbackBar { gap: 2px; padding: 5px 8px; }
+  }
+
+  @media (min-width: 721px) and (max-width: 899px) {
+    .upload-form { flex-wrap: wrap; }
+    /* Ellipsis preview wraps to 2 rows here; filled numbers need 3. Reserve the
+       taller slot so Load Trace → geometry does not grow the header. */
+    .params:not(:empty) {
+      min-height: 76px;
+    }
+    /* Keep ε/δ + Load Trace on one row; tooltips and start copy still explain match/grid. */
+    .upload-form .param-gloss { display: none; }
   }
 
   @media (max-width: 480px) {
     header h1 { font-size: 14px; }
     .params { font-size: 11px; gap: 8px; }
     input[type="number"] { width: 100%; }
-    #stepInput, #segmentInput, #candidateInput { width: 64px; }
+    .pb-input { width: 64px; }
     .pb-btn { min-width: 42px; }
     .pb-btn--play { min-width: 50px; }
     .speed-preset { padding: 3px 6px !important; font-size: 11px; min-width: 30px; }
@@ -1380,18 +1782,20 @@
   /* Touch: prevent accidental pan/zoom while interacting with controls */
   @media (hover: none) {
     .pb-btn, button { padding: 10px 14px; }
-    input[type="number"], #stepInput, #segmentInput, #candidateInput { padding: 8px 10px; }
+    input[type="number"], .pb-input { padding: 8px 10px; }
   }
 
   /* ---------- Preloaded trace picker ---------- */
   .visually-hidden {
     position: absolute !important;
-    width: 1px; height: 1px;
-    padding: 0; margin: -1px;
-    overflow: hidden;
-    clip: rect(0,0,0,0);
-    white-space: nowrap;
-    border: 0;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
   }
 
   .preloaded-row {
@@ -1532,10 +1936,15 @@
   }
 
   @media (max-width: 720px) {
-    /* On mobile, hide the real <select> and show the trigger button. */
+    /* On mobile, clip the real <select> and show the trigger button. */
     .preloaded-row { width: 100%; }
     .preloaded-trigger { display: flex; }
-    #traceSelect.visually-hidden-mobile { display: none; }
+    #traceSelect.visually-hidden {
+      width: 1px !important;
+      max-width: 1px !important;
+      height: 1px !important;
+      padding: 0 !important;
+    }
   }
   @media (min-width: 721px) {
     /* On desktop, show the native select inline — width set to fit longest option. */
@@ -1563,6 +1972,130 @@
       field-sizing: content;
     }
   }
+
+  /* ---------- First-visit UI tour ---------- */
+  #uiTour {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    pointer-events: none;
+  }
+  #uiTour[hidden] { display: none !important; }
+  .ui-tour-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(8, 10, 14, 0.62);
+    pointer-events: auto;
+  }
+  #uiTour.has-spotlight .ui-tour-backdrop {
+    background: transparent;
+  }
+  .ui-tour-spotlight {
+    position: absolute;
+    border: 2px solid var(--accent);
+    border-radius: 10px;
+    box-shadow: 0 0 0 9999px rgba(8, 10, 14, 0.62);
+    background: transparent;
+    pointer-events: none;
+    transition: top 0.18s ease, left 0.18s ease, width 0.18s ease, height 0.18s ease;
+  }
+  .ui-tour-card {
+    position: absolute;
+    width: min(340px, calc(100vw - 28px));
+    padding: 14px 14px 12px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    pointer-events: auto;
+    color: var(--text);
+  }
+  .ui-tour-step {
+    margin: 0 0 6px;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .ui-tour-card h2 {
+    margin: 0 0 8px;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  .ui-tour-card p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--text-dim);
+  }
+  .ui-tour-card p b { color: var(--text); font-weight: 600; }
+  .ui-tour-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .ui-tour-actions button {
+    min-height: 34px;
+    padding: 6px 12px;
+    border-radius: 7px;
+    border: 1px solid var(--panel-border);
+    background: #1e2330;
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .ui-tour-actions button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0b0e14;
+    font-weight: 600;
+  }
+  .ui-tour-actions button:hover { filter: brightness(1.08); }
+  .ui-tour-relaunch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    margin-left: 4px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--panel-border);
+    background: #1e2330;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .ui-tour-relaunch:hover {
+    color: var(--accent);
+    border-color: var(--accent-dim);
+  }
+  @media (max-width: 720px) {
+    .ui-tour-card {
+      width: min(360px, calc(100vw - 24px));
+    }
+    body:not(.trace-loaded-mobile) header {
+      position: relative;
+    }
+    body:not(.trace-loaded-mobile) .ui-tour-relaunch {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 2;
+      width: 32px;
+      height: 32px;
+      font-size: 14px;
+    }
+    body.trace-loaded-mobile .ui-tour-relaunch {
+      margin-left: 0;
+      flex-shrink: 0;
+    }
+  }
 </style>
 </head>
 <body>
@@ -1573,6 +2106,7 @@
       Back
     </button>
     <h1>Trajectory Simplification Visualizer</h1>
+    <button type="button" id="uiTourRelaunch" class="ui-tour-relaunch" title="Replay the quick tour" aria-label="Replay the quick tour">?</button>
     <button type="button" id="headerToggle" class="headerToggle" aria-label="Show controls" aria-expanded="false" aria-controls="headerBody">
       <svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
     </button>
@@ -1592,34 +2126,44 @@
             </select>
           </div>
           <span class="or-divider" style="color: var(--text-dim); font-size: 12px; margin: 0 8px;">or</span>
-          <button id="uploadBtn" class="primary">Upload original.txt</button>
+          <button id="uploadBtn" class="primary" title="Upload a plain-text trajectory (first line N, then N lines of x y). Same format as the sample original.txt files.">Upload trajectory</button>
           <input type="file" id="trajectoryInput" accept=".txt,text/plain" />
-          <label>&epsilon; <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" /></label>
-          <label>&delta; <input type="number" id="deltaInput" value="500" step="10" min="1" /></label>
-          <div class="header-baseline" aria-label="Baseline algorithm to benchmark against">
-            <span class="header-baseline-label">Baseline:</span>
-            <div class="baseline-algo-row" id="headerBaselineAlgoRow" role="group" aria-label="Baseline algorithms">
-              <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false">DOTS</button>
-              <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false">DP</button>
-              <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false">SQUISH</button>
+          <label title="How closely the simplified path must match the original. Smaller keeps more detail.">
+            <span class="param-label"><span class="param-symbol">&epsilon;</span> <span class="param-gloss">match</span></span>
+            <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" aria-label="Match tolerance (epsilon)" />
+          </label>
+          <label title="Grid spacing used while searching for the simplified path. Preloaded traces set a good default.">
+            <span class="param-label"><span class="param-symbol">&delta;</span> <span class="param-gloss">grid</span></span>
+            <input type="number" id="deltaInput" value="500" step="10" min="1" aria-label="Search grid spacing (delta)" />
+          </label>
+          <button id="loadBtn" class="primary">
+            <span class="button-spinner" aria-hidden="true"></span>
+            <span class="load-btn-label">Load Trace</span>
+          </button>
+          <span class="sub" id="uploadStatus"></span>
+          <div class="header-baseline" aria-label="Optional algorithms to compare against">
+            <span class="header-baseline-label" title="Optional. Pick other algorithms to score against after Load Trace. Skip for a first run.">Compare:</span>
+            <div class="baseline-algo-row" id="headerBaselineAlgoRow" role="group" aria-label="Compare algorithms">
+              <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" title="DOTS: another streaming simplifier to score against. Optional; skip for a first run.">DOTS</button>
+              <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Optional compare.">DP</button>
+              <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" title="SQUISH: keeps about this percent of the original points. Optional compare.">SQUISH</button>
             </div>
-            <label class="baseline-field baseline-field--inline" id="headerBaselineLssdField" hidden>
-              <span><span class="baseline-param-owner owner-dots">DOTS</span> LSSD</span>
-              <input type="number" id="headerBaselineLssdInput" value="1000" step="1" min="0.000001" />
+            <label class="baseline-field baseline-field--inline" id="headerBaselineLssdField" hidden title="DOTS distance limit in thousands (K). Larger keeps fewer points.">
+              <span><span class="baseline-param-owner owner-dots">DOTS</span> limit</span>
+              <input type="number" id="headerBaselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS distance limit in thousands" />
               <span class="baseline-field-unit" title="Thousand">K</span>
             </label>
-            <label class="baseline-field baseline-field--inline" id="headerBaselineDpEpsField" hidden>
-              <span><span class="baseline-param-owner owner-dp">DP</span> PED ε</span>
-              <input type="number" id="headerBaselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" />
+            <label class="baseline-field baseline-field--inline" id="headerBaselineDpEpsField" hidden title="DP allowed point-to-edge error (same idea as ε match).">
+              <span><span class="baseline-param-owner owner-dp">DP</span> match</span>
+              <input type="number" id="headerBaselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP match error" />
             </label>
-            <label class="baseline-field baseline-field--inline" id="headerBaselineSquishRatioField" hidden>
-              <span><span class="baseline-param-owner owner-squish">SQUISH</span> Ratio</span>
-              <input type="number" id="headerBaselineSquishRatioInput" value="20" step="1" min="0.01" max="100" />
+            <label class="baseline-field baseline-field--inline" id="headerBaselineSquishRatioField" hidden title="SQUISH keep ratio: percent of original points to retain.">
+              <span><span class="baseline-param-owner owner-squish">SQUISH</span> keep</span>
+              <input type="number" id="headerBaselineSquishRatioInput" value="20" step="1" min="0.01" max="100" aria-label="SQUISH keep percent" />
               <span class="baseline-field-unit" title="Percent">%</span>
             </label>
+            <button type="button" id="headerBaselineRunBtn" class="baseline-run-btn" hidden disabled title="Run the selected Compare algorithms and open scores in Results">Run</button>
           </div>
-          <button id="loadBtn" class="primary">Load Trace</button>
-          <span class="sub" id="uploadStatus"></span>
         </div>
       </div>
       <div class="params" id="paramsBar"></div>
@@ -1627,10 +2171,10 @@
         <h2>Instructions</h2>
         <ul>
           <li>Select a preloaded trajectory.</li>
-          <li>Optionally pick a <b>Baseline</b> (e.g. DOTS) to benchmark against.</li>
-          <li>Adjust <b>&epsilon;</b> and <b>&delta;</b>, then tap <b>Load Trace</b>.</li>
+          <li>Optionally adjust <b>&epsilon; match</b> (accuracy) and <b>&delta; grid</b> (search spacing), then tap <b>Load Trace</b>.</li>
+          <li>After <b>Load Trace</b>, open <b>Results</b> to pick optional <b>Compare</b> algorithms and tap <b>Run compare</b> for scores.</li>
           <li>Drag the visualization to pan and pinch to zoom.</li>
-          <li>Use <b>Controls</b> to view status and toggle layers.</li>
+          <li>Use <b>Controls</b> for status and layers.</li>
           <li>Tap <b>Back</b> to choose another trajectory.</li>
         </ul>
       </div>
@@ -1648,34 +2192,34 @@
         </div>
         <div class="results-panel-body">
           <div>
-            <p class="results-section-label">Baseline algorithm</p>
+            <p class="results-section-label" title="Optional algorithms to compare against the Simplify result">Compare algorithms</p>
             <div class="baseline-controls">
-              <div class="baseline-algo-row" id="baselineAlgoRow" role="group" aria-label="Baseline algorithms">
-                <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false">DOTS</button>
-                <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false">DP</button>
-                <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false">SQUISH</button>
+              <div class="baseline-algo-row" id="baselineAlgoRow" role="group" aria-label="Compare algorithms">
+                <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" title="DOTS: another streaming simplifier to score against. Optional; skip for a first run.">DOTS</button>
+                <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" title="DP: classic point-to-edge simplifier (Douglas-Peucker style). Optional compare.">DP</button>
+                <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" title="SQUISH: keeps about this percent of the original points. Optional compare.">SQUISH</button>
               </div>
               <div id="baselineParamFields" class="baseline-param-fields">
-                <label class="baseline-field" id="baselineLssdField" hidden>
-                  <span><span class="baseline-param-owner owner-dots">DOTS</span> LSSD</span>
+                <label class="baseline-field" id="baselineLssdField" hidden title="DOTS distance limit in thousands (K). Larger keeps fewer points.">
+                  <span><span class="baseline-param-owner owner-dots">DOTS</span> distance limit</span>
                   <div class="baseline-field-input-row">
-                    <input type="number" id="baselineLssdInput" value="1000" step="1" min="0.000001" />
+                    <input type="number" id="baselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS distance limit in thousands" />
                     <span class="baseline-field-unit" title="Thousand">K</span>
                   </div>
                 </label>
-                <label class="baseline-field" id="baselineDpEpsField" hidden>
-                  <span><span class="baseline-param-owner owner-dp">DP</span> PED ε</span>
-                  <input type="number" id="baselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" />
+                <label class="baseline-field" id="baselineDpEpsField" hidden title="DP allowed point-to-edge error (same idea as ε match).">
+                  <span><span class="baseline-param-owner owner-dp">DP</span> match error</span>
+                  <input type="number" id="baselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP match error" />
                 </label>
-                <label class="baseline-field" id="baselineSquishRatioField" hidden>
-                  <span><span class="baseline-param-owner owner-squish">SQUISH</span> Ratio</span>
+                <label class="baseline-field" id="baselineSquishRatioField" hidden title="SQUISH keep ratio: percent of original points to retain.">
+                  <span><span class="baseline-param-owner owner-squish">SQUISH</span> keep %</span>
                   <div class="baseline-field-input-row">
-                    <input type="number" id="baselineSquishRatioInput" value="20" step="1" min="0.01" max="100" />
+                    <input type="number" id="baselineSquishRatioInput" value="20" step="1" min="0.01" max="100" aria-label="SQUISH keep percent" />
                     <span class="baseline-field-unit" title="Percent">%</span>
                   </div>
                 </label>
               </div>
-              <button type="button" id="baselineRunBtn" class="baseline-run-btn" disabled>Run baseline</button>
+              <button type="button" id="baselineRunBtn" class="baseline-run-btn" disabled>Run compare</button>
               <p id="baselineStatus" class="baseline-status"></p>
             </div>
           </div>
@@ -1691,12 +2235,12 @@
                 </tr>
               </thead>
               <tbody id="compareMetricsBody">
-                <tr><td colspan="2" class="compare-metrics-empty">Load a trace, then run a baseline.</td></tr>
+                <tr><td colspan="2" class="compare-metrics-empty">Load a trace to see scores. Optional: run Compare above.</td></tr>
               </tbody>
             </table>
             </div>
             <p class="compare-metrics-footer">
-              Frechet is the discrete Fréchet distance of each simplified curve against the original trajectory.
+              Match error is how far each simplified path drifts from the original (discrete Fréchet distance). Lower is better.
               <a href="https://en.wikipedia.org/wiki/Fr%C3%A9chet_distance" target="_blank" rel="noopener noreferrer">What is Fréchet distance?</a>
             </p>
             <p id="compareFrechetNote" class="compare-frechet-note" hidden></p>
@@ -1704,7 +2248,7 @@
         </div>
         <div id="resultsPanelResizer" class="results-panel-resizer" role="separator" aria-orientation="vertical" aria-label="Resize results panel"></div>
       </aside>
-      <button type="button" id="resultsPanelOpen" class="results-panel-open-btn" aria-controls="resultsPanel" aria-expanded="false" title="Open results panel">
+      <button type="button" id="resultsPanelOpen" class="results-panel-open-btn" aria-controls="resultsPanel" aria-expanded="false" title="Open Results: scores and optional Compare algorithms" aria-label="Open Results panel for scores and Compare">
         <span class="results-panel-open-arrow" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </span>
@@ -1713,7 +2257,7 @@
       <div id="canvasWrap">
         <div id="canvasContainer">
           <canvas id="canvas"></canvas>
-          <div id="traceLoadingHud" role="status" aria-live="polite">
+          <div id="traceLoadingHud" role="status" aria-live="polite" aria-hidden="true">
             <span class="button-spinner" aria-hidden="true"></span>
             <span id="traceLoadingText">Loading details…</span>
           </div>
@@ -1729,13 +2273,13 @@
             </div>
             <div class="big">Upload a trajectory to get started</div>
             <div class="dropHint-sub">
-              Click <b>Upload original.txt</b> or select a <b>preloaded trace</b>, pick a <b>Baseline</b> to benchmark against, set &epsilon;/&delta;, then <b>Load Trace</b>
+              Click <b>Upload trajectory</b> or select a <b>preloaded trace</b>, optionally pick <b>Compare</b> algorithms, leave <b>&epsilon; match</b> / <b>&delta; grid</b> at defaults (or tweak them), then <b>Load Trace</b>
             </div>
             <div class="dropHint-format">
               Format: first line <code>N</code>, then <code>N</code> lines of <code>"x y"</code>
             </div>
             <div class="desktop-instructions">
-              <h2>Intruction</h2>
+              <h2>Instructions</h2>
               <ul>
                 <li><kbd>←</kbd> / <kbd>→</kbd>: Previous / next step</li>
                 <li><kbd>Shift</kbd> + <kbd>←</kbd> / <kbd>→</kbd>: Previous / next segment</li>
@@ -1751,49 +2295,49 @@
           <span class="playback-handle" aria-hidden="true"></span>
           <div class="playbackBody" id="playbackBody">
           <!-- Step navigation with input -->
-          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
-            <div style="display: flex; align-items: center; gap: 6px;">
+          <div class="pb-nav">
+            <div class="pb-nav-row">
               <button id="stepBackBtn" class="pb-btn" title="Previous step (←)">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
-              <input id="stepInput" type="text" style="width: 80px; text-align: center; background: #1e2330; color: var(--text); border: 1px solid var(--panel-border); border-radius: 5px; padding: 4px 8px; font-size: 12px;" placeholder="0 / 0" title="Current step / total steps">
+              <input id="stepInput" class="pb-input" type="text" placeholder="0 / 0" title="Current step / total steps">
               <button id="stepForwardBtn" class="pb-btn" title="Next step (→)">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
             </div>
-            <span style="font-size: 10px; color: var(--text-dim); font-weight: 500;">pts for current segment</span>
+            <span class="pb-caption" title="Points covered by the current simplified segment">Step</span>
           </div>
 
           <div class="pb-divider"></div>
 
           <!-- Segment navigation with input -->
-          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
-            <div style="display: flex; align-items: center; gap: 6px;">
+          <div class="pb-nav">
+            <div class="pb-nav-row">
               <button id="prefixBackBtn" class="pb-btn" title="Previous simplified segment (Shift+←)">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M19 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><line x1="5" y1="6" x2="5" y2="18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
               </button>
-              <input id="segmentInput" type="text" style="width: 80px; text-align: center; background: #1e2330; color: var(--text); border: 1px solid var(--panel-border); border-radius: 5px; padding: 4px 8px; font-size: 12px;" placeholder="0 / 0" title="Current segment / total segments">
+              <input id="segmentInput" class="pb-input" type="text" placeholder="0 / 0" title="Current segment / total segments">
               <button id="prefixForwardBtn" class="pb-btn" title="Next simplified segment (Shift+→)">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M5 18l6-6-6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><line x1="19" y1="6" x2="19" y2="18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
               </button>
             </div>
-            <span style="font-size: 10px; color: var(--text-dim); font-weight: 500;">segments in simplified curve</span>
+            <span class="pb-caption" title="Segments in the simplified curve">Segment</span>
           </div>
 
           <div class="pb-divider"></div>
 
           <!-- Candidate navigation with input -->
-          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
-            <div style="display: flex; align-items: center; gap: 6px;">
+          <div class="pb-nav">
+            <div class="pb-nav-row">
               <button id="candidateBackBtn" class="pb-btn" title="Previous candidate">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
-              <input id="candidateInput" type="text" style="width: 80px; text-align: center; background: #1e2330; color: var(--text); border: 1px solid var(--panel-border); border-radius: 5px; padding: 4px 8px; font-size: 12px;" placeholder="0 / 0" title="Current candidate / total candidates">
+              <input id="candidateInput" class="pb-input" type="text" placeholder="0 / 0" title="Current candidate / total candidates">
               <button id="candidateForwardBtn" class="pb-btn" title="Next candidate (C)">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
             </div>
-            <span style="font-size: 10px; color: var(--text-dim); font-weight: 500;">boundary anchors</span>
+            <span class="pb-caption" title="Candidate points on the search boundary">Candidate</span>
           </div>
 
           <div class="pb-divider"></div>
@@ -1808,8 +2352,8 @@
           </button>
 
           <!-- Speed -->
-          <div style="display:flex; align-items:center; gap:6px; margin-left:8px;">
-            <span style="font-size:11px; color:var(--text-dim);">Speed</span>
+          <div class="pb-speed">
+            <span class="pb-speed-label">Speed</span>
             <button class="speed-preset" data-speed="0.25">0.25×</button>
             <button class="speed-preset" data-speed="0.5">0.5×</button>
             <button class="speed-preset active" data-speed="1">1×</button>
@@ -1842,7 +2386,7 @@
             <summary>Simplify</summary>
             <div class="layer-acc-body">
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-stream" checked /><span class="swatch" style="background:#5a6272"></span>Full stream</label>
+                <label title="The original trajectory path before simplification"><input type="checkbox" id="toggle-stream" checked /><span class="swatch" style="background:#5a6272"></span>Original path</label>
               </div>
               <div class="toggle-row">
                 <label><input type="checkbox" id="toggle-simplified" checked /><span class="swatch" style="background:#3ddc97"></span>Simplified so far</label>
@@ -1851,36 +2395,36 @@
                 <label><input type="checkbox" id="toggle-final-simplify" /><span class="swatch" style="background:#3ddc97"></span>Final simplified</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-ball-p0" checked /><span class="swatch" style="background:#c47aff"></span>\(B_p\) (δ-ball at start vertex)</label>
+                <label title="Search circle around the start of the current simplified piece (radius δ)"><input type="checkbox" id="toggle-ball-p0" checked /><span class="swatch" style="background:#c47aff"></span>\(B_p\) (search circle at segment start)</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-ball-pi" checked /><span class="swatch" style="background:#ff7ae8"></span>\(B_{v_i}\) (δ-ball at current vertex)</label>
+                <label title="Search circle around the path point currently being processed (radius δ)"><input type="checkbox" id="toggle-ball-pi" checked /><span class="swatch" style="background:#ff7ae8"></span>\(B_{v_i}\) (search circle at current point)</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-Gi" checked /><span class="swatch" style="background:#e8c547"></span>\(\mathrm{conv}(G_{v_i})\)</label>
+                <label title="Yellow region covering open candidate points near the current path point"><input type="checkbox" id="toggle-Gi" checked /><span class="swatch" style="background:#e8c547"></span>\(\mathrm{conv}(G_{v_i})\) (candidate region)</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-F" checked /><span class="swatch" style="background:#4f9dff"></span>\(F(S_{i-1}[p], p)\)</label>
+                <label title="Blue area still allowed by the accuracy limit after the previous simplified piece"><input type="checkbox" id="toggle-F" checked /><span class="swatch" style="background:#4f9dff"></span>\(F(S_{i-1}[p], p)\) (allowed area so far)</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-F-Si" /><span class="swatch" style="background:#22d3ee"></span>\(F(S_i[p], p)\)</label>
+                <label title="Cyan area that would still be allowed if this candidate becomes the next simplified point"><input type="checkbox" id="toggle-F-Si" /><span class="swatch" style="background:#22d3ee"></span>\(F(S_i[p], p)\) (allowed area if chosen)</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-S" checked /><span class="swatch" style="background:#a78bfa"></span>\(S_i[p] = \mathrm{conv}(G_{v_i}) \cap F(S_{i-1}[p], p)\)</label>
+                <label title="Purple overlap of the candidate region and the allowed area - where the next point can land"><input type="checkbox" id="toggle-S" checked /><span class="swatch" style="background:#a78bfa"></span>\(S_i[p]\) (current search region)</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-P" checked /><span class="swatch" style="background:#ff9f43"></span>\(P\) (boundary anchors in \(G_{v_0}\) )</label>
+                <label title="Orange dots kept as anchors on the search boundary"><input type="checkbox" id="toggle-P" checked /><span class="swatch" style="background:#ff9f43"></span>\(P\) (anchor points)</label>
               </div>
               <div class="toggle-row">
-                <label><input type="checkbox" id="toggle-dead-candidates" checked /><span class="swatch" style="background:#ff3c3c"></span>Dead candidates</label>
+                <label title="Candidate points the search already ruled out (shown in red)"><input type="checkbox" id="toggle-dead-candidates" checked /><span class="swatch" style="background:#ff3c3c"></span>Rejected candidates</label>
               </div>
             </div>
           </details>
           <details class="layer-acc" id="accordionBaseline">
-            <summary id="accordionBaselineSummary">Baseline</summary>
+            <summary id="accordionBaselineSummary">Compare</summary>
             <div class="layer-acc-body">
               <div id="baselineLayerToggles"></div>
-              <p id="baselineLayerHint" class="baseline-layer-hint">Run a baseline from the Results panel to enable these layers.</p>
+              <p id="baselineLayerHint" class="baseline-layer-hint">Open Results, pick Compare algorithms, then press Run compare to enable these layers. On wider screens you can also use Run beside Compare in the header.</p>
             </div>
           </details>
         </div>
@@ -1889,20 +2433,32 @@
       <div class="section">
         <h2>View</h2>
         <div class="stepper">
-          <button id="fitBtn">Fit to data</button>
+          <button id="fitBtn" title="Reset pan and zoom so the whole trajectory fits in the canvas">Fit to data</button>
         </div>
       </div>
 
       <div class="section">
         <h2>Instructions</h2>
-        <table class="shortcuts-table">
+        <table class="shortcuts-table desktop-shortcuts">
           <tbody>
             <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Previous / next step</td></tr>
             <tr><td><kbd>Shift</kbd>+<kbd>←</kbd>/<kbd>→</kbd></td><td>Previous / next simplified segment</td></tr>
             <tr><td><kbd>Space</kbd></td><td>Play / pause auto-advance</td></tr>
-            <tr><td><kbd>C</kbd> / <kbd>X</kbd></td><td>Cycle through alive candidates forward / backward</td></tr>
+            <tr><td><kbd>C</kbd> / <kbd>X</kbd></td><td>Cycle through open candidates forward / backward</td></tr>
             <tr><td>Drag</td><td>Pan the view</td></tr>
             <tr><td>Scroll / pinch</td><td>Zoom in / out</td></tr>
+          </tbody>
+        </table>
+        <table class="shortcuts-table mobile-shortcuts">
+          <tbody>
+            <tr><td>Step ← / →</td><td>Previous / next step on the bottom bar</td></tr>
+            <tr><td>Segment « / »</td><td>Previous / next simplified segment</td></tr>
+            <tr><td>Candidate ‹ / ›</td><td>Previous / next candidate</td></tr>
+            <tr><td>Play</td><td>Play / pause auto-advance</td></tr>
+            <tr><td>Speed 0.25×-4×</td><td>Playback speed on the bottom bar</td></tr>
+            <tr><td>Drag</td><td>Pan the view</td></tr>
+            <tr><td>Pinch</td><td>Zoom in / out</td></tr>
+            <tr><td>Hide / Controls</td><td>Hide or show Status and layers</td></tr>
           </tbody>
         </table>
       </div>
@@ -1927,8 +2483,8 @@
 </div>
 <div id="tracePickerBackdrop" class="trace-picker-backdrop" aria-hidden="true"></div>
 
-<!-- Mobile touch controls for steps, candidates, and playback -->
-<nav id="mobileTransport" class="mobile-transport" aria-label="Playback navigation">
+<!-- Mobile touch controls for steps, candidates, segments, and playback -->
+<nav id="mobileTransport" class="mobile-transport" aria-label="Playback navigation" aria-hidden="true">
   <button type="button" id="mobileStepBackBtn" aria-label="Previous step">
     ←
     <span>Step</span>
@@ -1952,6 +2508,19 @@
     →
     <span>Step</span>
   </button>
+  <button type="button" id="mobileSegmentBackBtn" class="mobile-segment" aria-label="Previous simplified segment">
+    «
+    <span>Segment</span>
+  </button>
+  <button type="button" id="mobileSegmentForwardBtn" class="mobile-segment" aria-label="Next simplified segment">
+    »
+    <span>Segment</span>
+  </button>
+  <button type="button" class="speed-preset" data-speed="0.25" aria-label="Playback speed 0.25×">0.25×</button>
+  <button type="button" class="speed-preset" data-speed="0.5" aria-label="Playback speed 0.5×">0.5×</button>
+  <button type="button" class="speed-preset active" data-speed="1" aria-label="Playback speed 1×">1×</button>
+  <button type="button" class="speed-preset" data-speed="2" aria-label="Playback speed 2×">2×</button>
+  <button type="button" class="speed-preset" data-speed="4" aria-label="Playback speed 4×">4×</button>
 </nav>
 
 <!-- Mobile playback FAB (opens bottom sheet) -->
@@ -1962,6 +2531,20 @@
   </svg>
 </button>
 
-<script src="viewer.js?v=baseline-hidden-1"></script>
+<div id="uiTour" hidden>
+  <div class="ui-tour-backdrop" id="uiTourBackdrop" aria-hidden="true"></div>
+  <div class="ui-tour-spotlight" id="uiTourSpotlight" hidden></div>
+  <div class="ui-tour-card" role="dialog" aria-modal="true" aria-labelledby="uiTourTitle" aria-describedby="uiTourBody">
+    <p class="ui-tour-step" id="uiTourStepLabel">1 / 4</p>
+    <h2 id="uiTourTitle">Welcome</h2>
+    <p id="uiTourBody"></p>
+    <div class="ui-tour-actions">
+      <button type="button" id="uiTourSkip">Skip</button>
+      <button type="button" id="uiTourNext" class="primary">Next</button>
+    </div>
+  </div>
+</div>
+
+<script src="viewer.js?v=eps-delta-gloss-1"></script>
 </body>
 </html>

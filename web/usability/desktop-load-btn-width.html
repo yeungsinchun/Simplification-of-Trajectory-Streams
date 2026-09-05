@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Desktop Load Trace button width</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+    --accent: #4f9dff;
+    --accent-dim: #2a4a72;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+  }
+  h1 { font-size: 16px; margin: 0 0 6px; }
+  p { margin: 0 0 14px; color: var(--text-dim); font-size: 12px; }
+  section { padding: 16px; }
+  .label {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+  }
+  .title {
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+  button {
+    background: var(--accent-dim);
+    color: var(--text);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+  .button-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.35);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    vertical-align: -2px;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .load-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .load-btn .button-spinner {
+    position: absolute;
+    opacity: 0;
+  }
+  .load-btn[aria-busy="true"] .button-spinner {
+    opacity: 1;
+  }
+  .load-btn[aria-busy="true"] .load-btn-label {
+    visibility: hidden;
+  }
+  .status {
+    color: #4f9dff;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .width-note {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+  .callout { margin-top: 8px; font-size: 12px; color: #ffb4bc; }
+  .ok { color: #3ddc97; }
+</style>
+</head>
+<body>
+<section>
+  <h1>Desktop Load Trace button width</h1>
+  <p>The Load Trace control during Computing trace… on desktop. Idle width should stay reserved so neighboring status does not jump left.</p>
+
+  <div class="label">Problem: spinner-only button collapses from the idle label width</div>
+  <div class="frame problem">
+    <div class="title">Trajectory Simplification Visualizer</div>
+    <div class="controls">
+      <span>Preloaded:</span>
+      <span>Demo</span>
+      <span>ε 0.9</span>
+      <span>δ 500</span>
+      <button type="button" class="problem-busy" aria-busy="true">
+        <span class="button-spinner" aria-hidden="true"></span>
+      </button>
+      <span class="status">Computing trace…</span>
+    </div>
+  </div>
+  <p class="width-note problem-note"></p>
+  <p class="callout">Replacing Load Trace with a 14px spinner shrinks the control. Computing trace… and the rest of the header row jump left.</p>
+
+  <div class="label" style="margin-top:20px">Fix: idle label keeps the width; spinner sits in that slot</div>
+  <div class="frame fixed">
+    <div class="title">Trajectory Simplification Visualizer</div>
+    <div class="controls">
+      <span>Preloaded:</span>
+      <span>Demo</span>
+      <span>ε 0.9</span>
+      <span>δ 500</span>
+      <button type="button" class="load-btn" aria-busy="true">
+        <span class="button-spinner" aria-hidden="true"></span>
+        <span class="load-btn-label">Load Trace</span>
+      </button>
+      <span class="status">Computing trace…</span>
+    </div>
+  </div>
+  <p class="width-note fixed-note"></p>
+  <p class="ok">The busy control stays the same width as Load Trace. The spinner is centered in the reserved slot, so Computing trace… does not shift.</p>
+</section>
+<script>
+  const idle = document.createElement("button");
+  idle.textContent = "Load Trace";
+  idle.style.cssText = "position:absolute;left:-9999px;background:#2a4a72;color:#e6e8ec;border:1px solid #4f9dff;border-radius:6px;padding:5px 10px;font-size:12px;line-height:1.2;font-family:inherit;";
+  document.body.appendChild(idle);
+  const problemBtn = document.querySelector(".problem-busy");
+  const fixedBtn = document.querySelector(".load-btn");
+  document.querySelector(".problem-note").textContent =
+    `Idle Load Trace is ${Math.round(idle.getBoundingClientRect().width)}px. The spinner-only control is ${Math.round(problemBtn.getBoundingClientRect().width)}px.`;
+  document.querySelector(".fixed-note").textContent =
+    `Reserved busy control is ${Math.round(fixedBtn.getBoundingClientRect().width)}px, matching the idle label.`;
+  idle.remove();
+</script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mobile dock missing segment controls</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+    --accent: #4f9dff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+  }
+  h1 { font-size: 16px; margin: 0 0 6px; }
+  p { margin: 0 0 14px; color: var(--text-dim); font-size: 12px; }
+  section { padding: 16px; }
+  .label {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .callout { margin-top: 8px; font-size: 12px; color: #ffb4bc; }
+  .ok { color: #3ddc97; }
+  .phone {
+    width: 390px;
+    background: var(--bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px 10px 12px;
+    position: relative;
+  }
+  .section-card {
+    padding: 12px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+  }
+  .section-card h2 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text);
+  }
+  .shortcuts-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    color: var(--text-dim);
+  }
+  .shortcuts-table td {
+    padding: 5px 4px;
+    vertical-align: top;
+  }
+  .shortcuts-table td:first-child {
+    white-space: nowrap;
+    padding-right: 10px;
+    color: var(--text);
+  }
+  .dock {
+    margin-top: 12px;
+    display: grid;
+    gap: 5px;
+    padding: 6px;
+    background: rgba(20, 24, 34, 0.94);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+  }
+  .dock-before {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .dock-after {
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+  }
+  .dock span {
+    min-height: 48px;
+    min-width: 0;
+    grid-column: span 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    background: #242a39;
+    border-radius: 9px;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .dock span small {
+    color: #b8c0d0;
+    font-size: 9px;
+    font-weight: 600;
+  }
+  .dock .play { background: var(--accent); color: #061018; }
+  .dock .play small { color: #061018; }
+  .dock .segment { grid-column: span 5; }
+</style>
+</head>
+<body>
+<section>
+  <h1>Mobile dock missing simplified-segment controls</h1>
+  <p>After a trace loads on 390px, Step, Candidate, and Play are on the bottom bar, but previous / next simplified segment exists only as desktop Shift+arrows.</p>
+
+  <div class="label">Problem: no Segment control on the phone dock</div>
+  <div class="phone">
+    <div class="section-card">
+      <h2>Instructions</h2>
+      <table class="shortcuts-table">
+        <tbody>
+          <tr><td>Step ← / →</td><td>Previous / next step on the bottom bar</td></tr>
+          <tr><td>Candidate ‹ / ›</td><td>Previous / next candidate</td></tr>
+          <tr><td>Play</td><td>Play / pause auto-advance</td></tr>
+          <tr><td>Drag</td><td>Pan the view</td></tr>
+          <tr><td>Pinch</td><td>Zoom in / out</td></tr>
+          <tr><td>Hide / Controls</td><td>Hide or show Status and layers</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="dock dock-before">
+      <span>←<small>Step</small></span>
+      <span>‹<small>Candidate</small></span>
+      <span class="play">▶<small>Play</small></span>
+      <span>›<small>Candidate</small></span>
+      <span>→<small>Step</small></span>
+    </div>
+  </div>
+  <p class="callout">The dock can step and cycle candidates, but there is no touch control matching desktop Shift+arrows for simplified segments.</p>
+
+  <div class="label" style="margin-top:20px">Fix: add a Segment row and name it in Instructions</div>
+  <div class="phone">
+    <div class="section-card">
+      <h2>Instructions</h2>
+      <table class="shortcuts-table">
+        <tbody>
+          <tr><td>Step ← / →</td><td>Previous / next step on the bottom bar</td></tr>
+          <tr><td>Segment « / »</td><td>Previous / next simplified segment</td></tr>
+          <tr><td>Candidate ‹ / ›</td><td>Previous / next candidate</td></tr>
+          <tr><td>Play</td><td>Play / pause auto-advance</td></tr>
+          <tr><td>Drag</td><td>Pan the view</td></tr>
+          <tr><td>Pinch</td><td>Zoom in / out</td></tr>
+          <tr><td>Hide / Controls</td><td>Hide or show Status and layers</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="dock dock-after">
+      <span>←<small>Step</small></span>
+      <span>‹<small>Candidate</small></span>
+      <span class="play">▶<small>Play</small></span>
+      <span>›<small>Candidate</small></span>
+      <span>→<small>Step</small></span>
+      <span class="segment">«<small>Segment</small></span>
+      <span class="segment">»<small>Segment</small></span>
+    </div>
+  </div>
+  <p class="ok">The 390px dock now has Segment « / » under Step / Candidate / Play. Instructions name that control. Desktop still uses Shift+arrows on the playback bar.</p>
+</section>
+</body>
+</html>

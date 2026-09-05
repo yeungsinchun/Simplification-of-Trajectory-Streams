@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Desktop params bar plain glosses</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-border: #262b36;
+    --text: #e6e8ec;
+    --text-dim: #8b93a3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+  }
+  h1 { font-size: 16px; margin: 0 0 6px; }
+  p { margin: 0 0 14px; color: var(--text-dim); font-size: 12px; }
+  section { padding: 16px; }
+  .label {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .params {
+    display: flex;
+    gap: 8px 14px;
+    flex-wrap: wrap;
+    width: 100%;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .params b { color: var(--text); font-weight: 600; }
+  .params-metric--blue {
+    color: #38BDF8;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .params-metric-body {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .actual { color: #C4612F; font-weight: 600; }
+  .actual b { color: #A94E22; }
+  .ok { color: #3ddc97; margin-top: 12px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-top: 8px;
+  }
+  th, td {
+    border: 1px solid var(--panel-border);
+    padding: 6px 8px;
+    text-align: left;
+  }
+  th { color: var(--text-dim); font-weight: 600; }
+</style>
+</head>
+<body>
+  <section>
+    <h1>Params bar + Results: plain glosses</h1>
+    <p>Novices should read Match error / grid step / kept % instead of Fréchet / len_grid / |stream| jargon. Tooltips keep the precise meaning.</p>
+
+    <div class="label">Before (paper jargon)</div>
+    <div class="frame">
+      <div class="params">
+        <span class="params-metric params-metric--blue"><span class="params-metric-body">Computed Fréchet distance <b>0.4123</b></span></span>
+        <span class="params-metric params-metric--blue"><span class="params-metric-body">Simplification time <b>16.9495 ms</b></span></span>
+        <span>ε <b>0.9000</b></span>
+        <span>δ <b>500.0000</b></span>
+        <span>len_grid <b>159.0990</b></span>
+        <span>R (disk radius) <b>500.0000</b></span>
+        <span>a-priori Fréchet bound <b>927.6988</b></span>
+        <span class="actual">Actual Fréchet distance <b>…</b></span>
+        <span>|stream| <b>588</b></span>
+        <span>|simplified| <b>12</b></span>
+        <span>ratio <b>2.0%</b></span>
+      </div>
+      <table>
+        <thead><tr><th>Metric</th><th>Simplify</th></tr></thead>
+        <tbody>
+          <tr><td>time (ms)</td><td>16.9495</td></tr>
+          <tr><td>Frechet</td><td>0.4123</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="label" style="margin-top:18px">After (plain labels + tooltips)</div>
+    <div class="frame">
+      <div class="params">
+        <span class="params-metric params-metric--blue" title="How far the simplified path drifts from the original (discrete Fréchet). Lower is better."><span class="params-metric-body">Match error <b>0.4123</b></span></span>
+        <span class="params-metric params-metric--blue" title="How long the simplification run took."><span class="params-metric-body">Time <b>16.9495 ms</b></span></span>
+        <span title="Match tolerance">ε <b>0.9000</b></span>
+        <span title="Search-grid spacing">δ <b>500.0000</b></span>
+        <span title="Length of one search-grid cell">grid step <b>159.0990</b></span>
+        <span title="Search-circle radius">radius <b>500.0000</b></span>
+        <span title="Upper bound on path drift">error budget <b>927.6988</b></span>
+        <span class="actual" title="Match error recorded in this preloaded trace">trace error <b>…</b></span>
+        <span title="Original trajectory points">original <b>588</b></span>
+        <span title="Points kept on the simplified path">kept <b>12</b></span>
+        <span title="Simplified points as a percent of the original">kept % <b>2.0%</b></span>
+      </div>
+      <table>
+        <thead><tr><th>Metric</th><th>Simplify</th></tr></thead>
+        <tbody>
+          <tr><td>Time (ms)</td><td>16.9495</td></tr>
+          <tr><td title="Discrete Fréchet; lower is better">Match error</td><td>0.4123</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="ok">Shorter plain chips also reduce MathJax typesetting in the params bar, which helps avoid assistive overflow at narrow desktop widths.</p>
+  </section>
+</body>
+</html>
