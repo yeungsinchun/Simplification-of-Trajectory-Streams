@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Map overlays said Full result path (resolved)
+
+**Where:** Map overlays `#toggle-final-simplify` label/tooltip.
+
+**Problem:** Segment, Path so far, and This run already shared green-path wording, but the finished-path toggle still said `Full result path`. Skip-tour users could not tell it was the same green path shown mid-playback by Path so far / Segment.
+
+**Fix:** Label reads `Full green path` with a tooltip that names Path so far and Segment. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/full-green-path.html`
+- Fixture screenshot (900px): `web/usability/full-green-path.png`
+
 ### Map overlays said Next landing zone (resolved)
 
 **Where:** Map overlays `#toggle-S` label/tooltip, Still-allowed tooltip, and playback Map overlays tour copy.

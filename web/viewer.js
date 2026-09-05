@@ -2911,7 +2911,7 @@
       }
     }
 
-    // Final full-result curve (accordion: This run → Full result path).
+    // Final full green path (accordion: This run → Full green path).
     if (state.resultVisible.simplify && t.simplified && t.simplified.length >= 2) {
       strokePath(t.simplified, "#3ddc97", 2.5);
       for (const p of t.simplified) dot(p, 1.7, "#3ddc97", null);
