@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Results still said Simplified points (resolved)
+
+**Where:** Results Scores first metric row after Load; Kept % tooltip; header `kept %` chip tooltip.
+
+**Problem:** Header chips already said `kept points` / `kept %`, but Results still labeled the count row `Simplified points` and Kept % tooltips still led with that phrase. Novices mapping Scores to the header saw two names for the same keep count.
+
+**Fix:** Scores row is `Kept points` with a tooltip that points at the header chip. Kept % tooltips (Scores + header chip) say “Kept points as a percent…”. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/scores-kept-points.html`
+- Fixture screenshot (900px): `web/usability/scores-kept-points.png`
+
 ### DOTS K unit and opaque Loaded id (resolved)
 
 **Where:** header / Results DOTS Compare field (`limit` + unit `K`); preloaded load success `#uploadStatus`; desktop `#paramsBar` count chips `original` / `kept`.

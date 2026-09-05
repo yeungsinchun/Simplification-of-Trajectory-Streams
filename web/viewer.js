@@ -577,12 +577,14 @@
 
     const matchErrorLabel =
       '<td title="How far each simplified path drifts from the original. Lower is better.">Match error</td>';
+    const keptPointsLabel =
+      '<td title="Number of points kept on the simplified path. Same idea as kept points in the header.">Kept points</td>';
     const keptPctLabel =
-      '<td title="Simplified points as a percent of the original. Same idea as kept % in the header.">Kept %</td>';
+      '<td title="Kept points as a percent of the original. Same idea as kept % in the header.">Kept %</td>';
 
     if (!algos.length) {
       compareMetricsBody.innerHTML = `
-      <tr><td>Simplified points</td>${cell(nSimp ?? "—", false)}</tr>
+      <tr>${keptPointsLabel}${cell(nSimp ?? "—", false)}</tr>
       <tr>${keptPctLabel}${cell(pct(nSimp, nOrig), false)}</tr>
       <tr><td title="How long the simplification run took, in milliseconds">Time</td>${cell(numOrDash(simpMs, 4), false)}</tr>
       <tr>${matchErrorLabel}${cell(frSimpCell, false)}</tr>`;
@@ -591,7 +593,7 @@
 
     compareMetricsBody.innerHTML = `
       <tr>
-        <td>Simplified points</td>
+        ${keptPointsLabel}
         ${cell(nSimp ?? "—", winClass(ptsAll, 0))}
         ${algos.map((_, i) => cell(basePts[i] ?? "—", winClass(ptsAll, i + 1))).join("")}
       </tr>
@@ -1091,7 +1093,7 @@
       ),
       paramChip("orig. points", streamLen, "Number of points on the original trajectory."),
       paramChip("kept points", simplifiedLen != null ? simplifiedLen : "…", "Number of points kept on the simplified path.", pendingStyle),
-      paramChip("kept %", ratio, "Simplified points as a percent of the original.", pendingStyle),
+      paramChip("kept %", ratio, "Kept points as a percent of the original.", pendingStyle),
     ].join("");
   }
 
