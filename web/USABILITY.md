@@ -500,6 +500,23 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Desktop live start (1280px): `web/usability/upload-trajectory-label-1280-live.png`
 - Mobile live start (390px): `web/usability/upload-trajectory-label-390-live.png`
 
+### Layers Compare hint still led with unreachable header Run on phones
+
+**Where:** `#baselineLayerHint` in Layers → Compare, and `#baselineStatus` after selecting DOTS / DP / SQUISH.
+
+**Problem:** Iteration 17 fixed mobile Instructions and the Results tour, but Layers still said “press Run beside Compare…”, and selection status in Results used the same desktop-first wording. After Load Trace, `body.trace-loaded-mobile` hides `.file-controls`, so header Run is unreachable on phones.
+
+**Fix:** Layers hint and selection status lead with Results → Run compare, and mention header Run only as a wider-screen alternative. Empty-selection status says “press Run compare”. Fixture and live 390px evidence confirm file-controls are hidden while the new hint stays on-screen with no page overflow (`scrollWidth` 390).
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/layers-compare-hint-mobile.html`
+- Fixture screenshot (900px): `web/usability/layers-compare-hint-mobile.png`
+- Fixture screenshot (390px): `web/usability/layers-compare-hint-mobile-390.png`
+- Fixture screenshot (1280px): `web/usability/layers-compare-hint-mobile-1280.png`
+- Mobile live loaded Layers (390px): `web/usability/layers-compare-hint-mobile-390-live.png`
+- Desktop live loaded Layers (1280px): `web/usability/layers-compare-hint-mobile-1280-live.png`
+
 ## Still open
 
 No open layout or novice-copy items from this pass. First live Cloud Run publish still needs a successful `main` merge of [PR #11](https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/pull/11) (or a `workflow_dispatch` once Deploy is on `main`). Until then GitHub only lists Benchmark and Correctness.

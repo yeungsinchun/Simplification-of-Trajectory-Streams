@@ -253,7 +253,7 @@
     setBaselineStatus(
       labels.length
         ? (currentTraceId
-          ? `Selected ${labels.join(", ")}. Press Run beside Compare (or Run compare in Results).`
+          ? `Selected ${labels.join(", ")}. Press Run compare (on wider screens, Run beside Compare also works).`
           : `Selected ${labels.join(", ")}. Load a preloaded trace to run the compare.`)
         : ""
     );
@@ -623,7 +623,7 @@
         setBaselineStatus(`Running selected compare algorithm(s)…`);
         await runSelectedBaseline();
       } else {
-        setBaselineStatus("Choose one or more compare algorithms and click Run.");
+        setBaselineStatus("Choose one or more compare algorithms and press Run compare.");
       }
     } catch (err) {
       console.warn("[Compare] Failed to load compare shell:", err);
