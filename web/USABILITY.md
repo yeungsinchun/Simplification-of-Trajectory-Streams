@@ -521,6 +521,19 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 No open layout, novice-copy, or Cloud Run CI/CD items from this pass.
 
+### Compare help still said bare DOTS / DP / SQUISH (resolved)
+
+**Where:** mobile start Instructions, Map overlays `#baselineLayerHint` (markup + `updateCompareAvailabilityCopy`), and start/playback tour Compare steps in `web/viewer.js`.
+
+**Problem:** Compare pills already showed `as-you-go` / `all-at-once` / `keep %`, but help, Map overlays Compare hint, and tour steps still said bare `DOTS / DP / SQUISH`. Skip-tour users reading Instructions or the Compare hint could not map those acronyms to the pill glosses.
+
+**Fix:** Help, hint, and tour copy name `DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %)`. Fixture `scrollWidth` stays within 900.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/compare-help-method-glosses.html`
+- Fixture screenshot (900px): `web/usability/compare-help-method-glosses.png`
+
 ### Results SQUISH still said keep % beside a % unit (resolved)
 
 **Where:** Results Compare `#baselineSquishRatioField`, client SQUISH validation status in `web/viewer.js`, and Compare API param metadata in `web/server.py`.

@@ -302,8 +302,8 @@
   function updateCompareAvailabilityCopy() {
     if (baselineLayerHint && !baselineLayerHint.hidden) {
       baselineLayerHint.textContent = compareBlockedByUpload()
-        ? "Compare needs a preloaded trajectory. Your upload still shows scores in Results; pick a preloaded trajectory to enable DOTS / DP / SQUISH."
-        : "Compare works with preloaded trajectories. Open Results, pick DOTS / DP / SQUISH, then press Run compare (on wider screens, Run beside Compare also works).";
+        ? "Compare needs a preloaded trajectory. Your upload still shows scores in Results; pick a preloaded trajectory to enable DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %)."
+        : "Compare works with preloaded trajectories. Open Results, pick DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %), then press Run compare (on wider screens, Run beside Compare also works).";
     }
   }
 
@@ -3279,7 +3279,7 @@
     },
     {
       title: "Load the trajectory",
-      body: "Optional: with a <b>preloaded</b> trajectory, tap <b>Compare</b> (DOTS / DP / SQUISH) to score other methods later - or skip. Press <b>Load</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Option, Map overlays, and Results.",
+      body: "Optional: with a <b>preloaded</b> trajectory, tap <b>Compare</b>: DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %) to score other methods later - or skip. Press <b>Load</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Option, Map overlays, and Results.",
       targets: ["#loadBtn", ".header-baseline"],
     },
   ];
@@ -3308,7 +3308,7 @@
     },
     {
       title: "Results and Compare",
-      body: "Open the left-edge <b>Results</b> tab to see scores. With a <b>preloaded</b> trajectory, pick DOTS / DP / SQUISH and press <b>Run compare</b> inside Results (on wider screens you can also use <b>Run</b> beside Compare in the header). Skip Compare if scores for this run are enough.",
+      body: "Open the left-edge <b>Results</b> tab to see scores. With a <b>preloaded</b> trajectory, pick DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %) and press <b>Run compare</b> inside Results (on wider screens you can also use <b>Run</b> beside Compare in the header). Skip Compare if scores for this run are enough.",
       targets: ["#resultsPanelOpen"],
     },
   ];
