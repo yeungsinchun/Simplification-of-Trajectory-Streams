@@ -23,7 +23,8 @@ target_link_libraries(simplify
   CGAL::CGAL
 )
 
-# Focused geometry check: P boundary is leftmost/rightmost per y-row.
+# Focused geometry check: P boundary is the discrete convex outline
+# (leftmost/rightmost per y-row, plus full topmost and bottommost rows).
 add_executable(check_boundary_lr
   tests/check_boundary_lr.cpp
 )

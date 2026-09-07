@@ -540,7 +540,7 @@ No open usability layout, novice-copy, or Cloud Run CI/CD gaps remain in this pa
 
 **Problem:** After Match and DP tips said `A smaller Match/match keeps a more detailed green path`, the `match limit` chip still led with `Upper Match limit` and had no smaller/outcome sentence. Skip-tour users long-pressing that chip could not map it to the same Match vocabulary.
 
-**Fix:** Tip says `Match limit for this run (same idea as the Match field)` plus `A smaller match limit keeps a more detailed green path`. Fixture `scrollWidth` stays within 900.
+**Fix:** Tip says `Match limit for this run (same idea as ε)` plus `A smaller match limit keeps a more detailed green path`. Fixture `scrollWidth` stays within 900.
 
 **Evidence:**
 
@@ -969,7 +969,7 @@ No open usability layout, novice-copy, or Cloud Run CI/CD gaps remain in this pa
 
 **Problem:** After Match / Grid / match limit landed, chips still said `cell size` and `file match`. Skip-tour users could not tell that the first is a Grid-derived length, or that the second is a saved Match error (distinct from the live Match error chip).
 
-**Fix:** Chips read `grid cell` and `saved Match` with Grid- and Match-aligned tooltips. Fixture `scrollWidth` stays within 900.
+**Fix:** Chips read `grid cell` and `saved Match` with Grid- and Match-aligned tooltips. Fixture `scrollWidth` stays within 900. The `saved Match` chip (and its tooltip) was later removed entirely; the separate `match limit` chip stays.
 
 **Evidence:**
 
@@ -1268,7 +1268,7 @@ No open usability layout, novice-copy, or Cloud Run CI/CD gaps remain in this pa
 
 **Problem:** After Load, Instructions listed only keyboard / dock shortcuts. Novices who skipped the playback tour still saw Step / Segment / Candidate with no meaning. View also said `Fit to data`, which reads like a data action rather than resetting the map.
 
-**Fix:** Instructions lead with a plain gloss for Step / Segment / Candidate / Play / Speed / Fit view (same ideas as the playback tour). Shortcut tables keep the keys underneath. The View button reads `Fit view`.
+**Fix:** Instructions lead with a short gloss that Step / Segment / Option replay the run and Play auto-advances. Shortcut tables keep the keys underneath. The View button reads `Fit view`. Start-screen Instructions were shortened the same way (pick / εδ / Load; Results / Compare; pan / zoom).
 
 **Evidence:**
 
