@@ -2020,7 +2020,9 @@
     }
     #traceSelect {
       position: static !important;
-      width: max-content;
+      /* Beat .visually-hidden { width/height: 1px !important } so the control
+         lays out at its real size (needed for tour spotlight centering too). */
+      width: max-content !important;
       height: auto !important;
       padding: 3px 6px !important;
       margin: 0 !important;
@@ -2032,7 +2034,7 @@
       border: 1px solid var(--panel-border);
       border-radius: 5px;
       font-size: 12px;
-      max-width: none;
+      max-width: none !important;
       flex: 0 0 auto;
       field-sizing: content;
     }
@@ -2054,6 +2056,8 @@
   }
   #uiTour.has-spotlight .ui-tour-backdrop {
     background: transparent;
+    /* Let spotlighted controls (e.g. trajectory dropdown) receive clicks. */
+    pointer-events: none;
   }
   .ui-tour-spotlight {
     position: absolute;
@@ -2233,12 +2237,9 @@
       </div>
       <div class="params" id="paramsBar"></div>
       <div class="mobile-start-help">
-        <h2>Instructions</h2>
+        <h2>Tips</h2>
         <ul>
-          <li>Select a preloaded trajectory.</li>
-          <li>Optionally adjust <b>Match</b> (accuracy) and <b>Grid</b> (spacing), then tap <b>Load</b>.</li>
-          <li>Optionally pick <b>Compare</b>: DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %). After <b>Load</b>, open <b>Results</b> for scores and tap <b>Run compare</b>.</li>
-          <li>Drag the visualization to pan and pinch to zoom.</li>
+          <li>Drag to pan and pinch to zoom.</li>
           <li>Use <b>Controls</b> for status and map overlays.</li>
           <li>Tap <b>Back</b> to choose another trajectory.</li>
         </ul>
@@ -2338,20 +2339,8 @@
               </svg>
             </div>
             <div class="big">Choose a trajectory to get started</div>
-            <div class="dropHint-sub">
-              Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>, optionally pick <b>Compare</b>: DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %) (preloaded only), leave <b>Match</b> / <b>Grid</b> at defaults (or tweak them), then <b>Load</b>
-            </div>
             <div class="dropHint-format">
               Format: first line <code>N</code> (point count), then <code>N</code> lines of <code>x y</code>
-            </div>
-            <div class="desktop-instructions">
-              <h2>Instructions</h2>
-              <ul>
-                <li>Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>.</li>
-                <li>Optionally adjust <b>Match</b> (accuracy) and <b>Grid</b> (spacing), then press <b>Load</b>.</li>
-                <li>After load, open <b>Results</b> for scores. With a preloaded trajectory you can pick optional <b>Compare</b>: DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %) and press <b>Run</b> (or <b>Run compare</b> in Results). Uploads show scores only.</li>
-                <li><b>Drag</b> to pan and <b>scroll</b> to zoom. Keyboard shortcuts for Step / Segment / Option live in the right-side Instructions after load.</li>
-              </ul>
             </div>
           </div>
         </div>

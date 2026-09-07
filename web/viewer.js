@@ -1750,9 +1750,10 @@
       max = Math.max(max, probe.offsetWidth);
     }
     probe.remove();
-    // Native select needs room for padding + dropdown arrow.
-    traceSelect.style.width = `${Math.ceil(max + 28)}px`;
-    traceSelect.style.maxWidth = "none";
+    // Native select needs room for padding + dropdown arrow. Use !important to
+    // beat .visually-hidden's width: 1px !important on the desktop override path.
+    traceSelect.style.setProperty("width", `${Math.ceil(max + 28)}px`, "important");
+    traceSelect.style.setProperty("max-width", "none", "important");
   }
 
   if (preloadedTrigger) preloadedTrigger.addEventListener("click", openTracePicker);
@@ -3270,22 +3271,22 @@
   const startTourSteps = [
     {
       title: "Welcome",
-      body: 'This tool simplifies a trajectory while keeping its shape. See <a href="https://arxiv.org/abs/2503.23025" target="_blank" rel="noopener">Simplification of Trajectory Streams</a>. A short tour shows the controls you need to load your first trajectory.',
+      body: 'This tool simplifies a trajectory while keeping its shape. See <a href="https://arxiv.org/abs/2503.23025" target="_blank" rel="noopener">Simplification of Trajectory Streams</a>.',
       targets: [],
     },
     {
       title: "Choose a trajectory",
-      body: "Pick a <b>preloaded trajectory</b>, or on desktop tap <b>Upload trajectory</b> for your own file (plain text: first line N, then N lines of x y). Preloaded samples already include sensible settings.",
+      body: "Pick a <b>preloaded trajectory</b>, or on desktop click <b>Upload trajectory</b>.",
       targets: [".preloaded-row", "#preloadedTrigger", "#traceSelect", "#uploadBtn"],
     },
     {
-      title: "Accuracy controls",
-      body: "Smaller <b>ε</b> costs more time: per-point complexity is <b>O(ε<sup>-4</sup> log(1/ε))</b> in this 2D web viewer. Fréchet distance between the green path and the Gray path stays within <b>(1+ε)δ</b>. Defaults are fine for a first run.",
+      title: "ε and δ",
+      body: "Smaller <b>ε</b> costs more time: per-point complexity is <b>O(ε<sup>-4</sup> log(1/ε))</b>. Fréchet distance stays within <b>(1+ε)δ</b>.",
       targets: ["#epsilonInput", "#deltaInput"],
     },
     {
       title: "Load the trajectory",
-      body: "Optional: with a <b>preloaded</b> trajectory, tap <b>Compare</b>: DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %) to score other methods later - or skip. Press <b>Load</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Option, Map overlays, and Results.",
+      body: "Optionally pick <b>Compare</b>, then press <b>Load</b>. A short follow-up explains playback after it finishes.",
       targets: ["#loadBtn", ".header-baseline"],
     },
   ];
@@ -3340,13 +3341,14 @@
 
   function isTourTargetVisible(node) {
     if (!node || !(node instanceof Element)) return false;
-    if (node.classList.contains("visually-hidden")) return false;
     const style = window.getComputedStyle(node);
     if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") {
       return false;
     }
     const rect = node.getBoundingClientRect();
-    return rect.width > 1 && rect.height > 1;
+    // Desktop restores #traceSelect from .visually-hidden via CSS overrides; trust
+    // the laid-out box instead of the class name alone.
+    return rect.width > 2 && rect.height > 2;
   }
 
   function resolveTourTargets(selectors) {
@@ -3356,6 +3358,13 @@
       if (!raw) continue;
       const target = raw.closest("label") || raw;
       if (!isTourTargetVisible(target)) continue;
+      // Prefer leaf controls over a parent that already contains them (avoids a
+      // taller/wider union that leaves the visible control off-center).
+      const contained = nodes.some((existing) => existing.contains(target));
+      if (contained) continue;
+      for (let i = nodes.length - 1; i >= 0; i -= 1) {
+        if (target.contains(nodes[i])) nodes.splice(i, 1);
+      }
       if (!nodes.includes(target)) nodes.push(target);
     }
     return nodes;
@@ -3374,12 +3383,33 @@
       bottom = Math.max(bottom, rect.bottom);
     }
     if (!Number.isFinite(top)) return null;
-    const pad = 6;
+    // Spotlight uses border-box with a 2px border. Keep equal *inner* pad on
+    // opposite sides so controls stay centered in the circled box; shrink pad
+    // near viewport edges instead of clamping one side only.
+    const borderWidth = 2;
+    const desiredPad = 8;
+    const margin = 8;
+    const spaceAbove = Math.max(0, top - margin);
+    const spaceBelow = Math.max(0, window.innerHeight - margin - bottom);
+    const spaceLeft = Math.max(0, left - margin);
+    const spaceRight = Math.max(0, window.innerWidth - margin - right);
+    const padY = Math.min(
+      desiredPad,
+      Math.max(0, spaceAbove - borderWidth),
+      Math.max(0, spaceBelow - borderWidth)
+    );
+    const padX = Math.min(
+      desiredPad,
+      Math.max(0, spaceLeft - borderWidth),
+      Math.max(0, spaceRight - borderWidth)
+    );
+    const insetY = padY + borderWidth;
+    const insetX = padX + borderWidth;
     return {
-      top: Math.max(8, top - pad),
-      left: Math.max(8, left - pad),
-      width: Math.min(window.innerWidth - 16, right - left + pad * 2),
-      height: Math.min(window.innerHeight - 16, bottom - top + pad * 2),
+      top: top - insetY,
+      left: left - insetX,
+      width: right - left + insetX * 2,
+      height: bottom - top + insetY * 2,
     };
   }
 

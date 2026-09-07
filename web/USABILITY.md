@@ -519,7 +519,15 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 ## Still open
 
-No open usability layout or novice-copy gaps remain from this first-visit tour-copy pass.
+No open usability layout or novice-copy gaps remain from this tour UX polish pass.
+
+### Tour spotlight off-center; start-page how-to duplicated tour (resolved)
+
+**Where:** `web/viewer.js` `unionTourRect` / `isTourTargetVisible` / `startTourSteps`; `#uiTour.has-spotlight .ui-tour-backdrop`; empty-state `#dropHint` and mobile `.mobile-start-help`.
+
+**Problem:** Spotlight padding clamped only the top/left edge, so steps 2–4 looked vertically off-center. The desktop trajectory `<select>` was skipped because of the `.visually-hidden` class even when CSS restored it, and the tour backdrop still captured clicks over the hole. Start-page `#dropHint` / Instructions repeated the same select/upload/load how-to as the tour.
+
+**Fix:** Spotlight pad shrinks symmetrically near viewport edges (accounting for the 2px border). Visibility uses laid-out size, not the class name. Backdrop uses `pointer-events: none` while `.has-spotlight`. Start tour copy is ≤2 short sentences per step (ε/δ only on step 3). Drop-hint prose and desktop Instructions list removed; mobile start help is tips-only.
 
 ### First-visit tour paper link and ε/δ guarantees (resolved)
 
