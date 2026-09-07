@@ -9,9 +9,7 @@ on:
 
 # Three (epsilon, delta) settings run as parallel matrix jobs so a slow
 # setting cannot hide regressions in another. Pair rationale:
-#   coarse-e  e=299 d=1    - historical CI pair (large match tolerance)
-#   fine-e    e=0.5 d=300  - viewer/server default-ish (tight match)
-#   mid       e=5   d=50   - mid-range; delta ~ 300/(1+e) corridor scaling
+#   see .github/workflows/README.md (authoritative matrix table).
 jobs:
   bench-vs-prev:
     name: "bench e=${{ matrix.epsilon }} d=${{ matrix.delta }}"

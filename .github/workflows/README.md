@@ -14,7 +14,7 @@ Runs three parallel matrix jobs (same `(ε, δ)` pairs as the benchmark gate):
 | label | ε | δ | why |
 | --- | --- | --- | --- |
 | `coarse-e` | 299 | 1 | Historical CI pair (large match tolerance) |
-| `fine-e` | 0.5 | 300 | Viewer/server default-ish (tight match) |
+| `fine-e` | 0.5 | 300 | Tight ε (headless CLI default) with large δ (corridor constant from `scripts/benchmark_e.py`) |
 | `mid` | 5 | 50 | Mid-range; δ ≈ 300/(1+ε) corridor scaling from `scripts/benchmark_e.py` |
 
 Tolerances (unchanged without evidence): `DIST_TOL=0.01`, `POINTS_TOL=0`.
@@ -31,7 +31,7 @@ Same three parallel `(ε, δ)` matrix jobs as correctness. For each setting, ave
 
 IDs below the 20 ms floor are reported as `SKIP_FLOOR` and excluded from both gates so wall-clock noise does not fail the job.
 
-Gated averages intentionally omit `--time` so timing stays comparable to older binaries. After averages, the new binary runs once per ID with `--time`; `TIMER_MS` phase counters (`hull_Gi`, `find_F`, `intersect`, `boundary_P`, …) land in the TSV `ops` column and nested `ops` objects in JSON.
+Gated averages intentionally omit `--time` so timing stays comparable to older binaries. After averages, the new binary runs once per ID with `--time` and must exit 0 with at least one `TIMER_MS` line (blank ops is a failure). Phase counters (`hull_Gi`, `find_F`, `intersect`, `boundary_P`, …) land in the TSV `ops` column and nested `ops` objects in JSON.
 
 Artifacts: `benchmark-<label>-e…-d…` with `benchmark.tsv` / `benchmark.json`. Job summaries highlight wins and regressions per setting.
 

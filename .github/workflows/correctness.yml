@@ -8,7 +8,8 @@ on:
   workflow_dispatch:
 
 # Same (epsilon, delta) matrix as benchmark.yml so quality and speed gates
-# cover identical settings in parallel jobs.
+# cover identical settings in parallel jobs. Pair rationale:
+#   see .github/workflows/README.md (authoritative matrix table).
 jobs:
   correctness-vs-prev:
     name: "correct e=${{ matrix.epsilon }} d=${{ matrix.delta }}"
