@@ -543,11 +543,11 @@ No open usability layout or novice-copy gaps remain from this tour UX polish pas
 
 ### First-visit tour paper link and ε/δ guarantees (resolved)
 
-**Where:** `web/viewer.js` `startTourSteps` Welcome and Accuracy controls (tour-only; standing Match/Grid UI unchanged).
+**Where:** `web/viewer.js` `startTourSteps` Welcome and ε and δ (tour-only; standing Match/Grid UI unchanged).
 
-**Problem:** Welcome still said `builds a shorter green path` without the paper link. Accuracy controls still explained Match/Grid with match-tolerance / grid-spacing style glosses that are not accurate for ε and δ.
+**Problem:** Welcome still said `builds a shorter green path` without the paper link. The Accuracy controls step still explained Match/Grid with match-tolerance / grid-spacing style glosses that are not accurate for ε and δ.
 
-**Fix:** Welcome says the tool simplifies a trajectory while keeping its shape and links [Simplification of Trajectory Streams](https://arxiv.org/abs/2503.23025). Accuracy controls state per-point complexity `O(ε^{-4} log(1/ε))` in this 2D web viewer and Fréchet distance within `(1+ε)δ`. The invalid-input alert keeps Match/Grid labels without the accuracy/spacing parentheticals. Form titles, Instructions, and param chips stay Match/Grid.
+**Fix:** Welcome says the tool simplifies a trajectory while keeping its shape and links [Simplification of Trajectory Streams](https://arxiv.org/abs/2503.23025). The ε and δ step states per-point complexity `O(ε^{-4} log(1/ε))` and Fréchet distance within `(1+ε)δ`. The invalid-input alert keeps Match/Grid labels without the accuracy/spacing parentheticals. Form titles and param chips stay Match/Grid.
 
 ### Live Cloud Run refreshed after PR #12 (resolved)
 
