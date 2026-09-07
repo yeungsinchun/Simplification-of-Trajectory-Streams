@@ -1199,8 +1199,8 @@
     const pendingStyle = simplifiedLen == null ? "color:var(--text-dim)" : "";
 
     return [
-      paramChip("Match", epsilonValue, "Match (ε): how closely the green path must match the Gray path. A smaller Match keeps a more detailed green path."),
-      paramChip("Grid", deltaValue, "Grid spacing (δ) used while finding the green path. A smaller Grid uses finer spacing."),
+      paramChip("Match", epsilonValue, "ε: smaller values cost more time (about O(ε^{-4} log(1/ε)) per point in 2D). Fréchet distance stays within (1+ε)δ."),
+      paramChip("Grid", deltaValue, "δ: with ε, Fréchet distance between the green path and the Gray path stays within (1+ε)δ."),
       paramChip("grid cell", gridLength, "Length of one Grid cell used while finding the green path."),
       paramChip("circle radius", diskRadius, "Radius of the Start-point circle and Current-point circle overlays while finding the next green-path point."),
       paramChip("match limit", expectedFrechet, "Match limit for this run (same idea as the Match field): how far the green path may drift from the Gray path. A smaller match limit keeps a more detailed green path."),
@@ -3270,7 +3270,7 @@
   const startTourSteps = [
     {
       title: "Welcome",
-      body: "This visualizer builds a shorter green path from a GPS-style Gray path while keeping its shape. A short tour shows the controls you need to load your first trajectory.",
+      body: 'This tool simplifies a trajectory while keeping its shape. See <a href="https://arxiv.org/abs/2503.23025" target="_blank" rel="noopener">Simplification of Trajectory Streams</a>. A short tour shows the controls you need to load your first trajectory.',
       targets: [],
     },
     {
@@ -3280,7 +3280,7 @@
     },
     {
       title: "Accuracy controls",
-      body: "<b>Match</b> is how closely the green path must match the Gray path (a smaller Match keeps a more detailed green path). <b>Grid</b> is spacing used while finding the green path (a smaller Grid uses finer spacing). Defaults are fine for a first run.",
+      body: "Smaller <b>ε</b> costs more time: per-point complexity is <b>O(ε<sup>-4</sup> log(1/ε))</b> in this 2D web viewer. Fréchet distance between the green path and the Gray path stays within <b>(1+ε)δ</b>. Defaults are fine for a first run.",
       targets: ["#epsilonInput", "#deltaInput"],
     },
     {
