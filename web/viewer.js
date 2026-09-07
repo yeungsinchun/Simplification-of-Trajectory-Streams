@@ -1199,8 +1199,8 @@
     const pendingStyle = simplifiedLen == null ? "color:var(--text-dim)" : "";
 
     return [
-      paramChip("Match", epsilonValue, "ε: smaller values cost more time (about O(ε^{-4} log(1/ε)) per point in 2D). Fréchet distance stays within (1+ε)δ."),
-      paramChip("Grid", deltaValue, "δ: with ε, Fréchet distance between the green path and the Gray path stays within (1+ε)δ."),
+      paramChip("Match", epsilonValue, "Match (ε): how closely the green path must match the Gray path. A smaller Match keeps a more detailed green path."),
+      paramChip("Grid", deltaValue, "Grid spacing (δ) used while finding the green path. A smaller Grid uses finer spacing."),
       paramChip("grid cell", gridLength, "Length of one Grid cell used while finding the green path."),
       paramChip("circle radius", diskRadius, "Radius of the Start-point circle and Current-point circle overlays while finding the next green-path point."),
       paramChip("match limit", expectedFrechet, "Match limit for this run (same idea as the Match field): how far the green path may drift from the Gray path. A smaller match limit keeps a more detailed green path."),
@@ -1548,7 +1548,7 @@
     const eps = parseFloat(epsilonInput.value);
     const delta = parseFloat(deltaInput.value);
     if (isNaN(eps) || eps <= 0 || isNaN(delta) || delta <= 0) {
-      alert("Please enter positive numbers for ε and δ.");
+      alert("Please enter positive numbers for Match and Grid.");
       return;
     }
 

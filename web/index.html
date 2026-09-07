@@ -2193,13 +2193,13 @@
           <span class="or-divider" style="color: var(--text-dim); font-size: 12px; margin: 0 8px;">or</span>
           <button id="uploadBtn" class="primary" title="Upload a plain-text trajectory: first line is the point count N, then N lines of x y coordinates.">Upload trajectory</button>
           <input type="file" id="trajectoryInput" accept=".txt,text/plain" />
-          <label title="ε: smaller values cost more time (about O(ε^{-4} log(1/ε)) per point in 2D). Fréchet distance stays within (1+ε)δ.">
+          <label title="Match (ε): how closely the green path must match the Gray path. A smaller Match keeps a more detailed green path.">
             <span class="param-label"><span class="param-symbol">&epsilon;</span> <span class="param-gloss">match</span></span>
-            <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" aria-label="Epsilon" />
+            <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" aria-label="Match" />
           </label>
-          <label title="δ: with ε, Fréchet distance between the green path and the Gray path stays within (1+ε)δ. Defaults are usually fine.">
+          <label title="Grid spacing (δ) used while finding the green path. A smaller Grid uses finer spacing; defaults are usually fine.">
             <span class="param-label"><span class="param-symbol">&delta;</span> <span class="param-gloss">grid</span></span>
-            <input type="number" id="deltaInput" value="500" step="10" min="1" aria-label="Delta" />
+            <input type="number" id="deltaInput" value="500" step="10" min="1" aria-label="Grid spacing" />
           </label>
           <button id="loadBtn" class="primary" title="Load trajectory and build the green path" aria-label="Load trajectory and build the green path">
             <span class="button-spinner" aria-hidden="true"></span>
@@ -2236,7 +2236,7 @@
         <h2>Instructions</h2>
         <ul>
           <li>Select a preloaded trajectory.</li>
-          <li>Optionally adjust <b>ε</b> / <b>δ</b> (Fréchet stays within (1+ε)δ), then tap <b>Load</b>.</li>
+          <li>Optionally adjust <b>Match</b> (accuracy) and <b>Grid</b> (spacing), then tap <b>Load</b>.</li>
           <li>Optionally pick <b>Compare</b>: DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %). After <b>Load</b>, open <b>Results</b> for scores and tap <b>Run compare</b>.</li>
           <li>Drag the visualization to pan and pinch to zoom.</li>
           <li>Use <b>Controls</b> for status and map overlays.</li>
@@ -2339,7 +2339,7 @@
             </div>
             <div class="big">Choose a trajectory to get started</div>
             <div class="dropHint-sub">
-              Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>, optionally pick <b>Compare</b>: DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %) (preloaded only), leave <b>ε</b> / <b>δ</b> at defaults (or tweak them), then <b>Load</b>
+              Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>, optionally pick <b>Compare</b>: DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %) (preloaded only), leave <b>Match</b> / <b>Grid</b> at defaults (or tweak them), then <b>Load</b>
             </div>
             <div class="dropHint-format">
               Format: first line <code>N</code> (point count), then <code>N</code> lines of <code>x y</code>
@@ -2348,7 +2348,7 @@
               <h2>Instructions</h2>
               <ul>
                 <li>Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>.</li>
-                <li>Optionally adjust <b>ε</b> / <b>δ</b> (Fréchet stays within (1+ε)δ), then press <b>Load</b>.</li>
+                <li>Optionally adjust <b>Match</b> (accuracy) and <b>Grid</b> (spacing), then press <b>Load</b>.</li>
                 <li>After load, open <b>Results</b> for scores. With a preloaded trajectory you can pick optional <b>Compare</b>: DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %) and press <b>Run</b> (or <b>Run compare</b> in Results). Uploads show scores only.</li>
                 <li><b>Drag</b> to pan and <b>scroll</b> to zoom. Keyboard shortcuts for Step / Segment / Option live in the right-side Instructions after load.</li>
               </ul>
