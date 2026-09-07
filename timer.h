@@ -67,6 +67,26 @@ struct Timer {
 
 #define TIMER(name) Timer _timer(name)
 
+inline void reset_timing() {
+    timer_detail::timing().clear();
+    timer_detail::counters().clear();
+    timer_detail::child_time().clear();
+    timer_detail::children().clear();
+    timer_detail::stack().clear();
+}
+
+// Machine-readable flat counters for CI parsers. One line per timer name:
+//   TIMER_MS <name> <wall_ms> <calls>
+inline void print_timing_machine() {
+    auto& t = timer_detail::timing();
+    if (t.empty()) return;
+    for (const auto& kv : t) {
+        long long calls = timer_detail::counters()[kv.first];
+        fprintf(stderr, "TIMER_MS %s %.4f %lld\n",
+                kv.first.c_str(), kv.second, calls);
+    }
+}
+
 inline void print_timing_summary() {
     auto& t = timer_detail::timing();
     if (t.empty()) return;

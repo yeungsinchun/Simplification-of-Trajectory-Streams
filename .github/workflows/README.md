@@ -9,10 +9,31 @@ This directory contains CI/CD workflows for the trajectory simplification projec
 
 Compares Fréchet distance and point counts for datasets 1..10 against the previous commit.
 
-### benchmark.yml - Comprehensive Benchmarks
-**Triggers:** Push to main, pull requests, daily schedule, manual dispatch
+Runs three parallel matrix jobs (same `(ε, δ)` pairs as the benchmark gate):
 
-Builds in Release mode, sweeps epsilon values, and stores historical results.
+| label | ε | δ | why |
+| --- | --- | --- | --- |
+| `coarse-e` | 299 | 1 | Historical CI pair (large match tolerance) |
+| `fine-e` | 0.5 | 300 | Viewer/server default-ish (tight match) |
+| `mid` | 5 | 50 | Mid-range; δ ≈ 300/(1+ε) corridor scaling from `scripts/benchmark_e.py` |
+
+Tolerances (unchanged without evidence): `DIST_TOL=0.01`, `POINTS_TOL=0`.
+
+Artifacts: `correctness-<label>-e…-d…` with `correctness.tsv` and `correctness.json`. Job summary tables show per-ID wins/fails.
+
+### benchmark.yml - Performance regression
+**Triggers:** Push to main, pull requests to main, manual dispatch
+
+Same three parallel `(ε, δ)` matrix jobs as correctness. For each setting, averages `BENCH_RUNS=5` Release runs of `SIMPLIFY_CORE_MS` on IDs 1..10 (new vs previous commit) and enforces:
+
+1. **Mean gate:** over IDs with `orig_ms ≥ MIN_BENCH_MS` (20 ms), `mean(new) < mean(orig)` (strict improvement, not a 1.5× cap).
+2. **Per-ID gate:** for those same gated IDs, `new_ms ≤ orig_ms * 1.20` (was 1.50).
+
+IDs below the 20 ms floor are reported as `SKIP_FLOOR` and excluded from both gates so wall-clock noise does not fail the job.
+
+Gated averages intentionally omit `--time` so timing stays comparable to older binaries. After averages, the new binary runs once per ID with `--time`; `TIMER_MS` phase counters (`hull_Gi`, `find_F`, `intersect`, `boundary_P`, …) land in the TSV `ops` column and nested `ops` objects in JSON.
+
+Artifacts: `benchmark-<label>-e…-d…` with `benchmark.tsv` / `benchmark.json`. Job summaries highlight wins and regressions per setting.
 
 ### deploy.yml - Cloud Run deploy
 **Triggers:** Push to main, manual dispatch
