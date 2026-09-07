@@ -534,7 +534,9 @@ inline std::vector<Point> get_conv_from_grid(const Point& p, double EPSILON, dou
     return conv;
 }
 
-// Boundary anchors for P: leftmost and rightmost grid sample on every y-row.
+// Boundary anchors for P: discrete convex outline of the grid samples -
+// leftmost and rightmost on every y-row, plus every sample on the topmost
+// and bottommost rows.
 inline std::vector<Point> get_boundary_points_from_grid(const Point& p, double EPSILON, double DELTA, int multiplier = 1) {
     thread_local double cached_eps   = std::numeric_limits<double>::quiet_NaN();
     thread_local double cached_delta = std::numeric_limits<double>::quiet_NaN();
@@ -546,15 +548,24 @@ inline std::vector<Point> get_boundary_points_from_grid(const Point& p, double E
         const std::vector<Point> all = get_points_from_grid(Point(0, 0), EPSILON, DELTA, multiplier);
         std::vector<Point> boundary;
         boundary.reserve(all.size());
-        for (size_t i = 0; i < all.size(); ) {
-            size_t j = i + 1;
-            const double y = CGAL::to_double(all[i].y());
-            while (j < all.size() && CGAL::to_double(all[j].y()) == y)
-                ++j;
-            boundary.push_back(all[i]);
-            if (j - 1 != i)
-                boundary.push_back(all[j - 1]);
-            i = j;
+        if (!all.empty()) {
+            const double y_top = CGAL::to_double(all.front().y());
+            const double y_bot = CGAL::to_double(all.back().y());
+            for (size_t i = 0; i < all.size(); ) {
+                size_t j = i + 1;
+                const double y = CGAL::to_double(all[i].y());
+                while (j < all.size() && CGAL::to_double(all[j].y()) == y)
+                    ++j;
+                if (y == y_top || y == y_bot) {
+                    boundary.insert(boundary.end(), all.begin() + static_cast<std::ptrdiff_t>(i),
+                                    all.begin() + static_cast<std::ptrdiff_t>(j));
+                } else {
+                    boundary.push_back(all[i]);
+                    if (j - 1 != i)
+                        boundary.push_back(all[j - 1]);
+                }
+                i = j;
+            }
         }
 
         boundary_offsets.clear();
