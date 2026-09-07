@@ -3276,8 +3276,8 @@
     },
     {
       title: "Choose a trajectory",
-      body: "Pick a <b>preloaded trajectory</b>, or on desktop click <b>Upload trajectory</b>.",
-      targets: [".preloaded-row", "#preloadedTrigger", "#traceSelect", "#uploadBtn"],
+      body: "Pick a <b>preloaded trajectory</b>.",
+      targets: [".preloaded-row", "#preloadedTrigger", "#traceSelect"],
     },
     {
       title: "ε and δ",
