@@ -1547,7 +1547,7 @@
     const eps = parseFloat(epsilonInput.value);
     const delta = parseFloat(deltaInput.value);
     if (isNaN(eps) || eps <= 0 || isNaN(delta) || delta <= 0) {
-      alert("Please enter positive numbers for epsilon (ε) and delta (δ).");
+      alert("Please enter positive numbers for ε and δ.");
       return;
     }
 
@@ -3275,28 +3275,29 @@
   const uiTourTitle = el("uiTourTitle");
   const uiTourBody = el("uiTourBody");
   const uiTourSkip = el("uiTourSkip");
+  const uiTourPrev = el("uiTourPrev");
   const uiTourNext = el("uiTourNext");
   const uiTourRelaunch = el("uiTourRelaunch");
 
   const startTourSteps = [
     {
       title: "Welcome",
-      body: "Build a shorter green path from a trajectory.",
+      body: 'This tool simplifies a trajectory while keeping its shape. See <a href="https://arxiv.org/abs/2503.23025" target="_blank" rel="noopener">Simplification of Trajectory Streams</a>.',
       targets: [],
     },
     {
       title: "Choose a trajectory",
-      body: "Pick a <b>preloaded</b> trajectory, or <b>Upload</b> one (first line N, then N lines of x y).",
-      targets: [".preloaded-row", "#preloadedTrigger", "#traceSelect", "#uploadBtn"],
+      body: "Pick a <b>preloaded trajectory</b>.",
+      targets: [".preloaded-row", "#preloadedTrigger", "#traceSelect"],
     },
     {
       title: "ε and δ",
-      body: "<b>ε</b> = match tolerance. <b>δ</b> = grid spacing. Defaults are fine.",
+      body: "Smaller <b>ε</b> costs more time: per-point complexity is <b>O(ε<sup>-4</sup> log(1/ε))</b>. Fréchet distance stays within <b>(1+ε)δ</b>.",
       targets: ["#epsilonInput", "#deltaInput"],
     },
     {
-      title: "Load",
-      body: "Optional: pick <b>Compare</b> methods. Press <b>Load</b>.",
+      title: "Load the trajectory",
+      body: "Optionally pick <b>Compare</b>, then press <b>Load</b>. A short follow-up explains playback after it finishes.",
       targets: ["#loadBtn", ".header-baseline"],
     },
   ];
@@ -3351,13 +3352,14 @@
 
   function isTourTargetVisible(node) {
     if (!node || !(node instanceof Element)) return false;
-    if (node.classList.contains("visually-hidden")) return false;
     const style = window.getComputedStyle(node);
     if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") {
       return false;
     }
     const rect = node.getBoundingClientRect();
-    return rect.width > 1 && rect.height > 1;
+    // Desktop restores #traceSelect from .visually-hidden via CSS overrides; trust
+    // the laid-out box instead of the class name alone.
+    return rect.width > 2 && rect.height > 2;
   }
 
   function resolveTourTargets(selectors) {
@@ -3367,6 +3369,13 @@
       if (!raw) continue;
       const target = raw.closest("label") || raw;
       if (!isTourTargetVisible(target)) continue;
+      // Prefer leaf controls over a parent that already contains them (avoids a
+      // taller/wider union that leaves the visible control off-center).
+      const contained = nodes.some((existing) => existing.contains(target));
+      if (contained) continue;
+      for (let i = nodes.length - 1; i >= 0; i -= 1) {
+        if (target.contains(nodes[i])) nodes.splice(i, 1);
+      }
       if (!nodes.includes(target)) nodes.push(target);
     }
     return nodes;
@@ -3385,12 +3394,33 @@
       bottom = Math.max(bottom, rect.bottom);
     }
     if (!Number.isFinite(top)) return null;
-    const pad = 0;
+    // Spotlight uses border-box with a 2px border. Keep equal *inner* pad on
+    // opposite sides so controls stay centered with visible top/bottom margin
+    // inside the circled box. Measure room to the viewport edge (not an extra
+    // inset) so header controls near the top still get pad.
+    const borderWidth = 2;
+    const desiredPad = 10;
+    const spaceAbove = Math.max(0, top);
+    const spaceBelow = Math.max(0, window.innerHeight - bottom);
+    const spaceLeft = Math.max(0, left);
+    const spaceRight = Math.max(0, window.innerWidth - right);
+    const padY = Math.min(
+      desiredPad,
+      Math.max(0, spaceAbove - borderWidth),
+      Math.max(0, spaceBelow - borderWidth)
+    );
+    const padX = Math.min(
+      desiredPad,
+      Math.max(0, spaceLeft - borderWidth),
+      Math.max(0, spaceRight - borderWidth)
+    );
+    const insetY = padY + borderWidth;
+    const insetX = padX + borderWidth;
     return {
-      top: Math.max(0, top - pad),
-      left: Math.max(0, left - pad),
-      width: Math.min(window.innerWidth, right - left + pad * 2),
-      height: Math.min(window.innerHeight, bottom - top + pad * 2),
+      top: top - insetY,
+      left: left - insetX,
+      width: right - left + insetX * 2,
+      height: bottom - top + insetY * 2,
     };
   }
 
@@ -3471,6 +3501,10 @@
     if (uiTourNext) {
       uiTourNext.textContent = tourIndex === total - 1 ? "Done" : "Next";
     }
+    if (uiTourPrev) {
+      uiTourPrev.hidden = tourIndex === 0;
+      uiTourPrev.disabled = tourIndex === 0;
+    }
 
     const targets = resolveTourTargets(step.targets || []);
     const rect = targets.length ? unionTourRect(targets) : null;
@@ -3532,6 +3566,12 @@
     renderTourStep();
   }
 
+  function retreatTour() {
+    if (tourIndex <= 0) return;
+    tourIndex -= 1;
+    renderTourStep();
+  }
+
   function playbackTourSeen() {
     try {
       return localStorage.getItem(PLAYBACK_TOUR_STORAGE_KEY) === "1";
@@ -3559,6 +3599,7 @@
   }
 
   if (uiTourSkip) uiTourSkip.addEventListener("click", finishTour);
+  if (uiTourPrev) uiTourPrev.addEventListener("click", retreatTour);
   if (uiTourNext) uiTourNext.addEventListener("click", advanceTour);
   if (uiTourRelaunch) {
     uiTourRelaunch.addEventListener("click", () => {
@@ -3579,6 +3620,9 @@
     } else if (event.key === "Enter" || event.key === "ArrowRight") {
       event.preventDefault();
       advanceTour();
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      retreatTour();
     }
   });
 

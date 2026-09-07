@@ -23,6 +23,15 @@ target_link_libraries(simplify
   CGAL::CGAL
 )
 
+# Focused geometry check: P boundary is leftmost/rightmost per y-row.
+add_executable(check_boundary_lr
+  tests/check_boundary_lr.cpp
+)
+target_include_directories(check_boundary_lr PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(check_boundary_lr
+  CGAL::CGAL
+)
+
 # Baseline binaries used by the web compare pane and benchmark.py.
 # dp / squish need no Qt. dots needs Qt6 Core only (see its CMakeLists).
 set(DP_SRC "${CMAKE_CURRENT_SOURCE_DIR}/traj-compression/batch/DP/DP_adapted.cpp")

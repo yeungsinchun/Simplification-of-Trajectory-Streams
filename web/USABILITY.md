@@ -1108,11 +1108,11 @@ No open usability layout, novice-copy, or Cloud Run CI/CD gaps remain in this pa
 
 ### Status lacked a map/playback gloss; empty Load said upload (resolved)
 
-**Where:** sidebar `#statusGloss`; empty `#loadBtn` status in `viewer.js`; default `#baselineLayerHint` (preloaded path).
+**Where:** sidebar Status indices/grid (formerly `#statusGloss`); empty `#loadBtn` status in `viewer.js`; default `#baselineLayerHint` (preloaded path).
 
 **Problem:** Skip-tour users opening Status first saw bare start point / current point / Segment numbers with no link to the colored map markers or the playback bar. Pressing Load with nothing chosen said “select or upload”, which is unreachable on phones where Upload is `display: none`. The preloaded Compare map-overlay hint still ended with an Upload aside even when Compare was already available.
 
-**Fix:** Status leads with a plain gloss mapping start/current to map markers and Segment/Step/Candidate to playback. Empty Load says “Please choose a trajectory first”. The default Compare hint keeps Results → Run compare and drops the Upload aside (upload-blocked copy still explains uploads when needed). Fixture `scrollWidth` stays within 900.
+**Fix:** Empty Load says “Please choose a trajectory first”. The default Compare hint keeps Results → Run compare and drops the Upload aside (upload-blocked copy still explains uploads when needed). The Status sidebar description paragraph (`#statusGloss`) was later removed; Status keeps the indices/grid only. Fixture `scrollWidth` stays within 900.
 
 **Evidence:**
 

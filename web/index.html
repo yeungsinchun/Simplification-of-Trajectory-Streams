@@ -865,21 +865,6 @@
   #dropHint .dropHint-icon svg { width: 44px; height: 44px; }
   #dropHint .dropHint-sub { font-size: 13px; line-height: 1.5; color: var(--text-dim); }
   #dropHint .dropHint-sub b { color: var(--text); font-weight: 500; }
-  #dropHint .dropHint-format {
-    margin-top: 12px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 12px;
-    color: #c7cdd8;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid var(--panel-border);
-    border-radius: 4px;
-    padding: 6px 10px;
-    display: inline-block;
-  }
-  #dropHint .dropHint-format code {
-    color: var(--accent);
-    background: transparent;
-  }
   #dropHint .desktop-instructions {
     margin-top: 18px;
     padding: 12px 14px;
@@ -1122,15 +1107,13 @@
     font-size: 11px;
     line-height: 1.5;
   }
-  .instructions-gloss,
-  .status-gloss {
+  .instructions-gloss {
     margin: 0 0 10px;
     font-size: 12px;
     line-height: 1.45;
     color: var(--text-dim);
   }
-  .instructions-gloss b,
-  .status-gloss b {
+  .instructions-gloss b {
     color: var(--text);
     font-weight: 600;
   }
@@ -2049,8 +2032,7 @@
     }
   }
   @media (min-width: 721px) {
-    /* On desktop, show the native select inline — width set to fit longest option.
-       Must beat .visually-hidden !important (used so mobile keeps the control at 1px). */
+    /* On desktop, show the native select inline — width set to fit longest option. */
     .preloaded-trigger { display: none !important; }
     .preloaded-row {
       flex: 0 0 auto;
@@ -2058,6 +2040,8 @@
     }
     #traceSelect {
       position: static !important;
+      /* Beat .visually-hidden { width/height: 1px !important } so the control
+         lays out at its real size (needed for tour spotlight centering too). */
       width: max-content !important;
       height: auto !important;
       padding: 3px 6px !important;
@@ -2067,6 +2051,7 @@
       white-space: nowrap !important;
       background: #1e2330;
       color: var(--text);
+      /* Beat .visually-hidden { border: 0 !important } so the picker reads as a box. */
       border: 1px solid var(--panel-border) !important;
       border-radius: 5px;
       font-size: 12px;
@@ -2092,15 +2077,17 @@
   }
   #uiTour.has-spotlight .ui-tour-backdrop {
     background: transparent;
+    /* Let spotlighted controls (e.g. trajectory dropdown) receive clicks. */
+    pointer-events: none;
   }
   .ui-tour-spotlight {
     position: absolute;
     border: 2px solid var(--accent);
-    border-radius: 6px;
+    border-radius: 10px;
     box-shadow: 0 0 0 9999px rgba(8, 10, 14, 0.62);
     background: transparent;
     pointer-events: none;
-    box-sizing: border-box;
+    transition: top 0.18s ease, left 0.18s ease, width 0.18s ease, height 0.18s ease;
   }
   .ui-tour-card {
     position: absolute;
@@ -2135,9 +2122,13 @@
   .ui-tour-card p b { color: var(--text); font-weight: 600; }
   .ui-tour-actions {
     display: flex;
+    align-items: center;
     justify-content: flex-end;
     gap: 8px;
     margin-top: 14px;
+  }
+  .ui-tour-actions #uiTourSkip {
+    margin-right: auto;
   }
   .ui-tour-actions button {
     min-height: 34px;
@@ -2377,9 +2368,6 @@
             <div class="big">Choose a trajectory</div>
             <div class="dropHint-sub">
               Select or <b>Upload</b>, optionally pick <b>Compare</b> (preloaded), then <b>Load</b>
-            </div>
-            <div class="dropHint-format">
-              Format: <code>N</code>, then <code>N</code> lines of <code>x y</code>
             </div>
             <div class="desktop-instructions">
               <h2>Instructions</h2>
@@ -2643,11 +2631,12 @@
     <p id="uiTourBody"></p>
     <div class="ui-tour-actions">
       <button type="button" id="uiTourSkip">Skip</button>
+      <button type="button" id="uiTourPrev" hidden>Back</button>
       <button type="button" id="uiTourNext" class="primary">Next</button>
     </div>
   </div>
 </div>
 
-<script src="viewer.js?v=frechet-distance-1"></script>
+<script src="viewer.js?v=boundary-lr-tour-1"></script>
 </body>
 </html>
