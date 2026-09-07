@@ -26,7 +26,7 @@ Artifacts: `correctness-<label>-e…-d…` with `correctness.tsv` and `correctne
 
 Same three parallel `(ε, δ)` matrix jobs as correctness. For each setting, averages `BENCH_RUNS=5` Release runs of `SIMPLIFY_CORE_MS` on IDs 1..10 (new vs previous commit) and enforces:
 
-1. **Mean gate:** over IDs with `orig_ms ≥ MIN_BENCH_MS` (20 ms), `mean(new) < mean(orig)` (strict improvement, not a 1.5× cap).
+1. **Mean gate:** over IDs with `orig_ms ≥ MIN_BENCH_MS` (20 ms), `mean(new) ≤ mean(orig) × (1 + MEAN_NOISE)` with `MEAN_NOISE=0.01` (1% runner-noise band; still far tighter than a 1.5×-style mean allowance). A zero-noise `mean(new) < mean(orig)` check is a coin flip when the PR does not change core speed.
 2. **Per-ID gate:** for those same gated IDs, `new_ms ≤ orig_ms * 1.20` (was 1.50).
 
 IDs below the 20 ms floor are reported as `SKIP_FLOOR` and excluded from both gates so wall-clock noise does not fail the job.

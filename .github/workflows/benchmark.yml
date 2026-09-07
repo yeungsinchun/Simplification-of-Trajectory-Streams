@@ -40,6 +40,11 @@ jobs:
       # IDs with orig_ms < MIN_BENCH_MS are excluded from the mean gate and
       # from the per-ID multiplicative check (tiny runs are noise-dominated).
       MIN_BENCH_MS: "20"
+      # Mean bar: fail only if mean(new) > mean(orig) * (1 + MEAN_NOISE).
+      # Strict equality-or-better (noise=0) is a coin flip when the PR does not
+      # change core speed - especially with gated_n=1 (mid/coarse). 1% is still
+      # far tighter than the old 1.5x-style allowance and absorbs runner noise.
+      MEAN_NOISE: "0.01"
 
     steps:
       - name: Checkout current commit (new)
@@ -201,9 +206,13 @@ jobs:
             MEAN_NEW=$(awk -v s="$MEAN_SUM_NEW" -v n="$MEAN_N" 'BEGIN { printf "%.4f", s / n }')
             MEAN_RATIO=$(awk -v o="$MEAN_ORIG" -v n="$MEAN_NEW" \
                            'BEGIN { if (o+0 > 0) printf "%.3f", n/o; else print "inf" }')
-            # Strict mean bar: mean(new) must be strictly less than mean(orig).
-            if ! awk -v n="$MEAN_NEW" -v o="$MEAN_ORIG" \
-                     'BEGIN { exit !(n+0 < o+0) }'; then
+            # Mean bar: fail if mean(new) > mean(orig) * (1 + MEAN_NOISE).
+            # A zero-noise strict mean(new) < mean(orig) is a coin flip when
+            # the PR does not change core speed (symmetry of equal means),
+            # especially with gated_n=1. The 1% band is still far tighter than
+            # the old 1.5x-style allowance.
+            if awk -v n="$MEAN_NEW" -v o="$MEAN_ORIG" -v noise="$MEAN_NOISE" \
+                   'BEGIN { exit !(o+0 > 0 && n+0 > o*(1+noise) + 1e-9) }'; then
               MEAN_OK=0
               OVERALL_OK=0
             fi
@@ -214,7 +223,7 @@ jobs:
             echo ""
             echo "- Runs averaged: **${BENCH_RUNS}** per ID (no \`--time\` for gated ms)"
             echo "- Per-ID bar: new ≤ orig × **${SLOWDOWN_LIMIT}** (IDs with orig ≥ ${MIN_BENCH_MS} ms)"
-            echo "- Mean bar: mean(new) **<** mean(orig) over the ${MEAN_N} gated IDs (floor excludes tiny runs)"
+            echo "- Mean bar: mean(new) ≤ mean(orig) × (1+${MEAN_NOISE}) over the ${MEAN_N} gated IDs (floor excludes tiny runs)"
             echo "- Mean orig: **${MEAN_ORIG}** ms · Mean new: **${MEAN_NEW}** ms · ratio **${MEAN_RATIO}** · mean_ok=${MEAN_OK}"
             echo ""
             echo "| ID | orig_ms | new_ms | ratio | status |"
@@ -231,11 +240,13 @@ jobs:
           # Compact JSON for artifacts (ops as nested object when present).
           python3 - "$TSV" "$JSON" "$EPSILON" "$DELTA" "$LABEL" \
               "$SLOWDOWN_LIMIT" "$MIN_BENCH_MS" "$BENCH_RUNS" \
-              "$MEAN_ORIG" "$MEAN_NEW" "$MEAN_RATIO" "$MEAN_OK" "$MEAN_N" "$OVERALL_OK" <<'PY'
+              "$MEAN_ORIG" "$MEAN_NEW" "$MEAN_RATIO" "$MEAN_OK" "$MEAN_N" "$OVERALL_OK" \
+              "$MEAN_NOISE" <<'PY'
           import json, sys
           tsv, out, eps, delta, label = sys.argv[1:6]
           slow, floor, runs = sys.argv[6:9]
           mean_o, mean_n, mean_r, mean_ok, mean_cnt, overall = sys.argv[9:15]
+          mean_noise = sys.argv[15]
           cases = []
           with open(tsv) as f:
               next(f)
@@ -276,6 +287,7 @@ jobs:
               "slowdown_limit": float(slow),
               "min_bench_ms": float(floor),
               "bench_runs": int(runs),
+              "mean_noise": float(mean_noise),
               "gated_count": int(mean_cnt),
               "mean_orig_ms": num_or_none(mean_o),
               "mean_new_ms": num_or_none(mean_n),
@@ -289,7 +301,7 @@ jobs:
               f.write("\n")
           PY
 
-          echo "Benchmark ${LABEL} (avg of ${BENCH_RUNS} runs, limit ${SLOWDOWN_LIMIT}x, mean must improve)"
+          echo "Benchmark ${LABEL} (avg of ${BENCH_RUNS} runs, limit ${SLOWDOWN_LIMIT}x, mean ≤ orig×(1+${MEAN_NOISE}))"
           column -t -s $'\t' "$TSV" || cat "$TSV"
           echo "mean_orig=${MEAN_ORIG} mean_new=${MEAN_NEW} mean_ratio=${MEAN_RATIO} gated_n=${MEAN_N} mean_ok=${MEAN_OK}"
 
@@ -297,7 +309,7 @@ jobs:
             echo ""
             echo "❌ Performance regression for e=${EPSILON} d=${DELTA}:"
             echo "   per-ID new > orig*${SLOWDOWN_LIMIT} (above ${MIN_BENCH_MS}ms floor), and/or"
-            echo "   mean(new) >= mean(orig) over gated IDs."
+            echo "   mean(new) > mean(orig)*(1+${MEAN_NOISE}) over gated IDs."
             exit 1
           fi
           echo "✅ Benchmark OK"
