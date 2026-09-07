@@ -2161,8 +2161,6 @@
     fitToBBox(state.trace.bbox);
   }
 
-  el("fitBtn").addEventListener("click", () => { fitToData(); render(); });
-
   // Pan (drag).
   canvas.addEventListener("mousedown", (e) => {
     if (!state.trace) return;
@@ -3324,7 +3322,7 @@
     },
     {
       title: "Map overlays",
-      body: "Toggle what the map draws. <b>Fit view</b> resets the camera.",
+      body: "Toggle what the map draws.",
       targets: ["#layersSection > h2", "#mobileLayersToggle", "#toggle-stream", "#toggle-simplified"],
       prepare: prepareLayersTourStep,
     },

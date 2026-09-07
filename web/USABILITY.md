@@ -1392,6 +1392,18 @@ No open usability layout, novice-copy, or Cloud Run CI/CD gaps remain in this pa
 - Before/after fixture: `web/usability/compare-upload-preloaded-only.html`
 - Fixture screenshot (900px): `web/usability/compare-upload-preloaded-only.png`
 
+### Post-load right pane dropped View and Instructions chrome (resolved)
+
+**Where:** loaded `#sidebar` after a trace is ready (not the empty-canvas start Instructions).
+
+**Problem:** The right pane stacked a View / Fit view control and an Instructions heading plus gloss above the shortcut legend, which duplicated playback tour / dock wording and buried the keys.
+
+**Fix:** Remove the View section and the Instructions heading / gloss. Keep only the desktop and mobile shortcut tables (key → what it does). Drop the unused `#fitBtn` click handler and Fit-view mention from the Map overlays tour step. Status and Map overlays stay.
+
+**Evidence:**
+
+- Before/after fixture: `web/usability/right-pane-keys-only.html`
+
 ### Cloud Run Deploy landed on main (resolved)
 
 **Where:** `.github/workflows/deploy.yml` on `main`, GitHub Actions Deploy workflow, Cloud Run service `simplify-viewer`.
