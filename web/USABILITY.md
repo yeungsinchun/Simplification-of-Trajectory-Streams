@@ -410,7 +410,7 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 **Problem:** After Load Trace, layer rows still said reachability / δ-ball / vertex / boundary anchors, and the playback tour jumped from Segment / Candidate to Results. Novices could finish both tours without learning that Layers control map overlays or that Fit to data resets the view.
 
-**Fix:** Layer glosses and tooltips use plain wording (search circle, allowed area, anchor points). Playback tour inserts a Layers step (4/5) that opens the mobile Layers accordion, spotlights the Simplify toggles, and mentions Fit to data. Results / Compare remains the final step. Results empty copy no longer implies Compare is required before scores appear.
+**Fix:** Layer glosses and tooltips use plain wording (search circle, allowed area, anchor points). Playback tour inserts a Layers step (4/5) that opens the mobile Layers accordion, spotlights the Simplify toggles, and mentions Fit to data. Results / Compare remains the final step. Results empty copy no longer implies Compare is required before scores appear. `#fitBtn` / Fit view were later removed from the loaded sidebar and Map overlays tour; see Post-load right pane dropped View and Instructions chrome.
 
 **Evidence:**
 
@@ -1268,7 +1268,7 @@ No open usability layout, novice-copy, or Cloud Run CI/CD gaps remain in this pa
 
 **Problem:** After Load, Instructions listed only keyboard / dock shortcuts. Novices who skipped the playback tour still saw Step / Segment / Candidate with no meaning. View also said `Fit to data`, which reads like a data action rather than resetting the map.
 
-**Fix:** Instructions lead with a short gloss that Step / Segment / Option replay the run and Play auto-advances. Shortcut tables keep the keys underneath. The View button reads `Fit view`. Start-screen Instructions were shortened the same way (pick / εδ / Load; Results / Compare; pan / zoom).
+**Fix:** Instructions lead with a short gloss that Step / Segment / Option replay the run and Play auto-advances. Shortcut tables keep the keys underneath. The View button reads `Fit view`. Start-screen Instructions were shortened the same way (pick / εδ / Load; Results / Compare; pan / zoom). The loaded right pane later dropped View and the Instructions heading / gloss (shortcut tables remain); see Post-load right pane dropped View and Instructions chrome.
 
 **Evidence:**
 
