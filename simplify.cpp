@@ -7,7 +7,7 @@
 #include "timer.h"
 
 // ===========================================================================
-//  Core algorithm — bare (no instrumentation)
+//  Core algorithm (opt-in TIMER sites; active only when --time is set)
 // ===========================================================================
 
 
