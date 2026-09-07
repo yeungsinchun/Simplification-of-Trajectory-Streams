@@ -1548,7 +1548,7 @@
     const eps = parseFloat(epsilonInput.value);
     const delta = parseFloat(deltaInput.value);
     if (isNaN(eps) || eps <= 0 || isNaN(delta) || delta <= 0) {
-      alert("Please enter positive numbers for Match (accuracy) and Grid (spacing).");
+      alert("Please enter positive numbers for ε and δ.");
       return;
     }
 
