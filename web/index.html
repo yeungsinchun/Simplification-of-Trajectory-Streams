@@ -2031,7 +2031,8 @@
       white-space: nowrap !important;
       background: #1e2330;
       color: var(--text);
-      border: 1px solid var(--panel-border);
+      /* Beat .visually-hidden { border: 0 !important } so the picker reads as a box. */
+      border: 1px solid var(--panel-border) !important;
       border-radius: 5px;
       font-size: 12px;
       max-width: none !important;

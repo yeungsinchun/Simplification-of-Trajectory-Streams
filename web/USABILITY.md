@@ -89,6 +89,18 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 - Before/after markup fixture (390px): `web/usability/mobile-select-overflow.png`
 - Markup fixture used for that screenshot: `web/usability/mobile-select-overflow.html`
 
+### Desktop preload picker lost its border to visually-hidden
+
+**Where:** desktop header (`min-width: 721px`), `#traceSelect.visually-hidden`.
+
+**Problem:** Desktop restores the native select from `.visually-hidden` (position, size, clip) but left `border: 1px solid var(--panel-border)` without `!important`. `.visually-hidden { border: 0 !important }` won, so the dark header showed spinner arrows with no box outline.
+
+**Fix:** In `@media (min-width: 721px) #traceSelect`, set `border: 1px solid var(--panel-border) !important`. Mobile still uses `.preloaded-trigger` with the clipped native select.
+
+**Evidence:**
+
+- Before/after markup fixture: `web/usability/desktop-trace-select-border.html`
+
 ### Mobile playback dock appeared before canvas geometry
 
 **Where:** 390px loaded-trace screen, `#mobileTransport`, from Load Trace until the first stream header/geometry message.
