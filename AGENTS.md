@@ -6,7 +6,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 ## CI gates and timing
 
-- Correctness and Benchmark workflows share a three-pair `(ε, δ)` matrix; bars and artifact layout are documented in `.github/workflows/README.md`.
+- Correctness and Benchmark workflows share a four-pair `(ε, δ)` matrix; bars and artifact layout are documented in `.github/workflows/README.md`.
 - Opt-in phase timers: `./build/simplify <id> --time` writes a human TIMING SUMMARY plus machine `TIMER_MS <name> <ms> <calls>` lines on stderr (`timer.h`, wired from `simplify.cpp`).
 
 ## Maintaining this file
