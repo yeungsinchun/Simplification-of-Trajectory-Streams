@@ -9,6 +9,12 @@ The project is research software. It is tested primarily on macOS arm64;
 other platforms may work with equivalent CGAL, Qt, CMake, Julia, and C++
 dependencies.
 
+## Live demo
+
+A Cloud Run deployment of the web visualizer is available at:
+
+https://simplify-viewer-522405269791.asia-east2.run.app
+
 ## Repository layout
 
 - `simplify.cpp`: headless implementation of the paper's algorithm.
