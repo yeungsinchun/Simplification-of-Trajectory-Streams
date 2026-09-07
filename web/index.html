@@ -865,21 +865,6 @@
   #dropHint .dropHint-icon svg { width: 44px; height: 44px; }
   #dropHint .dropHint-sub { font-size: 13px; line-height: 1.5; color: var(--text-dim); }
   #dropHint .dropHint-sub b { color: var(--text); font-weight: 500; }
-  #dropHint .dropHint-format {
-    margin-top: 12px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 12px;
-    color: #c7cdd8;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid var(--panel-border);
-    border-radius: 4px;
-    padding: 6px 10px;
-    display: inline-block;
-  }
-  #dropHint .dropHint-format code {
-    color: var(--accent);
-    background: transparent;
-  }
   #dropHint .desktop-instructions {
     margin-top: 18px;
     padding: 12px 14px;
@@ -1122,15 +1107,13 @@
     font-size: 11px;
     line-height: 1.5;
   }
-  .instructions-gloss,
-  .status-gloss {
+  .instructions-gloss {
     margin: 0 0 10px;
     font-size: 12px;
     line-height: 1.45;
     color: var(--text-dim);
   }
-  .instructions-gloss b,
-  .status-gloss b {
+  .instructions-gloss b {
     color: var(--text);
     font-weight: 600;
   }
@@ -2049,8 +2032,7 @@
     }
   }
   @media (min-width: 721px) {
-    /* On desktop, show the native select inline — width set to fit longest option.
-       Must beat .visually-hidden !important (used so mobile keeps the control at 1px). */
+    /* On desktop, show the native select inline — width set to fit longest option. */
     .preloaded-trigger { display: none !important; }
     .preloaded-row {
       flex: 0 0 auto;
@@ -2058,6 +2040,8 @@
     }
     #traceSelect {
       position: static !important;
+      /* Beat .visually-hidden { width/height: 1px !important } so the control
+         lays out at its real size (needed for tour spotlight centering too). */
       width: max-content !important;
       height: auto !important;
       padding: 3px 6px !important;
@@ -2067,6 +2051,7 @@
       white-space: nowrap !important;
       background: #1e2330;
       color: var(--text);
+      /* Beat .visually-hidden { border: 0 !important } so the picker reads as a box. */
       border: 1px solid var(--panel-border) !important;
       border-radius: 5px;
       font-size: 12px;
@@ -2092,15 +2077,17 @@
   }
   #uiTour.has-spotlight .ui-tour-backdrop {
     background: transparent;
+    /* Let spotlighted controls (e.g. trajectory dropdown) receive clicks. */
+    pointer-events: none;
   }
   .ui-tour-spotlight {
     position: absolute;
     border: 2px solid var(--accent);
-    border-radius: 6px;
+    border-radius: 10px;
     box-shadow: 0 0 0 9999px rgba(8, 10, 14, 0.62);
     background: transparent;
     pointer-events: none;
-    box-sizing: border-box;
+    transition: top 0.18s ease, left 0.18s ease, width 0.18s ease, height 0.18s ease;
   }
   .ui-tour-card {
     position: absolute;
@@ -2135,9 +2122,13 @@
   .ui-tour-card p b { color: var(--text); font-weight: 600; }
   .ui-tour-actions {
     display: flex;
+    align-items: center;
     justify-content: flex-end;
     gap: 8px;
     margin-top: 14px;
+  }
+  .ui-tour-actions #uiTourSkip {
+    margin-right: auto;
   }
   .ui-tour-actions button {
     min-height: 34px;
@@ -2273,9 +2264,8 @@
       <div class="mobile-start-help">
         <h2>Instructions</h2>
         <ul>
-          <li>Select a preloaded trajectory.</li>
-          <li>Adjust <b>ε</b> / <b>δ</b> if needed, then <b>Load</b>.</li>
-          <li>Optional: <b>Compare</b> in <b>Results</b> after load.</li>
+          <li>Pick a trajectory, set <b>ε</b>/<b>δ</b> if needed, then <b>Load</b>.</li>
+          <li><b>Results</b> for scores; optional <b>Compare</b>.</li>
           <li>Drag to pan, pinch to zoom.</li>
         </ul>
       </div>
@@ -2378,15 +2368,11 @@
             <div class="dropHint-sub">
               Select or <b>Upload</b>, optionally pick <b>Compare</b> (preloaded), then <b>Load</b>
             </div>
-            <div class="dropHint-format">
-              Format: <code>N</code>, then <code>N</code> lines of <code>x y</code>
-            </div>
             <div class="desktop-instructions">
               <h2>Instructions</h2>
               <ul>
-                <li>Select or <b>Upload</b> a trajectory.</li>
-                <li>Set <b>ε</b> / <b>δ</b> if needed, then <b>Load</b>.</li>
-                <li>Open <b>Results</b> for scores; optional <b>Compare</b> (preloaded).</li>
+                <li>Select or <b>Upload</b>, set <b>ε</b>/<b>δ</b> if needed, then <b>Load</b>.</li>
+                <li><b>Results</b> for scores; optional <b>Compare</b> (preloaded).</li>
                 <li><b>Drag</b> to pan, <b>scroll</b> to zoom.</li>
               </ul>
             </div>
@@ -2496,10 +2482,10 @@
                 <label title="Final simplified path for the whole trajectory."><input type="checkbox" id="toggle-final-simplify" /><span class="swatch" style="background:#3ddc97"></span>Final simplified</label>
               </div>
               <div class="toggle-row">
-                <label title="δ-ball around the start vertex p of the current segment."><input type="checkbox" id="toggle-ball-p0" checked /><span class="swatch" style="background:#c47aff"></span>\(B_p\) (δ-ball at start vertex)</label>
+                <label title="δ-ball around the start vertex p of the current segment."><input type="checkbox" id="toggle-ball-p0" checked /><span class="swatch" style="background:#c47aff"></span>\(B_p\)</label>
               </div>
               <div class="toggle-row">
-                <label title="δ-ball around the current stream vertex v_i."><input type="checkbox" id="toggle-ball-pi" checked /><span class="swatch" style="background:#ff7ae8"></span>\(B_{v_i}\) (δ-ball at current vertex)</label>
+                <label title="δ-ball around the current stream vertex v_i."><input type="checkbox" id="toggle-ball-pi" checked /><span class="swatch" style="background:#ff7ae8"></span>\(B_{v_i}\)</label>
               </div>
               <div class="toggle-row">
                 <label title="Convex hull of the δ-disk grid around the current vertex."><input type="checkbox" id="toggle-Gi" checked /><span class="swatch" style="background:#e8c547"></span>\(\mathrm{conv}(G_{v_i})\)</label>
@@ -2514,7 +2500,7 @@
                 <label title="Current search region: conv(G_vi) ∩ F(S_{i-1}[p], p)."><input type="checkbox" id="toggle-S" checked /><span class="swatch" style="background:#a78bfa"></span>\(S_i[p]\)</label>
               </div>
               <div class="toggle-row">
-                <label title="Candidate anchors on the search boundary."><input type="checkbox" id="toggle-P" checked /><span class="swatch" style="background:#ff9f43"></span>\(P\) (candidate anchors)</label>
+                <label title="Candidate anchors on the search boundary."><input type="checkbox" id="toggle-P" checked /><span class="swatch" style="background:#ff9f43"></span>\(P\)</label>
               </div>
               <div class="toggle-row">
                 <label title="Candidates already ruled out (shown in red)."><input type="checkbox" id="toggle-dead-candidates" checked /><span class="swatch" style="background:#ff3c3c"></span>Dead candidates</label>
@@ -2541,10 +2527,7 @@
       <div class="section">
         <h2>Instructions</h2>
         <p class="instructions-gloss" id="playbackInstructionsGloss">
-          <b>Step</b>: along the stream.
-          <b>Segment</b>: green-path pieces.
-          <b>Option</b>: candidates.
-          <b>Play</b> / <b>Speed</b> / <b>Fit view</b>.
+          <b>Step</b> / <b>Segment</b> / <b>Option</b> replay the run; <b>Play</b> auto-advances.
         </p>
         <table class="shortcuts-table desktop-shortcuts">
           <tbody>
@@ -2643,11 +2626,12 @@
     <p id="uiTourBody"></p>
     <div class="ui-tour-actions">
       <button type="button" id="uiTourSkip">Skip</button>
+      <button type="button" id="uiTourPrev" hidden>Back</button>
       <button type="button" id="uiTourNext" class="primary">Next</button>
     </div>
   </div>
 </div>
 
-<script src="viewer.js?v=frechet-distance-1"></script>
+<script src="viewer.js?v=ui-polish-1"></script>
 </body>
 </html>

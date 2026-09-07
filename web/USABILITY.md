@@ -540,7 +540,7 @@ No open usability layout, novice-copy, or Cloud Run CI/CD gaps remain in this pa
 
 **Problem:** After Match and DP tips said `A smaller Match/match keeps a more detailed green path`, the `match limit` chip still led with `Upper Match limit` and had no smaller/outcome sentence. Skip-tour users long-pressing that chip could not map it to the same Match vocabulary.
 
-**Fix:** Tip says `Match limit for this run (same idea as the Match field)` plus `A smaller match limit keeps a more detailed green path`. Fixture `scrollWidth` stays within 900.
+**Fix:** Tip says `Match limit for this run (same idea as ε)` plus `A smaller match limit keeps a more detailed green path`. Fixture `scrollWidth` stays within 900.
 
 **Evidence:**
 
@@ -969,7 +969,7 @@ No open usability layout, novice-copy, or Cloud Run CI/CD gaps remain in this pa
 
 **Problem:** After Match / Grid / match limit landed, chips still said `cell size` and `file match`. Skip-tour users could not tell that the first is a Grid-derived length, or that the second is a saved Match error (distinct from the live Match error chip).
 
-**Fix:** Chips read `grid cell` and `saved Match` with Grid- and Match-aligned tooltips. Fixture `scrollWidth` stays within 900.
+**Fix:** Chips read `grid cell` and `saved Match` with Grid- and Match-aligned tooltips. Fixture `scrollWidth` stays within 900. The `saved Match` chip (and its tooltip) was later removed entirely; the separate `match limit` chip stays.
 
 **Evidence:**
 
@@ -1108,11 +1108,11 @@ No open usability layout, novice-copy, or Cloud Run CI/CD gaps remain in this pa
 
 ### Status lacked a map/playback gloss; empty Load said upload (resolved)
 
-**Where:** sidebar `#statusGloss`; empty `#loadBtn` status in `viewer.js`; default `#baselineLayerHint` (preloaded path).
+**Where:** sidebar Status indices/grid (formerly `#statusGloss`); empty `#loadBtn` status in `viewer.js`; default `#baselineLayerHint` (preloaded path).
 
 **Problem:** Skip-tour users opening Status first saw bare start point / current point / Segment numbers with no link to the colored map markers or the playback bar. Pressing Load with nothing chosen said “select or upload”, which is unreachable on phones where Upload is `display: none`. The preloaded Compare map-overlay hint still ended with an Upload aside even when Compare was already available.
 
-**Fix:** Status leads with a plain gloss mapping start/current to map markers and Segment/Step/Candidate to playback. Empty Load says “Please choose a trajectory first”. The default Compare hint keeps Results → Run compare and drops the Upload aside (upload-blocked copy still explains uploads when needed). Fixture `scrollWidth` stays within 900.
+**Fix:** Empty Load says “Please choose a trajectory first”. The default Compare hint keeps Results → Run compare and drops the Upload aside (upload-blocked copy still explains uploads when needed). The Status sidebar description paragraph (`#statusGloss`) was later removed; Status keeps the indices/grid only. Fixture `scrollWidth` stays within 900.
 
 **Evidence:**
 
@@ -1268,7 +1268,7 @@ No open usability layout, novice-copy, or Cloud Run CI/CD gaps remain in this pa
 
 **Problem:** After Load, Instructions listed only keyboard / dock shortcuts. Novices who skipped the playback tour still saw Step / Segment / Candidate with no meaning. View also said `Fit to data`, which reads like a data action rather than resetting the map.
 
-**Fix:** Instructions lead with a plain gloss for Step / Segment / Candidate / Play / Speed / Fit view (same ideas as the playback tour). Shortcut tables keep the keys underneath. The View button reads `Fit view`.
+**Fix:** Instructions lead with a short gloss that Step / Segment / Option replay the run and Play auto-advances. Shortcut tables keep the keys underneath. The View button reads `Fit view`. Start-screen Instructions were shortened the same way (pick / εδ / Load; Results / Compare; pan / zoom).
 
 **Evidence:**
 

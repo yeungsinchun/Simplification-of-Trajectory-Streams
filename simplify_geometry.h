@@ -534,8 +534,9 @@ inline std::vector<Point> get_conv_from_grid(const Point& p, double EPSILON, dou
     return conv;
 }
 
-// Boundary anchors for P: leftmost and rightmost grid sample on every y-row,
-// plus every sample on the topmost and bottommost rows.
+// Boundary anchors for P: discrete convex outline of the grid samples -
+// leftmost and rightmost on every y-row, plus every sample on the topmost
+// and bottommost rows.
 inline std::vector<Point> get_boundary_points_from_grid(const Point& p, double EPSILON, double DELTA, int multiplier = 1) {
     thread_local double cached_eps   = std::numeric_limits<double>::quiet_NaN();
     thread_local double cached_delta = std::numeric_limits<double>::quiet_NaN();
