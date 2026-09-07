@@ -9,13 +9,14 @@ This directory contains CI/CD workflows for the trajectory simplification projec
 
 Compares Fréchet distance and point counts for datasets 1..10 against the previous commit.
 
-Runs three parallel matrix jobs (same `(ε, δ)` pairs as the benchmark gate):
+Runs four parallel matrix jobs (same `(ε, δ)` pairs as the benchmark gate):
 
 | label | ε | δ | why |
 | --- | --- | --- | --- |
 | `coarse-e` | 299 | 1 | Historical CI pair (large match tolerance) |
 | `fine-e` | 0.5 | 300 | Tight ε (headless CLI default) with large δ (corridor constant from `scripts/benchmark_e.py`) |
 | `mid` | 5 | 50 | Mid-range; δ ≈ 300/(1+ε) corridor scaling from `scripts/benchmark_e.py` |
+| `very-coarse-e` | 999 | 1 | Very large match tolerance at the same fine δ as `coarse-e` |
 
 Tolerances (unchanged without evidence): `DIST_TOL=0.01`, `POINTS_TOL=0`.
 
@@ -24,9 +25,9 @@ Artifacts: `correctness-<label>-e…-d…` with `correctness.tsv` and `correctne
 ### benchmark.yml - Performance regression
 **Triggers:** Push to main, pull requests to main, manual dispatch
 
-Same three parallel `(ε, δ)` matrix jobs as correctness. For each setting, averages `BENCH_RUNS=5` Release runs of `SIMPLIFY_CORE_MS` on IDs 1..10 (new vs previous commit) and enforces:
+Same four parallel `(ε, δ)` matrix jobs as correctness. For each setting, averages `BENCH_RUNS=5` Release runs of `SIMPLIFY_CORE_MS` on IDs 1..10 (new vs previous commit) and enforces:
 
-1. **Mean gate:** over IDs with `orig_ms ≥ MIN_BENCH_MS` (20 ms), `mean(new) ≤ mean(orig) × (1 + MEAN_NOISE)` with `MEAN_NOISE=0.01` (1% runner-noise band; still far tighter than a 1.5×-style mean allowance). A zero-noise `mean(new) < mean(orig)` check is a coin flip when the PR does not change core speed.
+1. **Mean gate:** over IDs with `orig_ms ≥ MIN_BENCH_MS` (20 ms), `mean(new) ≤ mean(orig) × MEAN_LIMIT` with `MEAN_LIMIT=1.05` (cannot worsen by more than 1.05×). Replaces a zero-tolerance `mean(new) < mean(orig)` check that failed `mid` on ~0.2% noise with `gated_n=1`.
 2. **Per-ID gate:** for those same gated IDs, `new_ms ≤ orig_ms * 1.20` (was 1.50).
 
 IDs below the 20 ms floor are reported as `SKIP_FLOOR` and excluded from both gates so wall-clock noise does not fail the job.
@@ -39,6 +40,8 @@ Artifacts: `benchmark-<label>-e…-d…` with `benchmark.tsv` / `benchmark.json`
 **Triggers:** Push to main, manual dispatch
 
 Builds the repo `Dockerfile` with Cloud Build (`gcloud run deploy --source .`) and publishes the web viewer to Cloud Run.
+
+Cloud Build can flake on network-bound Julia install / `Pkg.add` (opaque "Building Container ... failed" after README-only #21). The `Dockerfile` retries `curl`/juliaup install and `Pkg.add` with loud failure logs; image behavior is unchanged.
 
 Authentication uses Workload Identity Federation (OIDC). No repository secret is required. The workflow requests `id-token: write` and impersonates the deploy service account through a GitHub-restricted identity pool provider.
 
