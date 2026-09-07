@@ -23,20 +23,6 @@ target_link_libraries(simplify
   CGAL::CGAL
 )
 
-# Focused geometry check: P boundary is the discrete convex outline
-# (leftmost/rightmost per y-row, plus full topmost and bottommost rows).
-# Gate on EXISTS so incomplete Docker contexts (no tests/) still configure.
-set(CHECK_BOUNDARY_LR_SRC "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_boundary_lr.cpp")
-if(EXISTS "${CHECK_BOUNDARY_LR_SRC}")
-  add_executable(check_boundary_lr
-    "${CHECK_BOUNDARY_LR_SRC}"
-  )
-  target_include_directories(check_boundary_lr PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-  target_link_libraries(check_boundary_lr
-    CGAL::CGAL
-  )
-endif()
-
 # Baseline binaries used by the web compare pane and benchmark.py.
 # dp / squish need no Qt. dots needs Qt6 Core only (see its CMakeLists).
 set(DP_SRC "${CMAKE_CURRENT_SOURCE_DIR}/traj-compression/batch/DP/DP_adapted.cpp")
