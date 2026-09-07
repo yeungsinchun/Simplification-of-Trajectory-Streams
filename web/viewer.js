@@ -1196,6 +1196,9 @@
       : formatTraceNumber(parseFloat(deltaInput.value));
     const gridLength = trace && trace.grid_val != null ? formatTraceNumber(trace.grid_val) : "…";
     const diskRadius = trace && trace.r_val != null ? formatTraceNumber(trace.r_val) : "…";
+    const expectedFrechet = trace && trace.expected_frechet != null
+      ? formatTraceNumber(trace.expected_frechet)
+      : "…";
     const streamLen = trace && trace.stream ? trace.stream.length : "…";
     const simplifiedLen = trace && trace.simplified ? trace.simplified.length : null;
     const ratio = simplifiedLen != null
@@ -1208,6 +1211,7 @@
       paramChip("δ", deltaValue, "Delta (δ): grid spacing. Smaller uses finer spacing."),
       paramChip("grid cell length", gridLength, "Length of one grid cell."),
       paramChip("ball radius", diskRadius, "Radius of the B_p / B_vi δ-balls."),
+      paramChip("match limit", expectedFrechet, "Match limit for this run (same idea as ε): how far the green path may drift from the input. A smaller match limit keeps a more detailed green path."),
       paramChip("original points", streamLen, "Number of points on the original trajectory."),
       paramChip("kept points", simplifiedLen != null ? simplifiedLen : "…", "Number of points kept on the green path.", pendingStyle),
       paramChip("kept %", ratio, "Kept points as a percent of original points.", pendingStyle),
