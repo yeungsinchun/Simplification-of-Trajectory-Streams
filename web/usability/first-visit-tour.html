@@ -201,8 +201,8 @@
     <div class="tour-spotlight" style="top:52px;left:268px;width:168px;height:34px;"></div>
     <div class="tour-card" style="top:100px;left:268px;">
       <p class="step">3 / 4</p>
-      <h3>Accuracy controls</h3>
-      <p><b>ε</b> is how closely the simplified path must match the original (smaller keeps more detail). <b>δ</b> is the search-grid spacing. Defaults are fine for a first run.</p>
+      <h3>ε and δ</h3>
+      <p>Smaller <b>ε</b> costs more time: per-point complexity is <b>O(ε<sup>-4</sup> log(1/ε))</b>. Fréchet distance stays within <b>(1+ε)δ</b>.</p>
       <div class="tour-actions">
         <button>Skip</button>
         <button class="primary">Next</button>
@@ -230,7 +230,7 @@
     <div class="tour-card" style="top:120px;left:20px;width:min(340px, calc(100% - 40px));">
       <p class="step">2 / 4</p>
       <h3>Choose a trajectory</h3>
-      <p>Pick a <b>preloaded trace</b>. Preloaded samples already include sensible settings.</p>
+      <p>Pick a <b>preloaded trajectory</b>.</p>
       <div class="tour-actions">
         <button>Skip</button>
         <button class="primary">Next</button>

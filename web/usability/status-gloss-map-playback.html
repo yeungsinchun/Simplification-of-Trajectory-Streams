@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Status gloss maps to map and playback</title>
+<title>Status without gloss; choose-trajectory Load error</title>
 <style>
   html, body { max-width: 900px; margin: 0 auto; }
   :root {
@@ -46,13 +46,6 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
-  .status-gloss {
-    margin: 0 0 10px;
-    font-size: 12px;
-    line-height: 1.45;
-    color: var(--text-dim);
-  }
-  .status-gloss b { color: var(--text); font-weight: 600; }
   .status-indices {
     display: flex;
     gap: 10px;
@@ -103,17 +96,19 @@
 </style>
 </head>
 <body>
-  <h1>Status gloss + choose-trajectory Load error</h1>
+  <h1>Status without gloss; choose-trajectory Load error</h1>
   <p>
-    Skip-tour users opening Status first saw bare start / current / Segment numbers with no
-    link to the map or playback bar. Empty Load also said <b>select or upload</b>, which is
-    unreachable on phones where Upload is hidden. Status now leads with a plain gloss;
-    empty Load says <b>choose a trajectory</b>; the preloaded Compare hint drops Upload aside.
+    Status keeps start / current / Segment indices only (no sidebar description paragraph).
+    Empty Load says <b>choose a trajectory</b>; the preloaded Compare hint drops Upload aside.
   </p>
   <div class="grid">
     <div class="frame">
       <div class="label">Before</div>
       <h2>Status</h2>
+      <p class="status-gloss" id="beforeGloss">
+        <b>Start point</b> and <b>current point</b> match the colored markers on the map.
+        <b>Segment</b>, <b>Step</b>, and <b>Candidate</b> match the playback controls.
+      </p>
       <div class="status-indices">
         <div class="status-idx-block">
           <span class="idx-label" style="color:#ff9f43">start point</span>
@@ -135,10 +130,6 @@
     <div class="frame" id="after">
       <div class="label">After</div>
       <h2>Status</h2>
-      <p class="status-gloss" id="statusGloss">
-        <b>Start point</b> and <b>current point</b> match the colored markers on the map.
-        <b>Segment</b>, <b>Step</b>, and <b>Candidate</b> match the playback controls.
-      </p>
       <div class="status-indices">
         <div class="status-idx-block">
           <span class="idx-label" style="color:#ff9f43">start point</span>
@@ -160,21 +151,18 @@
   </div>
   <p class="ok" id="check">Measuring…</p>
 <script>
-  const gloss = document.getElementById("statusGloss").textContent;
+  const glossGone = document.getElementById("statusGloss") === null
+    && document.querySelector("#after .status-gloss") === null;
   const afterLoad = document.getElementById("afterLoad").textContent;
   const afterHint = document.getElementById("afterHint").textContent;
   const scroll = document.documentElement.scrollWidth;
-  const hasGloss = gloss.includes("colored markers")
-    && gloss.includes("playback controls")
-    && gloss.includes("Start point")
-    && gloss.includes("Segment");
   const loadOk = afterLoad === "Please choose a trajectory first"
     && !afterLoad.toLowerCase().includes("upload");
   const hintOk = afterHint.includes("Run compare")
     && !afterHint.toLowerCase().includes("upload");
-  const ok = hasGloss && loadOk && hintOk && scroll <= 900;
+  const ok = glossGone && loadOk && hintOk && scroll <= 900;
   document.getElementById("check").textContent =
-    `gloss=${hasGloss} loadOk=${loadOk} hintOk=${hintOk} scrollWidth=${scroll} ok=${ok}`;
+    `glossGone=${glossGone} loadOk=${loadOk} hintOk=${hintOk} scrollWidth=${scroll} ok=${ok}`;
 </script>
 </body>
 </html>

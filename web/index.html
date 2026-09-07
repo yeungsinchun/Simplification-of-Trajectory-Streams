@@ -96,15 +96,13 @@
     gap: 4px;
     white-space: nowrap;
   }
-  /* Prefer plain Match / Grid on every viewport; ε / δ stay in titles/aria. */
+  /* Form shows ε / δ; gloss spans are unused but kept for markup stability. */
   .upload-form .param-symbol {
-    display: none;
-  }
-  .upload-form .param-gloss {
     color: var(--text);
     font-weight: 600;
-    letter-spacing: 0.01em;
-    text-transform: capitalize;
+  }
+  .upload-form .param-gloss {
+    display: none;
   }
   .params {
     display: flex;
@@ -478,6 +476,41 @@
     font-size: 12px;
   }
   .baseline-param-fields { display: flex; flex-direction: column; gap: 8px; }
+  /* Results panel: method pills only (no gloss), params in a compact row under them. */
+  #resultsPanel .baseline-algo-pill {
+    flex-direction: row;
+    gap: 0;
+    padding: 8px 14px;
+  }
+  #resultsPanel .baseline-algo-pill .pill-gloss {
+    display: none;
+  }
+  #resultsPanel .baseline-param-fields {
+    display: none;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px;
+  }
+  #resultsPanel .baseline-param-fields.has-fields {
+    display: flex;
+  }
+  #resultsPanel .baseline-field {
+    flex: 1 1 118px;
+    min-width: 110px;
+    max-width: 168px;
+  }
+  #resultsPanel .baseline-field input {
+    width: 100%;
+    min-width: 0;
+    padding: 7px 9px;
+  }
+  #resultsPanel .baseline-field-input-row {
+    width: 100%;
+  }
+  #resultsPanel .baseline-field-input-row input {
+    flex: 1 1 auto;
+  }
   #baselineLssdField[hidden],
   #headerBaselineLssdField[hidden],
   #baselineDpEpsField[hidden],
@@ -832,21 +865,6 @@
   #dropHint .dropHint-icon svg { width: 44px; height: 44px; }
   #dropHint .dropHint-sub { font-size: 13px; line-height: 1.5; color: var(--text-dim); }
   #dropHint .dropHint-sub b { color: var(--text); font-weight: 500; }
-  #dropHint .dropHint-format {
-    margin-top: 12px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 12px;
-    color: #c7cdd8;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid var(--panel-border);
-    border-radius: 4px;
-    padding: 6px 10px;
-    display: inline-block;
-  }
-  #dropHint .dropHint-format code {
-    color: var(--accent);
-    background: transparent;
-  }
   #dropHint .desktop-instructions {
     margin-top: 18px;
     padding: 12px 14px;
@@ -1049,10 +1067,14 @@
     border-left: 1px solid var(--panel-border);
   }
   .status-idx-block .idx-label {
-    font-size: 10px;
-    letter-spacing: 0.05em;
+    font-size: 12px;
+    letter-spacing: 0.02em;
     color: var(--text-dim);
     white-space: nowrap;
+    min-height: 1.2em;
+  }
+  .status-idx-block .idx-label mjx-container {
+    font-size: 110% !important;
   }
   .status-idx-block .idx-num {
     font-size: 26px;
@@ -1084,18 +1106,6 @@
     color: var(--text-dim);
     font-size: 11px;
     line-height: 1.5;
-  }
-  .instructions-gloss,
-  .status-gloss {
-    margin: 0 0 10px;
-    font-size: 12px;
-    line-height: 1.45;
-    color: var(--text-dim);
-  }
-  .instructions-gloss b,
-  .status-gloss b {
-    color: var(--text);
-    font-weight: 600;
   }
   .shortcuts-table {
     width: 100%;
@@ -1826,7 +1836,7 @@
       min-height: 76px;
     }
     /* Narrower number fields so Load stays on the same control row
-       (Match / Grid labels are the default on every viewport). */
+       (ε / δ labels are the default on every viewport). */
     .upload-form label input[type="number"] {
       width: 50px;
     }
@@ -2020,7 +2030,9 @@
     }
     #traceSelect {
       position: static !important;
-      width: max-content;
+      /* Beat .visually-hidden { width/height: 1px !important } so the control
+         lays out at its real size (needed for tour spotlight centering too). */
+      width: max-content !important;
       height: auto !important;
       padding: 3px 6px !important;
       margin: 0 !important;
@@ -2029,10 +2041,11 @@
       white-space: nowrap !important;
       background: #1e2330;
       color: var(--text);
-      border: 1px solid var(--panel-border);
+      /* Beat .visually-hidden { border: 0 !important } so the picker reads as a box. */
+      border: 1px solid var(--panel-border) !important;
       border-radius: 5px;
       font-size: 12px;
-      max-width: none;
+      max-width: none !important;
       flex: 0 0 auto;
       field-sizing: content;
     }
@@ -2054,6 +2067,8 @@
   }
   #uiTour.has-spotlight .ui-tour-backdrop {
     background: transparent;
+    /* Let spotlighted controls (e.g. trajectory dropdown) receive clicks. */
+    pointer-events: none;
   }
   .ui-tour-spotlight {
     position: absolute;
@@ -2097,9 +2112,13 @@
   .ui-tour-card p b { color: var(--text); font-weight: 600; }
   .ui-tour-actions {
     display: flex;
+    align-items: center;
     justify-content: flex-end;
     gap: 8px;
     margin-top: 14px;
+  }
+  .ui-tour-actions #uiTourSkip {
+    margin-right: auto;
   }
   .ui-tour-actions button {
     min-height: 34px;
@@ -2193,13 +2212,13 @@
           <span class="or-divider" style="color: var(--text-dim); font-size: 12px; margin: 0 8px;">or</span>
           <button id="uploadBtn" class="primary" title="Upload a plain-text trajectory: first line is the point count N, then N lines of x y coordinates.">Upload trajectory</button>
           <input type="file" id="trajectoryInput" accept=".txt,text/plain" />
-          <label title="Match (ε): how closely the green path must match the Gray path. A smaller Match keeps a more detailed green path.">
-            <span class="param-label"><span class="param-symbol">&epsilon;</span> <span class="param-gloss">match</span></span>
-            <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" aria-label="Match" />
+          <label title="Epsilon (ε): how closely the green path must match the Gray path. A smaller epsilon keeps a more detailed green path.">
+            <span class="param-label"><span class="param-symbol">&epsilon;</span> <span class="param-gloss">epsilon</span></span>
+            <input type="number" id="epsilonInput" value="0.9" step="0.1" min="0.001" aria-label="Epsilon" />
           </label>
-          <label title="Grid spacing (δ) used while finding the green path. A smaller Grid uses finer spacing; defaults are usually fine.">
-            <span class="param-label"><span class="param-symbol">&delta;</span> <span class="param-gloss">grid</span></span>
-            <input type="number" id="deltaInput" value="500" step="10" min="1" aria-label="Grid spacing" />
+          <label title="Delta (δ): spacing used while finding the green path. A smaller delta uses finer spacing; defaults are usually fine.">
+            <span class="param-label"><span class="param-symbol">&delta;</span> <span class="param-gloss">delta</span></span>
+            <input type="number" id="deltaInput" value="500" step="10" min="1" aria-label="Delta" />
           </label>
           <button id="loadBtn" class="primary" title="Load trajectory and build the green path" aria-label="Load trajectory and build the green path">
             <span class="button-spinner" aria-hidden="true"></span>
@@ -2210,21 +2229,21 @@
             <span class="header-baseline-label" title="Optional. Pick other methods to score against after Load. Skip for a first run.">Compare:</span>
             <div class="baseline-algo-row" id="headerBaselineAlgoRow" role="group" aria-label="Compare methods">
               <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" aria-label="DOTS as-you-go" title="DOTS: builds a shorter green path as Gray path points arrive (as-you-go). Needs a preloaded trajectory.">DOTS<span class="pill-gloss">as-you-go</span></button>
-              <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP all-at-once" title="DP: builds a shorter green path from the whole Gray path in one pass (all-at-once), while staying within a match limit. Needs a preloaded trajectory.">DP<span class="pill-gloss">all-at-once</span></button>
+              <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP all-at-once" title="DP: builds a shorter green path from the whole Gray path in one pass (all-at-once), while staying within PED. Needs a preloaded trajectory.">DP<span class="pill-gloss">all-at-once</span></button>
               <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" aria-label="SQUISH keep percent" title="SQUISH: builds a shorter green path by keeping about this percent of the original points. Needs a preloaded trajectory.">SQUISH<span class="pill-gloss">keep %</span></button>
             </div>
-            <label class="baseline-field baseline-field--inline" id="headerBaselineLssdField" hidden title="DOTS budget. Entered in thousands (1000 means 1,000,000). A larger budget builds a shorter green path (keeps fewer points).">
-              <span><span class="baseline-param-owner owner-dots">DOTS</span> budget</span>
-              <input type="number" id="headerBaselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS budget in thousands" />
-              <span class="baseline-field-unit" title="Entered in thousands (×1,000)">×1k</span>
+            <label class="baseline-field baseline-field--inline" id="headerBaselineLssdField" hidden title="DOTS LSSD. Entered in thousands (1000 means 1,000,000). A larger LSSD builds a shorter green path (keeps fewer points).">
+              <span><span class="baseline-param-owner owner-dots">DOTS</span> LSSD</span>
+              <input type="number" id="headerBaselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS LSSD in thousands" />
+              <span class="baseline-field-unit" title="Thousand">K</span>
             </label>
-            <label class="baseline-field baseline-field--inline" id="headerBaselineDpEpsField" hidden title="DP match limit (same idea as the Match field). A smaller match keeps a more detailed green path.">
-              <span><span class="baseline-param-owner owner-dp">DP</span> match</span>
-              <input type="number" id="headerBaselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP match limit" />
+            <label class="baseline-field baseline-field--inline" id="headerBaselineDpEpsField" hidden title="DP PED (same idea as the ε field). A smaller PED keeps a more detailed green path.">
+              <span><span class="baseline-param-owner owner-dp">DP</span> PED</span>
+              <input type="number" id="headerBaselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP PED" />
             </label>
-            <label class="baseline-field baseline-field--inline" id="headerBaselineSquishRatioField" hidden title="SQUISH keep percent: percent of original points to keep on the green path.">
-              <span><span class="baseline-param-owner owner-squish">SQUISH</span> keep</span>
-              <input type="number" id="headerBaselineSquishRatioInput" value="20" step="1" min="0.01" max="100" aria-label="SQUISH keep percent" />
+            <label class="baseline-field baseline-field--inline" id="headerBaselineSquishRatioField" hidden title="SQUISH Ratio: percent of original points to keep on the green path.">
+              <span><span class="baseline-param-owner owner-squish">SQUISH</span> Ratio</span>
+              <input type="number" id="headerBaselineSquishRatioInput" value="20" step="1" min="0.01" max="100" aria-label="SQUISH Ratio percent" />
               <span class="baseline-field-unit" title="Percent">%</span>
             </label>
             <button type="button" id="headerBaselineRunBtn" class="baseline-run-btn" hidden disabled title="Run the selected Compare methods and open scores in Results">Run</button>
@@ -2235,12 +2254,9 @@
       <div class="mobile-start-help">
         <h2>Instructions</h2>
         <ul>
-          <li>Select a preloaded trajectory.</li>
-          <li>Optionally adjust <b>Match</b> (accuracy) and <b>Grid</b> (spacing), then tap <b>Load</b>.</li>
-          <li>Optionally pick <b>Compare</b>: DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %). After <b>Load</b>, open <b>Results</b> for scores and tap <b>Run compare</b>.</li>
-          <li>Drag the visualization to pan and pinch to zoom.</li>
-          <li>Use <b>Controls</b> for status and map overlays.</li>
-          <li>Tap <b>Back</b> to choose another trajectory.</li>
+          <li>Pick a trajectory, set <b>ε</b>/<b>δ</b> if needed, then <b>Load</b>.</li>
+          <li><b>Results</b> for scores; optional <b>Compare</b>.</li>
+          <li>Drag to pan, pinch to zoom.</li>
         </ul>
       </div>
     </div>
@@ -2260,26 +2276,28 @@
             <p class="results-section-label" title="Optional methods to compare against this run">Compare methods</p>
             <div class="baseline-controls">
               <div class="baseline-algo-row" id="baselineAlgoRow" role="group" aria-label="Compare methods">
-                <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" aria-label="DOTS as-you-go" title="DOTS: builds a shorter green path as Gray path points arrive (as-you-go). Needs a preloaded trajectory.">DOTS<span class="pill-gloss">as-you-go</span></button>
-                <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP all-at-once" title="DP: builds a shorter green path from the whole Gray path in one pass (all-at-once), while staying within a match limit. Needs a preloaded trajectory.">DP<span class="pill-gloss">all-at-once</span></button>
-                <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" aria-label="SQUISH keep percent" title="SQUISH: builds a shorter green path by keeping about this percent of the original points. Needs a preloaded trajectory.">SQUISH<span class="pill-gloss">keep %</span></button>
+                <button type="button" class="baseline-algo-pill" data-algo="dots" aria-pressed="false" aria-label="DOTS" title="DOTS: builds a shorter green path as Gray path points arrive. Needs a preloaded trajectory.">DOTS</button>
+                <button type="button" class="baseline-algo-pill" data-algo="dp" aria-pressed="false" aria-label="DP" title="DP: builds a shorter green path from the whole Gray path in one pass, while staying within PED. Needs a preloaded trajectory.">DP</button>
+                <button type="button" class="baseline-algo-pill" data-algo="squish" aria-pressed="false" aria-label="SQUISH" title="SQUISH: builds a shorter green path by keeping about this percent of the original points. Needs a preloaded trajectory.">SQUISH</button>
               </div>
               <div id="baselineParamFields" class="baseline-param-fields">
-                <label class="baseline-field" id="baselineLssdField" hidden title="DOTS budget. Entered in thousands (1000 means 1,000,000). A larger budget builds a shorter green path (keeps fewer points).">
-                  <span><span class="baseline-param-owner owner-dots">DOTS</span> budget</span>
+                <label class="baseline-field" id="baselineLssdField" hidden title="DOTS LSSD. Entered in thousands (1000 means 1,000,000). A larger LSSD builds a shorter green path (keeps fewer points).">
+                  <span><span class="baseline-param-owner owner-dots">DOTS</span> LSSD</span>
                   <div class="baseline-field-input-row">
-                    <input type="number" id="baselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS budget in thousands" />
-                    <span class="baseline-field-unit" title="Entered in thousands (×1,000)">×1k</span>
+                    <input type="number" id="baselineLssdInput" value="1000" step="1" min="0.000001" aria-label="DOTS LSSD in thousands" />
+                    <span class="baseline-field-unit" title="Thousand">K</span>
                   </div>
                 </label>
-                <label class="baseline-field" id="baselineDpEpsField" hidden title="DP match limit (same idea as the Match field). A smaller match keeps a more detailed green path.">
-                  <span><span class="baseline-param-owner owner-dp">DP</span> match</span>
-                  <input type="number" id="baselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP match limit" />
-                </label>
-                <label class="baseline-field" id="baselineSquishRatioField" hidden title="SQUISH keep percent: percent of original points to keep on the green path.">
-                  <span><span class="baseline-param-owner owner-squish">SQUISH</span> keep</span>
+                <label class="baseline-field" id="baselineDpEpsField" hidden title="DP PED (same idea as the ε field). A smaller PED keeps a more detailed green path.">
+                  <span><span class="baseline-param-owner owner-dp">DP</span> PED</span>
                   <div class="baseline-field-input-row">
-                    <input type="number" id="baselineSquishRatioInput" value="20" step="1" min="0.01" max="100" aria-label="SQUISH keep percent" />
+                    <input type="number" id="baselineDpEpsInput" value="0.9" step="0.1" min="0.000000001" aria-label="DP PED" />
+                  </div>
+                </label>
+                <label class="baseline-field" id="baselineSquishRatioField" hidden title="SQUISH Ratio: percent of original points to keep on the green path.">
+                  <span><span class="baseline-param-owner owner-squish">SQUISH</span> Ratio</span>
+                  <div class="baseline-field-input-row">
+                    <input type="number" id="baselineSquishRatioInput" value="20" step="1" min="0.01" max="100" aria-label="SQUISH Ratio percent" />
                     <span class="baseline-field-unit" title="Percent">%</span>
                   </div>
                 </label>
@@ -2300,14 +2318,13 @@
                 </tr>
               </thead>
               <tbody id="compareMetricsBody">
-                <tr><td colspan="2" class="compare-metrics-empty">Load a trajectory to see scores. Optional: run Compare above (preloaded trajectories).</td></tr>
+                <tr><td colspan="2" class="compare-metrics-empty">Load a trajectory to see scores.</td></tr>
               </tbody>
             </table>
             </div>
             <p class="compare-metrics-footer">
-              Match error is how far each path drifts from the Gray path. Lower is better.
-              Optional reading:
-              <a href="https://en.wikipedia.org/wiki/Fr%C3%A9chet_distance" target="_blank" rel="noopener noreferrer">Fréchet distance (technical)</a>.
+              Fréchet distance: green path vs input (lower is better).
+              <a href="https://en.wikipedia.org/wiki/Fr%C3%A9chet_distance" target="_blank" rel="noopener noreferrer">Fréchet distance</a>.
             </p>
             <p id="compareFrechetNote" class="compare-frechet-note" hidden></p>
           </div>
@@ -2337,20 +2354,16 @@
                 <circle cx="44" cy="32" r="2.5" fill="currentColor"/>
               </svg>
             </div>
-            <div class="big">Choose a trajectory to get started</div>
+            <div class="big">Choose a trajectory</div>
             <div class="dropHint-sub">
-              Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>, optionally pick <b>Compare</b>: DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %) (preloaded only), leave <b>Match</b> / <b>Grid</b> at defaults (or tweak them), then <b>Load</b>
-            </div>
-            <div class="dropHint-format">
-              Format: first line <code>N</code> (point count), then <code>N</code> lines of <code>x y</code>
+              Select or <b>Upload</b>, optionally pick <b>Compare</b> (preloaded), then <b>Load</b>
             </div>
             <div class="desktop-instructions">
               <h2>Instructions</h2>
               <ul>
-                <li>Select a <b>preloaded trajectory</b> or click <b>Upload trajectory</b>.</li>
-                <li>Optionally adjust <b>Match</b> (accuracy) and <b>Grid</b> (spacing), then press <b>Load</b>.</li>
-                <li>After load, open <b>Results</b> for scores. With a preloaded trajectory you can pick optional <b>Compare</b>: DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %) and press <b>Run</b> (or <b>Run compare</b> in Results). Uploads show scores only.</li>
-                <li><b>Drag</b> to pan and <b>scroll</b> to zoom. Keyboard shortcuts for Step / Segment / Option live in the right-side Instructions after load.</li>
+                <li>Select or <b>Upload</b>, set <b>ε</b>/<b>δ</b> if needed, then <b>Load</b>.</li>
+                <li><b>Results</b> for scores; optional <b>Compare</b> (preloaded).</li>
+                <li><b>Drag</b> to pan, <b>scroll</b> to zoom.</li>
               </ul>
             </div>
           </div>
@@ -2435,10 +2448,6 @@
 
       <div class="section">
         <h2>Status</h2>
-        <p class="status-gloss" id="statusGloss">
-          <b>Start point</b> and <b>current point</b> match the colored markers on the map.
-          <b>Segment</b>, <b>Step</b>, and <b>Option</b> match the playback controls.
-        </p>
         <div id="statusIndices" class="status-indices"></div>
         <div class="status-grid" id="statusGrid"></div>
       </div>
@@ -2454,37 +2463,37 @@
             <summary title="Overlays for this run (the green path and next-point options). Same This run as in Results scores.">This run</summary>
             <div class="layer-acc-body">
               <div class="toggle-row">
-                <label title="Gray path: the full input trajectory shown in gray before the green path. Contrast with Green path so far / Full green path."><input type="checkbox" id="toggle-stream" checked /><span class="swatch" style="background:#5a6272"></span>Gray path</label>
+                <label title="The full input trajectory before simplification."><input type="checkbox" id="toggle-stream" checked /><span class="swatch" style="background:#5a6272"></span>Full stream</label>
               </div>
               <div class="toggle-row">
-                <label title="Green path built so far as you Step or Play through the run. Same green path as Full green path and Segment."><input type="checkbox" id="toggle-simplified" checked /><span class="swatch" style="background:#3ddc97"></span>Green path so far</label>
+                <label title="Simplified path built so far during playback."><input type="checkbox" id="toggle-simplified" checked /><span class="swatch" style="background:#3ddc97"></span>Simplified so far</label>
               </div>
               <div class="toggle-row">
-                <label title="Full green path for the whole trajectory. Turn on to see the finished path anytime, even mid-playback. Same green path as Green path so far and Segment."><input type="checkbox" id="toggle-final-simplify" /><span class="swatch" style="background:#3ddc97"></span>Full green path</label>
+                <label title="Final simplified path for the whole trajectory."><input type="checkbox" id="toggle-final-simplify" /><span class="swatch" style="background:#3ddc97"></span>Final simplified</label>
               </div>
               <div class="toggle-row">
-                <label title="Purple Start-point circle around the start point of the current Segment. Size matches the circle radius chip. Same start point as in Status."><input type="checkbox" id="toggle-ball-p0" checked /><span class="swatch" style="background:#c47aff"></span>Start-point circle</label>
+                <label title="δ-ball around the start vertex p of the current segment."><input type="checkbox" id="toggle-ball-p0" checked /><span class="swatch" style="background:#c47aff"></span>\(B_p\)</label>
               </div>
               <div class="toggle-row">
-                <label title="Pink Current-point circle around the current point on the Gray path. Size matches the circle radius chip. Same current point as in Status."><input type="checkbox" id="toggle-ball-pi" checked /><span class="swatch" style="background:#ff7ae8"></span>Current-point circle</label>
+                <label title="δ-ball around the current stream vertex v_i."><input type="checkbox" id="toggle-ball-pi" checked /><span class="swatch" style="background:#ff7ae8"></span>\(B_{v_i}\)</label>
               </div>
               <div class="toggle-row">
-                <label title="Yellow area covering next-point options still open near the current point. Same current point as in Status."><input type="checkbox" id="toggle-Gi" checked /><span class="swatch" style="background:#e8c547"></span>Options near current</label>
+                <label title="Convex hull of the δ-disk grid around the current vertex."><input type="checkbox" id="toggle-Gi" checked /><span class="swatch" style="background:#e8c547"></span>\(\mathrm{conv}(G_{v_i})\)</label>
               </div>
               <div class="toggle-row">
-                <label title="Blue Match-safe area after previous Segments (within the Match limit). Next-point zone is cut from this area."><input type="checkbox" id="toggle-F" checked /><span class="swatch" style="background:#4f9dff"></span>Match-safe area</label>
+                <label title="Feasible region after previous simplified pieces."><input type="checkbox" id="toggle-F" checked /><span class="swatch" style="background:#4f9dff"></span>\(F(S_{i-1}[p], p)\)</label>
               </div>
               <div class="toggle-row">
-                <label title="Cyan preview of the Match-safe area if this option (the selected Option on the playback bar) becomes the next green-path point."><input type="checkbox" id="toggle-F-Si" /><span class="swatch" style="background:#22d3ee"></span>Match-safe (this option)</label>
+                <label title="Feasible region if the selected candidate becomes the next simplified point."><input type="checkbox" id="toggle-F-Si" /><span class="swatch" style="background:#22d3ee"></span>\(F(S_i[p], p)\)</label>
               </div>
               <div class="toggle-row">
-                <label title="Purple zone where the next green-path point can go (overlap of Options near current and the Match-safe area). Same next-point idea as Option on the playback bar."><input type="checkbox" id="toggle-S" checked /><span class="swatch" style="background:#a78bfa"></span>Next-point zone</label>
+                <label title="Current search region: conv(G_vi) ∩ F(S_{i-1}[p], p)."><input type="checkbox" id="toggle-S" checked /><span class="swatch" style="background:#a78bfa"></span>\(S_i[p]\)</label>
               </div>
               <div class="toggle-row">
-                <label title="Orange markers for next-point options still open (same options as Options near current; cycle them with Option on the playback bar). Pairs with Rejected options."><input type="checkbox" id="toggle-P" checked /><span class="swatch" style="background:#ff9f43"></span>Option markers</label>
+                <label title="Candidate anchors on the search boundary."><input type="checkbox" id="toggle-P" checked /><span class="swatch" style="background:#ff9f43"></span>\(P\)</label>
               </div>
               <div class="toggle-row">
-                <label title="Next-point options already rejected (shown in red). Pairs with Option markers; contrast with Options near current."><input type="checkbox" id="toggle-dead-candidates" checked /><span class="swatch" style="background:#ff3c3c"></span>Rejected options</label>
+                <label title="Candidates already ruled out (shown in red)."><input type="checkbox" id="toggle-dead-candidates" checked /><span class="swatch" style="background:#ff3c3c"></span>Dead candidates</label>
               </div>
             </div>
           </details>
@@ -2492,48 +2501,29 @@
             <summary id="accordionBaselineSummary">Compare</summary>
             <div class="layer-acc-body">
               <div id="baselineLayerToggles"></div>
-              <p id="baselineLayerHint" class="baseline-layer-hint">Compare works with preloaded trajectories. Open Results, pick DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %), then press Run compare (on wider screens, Run beside Compare also works).</p>
+              <p id="baselineLayerHint" class="baseline-layer-hint">Pick DOTS / DP / SQUISH in Results, then Run compare.</p>
             </div>
           </details>
         </div>
       </div>
 
       <div class="section">
-        <h2>View</h2>
-        <div class="stepper">
-          <button id="fitBtn" title="Reset pan and zoom so the whole trajectory fits in the canvas">Fit view</button>
-        </div>
-      </div>
-
-      <div class="section">
-        <h2>Instructions</h2>
-        <p class="instructions-gloss" id="playbackInstructionsGloss">
-          <b>Step</b> walks along Gray path points within the current Segment.
-          <b>Segment</b> jumps between pieces of the green path.
-          <b>Option</b> cycles next-point options near the current point (same options as Options near current).
-          <b>Play</b> auto-advances; use <b>Speed</b> to go faster or slower.
-          <b>Fit view</b> resets pan and zoom.
-        </p>
         <table class="shortcuts-table desktop-shortcuts">
           <tbody>
-            <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Previous / next Step</td></tr>
-            <tr><td><kbd>Shift</kbd>+<kbd>←</kbd>/<kbd>→</kbd></td><td>Previous / next Segment</td></tr>
+            <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Step</td></tr>
+            <tr><td><kbd>Shift</kbd>+<kbd>←</kbd>/<kbd>→</kbd></td><td>Segment</td></tr>
             <tr><td><kbd>Space</kbd></td><td>Play / pause</td></tr>
-            <tr><td><kbd>C</kbd> / <kbd>X</kbd></td><td>Next / previous Option</td></tr>
-            <tr><td>Drag</td><td>Pan the view</td></tr>
-            <tr><td>Scroll / pinch</td><td>Zoom in / out</td></tr>
+            <tr><td><kbd>C</kbd> / <kbd>X</kbd></td><td>Option</td></tr>
+            <tr><td>Drag</td><td>Pan</td></tr>
+            <tr><td>Scroll</td><td>Zoom</td></tr>
           </tbody>
         </table>
         <table class="shortcuts-table mobile-shortcuts">
           <tbody>
-            <tr><td>Step ← / →</td><td>Previous / next step on the bottom bar</td></tr>
-            <tr><td>Segment « / »</td><td>Previous / next Segment</td></tr>
-            <tr><td>Option ‹ / ›</td><td>Previous / next Option</td></tr>
-            <tr><td>Play</td><td>Play / pause</td></tr>
-            <tr><td>Speed 0.25×-4×</td><td>Playback speed on the bottom bar</td></tr>
-            <tr><td>Drag</td><td>Pan the view</td></tr>
-            <tr><td>Pinch</td><td>Zoom in / out</td></tr>
-            <tr><td>Hide / Controls</td><td>Hide or show Status and Map overlays</td></tr>
+            <tr><td>Step / Segment / Option</td><td>Bottom bar</td></tr>
+            <tr><td>Play / Speed</td><td>Bottom bar</td></tr>
+            <tr><td>Drag / Pinch</td><td>Pan / zoom</td></tr>
+            <tr><td>Hide / Controls</td><td>Toggle sidebar</td></tr>
           </tbody>
         </table>
       </div>
@@ -2615,11 +2605,12 @@
     <p id="uiTourBody"></p>
     <div class="ui-tour-actions">
       <button type="button" id="uiTourSkip">Skip</button>
+      <button type="button" id="uiTourPrev" hidden>Back</button>
       <button type="button" id="uiTourNext" class="primary">Next</button>
     </div>
   </div>
 </div>
 
-<script src="viewer.js?v=compare-method-glosses-1"></script>
+<script src="viewer.js?v=ui-polish-1"></script>
 </body>
 </html>

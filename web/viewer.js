@@ -145,6 +145,7 @@
   const baselineSquishRatioInput = el("baselineSquishRatioInput");
   const headerBaselineSquishRatioField = el("headerBaselineSquishRatioField");
   const headerBaselineSquishRatioInput = el("headerBaselineSquishRatioInput");
+  const baselineParamFields = el("baselineParamFields");
   const baselineRunBtn = el("baselineRunBtn");
   const headerBaselineRunBtn = el("headerBaselineRunBtn");
   const baselineStatus = el("baselineStatus");
@@ -256,11 +257,11 @@
 
   const COMPARE_PILL_TITLES = {
     dots: "DOTS: builds a shorter green path as Gray path points arrive (as-you-go). Needs a preloaded trajectory.",
-    dp: "DP: builds a shorter green path from the whole Gray path in one pass (all-at-once), while staying within a match limit. Needs a preloaded trajectory.",
+    dp: "DP: builds a shorter green path from the whole Gray path in one pass (all-at-once), while staying within PED. Needs a preloaded trajectory.",
     squish: "SQUISH: builds a shorter green path by keeping about this percent of the original points. Needs a preloaded trajectory.",
   };
   const COMPARE_PILL_UPLOAD_TITLE =
-    "Compare needs a preloaded trajectory. Uploaded files show scores only in Results.";
+    "Compare needs a preloaded trajectory.";
 
   function selectedBaselineAlgos() {
     return BASELINE_ORDER.filter((a) => state.baselineAlgos.includes(a));
@@ -293,23 +294,23 @@
   function compareSelectionStatus(labels) {
     if (!labels.length) {
       return compareBlockedByUpload()
-        ? "Compare needs a preloaded trajectory. Uploaded files show scores only."
+        ? "Compare needs a preloaded trajectory."
         : "";
     }
     if (compareBlockedByUpload()) {
-      return `Selected ${labels.join(", ")}. Compare needs a preloaded trajectory - choose one and press Load. Uploaded files show scores only.`;
+      return `Selected ${labels.join(", ")}. Compare needs a preloaded trajectory.`;
     }
     if (currentTraceId) {
-      return `Selected ${labels.join(", ")}. Press Run compare (on wider screens, Run beside Compare also works).`;
+      return `Selected ${labels.join(", ")}. Press Run compare.`;
     }
-    return `Selected ${labels.join(", ")}. Load a preloaded trajectory to run the compare.`;
+    return `Selected ${labels.join(", ")}. Load to run.`;
   }
 
   function updateCompareAvailabilityCopy() {
     if (baselineLayerHint && !baselineLayerHint.hidden) {
       baselineLayerHint.textContent = compareBlockedByUpload()
-        ? "Compare needs a preloaded trajectory. Your upload still shows scores in Results; pick a preloaded trajectory to enable DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %)."
-        : "Compare works with preloaded trajectories. Open Results, pick DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %), then press Run compare (on wider screens, Run beside Compare also works).";
+        ? "Compare needs a preloaded trajectory."
+        : "Pick DOTS / DP / SQUISH in Results, then Run compare.";
     }
   }
 
@@ -317,7 +318,7 @@
     if (!BASELINE_ORDER.includes(algo)) return;
     if (compareBlockedByUpload()) {
       setBaselineStatus(
-        "Compare needs a preloaded trajectory. Uploaded files show scores only.",
+        "Compare needs a preloaded trajectory.",
         "error"
       );
       syncBaselinePills();
@@ -418,6 +419,9 @@
     if (headerBaselineDpEpsField) headerBaselineDpEpsField.hidden = !selected.has("dp");
     if (baselineSquishRatioField) baselineSquishRatioField.hidden = !selected.has("squish");
     if (headerBaselineSquishRatioField) headerBaselineSquishRatioField.hidden = !selected.has("squish");
+    if (baselineParamFields) {
+      baselineParamFields.classList.toggle("has-fields", selected.size > 0);
+    }
     syncBaselineLssdInputs();
     syncPairedNumberInputs(baselineDpEpsInput, headerBaselineDpEpsInput, state.baselineDpEps);
     syncPairedNumberInputs(
@@ -612,7 +616,7 @@
       if (tiny) {
         compareFrechetNote.hidden = false;
         compareFrechetNote.textContent =
-          "A Compare Match error value is tiny but not exact zero; that can happen when the Compare path keeps most of the original points.";
+          "A Compare Fréchet distance value is tiny but not exact zero; that can happen when the Compare path keeps most of the original points.";
       } else {
         compareFrechetNote.hidden = true;
         compareFrechetNote.textContent = "";
@@ -620,7 +624,7 @@
     }
 
     const matchErrorLabel =
-      '<td title="How far each path drifts from the Gray path. Lower is better.">Match error</td>';
+      '<td title="Fréchet distance of each path vs the input. Lower is better.">Fréchet distance</td>';
     const keptPointsLabel =
       '<td title="Number of points kept on each path. Same idea as kept points in the header.">Kept points</td>';
     const keptPctLabel =
@@ -721,7 +725,7 @@
       if (state.trace) showResultsPanel(false);
       if (compareBlockedByUpload()) {
         setBaselineStatus(
-          "Compare needs a preloaded trajectory. Uploaded files show scores only.",
+          "Compare needs a preloaded trajectory.",
         );
       }
       syncBaselineParamFields();
@@ -752,7 +756,7 @@
     if (!currentTraceId) {
       setBaselineStatus(
         compareBlockedByUpload()
-          ? "Compare needs a preloaded trajectory. Uploaded files show scores only."
+          ? "Compare needs a preloaded trajectory."
           : "Load a preloaded trajectory first.",
         "error"
       );
@@ -770,14 +774,14 @@
     if (algos.includes("dots")) {
       lssd = readBaselineLssdFromInputs();
       if (!Number.isFinite(lssd) || lssd <= 0) {
-        setBaselineStatus("DOTS budget must be a positive number.", "error");
+        setBaselineStatus("LSSD must be a positive number.", "error");
         return;
       }
     }
     if (algos.includes("dp")) {
       dpEps = readPairedNumber(baselineDpEpsInput, headerBaselineDpEpsInput, state.baselineDpEps);
       if (!Number.isFinite(dpEps) || dpEps <= 0) {
-        setBaselineStatus("DP match limit must be a positive number.", "error");
+        setBaselineStatus("DP PED must be a positive number.", "error");
         return;
       }
       state.baselineDpEps = dpEps;
@@ -790,7 +794,7 @@
         squishDisplayFromRaw(state.baselineSquishRatio)
       );
       if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
-        setBaselineStatus("SQUISH keep percent must be greater than 0 and at most 100.", "error");
+        setBaselineStatus("SQUISH Ratio must be greater than 0 and at most 100.", "error");
         return;
       }
       squishRatio = squishRawFromDisplay(pct);
@@ -969,10 +973,10 @@
       return raw.replace(/\b[Tt]race\b/g, "Trajectory").replace(/ not found/i, " was not found.");
     }
     if (lower.includes("invalid epsilon") || lower.includes("invalid delta")) {
-      return "Match and Grid must be valid numbers.";
+      return "Epsilon and delta must be valid numbers.";
     }
     if (lower.includes("unknown curve") || lower.includes("unknown algorithm") || lower.includes("unknown compare method")) {
-      return "That Compare or Match error option is not available.";
+      return "That Compare or Fréchet distance option is not available.";
     }
     if (
       lower.includes("simplified path")
@@ -1098,15 +1102,22 @@
   }
 
   function statusIndexLabels() {
-    return { p: "start point", vi: "current point" };
+    return { p: "\\(p\\)", vi: "\\(v_i\\)" };
   }
 
-  function typesetStatus(_el) {
-    // Status uses plain labels only; no MathJax typesetting needed.
+  function typesetStatus(node) {
+    if (!window.MathJax || !node) return;
+    MathJax.typesetPromise([node]).catch(() => {});
+  }
+
+  function typesetSidebarMath() {
+    const sidebarEl = el("sidebar");
+    if (!window.MathJax || !sidebarEl) return;
+    MathJax.typesetPromise([sidebarEl]).catch(() => {});
   }
 
   function pointIndexTitle() {
-    return "Point number on the Gray path (0 = first point)";
+    return "Point index on the input stream (0 = first point)";
   }
 
   // Same pool as the Option playback control: still-open + just-rejected options.
@@ -1128,7 +1139,7 @@
     const openBit = Number.isFinite(stillOpen)
       ? ` ${stillOpen} still open.`
       : "";
-    return `Cycles next-point options near the current point (same options as Options near current).${openBit} Same idea as Option on the playback bar.`;
+    return `Cycles candidates near the current vertex (same pool as P markers).${openBit} Same idea as Option on the playback bar.`;
   }
 
   function renderBootstrapStatus(trace) {
@@ -1141,17 +1152,17 @@
     statusIndices.innerHTML = `
       <div class="status-idx-block">
         <span class="idx-label" style="color:#ff9f43">${labels.p}</span>
-        <span class="idx-num" style="color:#ff9f43" title="${idxTip}">0</span>
+        <span class="idx-num" style="color:#ff9f43" title="${idxTip}">#0</span>
         <span class="idx-coord">${startPoint ? ptStr(startPoint) : ""}</span>
       </div>
       <div class="status-idx-block">
         <span class="idx-label" style="color:#ff7ae8">${labels.vi}</span>
-        <span class="idx-num" style="color:#ff7ae8" title="${idxTip}">1</span>
+        <span class="idx-num" style="color:#ff7ae8" title="${idxTip}">#1</span>
         <span class="idx-coord">${viPoint ? ptStr(viPoint) : ""}</span>
       </div>`;
     statusGrid.innerHTML = `
       <span title="Jumps between pieces of the green path">Segment</span><span class="mono"><b>1 / …</b></span>
-      <span title="Walks along Gray path points within the current Segment">Step</span><span class="mono"><b>1 / …</b></span>
+      <span title="Walks along stream points within the current Segment">Step</span><span class="mono"><b>1 / …</b></span>
       <span title="${candidateStatusTitle()}">Option</span><span class="mono"><b>… / …</b></span>`;
     typesetStatus(statusIndices);
     typesetStatus(statusGrid);
@@ -1188,9 +1199,6 @@
     const expectedFrechet = trace && trace.expected_frechet != null
       ? formatTraceNumber(trace.expected_frechet)
       : "…";
-    const actualFrechet = trace && trace.frechet_distance != null
-      ? formatTraceNumber(trace.frechet_distance)
-      : "…";
     const streamLen = trace && trace.stream ? trace.stream.length : "…";
     const simplifiedLen = trace && trace.simplified ? trace.simplified.length : null;
     const ratio = simplifiedLen != null
@@ -1199,17 +1207,11 @@
     const pendingStyle = simplifiedLen == null ? "color:var(--text-dim)" : "";
 
     return [
-      paramChip("Match", epsilonValue, "Match (ε): how closely the green path must match the Gray path. A smaller Match keeps a more detailed green path."),
-      paramChip("Grid", deltaValue, "Grid spacing (δ) used while finding the green path. A smaller Grid uses finer spacing."),
-      paramChip("grid cell", gridLength, "Length of one Grid cell used while finding the green path."),
-      paramChip("circle radius", diskRadius, "Radius of the Start-point circle and Current-point circle overlays while finding the next green-path point."),
-      paramChip("match limit", expectedFrechet, "Match limit for this run (same idea as the Match field): how far the green path may drift from the Gray path. A smaller match limit keeps a more detailed green path."),
-      paramChip(
-        "saved Match",
-        actualFrechet,
-        "Match error saved with this preloaded trajectory (may differ slightly from the live Match error above).",
-        "color:#C4612F;font-weight:600",
-      ),
+      paramChip("ε", epsilonValue, "Epsilon (ε): match tolerance. Smaller keeps more detail."),
+      paramChip("δ", deltaValue, "Delta (δ): grid spacing. Smaller uses finer spacing."),
+      paramChip("grid cell length", gridLength, "Length of one grid cell."),
+      paramChip("ball radius", diskRadius, "Radius of the B_p / B_vi δ-balls."),
+      paramChip("match limit", expectedFrechet, "Match limit for this run (same idea as ε): how far the green path may drift from the input. A smaller match limit keeps a more detailed green path."),
       paramChip("original points", streamLen, "Number of points on the original trajectory."),
       paramChip("kept points", simplifiedLen != null ? simplifiedLen : "…", "Number of points kept on the green path.", pendingStyle),
       paramChip("kept %", ratio, "Kept points as a percent of original points.", pendingStyle),
@@ -1224,7 +1226,7 @@
 
   function renderParamsBarPreview() {
     const loadingMetrics = `
-      ${paramsBlueMetric("Match error", "", true, "frechet", "How far the green path drifts from the Gray path. Lower is better.")}
+      ${paramsBlueMetric("Fréchet distance", "", true, "frechet", "Fréchet distance of the green path vs the input. Lower is better.")}
       ${paramsBlueMetric("Time", "", true, "time", "How long this run took.")}`;
     if (isMobileUI()) {
       paramsBar.innerHTML = loadingMetrics;
@@ -1317,6 +1319,7 @@
     setPlaybackChromeVisible(true);
     renderParamsBar();
     setupSliders();
+    typesetSidebarMath();
   }
 
   function finalizeTraceLoad() {
@@ -1535,7 +1538,7 @@
     state.baselineAlgos = [];
     clearCompare();
     setBaselineStatus(
-      "Compare needs a preloaded trajectory. Uploaded files show scores only."
+      "Compare needs a preloaded trajectory."
     );
     syncBaselineParamFields();
     traceSelect.value = "";
@@ -1548,7 +1551,7 @@
     const eps = parseFloat(epsilonInput.value);
     const delta = parseFloat(deltaInput.value);
     if (isNaN(eps) || eps <= 0 || isNaN(delta) || delta <= 0) {
-      alert("Please enter positive numbers for Match (accuracy) and Grid (spacing).");
+      alert("Please enter positive numbers for ε and δ.");
       return;
     }
 
@@ -1729,7 +1732,7 @@
     if (!traceSelect) return;
     // Mobile uses the full-width trigger; only size the desktop native select.
     if (window.matchMedia && window.matchMedia("(max-width: 720px)").matches) {
-      traceSelect.style.width = "";
+      traceSelect.style.removeProperty("width");
       return;
     }
     const probe = document.createElement("span");
@@ -1751,7 +1754,8 @@
     }
     probe.remove();
     // Native select needs room for padding + dropdown arrow.
-    traceSelect.style.width = `${Math.ceil(max + 28)}px`;
+    // important: desktop #traceSelect width must beat .visually-hidden !important.
+    traceSelect.style.setProperty("width", `${Math.ceil(max + 28)}px`, "important");
     traceSelect.style.maxWidth = "none";
   }
 
@@ -1814,6 +1818,7 @@
     mobileLayersToggle.addEventListener("click", () => {
       const isOpen = layersSection.classList.toggle("layers-open");
       mobileLayersToggle.setAttribute("aria-expanded", String(isOpen));
+      if (isOpen) typesetSidebarMath();
     });
   }
   if (mobilePanelClose) {
@@ -1989,10 +1994,10 @@
       ? formatTraceNumber(state.computedFrechet)
       : (frechetUnavailable ? "unavailable" : "");
     const frechetTitle = frechetUnavailable
-      ? "Match error could not be computed for this run."
-      : "How far the green path drifts from the Gray path. Lower is better.";
+      ? "Fréchet distance could not be computed for this run."
+      : "Fréchet distance of the green path vs the input. Lower is better.";
     const computedFrechetDisplay = paramsBlueMetric(
-      "Match error",
+      "Fréchet distance",
       computedFrechetValue,
       frechetLoading,
       "frechet",
@@ -2056,16 +2061,16 @@
     const viIdx = curIdx;
     const idxTip = pointIndexTitle();
 
-    // Big index numbers (plain point numbers - no "#" code-style prefix)
+    // Big index numbers (paper indices p / v_i)
     statusIndices.innerHTML = `
       <div class="status-idx-block">
         <span class="idx-label" style="color:#ff9f43">${labels.p}</span>
-        <span class="idx-num" style="color:#ff9f43" title="${idxTip}">${startIdx}</span>
+        <span class="idx-num" style="color:#ff9f43" title="${idxTip}">#${startIdx}</span>
         <span class="idx-coord">${ptStr(startPoint)}</span>
       </div>
       <div class="status-idx-block">
         <span class="idx-label" style="color:#ff7ae8">${labels.vi}</span>
-        <span class="idx-num" style="color:#ff7ae8" title="${idxTip}">${viIdx}</span>
+        <span class="idx-num" style="color:#ff7ae8" title="${idxTip}">#${viIdx}</span>
         <span class="idx-coord">${ptStr(viPoint)}</span>
       </div>`;
     typesetStatus(statusIndices);
@@ -2155,8 +2160,6 @@
     if (!state.trace) return;
     fitToBBox(state.trace.bbox);
   }
-
-  el("fitBtn").addEventListener("click", () => { fitToData(); render(); });
 
   // Pan (drag).
   canvas.addEventListener("mousedown", (e) => {
@@ -3202,21 +3205,31 @@
         }
       }
 
-      // 9. Small canvas labels — match Status "start point" / "current point" colors.
+      // 9. Small canvas labels — "Start" / "Current" centered inside each δ-ball.
       if (state.currentStartPoint) {
         const [pax, pay] = worldToScreen(state.currentStartPoint[0], state.currentStartPoint[1]);
         ctx.save();
         ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "rgba(15,17,21,0.7)";
+        ctx.strokeText("Start", pax, pay);
         ctx.fillStyle = "#ff9f43";
-        ctx.fillText("start", pax + 7, pay - 6);
+        ctx.fillText("Start", pax, pay);
         ctx.restore();
       }
       if (step) {
         const [pix, piy] = worldToScreen(step.pi[0], step.pi[1]);
         ctx.save();
         ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "rgba(15,17,21,0.7)";
+        ctx.strokeText("Current", pix, piy);
         ctx.fillStyle = "#ff7ae8";
-        ctx.fillText("current", pix + 7, piy - 6);
+        ctx.fillText("Current", pix, piy);
         ctx.restore();
       }
     }
@@ -3264,57 +3277,58 @@
   const uiTourTitle = el("uiTourTitle");
   const uiTourBody = el("uiTourBody");
   const uiTourSkip = el("uiTourSkip");
+  const uiTourPrev = el("uiTourPrev");
   const uiTourNext = el("uiTourNext");
   const uiTourRelaunch = el("uiTourRelaunch");
 
   const startTourSteps = [
     {
       title: "Welcome",
-      body: "This visualizer builds a shorter green path from a GPS-style Gray path while keeping its shape. A short tour shows the controls you need to load your first trajectory.",
+      body: 'This tool simplifies a trajectory while keeping its shape. See <a href="https://arxiv.org/abs/2503.23025" target="_blank" rel="noopener">Simplification of Trajectory Streams</a>.',
       targets: [],
     },
     {
       title: "Choose a trajectory",
-      body: "Pick a <b>preloaded trajectory</b>, or on desktop tap <b>Upload trajectory</b> for your own file (plain text: first line N, then N lines of x y). Preloaded samples already include sensible settings.",
-      targets: [".preloaded-row", "#preloadedTrigger", "#traceSelect", "#uploadBtn"],
+      body: "Pick a <b>preloaded trajectory</b>.",
+      targets: [".preloaded-row", "#preloadedTrigger", "#traceSelect"],
     },
     {
-      title: "Accuracy controls",
-      body: "<b>Match</b> is how closely the green path must match the Gray path (a smaller Match keeps a more detailed green path). <b>Grid</b> is spacing used while finding the green path (a smaller Grid uses finer spacing). Defaults are fine for a first run.",
+      title: "ε and δ",
+      body: "Smaller <b>ε</b> costs more time: per-point complexity is <b>O(ε<sup>-4</sup> log(1/ε))</b>. Fréchet distance stays within <b>(1+ε)δ</b>.",
       targets: ["#epsilonInput", "#deltaInput"],
     },
     {
       title: "Load the trajectory",
-      body: "Optional: with a <b>preloaded</b> trajectory, tap <b>Compare</b>: DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %) to score other methods later - or skip. Press <b>Load</b> to run. After it finishes, a short follow-up explains Play / Step / Segment / Option, Map overlays, and Results.",
+      body: "Optionally pick <b>Compare</b>, then press <b>Load</b>. A short follow-up explains playback after it finishes.",
       targets: ["#loadBtn", ".header-baseline"],
     },
   ];
 
   const playbackTourSteps = [
     {
-      title: "Replay how it was built",
-      body: "The green path is shorter than the Gray path. These controls walk through how the green path was built so you can see each choice over time.",
+      title: "Playback",
+      body: "Replay how the green path was built.",
       targets: ["#playbackBar", "#mobileTransport"],
     },
     {
       title: "Step",
-      body: "<b>Step</b> moves along Gray path points within the current Segment. Use ← / → (or the Step buttons) to advance one at a time.",
+      body: "<b>Step</b> advances along the stream (← / →).",
       targets: ["#stepInput", "#mobileStepForwardBtn", "#mobileStepBackBtn"],
     },
     {
       title: "Segment and Option",
-      body: "<b>Segment</b> jumps between pieces of the green path. <b>Option</b> cycles next-point options near the current point (same options as Options near current). Press <b>Play</b> to auto-advance; pick a speed if you want it faster or slower.",
+      body: "<b>Segment</b>: next green-path piece. <b>Option</b>: cycle candidates. <b>Play</b> auto-advances.",
       targets: ["#segmentInput", "#candidateInput", "#playBtn", "#mobileSegmentForwardBtn", "#mobileCandidateForwardBtn", "#mobilePlayBtn"],
     },
     {
       title: "Map overlays",
-      body: "In the sidebar, <b>Map overlays</b> toggles what the map draws (gray path, green path so far, start-point / current-point circles, options near current, next-point zone). Open <b>This run</b> for those toggles (same name as the Scores column), or <b>Compare</b> for other methods. Use <b>Fit view</b> in View if you pan or zoom away.",
+      body: "Toggle what the map draws.",
       targets: ["#layersSection > h2", "#mobileLayersToggle", "#toggle-stream", "#toggle-simplified"],
       prepare: prepareLayersTourStep,
     },
     {
-      title: "Results and Compare",
-      body: "Open the left-edge <b>Results</b> tab to see scores. With a <b>preloaded</b> trajectory, pick DOTS (as-you-go) / DP (all-at-once) / SQUISH (keep %) and press <b>Run compare</b> inside Results (on wider screens you can also use <b>Run</b> beside Compare in the header). Skip Compare if scores for this run are enough.",
+      title: "Results",
+      body: "Open <b>Results</b> for scores. Optional <b>Compare</b> (preloaded only).",
       targets: ["#resultsPanelOpen"],
     },
   ];
@@ -3340,13 +3354,14 @@
 
   function isTourTargetVisible(node) {
     if (!node || !(node instanceof Element)) return false;
-    if (node.classList.contains("visually-hidden")) return false;
     const style = window.getComputedStyle(node);
     if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") {
       return false;
     }
     const rect = node.getBoundingClientRect();
-    return rect.width > 1 && rect.height > 1;
+    // Desktop restores #traceSelect from .visually-hidden via CSS overrides; trust
+    // the laid-out box instead of the class name alone.
+    return rect.width > 2 && rect.height > 2;
   }
 
   function resolveTourTargets(selectors) {
@@ -3356,6 +3371,13 @@
       if (!raw) continue;
       const target = raw.closest("label") || raw;
       if (!isTourTargetVisible(target)) continue;
+      // Prefer leaf controls over a parent that already contains them (avoids a
+      // taller/wider union that leaves the visible control off-center).
+      const contained = nodes.some((existing) => existing.contains(target));
+      if (contained) continue;
+      for (let i = nodes.length - 1; i >= 0; i -= 1) {
+        if (target.contains(nodes[i])) nodes.splice(i, 1);
+      }
       if (!nodes.includes(target)) nodes.push(target);
     }
     return nodes;
@@ -3374,12 +3396,33 @@
       bottom = Math.max(bottom, rect.bottom);
     }
     if (!Number.isFinite(top)) return null;
-    const pad = 6;
+    // Spotlight uses border-box with a 2px border. Keep equal *inner* pad on
+    // opposite sides so controls stay centered with visible top/bottom margin
+    // inside the circled box. Measure room to the viewport edge (not an extra
+    // inset) so header controls near the top still get pad.
+    const borderWidth = 2;
+    const desiredPad = 10;
+    const spaceAbove = Math.max(0, top);
+    const spaceBelow = Math.max(0, window.innerHeight - bottom);
+    const spaceLeft = Math.max(0, left);
+    const spaceRight = Math.max(0, window.innerWidth - right);
+    const padY = Math.min(
+      desiredPad,
+      Math.max(0, spaceAbove - borderWidth),
+      Math.max(0, spaceBelow - borderWidth)
+    );
+    const padX = Math.min(
+      desiredPad,
+      Math.max(0, spaceLeft - borderWidth),
+      Math.max(0, spaceRight - borderWidth)
+    );
+    const insetY = padY + borderWidth;
+    const insetX = padX + borderWidth;
     return {
-      top: Math.max(8, top - pad),
-      left: Math.max(8, left - pad),
-      width: Math.min(window.innerWidth - 16, right - left + pad * 2),
-      height: Math.min(window.innerHeight - 16, bottom - top + pad * 2),
+      top: top - insetY,
+      left: left - insetX,
+      width: right - left + insetX * 2,
+      height: bottom - top + insetY * 2,
     };
   }
 
@@ -3460,6 +3503,10 @@
     if (uiTourNext) {
       uiTourNext.textContent = tourIndex === total - 1 ? "Done" : "Next";
     }
+    if (uiTourPrev) {
+      uiTourPrev.hidden = tourIndex === 0;
+      uiTourPrev.disabled = tourIndex === 0;
+    }
 
     const targets = resolveTourTargets(step.targets || []);
     const rect = targets.length ? unionTourRect(targets) : null;
@@ -3521,6 +3568,12 @@
     renderTourStep();
   }
 
+  function retreatTour() {
+    if (tourIndex <= 0) return;
+    tourIndex -= 1;
+    renderTourStep();
+  }
+
   function playbackTourSeen() {
     try {
       return localStorage.getItem(PLAYBACK_TOUR_STORAGE_KEY) === "1";
@@ -3548,6 +3601,7 @@
   }
 
   if (uiTourSkip) uiTourSkip.addEventListener("click", finishTour);
+  if (uiTourPrev) uiTourPrev.addEventListener("click", retreatTour);
   if (uiTourNext) uiTourNext.addEventListener("click", advanceTour);
   if (uiTourRelaunch) {
     uiTourRelaunch.addEventListener("click", () => {
@@ -3568,6 +3622,9 @@
     } else if (event.key === "Enter" || event.key === "ArrowRight") {
       event.preventDefault();
       advanceTour();
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      retreatTour();
     }
   });
 
@@ -3581,6 +3638,7 @@
 
   resizeCanvas();
   render();
+  typesetSidebarMath();
 
   let shouldStartTour = false;
   try {
