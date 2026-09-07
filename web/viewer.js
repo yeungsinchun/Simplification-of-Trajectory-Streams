@@ -969,7 +969,7 @@
       return raw.replace(/\b[Tt]race\b/g, "Trajectory").replace(/ not found/i, " was not found.");
     }
     if (lower.includes("invalid epsilon") || lower.includes("invalid delta")) {
-      return "Match and Grid must be valid numbers.";
+      return "ε and δ must be valid numbers.";
     }
     if (lower.includes("unknown curve") || lower.includes("unknown algorithm") || lower.includes("unknown compare method")) {
       return "That Compare or Match error option is not available.";
@@ -1199,11 +1199,11 @@
     const pendingStyle = simplifiedLen == null ? "color:var(--text-dim)" : "";
 
     return [
-      paramChip("Match", epsilonValue, "Match (ε): how closely the green path must match the Gray path. A smaller Match keeps a more detailed green path."),
-      paramChip("Grid", deltaValue, "Grid spacing (δ) used while finding the green path. A smaller Grid uses finer spacing."),
+      paramChip("ε", epsilonValue, "ε: smaller values cost more time (about O(ε^{-4} log(1/ε)) per point in 2D). Fréchet distance stays within (1+ε)δ."),
+      paramChip("δ", deltaValue, "δ: with ε, Fréchet distance between the green path and the Gray path stays within (1+ε)δ. Defaults are usually fine."),
       paramChip("grid cell", gridLength, "Length of one Grid cell used while finding the green path."),
       paramChip("circle radius", diskRadius, "Radius of the Start-point circle and Current-point circle overlays while finding the next green-path point."),
-      paramChip("match limit", expectedFrechet, "Match limit for this run (same idea as the Match field): how far the green path may drift from the Gray path. A smaller match limit keeps a more detailed green path."),
+      paramChip("match limit", expectedFrechet, "Match limit for this run (same idea as ε): how far the green path may drift from the Gray path. A smaller match limit keeps a more detailed green path."),
       paramChip(
         "saved Match",
         actualFrechet,
@@ -1548,7 +1548,7 @@
     const eps = parseFloat(epsilonInput.value);
     const delta = parseFloat(deltaInput.value);
     if (isNaN(eps) || eps <= 0 || isNaN(delta) || delta <= 0) {
-      alert("Please enter positive numbers for Match and Grid.");
+      alert("Please enter positive numbers for ε and δ.");
       return;
     }
 
@@ -2481,6 +2481,7 @@
 
   window.addEventListener("keydown", (e) => {
     console.log("Key pressed:", e.key, "Target:", e.target.tagName, "Has trace:", !!state.trace);
+    if (tourActive) return;
     if (!state.trace) return;
     // Ignore if an input, textarea, or select is focused
     const tag = e.target.tagName;
@@ -3265,6 +3266,7 @@
   const uiTourTitle = el("uiTourTitle");
   const uiTourBody = el("uiTourBody");
   const uiTourSkip = el("uiTourSkip");
+  const uiTourPrev = el("uiTourPrev");
   const uiTourNext = el("uiTourNext");
   const uiTourRelaunch = el("uiTourRelaunch");
 
@@ -3384,15 +3386,15 @@
     }
     if (!Number.isFinite(top)) return null;
     // Spotlight uses border-box with a 2px border. Keep equal *inner* pad on
-    // opposite sides so controls stay centered in the circled box; shrink pad
-    // near viewport edges instead of clamping one side only.
+    // opposite sides so controls stay centered with visible top/bottom margin
+    // inside the circled box. Measure room to the viewport edge (not an extra
+    // inset) so header controls near the top still get pad.
     const borderWidth = 2;
-    const desiredPad = 8;
-    const margin = 8;
-    const spaceAbove = Math.max(0, top - margin);
-    const spaceBelow = Math.max(0, window.innerHeight - margin - bottom);
-    const spaceLeft = Math.max(0, left - margin);
-    const spaceRight = Math.max(0, window.innerWidth - margin - right);
+    const desiredPad = 10;
+    const spaceAbove = Math.max(0, top);
+    const spaceBelow = Math.max(0, window.innerHeight - bottom);
+    const spaceLeft = Math.max(0, left);
+    const spaceRight = Math.max(0, window.innerWidth - right);
     const padY = Math.min(
       desiredPad,
       Math.max(0, spaceAbove - borderWidth),
@@ -3490,6 +3492,10 @@
     if (uiTourNext) {
       uiTourNext.textContent = tourIndex === total - 1 ? "Done" : "Next";
     }
+    if (uiTourPrev) {
+      uiTourPrev.hidden = tourIndex === 0;
+      uiTourPrev.disabled = tourIndex === 0;
+    }
 
     const targets = resolveTourTargets(step.targets || []);
     const rect = targets.length ? unionTourRect(targets) : null;
@@ -3551,6 +3557,12 @@
     renderTourStep();
   }
 
+  function retreatTour() {
+    if (tourIndex <= 0) return;
+    tourIndex -= 1;
+    renderTourStep();
+  }
+
   function playbackTourSeen() {
     try {
       return localStorage.getItem(PLAYBACK_TOUR_STORAGE_KEY) === "1";
@@ -3578,6 +3590,7 @@
   }
 
   if (uiTourSkip) uiTourSkip.addEventListener("click", finishTour);
+  if (uiTourPrev) uiTourPrev.addEventListener("click", retreatTour);
   if (uiTourNext) uiTourNext.addEventListener("click", advanceTour);
   if (uiTourRelaunch) {
     uiTourRelaunch.addEventListener("click", () => {
@@ -3598,6 +3611,9 @@
     } else if (event.key === "Enter" || event.key === "ArrowRight") {
       event.preventDefault();
       advanceTour();
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      retreatTour();
     }
   });
 
