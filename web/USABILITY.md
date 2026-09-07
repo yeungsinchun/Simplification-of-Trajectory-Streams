@@ -519,13 +519,23 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 ## Still open
 
-### Live Cloud Run still serves pre–PR #12 novice copy
+No open usability layout or novice-copy gaps remain from this first-visit tour-copy pass.
 
-**Where:** https://simplify-viewer-522405269791.asia-east2.run.app (last Deploy from merge of PR #11).
+### First-visit tour paper link and ε/δ guarantees (resolved)
 
-**Problem:** Local usability work after PR #11 (Load / Match-Grid-first labels, green path / Gray path / Option / Map overlays vocabulary, Compare method glosses, smaller/outcome tips) was branch-only. The live site still shows older copy such as `Load Trace`, `algorithms`, and `Smaller keeps more detail`.
+**Where:** `web/viewer.js` `startTourSteps` Welcome and Accuracy controls (tour-only; standing Match/Grid UI unchanged).
 
-**Next step:** Merge https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/pull/12 so Deploy publishes a new revision. No layout or CI/CD wiring gaps remain in this pass.
+**Problem:** Welcome still said `builds a shorter green path` without the paper link. Accuracy controls still explained Match/Grid with match-tolerance / grid-spacing style glosses that are not accurate for ε and δ.
+
+**Fix:** Welcome says the tool simplifies a trajectory while keeping its shape and links [Simplification of Trajectory Streams](https://arxiv.org/abs/2503.23025). Accuracy controls state per-point complexity `O(ε^{-4} log(1/ε))` in this 2D web viewer and Fréchet distance within `(1+ε)δ`. The invalid-input alert keeps Match/Grid labels without the accuracy/spacing parentheticals. Form titles, Instructions, and param chips stay Match/Grid.
+
+### Live Cloud Run refreshed after PR #12 (resolved)
+
+**Where:** https://simplify-viewer-522405269791.asia-east2.run.app (Deploy after merge of PR #12).
+
+**Problem:** After PR #11, local novice-copy work stayed branch-only, so live Cloud Run still showed older copy such as `Load Trace`, `algorithms`, and `Smaller keeps more detail`.
+
+**Fix:** Merged https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/pull/12 (`d7c8fc7`). Deploy publishes from `main`; this branch is already on that post-merge history.
 
 ### match limit chip tip lagged Match’s smaller/outcome guidance (resolved)
 
@@ -542,11 +552,11 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 ### Grid tips lagged Match’s smaller/outcome guidance (resolved)
 
-**Where:** Grid form/chip titles and Accuracy tour in `web/index.html` / `web/viewer.js`.
+**Where:** Grid form/chip titles in `web/index.html` / `web/viewer.js` (Accuracy tour later replaced; see first-visit tour paper/ε/δ guarantees above).
 
 **Problem:** After Match tips said `A smaller Match keeps a more detailed green path`, Grid still only named spacing (`Preloaded trajectories set a good default` / bare spacing) with no smaller/finer outcome. Skip-tour users and phone long-press could not tell what changing Grid does.
 
-**Fix:** Grid tips say `A smaller Grid uses finer spacing` (form also notes defaults are usually fine); Accuracy tour uses the same phrasing. Fixture `scrollWidth` stays within 900.
+**Fix:** Grid tips say `A smaller Grid uses finer spacing` (form also notes defaults are usually fine). Fixture `scrollWidth` stays within 900.
 
 **Evidence:**
 
@@ -555,11 +565,11 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 ### Match / DP tips still said Smaller keeps more detail (resolved)
 
-**Where:** Match form/chip titles and Accuracy tour in `web/index.html` / `web/viewer.js`, plus DP match Compare field titles.
+**Where:** Match form/chip titles in `web/index.html` / `web/viewer.js`, plus DP match Compare field titles (Accuracy tour later replaced; see first-visit tour paper/ε/δ guarantees above).
 
 **Problem:** After Compare budget / keep tips named the green-path outcome, Match and DP match still said `Smaller keeps more detail` with no green-path wording. Skip-tour users and phone long-press could not map those tips to the same green-path vocabulary.
 
-**Fix:** Match and DP tips say `A smaller Match/match keeps a more detailed green path`; Accuracy tour uses the same phrasing. Fixture `scrollWidth` stays within 900.
+**Fix:** Match and DP tips say `A smaller Match/match keeps a more detailed green path`. Fixture `scrollWidth` stays within 900.
 
 **Evidence:**
 
@@ -594,11 +604,11 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 ### Compare tips still said shortens the path (resolved)
 
-**Where:** Compare DOTS / DP pill titles in `web/index.html` and `COMPARE_PILL_TITLES` / welcome tour in `web/viewer.js`.
+**Where:** Compare DOTS / DP pill titles in `web/index.html` and `COMPARE_PILL_TITLES` in `web/viewer.js` (welcome tour later replaced; see first-visit tour paper/ε/δ guarantees above).
 
 **Problem:** After as-you-go / all-at-once glosses landed, DOTS and DP titles (and the welcome tour) still said `shortens the path` / `shortens a GPS-style path`. Skip-tour users and phone long-press could not map those tips to the Gray path / green path vocabulary used elsewhere.
 
-**Fix:** Tips and welcome tour say `builds a shorter green path` and name `Gray path`. Fixture `scrollWidth` stays within 900.
+**Fix:** Compare tips say `builds a shorter green path` and name `Gray path`. Fixture `scrollWidth` stays within 900.
 
 **Evidence:**
 
@@ -698,7 +708,7 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 ### Grid still said search spacing (resolved)
 
-**Where:** Grid form title/aria-label, mobile and desktop start Instructions, invalid-input alert, Accuracy tour, and desktop `#paramsBar` grid cell tip.
+**Where:** Grid form title/aria-label, mobile and desktop start Instructions, invalid-input alert, and desktop `#paramsBar` grid cell tip.
 
 **Problem:** Map overlays already dropped opaque `the search` wording, but Grid help still said `search spacing` / `searching for` / `Search grid spacing`. Skip-tour users mapping Grid to the Grid chip could not tell those tips meant Grid spacing used while finding the green path.
 
@@ -737,7 +747,7 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 ### Match / Match error still said the original (resolved)
 
-**Where:** Match form/chip titles, Match error Scores footer and tips, match limit / kept % tips, Gray path overlay tip, Accuracy tour, and playback-tour intro.
+**Where:** Match form/chip titles, Match error Scores footer and tips, match limit / kept % tips, Gray path overlay tip, and playback-tour intro.
 
 **Problem:** Map overlays and Step already used `Gray path`, but Match / Match error / tour tips still said `the original` / `gray original`. Skip-tour users mapping Match error to the Gray path overlay could not tell those tips meant that same path.
 
@@ -763,7 +773,7 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 ### Match / Grid / Scores still said simplified path (resolved)
 
-**Where:** Match / Grid form titles, Load title/aria-label, Results This run / Match error / Kept points / Time tips, Map overlays This run / Gray path tips, desktop `#paramsBar` chips, Accuracy tour copy.
+**Where:** Match / Grid form titles, Load title/aria-label, Results This run / Match error / Kept points / Time tips, Map overlays This run / Gray path tips, desktop `#paramsBar` chips.
 
 **Problem:** Green path so far / Full green path / next green-path point already shared green-path vocabulary, but Match / Grid / Load / Scores / Gray path tips still said `simplified path` or `simplification`. Skip-tour users mapping those controls to the green path could not tell the tips meant that same path.
 
@@ -1023,11 +1033,11 @@ The Fréchet metric was also omitted until simplification finished, so the whole
 
 ### Start help / tour / alerts still led with Greek ε / δ (resolved)
 
-**Where:** mobile and desktop start Instructions, empty-canvas drop hint, Accuracy tour step, invalid Match/Grid alert, server timeout / invalid-εδ JSON, DP Compare tooltips, search-circle layer tooltips; mobile form labels at max-width 720px.
+**Where:** mobile and desktop start Instructions, empty-canvas drop hint, invalid Match/Grid alert, server timeout / invalid-εδ JSON, DP Compare tooltips, search-circle layer tooltips; mobile form labels at max-width 720px (Accuracy tour later switched to paper ε/δ guarantee wording; see first-visit tour paper/ε/δ guarantees above).
 
 **Problem:** After loaded params chips and 721–899px fields preferred plain `Match` / `Grid`, start help, the first-visit Accuracy tour, validation alerts, and server errors still led with Greek `ε match` / `δ grid`. Phones also kept Greek symbols above the stacked number fields, so skip-tour users saw a different vocabulary than the chips.
 
-**Fix:** Instructions, tour, alerts, and server copy now lead with `Match` / `Grid`. Form labels on every viewport (including phones and wide desktop) hide Greek symbols and capitalize the glosses. ε / δ remain only in tooltips. Fixture `scrollWidth` stays within 390.
+**Fix:** Instructions, alerts, and server copy lead with `Match` / `Grid`. Form labels on every viewport (including phones and wide desktop) hide Greek symbols and capitalize the glosses. ε / δ remain in standing tooltips; the Accuracy tour now uses paper ε/δ complexity and Fréchet wording. Fixture `scrollWidth` stays within 390.
 
 **Evidence:**
 
