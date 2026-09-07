@@ -1400,10 +1400,6 @@ No open usability layout, novice-copy, or Cloud Run CI/CD gaps remain in this pa
 
 **Fix:** Remove the View section and the Instructions heading / gloss. Keep only the desktop and mobile shortcut tables (key → what it does). Drop the unused `#fitBtn` click handler and Fit-view mention from the Map overlays tour step. Status and Map overlays stay.
 
-**Evidence:**
-
-- Before/after fixture: `web/usability/right-pane-keys-only.html`
-
 ### Cloud Run Deploy landed on main (resolved)
 
 **Where:** `.github/workflows/deploy.yml` on `main`, GitHub Actions Deploy workflow, Cloud Run service `simplify-viewer`.
