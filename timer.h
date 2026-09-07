@@ -30,8 +30,8 @@ namespace timer_detail {
         static std::map<std::string, double> c;
         return c;
     }
-    inline std::map<std::string, std::vector<std::string>>& children() {
-        static std::map<std::string, std::vector<std::string>> ch;
+    inline std::map<std::string, std::set<std::string>>& children() {
+        static std::map<std::string, std::set<std::string>> ch;
         return ch;
     }
     inline std::vector<const char*>& stack() {
@@ -59,7 +59,7 @@ struct Timer {
         if (stack.size() >= 2) {
             const char* parent = stack[stack.size() - 2];
             timer_detail::child_time()[parent] += dur;
-            timer_detail::children()[parent].push_back(name);
+            timer_detail::children()[parent].insert(name);
         }
         stack.pop_back();
     }
@@ -136,9 +136,8 @@ inline void print_timing_summary() {
         if (!t.count(name)) return;
         if (name == "simplify") {
             // Re-emit children of simplify at depth-1 (under total).
-            std::set<std::string> printed;
             for (const auto& child : timer_detail::children()[name]) {
-                if (printed.insert(child).second && t.count(child)) {
+                if (t.count(child)) {
                     print_recursive(child, depth, parent_wall);
                 }
             }
@@ -146,9 +145,8 @@ inline void print_timing_summary() {
         }
         report_one(name, depth, parent_wall);
         double my_wall = t[name];
-        std::set<std::string> printed;
         for (const auto& child : timer_detail::children()[name]) {
-            if (printed.insert(child).second && t.count(child)) {
+            if (t.count(child)) {
                 print_recursive(child, depth + 1, my_wall);
             }
         }

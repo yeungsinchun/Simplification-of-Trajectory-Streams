@@ -112,17 +112,25 @@ jobs:
           }
 
           # One --time run on new only (gated averages stay without --time so
-          # they match orig binaries that may lack TIMER support).
+          # they match orig binaries that may lack TIMER support). New must
+          # exit 0 and emit TIMER_MS lines; blank ops is not a pass.
           capture_ops() {
             local id=$1
             local log="/tmp/new_${id}_time.log"
-            ( cd new/ && \
+            if ! ( cd new/ && \
               ./build/simplify "$id" -e "$EPSILON" -d "$DELTA" --time \
-                > "$log" 2>&1 ) || true
-            # Emit "name=ms" pairs joined by ';', or empty if unsupported.
-            grep '^TIMER_MS ' "$log" 2>/dev/null \
-              | awk '{ printf "%s%s=%.4f", (NR>1?";":""), $2, $3 }' \
-              || true
+                > "$log" 2>&1 ); then
+              echo "❌ --time capture failed for ID=$id" >&2
+              cat "$log" >&2
+              return 1
+            fi
+            if ! grep -q '^TIMER_MS ' "$log"; then
+              echo "❌ Missing TIMER_MS lines for ID=$id" >&2
+              cat "$log" >&2
+              return 1
+            fi
+            grep '^TIMER_MS ' "$log" \
+              | awk '{ printf "%s%s=%.4f", (NR>1?";":""), $2, $3 }'
           }
 
           IDS=(1 2 3 4 5 6 7 8 9 10)
@@ -142,7 +150,8 @@ jobs:
           for ID in "${IDS[@]}"; do
             ORIG_MS=$(bench_avg_ms orig "$ID" orig)
             NEW_MS=$(bench_avg_ms new "$ID" new)
-            OPS=$(capture_ops "$ID")
+            OPS=$(capture_ops "$ID") \
+              || { echo "❌ ops capture failed for ID=$ID"; exit 1; }
 
             RATIO=$(awk -v o="$ORIG_MS" -v n="$NEW_MS" \
                       'BEGIN { if (o+0 > 0) printf "%.3f", n/o; else print "inf" }')
