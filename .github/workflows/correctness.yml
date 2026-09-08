@@ -27,9 +27,9 @@ jobs:
           - epsilon: "5"
             delta: "50"
             label: mid
-          - epsilon: "999"
-            delta: "1"
-            label: very-coarse-e
+          - epsilon: "1"
+            delta: "1000"
+            label: large-d
 
     env:
       EPSILON: ${{ matrix.epsilon }}
