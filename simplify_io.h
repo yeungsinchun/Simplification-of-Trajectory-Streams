@@ -27,6 +27,7 @@ inline bool dist_flag = false;
 inline bool web_server_flag = false;
 inline bool json_stream_flag = false;
 inline bool help_flag = false;
+inline bool time_flag = false;
 inline std::string json_output_path = "";
 
 // ===========================================================================
@@ -46,6 +47,7 @@ inline void print_help(const char* prog) {
                  "stdout for the web visualizer (suppresses all other stdout text)\n"
               << "  --json-stream    With --web-server, emit NDJSON (header, one prefix per line, done)\n"
               << "  --json-output <path>  Write JSON trace to file instead of stdout (use with --web-server)\n"
+              << "  --time           Opt-in phase timers (stderr TIMING SUMMARY + TIMER_MS lines)\n"
               << "  -h               Show this help and exit\n"
               << "\n"
               << "Shorthand: " << prog << " <id> [flags] is equivalent to '--in <id> --out [flags]'\n";
@@ -60,6 +62,7 @@ inline int parse_arguments(int argc, char** argv, int& test_case_no) {
         else if (strcmp(argv[i],"--json-output") == 0 && i+1 < argc) {
             json_output_path = argv[++i];
         }
+        else if (strcmp(argv[i],"--time") == 0) time_flag = true;
         else if (strcmp(argv[i],"--gui") == 0 || strcmp(argv[i],"-F") == 0 ||
                  strcmp(argv[i],"-G") == 0 || strcmp(argv[i],"-S") == 0) {
             std::cerr << "GUI options require simplify_with_gui\n";

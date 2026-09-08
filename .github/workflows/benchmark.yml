@@ -7,22 +7,46 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# Four (epsilon, delta) settings run as parallel matrix jobs so a slow
+# setting cannot hide regressions in another. Pair rationale:
+#   see .github/workflows/README.md (authoritative matrix table).
 jobs:
   bench-vs-prev:
-    name: New build must not slow down by >1.5x
+    name: "bench e=${{ matrix.epsilon }} d=${{ matrix.delta }}"
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - epsilon: "299"
+            delta: "1"
+            label: coarse-e
+          - epsilon: "0.5"
+            delta: "300"
+            label: fine-e
+          - epsilon: "5"
+            delta: "50"
+            label: mid
+          - epsilon: "1"
+            delta: "999"
+            label: large-d
 
     env:
-      EPSILON: "299"
-      DELTA: "1"
-      # Multiplicative limit on slowdown: new_time <= orig_time * SLOWDOWN_LIMIT.
-      SLOWDOWN_LIMIT: "1.50"
-      # Number of timed runs to average per binary and dataset ID.
-      BENCH_RUNS: "3"
-      # Absolute floor (ms) below which the multiplicative ratio check is
-      # skipped: tiny runs are dominated by wall-clock noise, so we only
-      # enforce the slowdown bar on runs that take at least this long.
-      MIN_BENCH_MS: "20"
+      EPSILON: ${{ matrix.epsilon }}
+      DELTA: ${{ matrix.delta }}
+      LABEL: ${{ matrix.label }}
+      # Per-ID bar: new_ms <= orig_ms * SLOWDOWN_LIMIT when orig is above floor.
+      SLOWDOWN_LIMIT: "1.20"
+      # Averaged runs per binary/ID. Raised from 3 -> 5 so the stricter mean
+      # and 1.2x bars are less sensitive to single-run wall-clock noise.
+      BENCH_RUNS: "5"
+      # IDs with orig_ms < MIN_BENCH_MS are excluded from the mean gate and
+      # from the per-ID multiplicative check (sub-millisecond runs only).
+      MIN_BENCH_MS: "1"
+      # Mean bar: mean(new) must not exceed mean(orig) * MEAN_LIMIT (1.05x).
+      # Replaces a zero-tolerance mean(new)<mean(orig) check that failed mid
+      # on ~0.2% noise with gated_n=1. Still far tighter than the old 1.5x cap.
+      MEAN_LIMIT: "1.05"
 
     steps:
       - name: Checkout current commit (new)
@@ -39,19 +63,11 @@ jobs:
           submodules: recursive
 
       - name: Sync data from new to old
-        # Sync data so fair test can be drawn
         run: |
           mkdir -p orig/data
-          cp -r new/data/1 orig/data/1
-          cp -r new/data/2 orig/data/2
-          cp -r new/data/3 orig/data/3
-          cp -r new/data/4 orig/data/4
-          cp -r new/data/5 orig/data/5
-          cp -r new/data/6 orig/data/6
-          cp -r new/data/7 orig/data/7
-          cp -r new/data/8 orig/data/8
-          cp -r new/data/9 orig/data/9
-          cp -r new/data/10 orig/data/10
+          for id in 1 2 3 4 5 6 7 8 9 10; do
+            cp -r "new/data/$id" "orig/data/$id"
+          done
 
       - name: Install build dependencies
         run: |
@@ -100,48 +116,198 @@ jobs:
             awk -v s="$sum" -v n="$BENCH_RUNS" 'BEGIN { printf "%.4f", s / n }'
           }
 
+          # One --time run on new only (gated averages stay without --time so
+          # they match orig binaries that may lack TIMER support). New must
+          # exit 0 and emit TIMER_MS lines; blank ops is not a pass.
+          capture_ops() {
+            local id=$1
+            local log="/tmp/new_${id}_time.log"
+            if ! ( cd new/ && \
+              ./build/simplify "$id" -e "$EPSILON" -d "$DELTA" --time \
+                > "$log" 2>&1 ); then
+              echo "❌ --time capture failed for ID=$id" >&2
+              cat "$log" >&2
+              return 1
+            fi
+            if ! grep -q '^TIMER_MS ' "$log"; then
+              echo "❌ Missing TIMER_MS lines for ID=$id" >&2
+              cat "$log" >&2
+              return 1
+            fi
+            grep '^TIMER_MS ' "$log" \
+              | awk '{ printf "%s%s=%.4f", (NR>1?";":""), $2, $3 }'
+          }
+
           IDS=(1 2 3 4 5 6 7 8 9 10)
-          RESULTS=new/benchmark.tsv
-          printf 'id\tprev_ms\tnew_ms\tratio\n' > "$RESULTS"
+          REPORT_DIR=new/bench-report
+          mkdir -p "$REPORT_DIR"
+          TSV="$REPORT_DIR/benchmark.tsv"
+          JSON="$REPORT_DIR/benchmark.json"
+
+          printf 'id\te\td\torig_ms\tnew_ms\tratio\tgated\tstatus\tops\n' > "$TSV"
 
           OVERALL_OK=1
-          REPORT=""
+          MEAN_SUM_ORIG=0
+          MEAN_SUM_NEW=0
+          MEAN_N=0
+          SUMMARY_ROWS=""
 
           for ID in "${IDS[@]}"; do
             ORIG_MS=$(bench_avg_ms orig "$ID" orig)
             NEW_MS=$(bench_avg_ms new "$ID" new)
+            OPS=$(capture_ops "$ID") \
+              || { echo "❌ ops capture failed for ID=$ID"; exit 1; }
 
             RATIO=$(awk -v o="$ORIG_MS" -v n="$NEW_MS" \
                       'BEGIN { if (o+0 > 0) printf "%.3f", n/o; else print "inf" }')
 
+            GATED=0
+            if awk -v o="$ORIG_MS" -v floor="$MIN_BENCH_MS" \
+                   'BEGIN { exit !(o+0 >= floor) }'; then
+              GATED=1
+              MEAN_SUM_ORIG=$(awk -v s="$MEAN_SUM_ORIG" -v m="$ORIG_MS" 'BEGIN { print s + m }')
+              MEAN_SUM_NEW=$(awk -v s="$MEAN_SUM_NEW" -v m="$NEW_MS" 'BEGIN { print s + m }')
+              MEAN_N=$((MEAN_N + 1))
+            fi
+
             STATUS="OK"
-            if awk -v n="$NEW_MS" -v o="$ORIG_MS" -v lim="$SLOWDOWN_LIMIT" \
-                   'BEGIN { exit !(o+0 > 0 && n+0 > o*lim + 1e-9) }'; then
-              if awk -v o="$ORIG_MS" -v floor="$MIN_BENCH_MS" \
-                     'BEGIN { exit !(o+0 >= floor) }'; then
-                STATUS="FAIL"
+            if [ "$GATED" -eq 1 ]; then
+              if awk -v n="$NEW_MS" -v o="$ORIG_MS" -v lim="$SLOWDOWN_LIMIT" \
+                     'BEGIN { exit !(o+0 > 0 && n+0 > o*lim + 1e-9) }'; then
+                STATUS="FAIL_SLOW"
               fi
+            else
+              STATUS="SKIP_FLOOR"
             fi
 
-            if [ "$STATUS" != "OK" ]; then OVERALL_OK=0; fi
+            if [ "$STATUS" = "FAIL_SLOW" ]; then OVERALL_OK=0; fi
 
-            printf '%s\t%s\t%s\t%s\n' \
-              "$ID" "$ORIG_MS" "$NEW_MS" "$RATIO" >> "$RESULTS"
+            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+              "$ID" "$EPSILON" "$DELTA" "$ORIG_MS" "$NEW_MS" "$RATIO" \
+              "$GATED" "$STATUS" "$OPS" >> "$TSV"
 
-            LINE=$(printf "%2d  %8.4f ms  %8.4f ms  %6.3f" \
-              "$ID" "$ORIG_MS" "$NEW_MS" "$RATIO")
-            if [ "$STATUS" = "FAIL" ]; then
-              LINE="$LINE  FAIL"
-            fi
-            REPORT+="${LINE}"$'\n'
+            MARK=""
+            case "$STATUS" in
+              FAIL_SLOW) MARK=" ❌" ;;
+              SKIP_FLOOR) MARK=" (below ${MIN_BENCH_MS}ms floor)" ;;
+              OK)
+                if awk -v r="$RATIO" 'BEGIN { exit !(r+0 < 1.0) }'; then
+                  MARK=" ✅ win"
+                fi
+                ;;
+            esac
+            SUMMARY_ROWS+="| $ID | $ORIG_MS | $NEW_MS | $RATIO | $STATUS$MARK |"$'\n'
           done
 
-          echo "Benchmark (avg of ${BENCH_RUNS} runs, limit ${SLOWDOWN_LIMIT}x)"
-          printf '%s' "$REPORT"
+          MEAN_ORIG="n/a"
+          MEAN_NEW="n/a"
+          MEAN_RATIO="n/a"
+          MEAN_OK=1
+          if [ "$MEAN_N" -gt 0 ]; then
+            MEAN_ORIG=$(awk -v s="$MEAN_SUM_ORIG" -v n="$MEAN_N" 'BEGIN { printf "%.4f", s / n }')
+            MEAN_NEW=$(awk -v s="$MEAN_SUM_NEW" -v n="$MEAN_N" 'BEGIN { printf "%.4f", s / n }')
+            MEAN_RATIO=$(awk -v o="$MEAN_ORIG" -v n="$MEAN_NEW" \
+                           'BEGIN { if (o+0 > 0) printf "%.3f", n/o; else print "inf" }')
+            # Mean bar: fail if mean(new) > mean(orig) * MEAN_LIMIT.
+            if awk -v n="$MEAN_NEW" -v o="$MEAN_ORIG" -v lim="$MEAN_LIMIT" \
+                   'BEGIN { exit !(o+0 > 0 && n+0 > o*lim + 1e-9) }'; then
+              MEAN_OK=0
+              OVERALL_OK=0
+            fi
+          fi
+
+          {
+            echo "## Benchmark \`${LABEL}\` (e=${EPSILON}, d=${DELTA})"
+            echo ""
+            echo "- Runs averaged: **${BENCH_RUNS}** per ID (no \`--time\` for gated ms)"
+            echo "- Per-ID bar: new ≤ orig × **${SLOWDOWN_LIMIT}** (IDs with orig ≥ ${MIN_BENCH_MS} ms)"
+            echo "- Mean bar: mean(new) ≤ mean(orig) × **${MEAN_LIMIT}** over the ${MEAN_N} gated IDs (floor excludes tiny runs)"
+            echo "- Mean orig: **${MEAN_ORIG}** ms · Mean new: **${MEAN_NEW}** ms · ratio **${MEAN_RATIO}** · mean_ok=${MEAN_OK}"
+            echo ""
+            echo "| ID | orig_ms | new_ms | ratio | status |"
+            echo "|----|--------:|-------:|------:|--------|"
+            printf '%s' "$SUMMARY_ROWS"
+            echo ""
+            if [ "$OVERALL_OK" -eq 1 ]; then
+              echo "✅ Benchmark OK for this setting"
+            else
+              echo "❌ Regression for this setting (per-ID 1.2x and/or mean gate)"
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+          # Compact JSON for artifacts (ops as nested object when present).
+          python3 - "$TSV" "$JSON" "$EPSILON" "$DELTA" "$LABEL" \
+              "$SLOWDOWN_LIMIT" "$MIN_BENCH_MS" "$BENCH_RUNS" \
+              "$MEAN_ORIG" "$MEAN_NEW" "$MEAN_RATIO" "$MEAN_OK" "$MEAN_N" "$OVERALL_OK" \
+              "$MEAN_LIMIT" <<'PY'
+          import json, sys
+          tsv, out, eps, delta, label = sys.argv[1:6]
+          slow, floor, runs = sys.argv[6:9]
+          mean_o, mean_n, mean_r, mean_ok, mean_cnt, overall = sys.argv[9:15]
+          mean_limit = sys.argv[15]
+          cases = []
+          with open(tsv) as f:
+              next(f)
+              for line in f:
+                  parts = line.rstrip("\n").split("\t")
+                  while len(parts) < 9:
+                      parts.append("")
+                  id_, e, d, o_ms, n_ms, ratio, gated, status, ops = parts[:9]
+                  op_map = {}
+                  if ops:
+                      for pair in ops.split(";"):
+                          if "=" in pair:
+                              k, v = pair.split("=", 1)
+                              try:
+                                  op_map[k] = float(v)
+                              except ValueError:
+                                  op_map[k] = v
+                  cases.append({
+                      "id": int(id_),
+                      "e": float(e),
+                      "d": float(d),
+                      "orig_ms": float(o_ms),
+                      "new_ms": float(n_ms),
+                      "ratio": None if ratio == "inf" else float(ratio),
+                      "gated": gated == "1",
+                      "status": status,
+                      "ops": op_map,
+                  })
+          def num_or_none(s):
+              try:
+                  return float(s)
+              except ValueError:
+                  return None
+          doc = {
+              "label": label,
+              "epsilon": float(eps),
+              "delta": float(delta),
+              "slowdown_limit": float(slow),
+              "min_bench_ms": float(floor),
+              "bench_runs": int(runs),
+              "mean_limit": float(mean_limit),
+              "gated_count": int(mean_cnt),
+              "mean_orig_ms": num_or_none(mean_o),
+              "mean_new_ms": num_or_none(mean_n),
+              "mean_ratio": num_or_none(mean_r),
+              "mean_ok": mean_ok == "1",
+              "overall_ok": overall == "1",
+              "cases": cases,
+          }
+          with open(out, "w") as f:
+              json.dump(doc, f, indent=2)
+              f.write("\n")
+          PY
+
+          echo "Benchmark ${LABEL} (avg of ${BENCH_RUNS} runs, limit ${SLOWDOWN_LIMIT}x, mean ≤ orig×${MEAN_LIMIT})"
+          column -t -s $'\t' "$TSV" || cat "$TSV"
+          echo "mean_orig=${MEAN_ORIG} mean_new=${MEAN_NEW} mean_ratio=${MEAN_RATIO} gated_n=${MEAN_N} mean_ok=${MEAN_OK}"
 
           if [ "$OVERALL_OK" -ne 1 ]; then
             echo ""
-            echo "❌ Performance regression: at least one ID exceeds the ${SLOWDOWN_LIMIT}x slowdown bar."
+            echo "❌ Performance regression for e=${EPSILON} d=${DELTA}:"
+            echo "   per-ID new > orig*${SLOWDOWN_LIMIT} (above ${MIN_BENCH_MS}ms floor), and/or"
+            echo "   mean(new) > mean(orig)*${MEAN_LIMIT} over gated IDs."
             exit 1
           fi
           echo "✅ Benchmark OK"
@@ -150,5 +316,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: benchmark
-          path: new/benchmark.tsv
+          name: benchmark-${{ matrix.label }}-e${{ matrix.epsilon }}-d${{ matrix.delta }}
+          path: new/bench-report/

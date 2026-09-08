@@ -4,17 +4,23 @@
 
 #include "simplify_geometry.h"
 #include "simplify_io.h"
+#include "timer.h"
 
 // ===========================================================================
-//  Core algorithm — bare (no instrumentation)
+//  Core algorithm (opt-in TIMER sites; active only when --time is set)
 // ===========================================================================
 
 
 int get_longest_stab(const std::vector<Point>& stream, int cur,
                      std::vector<Point>& simplified,
                      double EPSILON, double DELTA) {
+    TIMER("get_longest_stab");
     const Point& p0 = stream[cur];
-    std::vector<Point> P = get_boundary_points_from_grid(p0, EPSILON, DELTA);
+    std::vector<Point> P;
+    {
+        TIMER("boundary_P");
+        P = get_boundary_points_from_grid(p0, EPSILON, DELTA);
+    }
     std::array<Point, 2> buffer = {p0, p0};
     const int Pn = (int)P.size();
     std::vector<std::vector<Point>> S(Pn);
@@ -27,13 +33,24 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
 
     cur++;
     while (cur < int(stream.size())) {
-        Gi = get_conv_from_grid(stream[cur], EPSILON, DELTA);
+        {
+            TIMER("hull_Gi");
+            Gi = get_conv_from_grid(stream[cur], EPSILON, DELTA);
+        }
         for (int i = 0; i < Pn; ++i) {
             if (dead[i]) continue;
-            
-            find_F(P[i], S[i], F[i]);
 
-            if (!intersect(F[i], Gi, new_S[i])) {
+            {
+                TIMER("find_F");
+                find_F(P[i], S[i], F[i]);
+            }
+
+            bool hit;
+            {
+                TIMER("intersect");
+                hit = intersect(F[i], Gi, new_S[i]);
+            }
+            if (!hit) {
                 dead[i] = true;
                 dead_cnt++;
             }
@@ -345,15 +362,27 @@ std::vector<Point> simplify(const std::vector<Point>& stream,
                             double EPSILON, double DELTA) {
     std::vector<Point> simplified;
     configure_bbox(stream, EPSILON, DELTA);
+    if (time_flag) {
+        reset_timing();
+        timer_detail::enabled() = true;
+    }
     auto t0 = std::chrono::high_resolution_clock::now();
-    int cur = 0;
-    while (cur != int(stream.size()))
-        cur = get_longest_stab(stream, cur, simplified, EPSILON, DELTA);
+    {
+        TIMER("total");
+        int cur = 0;
+        while (cur != int(stream.size()))
+            cur = get_longest_stab(stream, cur, simplified, EPSILON, DELTA);
+    }
     double ms = std::chrono::duration<double, std::milli>(
         std::chrono::high_resolution_clock::now() - t0).count();
-    
+
     std::cerr << "SIMPLIFY_CORE_MS: " << std::fixed << std::setprecision(4) << ms << '\n';
-    
+    if (time_flag) {
+        print_timing_summary();
+        print_timing_machine();
+        timer_detail::enabled() = false;
+    }
+
     return simplified;
 }
 

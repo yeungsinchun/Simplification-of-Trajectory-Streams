@@ -30,8 +30,8 @@ namespace timer_detail {
         static std::map<std::string, double> c;
         return c;
     }
-    inline std::map<std::string, std::vector<std::string>>& children() {
-        static std::map<std::string, std::vector<std::string>> ch;
+    inline std::map<std::string, std::set<std::string>>& children() {
+        static std::map<std::string, std::set<std::string>> ch;
         return ch;
     }
     inline std::vector<const char*>& stack() {
@@ -59,13 +59,33 @@ struct Timer {
         if (stack.size() >= 2) {
             const char* parent = stack[stack.size() - 2];
             timer_detail::child_time()[parent] += dur;
-            timer_detail::children()[parent].push_back(name);
+            timer_detail::children()[parent].insert(name);
         }
         stack.pop_back();
     }
 };
 
 #define TIMER(name) Timer _timer(name)
+
+inline void reset_timing() {
+    timer_detail::timing().clear();
+    timer_detail::counters().clear();
+    timer_detail::child_time().clear();
+    timer_detail::children().clear();
+    timer_detail::stack().clear();
+}
+
+// Machine-readable flat counters for CI parsers. One line per timer name:
+//   TIMER_MS <name> <wall_ms> <calls>
+inline void print_timing_machine() {
+    auto& t = timer_detail::timing();
+    if (t.empty()) return;
+    for (const auto& kv : t) {
+        long long calls = timer_detail::counters()[kv.first];
+        fprintf(stderr, "TIMER_MS %s %.4f %lld\n",
+                kv.first.c_str(), kv.second, calls);
+    }
+}
 
 inline void print_timing_summary() {
     auto& t = timer_detail::timing();
@@ -116,9 +136,8 @@ inline void print_timing_summary() {
         if (!t.count(name)) return;
         if (name == "simplify") {
             // Re-emit children of simplify at depth-1 (under total).
-            std::set<std::string> printed;
             for (const auto& child : timer_detail::children()[name]) {
-                if (printed.insert(child).second && t.count(child)) {
+                if (t.count(child)) {
                     print_recursive(child, depth, parent_wall);
                 }
             }
@@ -126,9 +145,8 @@ inline void print_timing_summary() {
         }
         report_one(name, depth, parent_wall);
         double my_wall = t[name];
-        std::set<std::string> printed;
         for (const auto& child : timer_detail::children()[name]) {
-            if (printed.insert(child).second && t.count(child)) {
+            if (t.count(child)) {
                 print_recursive(child, depth + 1, my_wall);
             }
         }

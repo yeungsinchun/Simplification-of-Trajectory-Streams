@@ -7,14 +7,34 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# Same (epsilon, delta) matrix as benchmark.yml so quality and speed gates
+# cover identical settings in parallel jobs. Pair rationale:
+#   see .github/workflows/README.md (authoritative matrix table).
 jobs:
   correctness-vs-prev:
-    name: New build frechet distance and #points must not regress
+    name: "correct e=${{ matrix.epsilon }} d=${{ matrix.delta }}"
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - epsilon: "299"
+            delta: "1"
+            label: coarse-e
+          - epsilon: "0.5"
+            delta: "300"
+            label: fine-e
+          - epsilon: "5"
+            delta: "50"
+            label: mid
+          - epsilon: "1"
+            delta: "999"
+            label: large-d
 
     env:
-      EPSILON: "299"
-      DELTA: "1"
+      EPSILON: ${{ matrix.epsilon }}
+      DELTA: ${{ matrix.delta }}
+      LABEL: ${{ matrix.label }}
       DIST_TOL: "0.01"
       POINTS_TOL: "0"
 
@@ -33,19 +53,11 @@ jobs:
           submodules: recursive
 
       - name: Sync data from new to old
-        # Sync data so fair test can be drawn
         run: |
           mkdir -p orig/data
-          cp -r new/data/1 orig/data/1
-          cp -r new/data/2 orig/data/2
-          cp -r new/data/3 orig/data/3
-          cp -r new/data/4 orig/data/4
-          cp -r new/data/5 orig/data/5
-          cp -r new/data/6 orig/data/6
-          cp -r new/data/7 orig/data/7
-          cp -r new/data/8 orig/data/8
-          cp -r new/data/9 orig/data/9
-          cp -r new/data/10 orig/data/10
+          for id in 1 2 3 4 5 6 7 8 9 10; do
+            cp -r "new/data/$id" "orig/data/$id"
+          done
 
       - name: Install build dependencies
         run: |
@@ -79,8 +91,11 @@ jobs:
           set -uo pipefail
 
           IDS=(1 2 3 4 5 6 7 8 9 10)
-          RESULTS=new/correctness.tsv
-          printf 'id\torig_dist\torig_points\tnew_dist\tnew_points\tstatus\n' \
+          REPORT_DIR=new/correct-report
+          mkdir -p "$REPORT_DIR"
+          RESULTS="$REPORT_DIR/correctness.tsv"
+          JSON="$REPORT_DIR/correctness.json"
+          printf 'id\te\td\torig_dist\torig_points\tnew_dist\tnew_points\tstatus\n' \
             > "$RESULTS"
 
           OVERALL_OK=1
@@ -89,17 +104,15 @@ jobs:
 
           for ID in "${IDS[@]}"; do
             echo "============================================================"
-            echo "ID=$ID"
+            echo "ID=$ID  e=$EPSILON  d=$DELTA"
             echo "============================================================"
 
-            # --- ORIGINAL: cd into orig/ so its data writes stay isolated ---
             ( cd orig/ && \
               ./build/simplify "$ID" --dist -e "$EPSILON" -d "$DELTA" \
                 > "/tmp/orig_$ID.log" 2>&1 ) \
               || { echo "❌ ORIGINAL run failed for ID=$ID"; cat "/tmp/orig_$ID.log"; exit 1; }
 
             ORIG_DIST=$(grep -E '^[0-9]+(\.[0-9]+)?$' "/tmp/orig_$ID.log" | tail -1 || true)
-            # Fall back to "Frechet distance: NNN" form (orig binary w/o --raw)
             if [ -z "$ORIG_DIST" ]; then
               ORIG_DIST=$(grep -oE 'Frechet distance: *[0-9]+(\.[0-9]+)?' "/tmp/orig_$ID.log" | tail -1 | grep -oE '[0-9]+(\.[0-9]+)?' || true)
             fi
@@ -109,14 +122,12 @@ jobs:
 
             echo "  orig: dist=$ORIG_DIST  points=$ORIG_POINTS"
 
-            # --- NEW: cd into new/ so its data writes stay isolated ---
             ( cd new/ && \
               ./build/simplify "$ID" --dist -e "$EPSILON" -d "$DELTA" \
                 > "/tmp/new_$ID.log" 2>&1 ) \
               || { echo "❌ NEW run failed for ID=$ID"; cat "/tmp/new_$ID.log"; exit 1; }
 
             NEW_DIST=$(grep -E '^[0-9]+(\.[0-9]+)?$' "/tmp/new_$ID.log" | tail -1 || true)
-            # Fall back to "Frechet distance: NNN" form
             if [ -z "$NEW_DIST" ]; then
               NEW_DIST=$(grep -oE 'Frechet distance: *[0-9]+(\.[0-9]+)?' "/tmp/new_$ID.log" | tail -1 | grep -oE '[0-9]+(\.[0-9]+)?' || true)
             fi
@@ -135,12 +146,8 @@ jobs:
               exit 1
             fi
 
-            # --- ASSERT ---
-            # Use a small absolute tolerance on dist comparisons: both
-            # implementations produce Fréchet distances that are essentially
-            # equal to the input epsilon (299), and floating-point noise on
-            # the input points propagates to differences of order 1e-3 in the
-            # final distance. Tolerances are env-configurable above.
+            # Absolute DIST_TOL / POINTS_TOL unchanged: Fréchet floats near
+            # epsilon still need a small absolute slack; do not weaken without evidence.
             STATUS="OK"
             DELTA_DIST=$(awk -v o="$ORIG_DIST" -v n="$NEW_DIST" \
                             'BEGIN { printf "%.6f", n - o }')
@@ -158,18 +165,70 @@ jobs:
 
             if [ "$STATUS" != "OK" ]; then OVERALL_OK=0; fi
 
-            printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
-              "$ID" "$ORIG_DIST" "$ORIG_POINTS" "$NEW_DIST" "$NEW_POINTS" "$STATUS" \
+            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+              "$ID" "$EPSILON" "$DELTA" \
+              "$ORIG_DIST" "$ORIG_POINTS" "$NEW_DIST" "$NEW_POINTS" "$STATUS" \
               >> "$RESULTS"
-            ROWS+="| $ID | $ORIG_DIST | $NEW_DIST | $DELTA_DIST | $ORIG_POINTS | $NEW_POINTS | $DELTA_PTS | $STATUS |"$'\n'
+            MARK=""
+            if [ "$STATUS" != "OK" ]; then MARK=" ❌"; fi
+            ROWS+="| $ID | $ORIG_DIST | $NEW_DIST | $DELTA_DIST | $ORIG_POINTS | $NEW_POINTS | $DELTA_PTS | $STATUS$MARK |"$'\n'
           done
+
+          {
+            echo "## Correctness \`${LABEL}\` (e=${EPSILON}, d=${DELTA})"
+            echo ""
+            echo "- DIST_TOL=${DIST_TOL} · POINTS_TOL=${POINTS_TOL}"
+            echo ""
+            printf '%s' "$ROWS"
+            echo ""
+            if [ "$OVERALL_OK" -eq 1 ]; then
+              echo "✅ Correctness OK for this setting"
+            else
+              echo "❌ Correctness regression for this setting"
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+          python3 - "$RESULTS" "$JSON" "$EPSILON" "$DELTA" "$LABEL" \
+              "$DIST_TOL" "$POINTS_TOL" "$OVERALL_OK" <<'PY'
+          import json, sys
+          tsv, out, eps, delta, label = sys.argv[1:6]
+          dist_tol, points_tol, overall = sys.argv[6:9]
+          cases = []
+          with open(tsv) as f:
+              next(f)
+              for line in f:
+                  parts = line.rstrip("\n").split("\t")
+                  if len(parts) < 8:
+                      continue
+                  id_, e, d, o_dist, o_pts, n_dist, n_pts, status = parts[:8]
+                  cases.append({
+                      "id": int(id_),
+                      "e": float(e),
+                      "d": float(d),
+                      "orig_dist": float(o_dist),
+                      "orig_points": int(float(o_pts)),
+                      "new_dist": float(n_dist),
+                      "new_points": int(float(n_pts)),
+                      "status": status,
+                  })
+          doc = {
+              "label": label,
+              "epsilon": float(eps),
+              "delta": float(delta),
+              "dist_tol": float(dist_tol),
+              "points_tol": int(points_tol),
+              "overall_ok": overall == "1",
+              "cases": cases,
+          }
+          with open(out, "w") as f:
+              json.dump(doc, f, indent=2)
+              f.write("\n")
+          PY
 
           echo ""
           echo "================================================================"
-          echo "Correctness summary"
+          echo "Correctness summary  label=${LABEL} e=${EPSILON} d=${DELTA}"
           echo "================================================================"
-          printf '%s' "$ROWS"
-          echo ""
           column -t -s $'\t' "$RESULTS" || cat "$RESULTS"
 
           if [ "$OVERALL_OK" -ne 1 ]; then
@@ -178,11 +237,11 @@ jobs:
             echo "   or more output points than the previous commit on at least one ID."
             exit 1
           fi
-          echo "✅ Correctness OK — new build ≤ original on all IDs."
+          echo "✅ Correctness OK - new build ≤ original on all IDs."
 
       - name: Upload correctness report
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: correctness
-          path: new/correctness.tsv
+          name: correctness-${{ matrix.label }}-e${{ matrix.epsilon }}-d${{ matrix.delta }}
+          path: new/correct-report/
