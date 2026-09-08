@@ -16,7 +16,7 @@ Runs four parallel matrix jobs (same `(ε, δ)` pairs as the benchmark gate):
 | `coarse-e` | 299 | 1 | Historical CI pair (large match tolerance) |
 | `fine-e` | 0.5 | 300 | Tight ε (headless CLI default) with large δ (corridor constant from `scripts/benchmark_e.py`) |
 | `mid` | 5 | 50 | Mid-range; δ ≈ 300/(1+ε) corridor scaling from `scripts/benchmark_e.py` |
-| `large-d` | 1 | 1000 | Small ε with a very large δ (stresses the time/corridor axis differently from `fine-e`) |
+| `large-d` | 1 | 999 | Small ε with a very large δ (stresses the time/corridor axis differently from `fine-e`) |
 
 Tolerances (unchanged without evidence): `DIST_TOL=0.01`, `POINTS_TOL=0`.
 

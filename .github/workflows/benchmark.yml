@@ -28,7 +28,7 @@ jobs:
             delta: "50"
             label: mid
           - epsilon: "1"
-            delta: "1000"
+            delta: "999"
             label: large-d
 
     env:
