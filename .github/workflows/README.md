@@ -27,10 +27,10 @@ Artifacts: `correctness-<label>-e…-d…` with `correctness.tsv` and `correctne
 
 Same four parallel `(ε, δ)` matrix jobs as correctness. For each setting, averages `BENCH_RUNS=5` Release runs of `SIMPLIFY_CORE_MS` on IDs 1..10 (new vs previous commit) and enforces:
 
-1. **Mean gate:** over IDs with `orig_ms ≥ MIN_BENCH_MS` (20 ms), `mean(new) ≤ mean(orig) × MEAN_LIMIT` with `MEAN_LIMIT=1.05` (cannot worsen by more than 1.05×). Replaces a zero-tolerance `mean(new) < mean(orig)` check that failed `mid` on ~0.2% noise with `gated_n=1`.
+1. **Mean gate:** over IDs with `orig_ms ≥ MIN_BENCH_MS` (1 ms), `mean(new) ≤ mean(orig) × MEAN_LIMIT` with `MEAN_LIMIT=1.05` (cannot worsen by more than 1.05×). Replaces a zero-tolerance `mean(new) < mean(orig)` check that failed `mid` on ~0.2% noise with `gated_n=1`.
 2. **Per-ID gate:** for those same gated IDs, `new_ms ≤ orig_ms * 1.20` (was 1.50).
 
-IDs below the 20 ms floor are reported as `SKIP_FLOOR` and excluded from both gates so wall-clock noise does not fail the job.
+IDs with `orig_ms` strictly below 1 ms are reported as `SKIP_FLOOR` and excluded from both gates; everything at or above 1 ms is gated.
 
 Gated averages intentionally omit `--time` so timing stays comparable to older binaries. After averages, the new binary runs once per ID with `--time` and must exit 0 with at least one `TIMER_MS` line (blank ops is a failure). Phase counters (`hull_Gi`, `find_F`, `intersect`, `boundary_P`, …) land in the TSV `ops` column and nested `ops` objects in JSON.
 

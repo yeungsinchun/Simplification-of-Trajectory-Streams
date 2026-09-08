@@ -41,8 +41,8 @@ jobs:
       # and 1.2x bars are less sensitive to single-run wall-clock noise.
       BENCH_RUNS: "5"
       # IDs with orig_ms < MIN_BENCH_MS are excluded from the mean gate and
-      # from the per-ID multiplicative check (tiny runs are noise-dominated).
-      MIN_BENCH_MS: "20"
+      # from the per-ID multiplicative check (sub-millisecond runs only).
+      MIN_BENCH_MS: "1"
       # Mean bar: mean(new) must not exceed mean(orig) * MEAN_LIMIT (1.05x).
       # Replaces a zero-tolerance mean(new)<mean(orig) check that failed mid
       # on ~0.2% noise with gated_n=1. Still far tighter than the old 1.5x cap.
