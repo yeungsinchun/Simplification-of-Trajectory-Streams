@@ -80,7 +80,7 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
                                              S[i],
                                              anchor_outside[i] && !full_bbox
                                                  ? nullptr : &stab_bounds[i],
-                                             &scratch.clip_buffers);
+                                             scratch.clip_buffers);
                     if (full_bbox) {
                         bbox_result = S[i];
                         bbox_bounds = stab_bounds[i];

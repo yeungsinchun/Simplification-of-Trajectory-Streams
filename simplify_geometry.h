@@ -93,41 +93,35 @@ inline const Vec2& next_ccw_vertex(const std::vector<Vec2>& polygon, int i) {
 
 // Keep the part of `polygon` that lies in the closed left half-plane of edge
 // edge_start→edge_end. Writes the cropped ring into `cropped` (O(|polygon|)).
-inline bool crop_to_left_of_edge(const std::vector<Vec2>& polygon,
+inline void crop_to_left_of_edge(const std::vector<Vec2>& polygon,
                                  const Vec2& edge_start,
                                  const Vec2& edge_end,
                                  std::vector<Vec2>& cropped) {
     cropped.clear();
     const int n = static_cast<int>(polygon.size());
-    if (n == 0) return false;
+    if (n == 0) return;
 
-    Vec2 prev = polygon.back();
-    double orient_prev = orient(edge_start, edge_end, prev);
-    bool changed = false;
+    int prev_i = n - 1;
     for (int i = 0; i < n; ++i) {
         const Vec2& curr = polygon[i];
+        const Vec2& prev = polygon[prev_i];
+        prev_i = i;
+
         const double orient_curr = orient(edge_start, edge_end, curr);
+        const double orient_prev = orient(edge_start, edge_end, prev);
         const bool curr_inside = orient_curr >= 0.0;
         const bool prev_inside = orient_prev >= 0.0;
 
-        if (!changed && (!curr_inside || !prev_inside)) {
-            cropped.insert(cropped.end(), polygon.begin(), polygon.begin() + i);
-            changed = true;
-        }
-
-        if (changed && curr_inside) {
+        if (curr_inside) {
             if (!prev_inside)
                 cropped.push_back(
                     crossing_on_segment(prev, curr, orient_prev, orient_curr));
             cropped.push_back(curr);
-        } else if (changed && prev_inside) {
+        } else if (prev_inside) {
             cropped.push_back(
                 crossing_on_segment(prev, curr, orient_prev, orient_curr));
         }
-        prev = curr;
-        orient_prev = orient_curr;
     }
-    return changed;
 }
 
 // The core's polygons are usually under 64 vertices. Keep both clip rings in
@@ -154,11 +148,6 @@ struct FastClipBuffer {
 struct FastClipBuffers {
     FastClipBuffer first, second;
 };
-
-inline FastClipBuffers& fast_clip_buffers() {
-    thread_local FastClipBuffers buffers;
-    return buffers;
-}
 
 __attribute__((always_inline)) inline bool crop_to_left_of_edge_fast(
         const Vec2* polygon, size_t n, const ClipEdge& edge,
@@ -222,8 +211,8 @@ inline ReusableClipBuffers& reusable_clip_buffers() {
 
 // Crop current_polygon by each left half-plane of CCW convex cropping_polygon.
 // O(n·m). Returned reference is valid until the next clip() on this thread.
-inline const std::vector<Point>& clip_prepared(const std::vector<Point>& current_polygon,
-                                               const std::vector<Vec2>& cropping_polygon) {
+inline const std::vector<Point>& clip(const std::vector<Point>& current_polygon,
+                                      const std::vector<Point>& cropping_polygon) {
     auto& buffers = reusable_clip_buffers();
 
     if (current_polygon.size() < 3 || cropping_polygon.size() < 3) {
@@ -232,14 +221,15 @@ inline const std::vector<Point>& clip_prepared(const std::vector<Point>& current
     }
 
     assign_ccw_doubles(current_polygon, buffers.current_polygon);
+    assign_ccw_doubles(cropping_polygon, buffers.cropping_polygon);
 
-    const int num_halfplanes = static_cast<int>(cropping_polygon.size());
+    const int num_halfplanes = static_cast<int>(buffers.cropping_polygon.size());
     for (int e = 0; e < num_halfplanes && buffers.current_polygon.size() >= 3; ++e) {
-        const Vec2& edge_start = cropping_polygon[e];
-        const Vec2& edge_end   = next_ccw_vertex(cropping_polygon, e);
-        if (crop_to_left_of_edge(buffers.current_polygon, edge_start, edge_end,
-                                 buffers.cropped_polygon))
-            buffers.current_polygon.swap(buffers.cropped_polygon);
+        const Vec2& edge_start = buffers.cropping_polygon[e];
+        const Vec2& edge_end   = next_ccw_vertex(buffers.cropping_polygon, e);
+        crop_to_left_of_edge(buffers.current_polygon, edge_start, edge_end,
+                             buffers.cropped_polygon);
+        buffers.current_polygon.swap(buffers.cropped_polygon);
     }
 
     if (buffers.current_polygon.size() < 3) {
@@ -248,13 +238,6 @@ inline const std::vector<Point>& clip_prepared(const std::vector<Point>& current
     }
     assign_points(buffers.current_polygon, buffers.intersection);
     return buffers.intersection;
-}
-
-inline const std::vector<Point>& clip(const std::vector<Point>& current_polygon,
-                                      const std::vector<Point>& cropping_polygon) {
-    auto& buffers = reusable_clip_buffers();
-    assign_ccw_doubles(cropping_polygon, buffers.cropping_polygon);
-    return clip_prepared(current_polygon, buffers.cropping_polygon);
 }
 
 }  // namespace sh_double
@@ -370,13 +353,12 @@ inline void prepare_clip_polygon(const std::vector<Point>& Q_in,
 
 __attribute__((always_inline)) inline bool intersect_prepared(
         const std::vector<Point>& P_in, const PreparedClipPolygon& Q,
-        std::vector<Point>& result, AxisBounds* result_bounds = nullptr,
-        sh_double::FastClipBuffers* clip_buffers = nullptr) {
+        std::vector<Point>& result, AxisBounds* result_bounds,
+        sh_double::FastClipBuffers& buffers) {
     if (P_in.size() < 3 || Q.vertices.size() < 3) {
         result.clear();
         return false;
     }
-    auto& buffers = clip_buffers ? *clip_buffers : sh_double::fast_clip_buffers();
     sh_double::FastClipBuffer* subject = &buffers.first;
     sh_double::FastClipBuffer* scratch = &buffers.second;
     subject->size = 0;
