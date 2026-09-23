@@ -775,8 +775,8 @@ inline std::vector<Point> get_boundary_points_from_grid(const Point& p, double E
  *      from p, so bearing is a total order.
  * @param p External query point.
  * @param S Convex polygon vertices.
- * @return {min_idx, max_idx} of the most-CW and most-CCW vertices, or empty
- *         if both coincide (degenerate).
+ * @return {min_idx, max_idx} of the most-CW and most-CCW vertices, or
+ *         {-1, -1} if both coincide (degenerate).
  *
  * Algorithm: O(n) scan; keep argmin / argmax of orientation(p, S[i], S[j])
  * in pure doubles. Collinear ties: either vertex is a valid support.
@@ -875,6 +875,8 @@ inline bool wedge_gi_disjoint(const Point& p, const std::vector<Point>& S,
  * Cases:
  *   1. |S|==1 or p ∈ S     → F = whole bbox.
  *   2. No two tangents     → F left empty (return).
+ *   2b. Optional prune: if @p clip_bounds and @p disjoint are given and a
+ *       tangent half-plane misses Gi's bbox, set *disjoint and leave F empty.
  *   3. Ray miss / unclassified hit → F = whole bbox.
  *   4. Otherwise (p outside S):
  *        F = S-arc between tangents  ∪  bbox chain between ray hits
@@ -885,8 +887,13 @@ inline bool wedge_gi_disjoint(const Point& p, const std::vector<Point>& S,
  * @param p External (or interior) query point.
  * @param S Convex stab region; must not have exactly 2 vertices (assert).
  * @param F Output polygon, CCW.
+ * @param clip_bounds Optional prepared Gi, used only for its bbox prune.
+ * @param disjoint Optional out-flag for the case-2b prune.
+ * @param stab_bounds Optional bbox of S; skips the p ∈ S test when p is outside.
+ * @param anchor_outside Optional per-anchor latch: once p lies outside S it
+ *        stays outside every later S, so the p ∈ S test is skipped.
+ * @return true when F is the full working bbox.
  */
-// Returns true when F is the full working bbox.
 __attribute__((always_inline)) inline bool find_F(
         const Point& p, const std::vector<Point>& S, std::vector<Point>& F,
         const PreparedClipPolygon* clip_bounds = nullptr,
