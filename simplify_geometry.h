@@ -905,7 +905,8 @@ inline bool wedge_gi_disjoint(const Point& p, const std::vector<Point>& S,
  * @param F Output polygon, CCW.
  * @param clip_bounds Optional prepared Gi, used only for its bbox prune.
  * @param disjoint Optional out-flag for the case-2b prune.
- * @param stab_bounds Optional S bbox; skips containment when p is outside.
+ * @param stab_bounds Optional bbox of S; skips the p ∈ S test when p is
+ * outside.
  * @param anchor_outside Optional per-anchor latch: once p lies outside S it
  *        stays outside every later S, so the p ∈ S test is skipped.
  * @return true when F is the full working bbox.

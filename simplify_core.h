@@ -30,35 +30,35 @@ struct StabScratch {
 // the headless build runs the bare loop.
 struct NoStabObserver {
     // p0 starts a stab.
-    void stab_begin(const Point& /*p0*/) {}
+    void stab_begin(const Point & /*p0*/) {}
     // Anchor `anchor` reached intersect with stab region S (before this step)
     // and wedge F = F(S, P[anchor]). Anchors dropped by find_F's disjoint
     // prune never reach intersect and are not reported.
-    void anchor_wedge(int /*anchor*/, const std::vector<Point>& /*S*/,
-                      const std::vector<Point>& /*F*/) {}
+    void anchor_wedge(int /*anchor*/, const std::vector<Point> & /*S*/,
+                      const std::vector<Point> & /*F*/) {}
     // The anchor last passed to anchor_wedge intersected Gi and stays live.
     void anchor_survived(int /*anchor*/) {}
     // stream[cur] was consumed with hull Gi and at least one live anchor.
-    void step_end(int /*cur*/, const Point& /*pi*/,
-                  const std::vector<Point>& /*Gi*/) {}
+    void step_end(int /*cur*/, const Point & /*pi*/,
+                  const std::vector<Point> & /*Gi*/) {}
     // The stab emitted segment {anchor, S.front()}.
-    void stab_end(const std::array<Point, 2>& /*segment*/) {}
+    void stab_end(const std::array<Point, 2> & /*segment*/) {}
 };
 
 template <class Observer = NoStabObserver>
-int get_longest_stab(const std::vector<Point>& stream, int cur,
-                     std::vector<Point>& simplified,
-                     double EPSILON, double DELTA, StabScratch& scratch,
-                     Observer&& observer = {}) {
+int get_longest_stab(const std::vector<Point> &stream, int cur,
+                     std::vector<Point> &simplified, double EPSILON,
+                     double DELTA, StabScratch &scratch,
+                     Observer &&observer = {}) {
     TIMER("get_longest_stab");
-    const Point& p0 = stream[cur];
-    auto& P = scratch.P;
-    auto& Gi = scratch.Gi;
-    auto& S = scratch.S;
-    auto& F = scratch.F;
-    auto& active = scratch.active;
-    auto& stab_bounds = scratch.stab_bounds;
-    auto& anchor_outside = scratch.anchor_outside;
+    const Point &p0 = stream[cur];
+    auto &P = scratch.P;
+    auto &Gi = scratch.Gi;
+    auto &S = scratch.S;
+    auto &F = scratch.F;
+    auto &active = scratch.active;
+    auto &stab_bounds = scratch.stab_bounds;
+    auto &anchor_outside = scratch.anchor_outside;
     observer.stab_begin(p0);
     {
         TIMER("boundary_P");
@@ -92,10 +92,12 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
             bool full_bbox, disjoint;
             {
                 TIMER("find_F");
-                full_bbox = find_F(P[i], S[i], F, &scratch.prepared_Gi,
-                                   &disjoint, &stab_bounds[i], &anchor_outside[i]);
+                full_bbox =
+                    find_F(P[i], S[i], F, &scratch.prepared_Gi, &disjoint,
+                           &stab_bounds[i], &anchor_outside[i]);
             }
-            if (disjoint) continue;
+            if (disjoint)
+                continue;
             observer.anchor_wedge(i, S[i], F);
             bool hit;
             {
@@ -105,10 +107,10 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
                     S[i] = bbox_result;
                     stab_bounds[i] = bbox_bounds;
                 } else {
-                    hit = intersect_prepared(F, scratch.prepared_Gi,
-                                             S[i],
+                    hit = intersect_prepared(F, scratch.prepared_Gi, S[i],
                                              anchor_outside[i] && !full_bbox
-                                                 ? nullptr : &stab_bounds[i],
+                                                 ? nullptr
+                                                 : &stab_bounds[i],
                                              scratch.clip_buffers);
                     if (full_bbox) {
                         bbox_result = S[i];
@@ -118,12 +120,14 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
                     }
                 }
             }
-            if (!hit) continue;
+            if (!hit)
+                continue;
             observer.anchor_survived(i);
             active[surviving++] = i;
         }
         active.resize(surviving);
-        if (active.empty()) break;
+        if (active.empty())
+            break;
         const int chosen = active.back();
         buffer[0] = P[chosen];
         buffer[1] = S[chosen].front();

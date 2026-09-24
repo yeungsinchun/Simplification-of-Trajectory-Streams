@@ -11,14 +11,15 @@
 //  Web-server trace mode (--web-server)
 // ===========================================================================
 //
-// Mirrors get_longest_stab/simplify exactly, but instead of only emitting the
-// final two-point segment per prefix, it records every intermediate value the
+// This dedicated trace implementation retains every intermediate value the
 // paper's construction produces (the boundary anchors P, the delta-disk hull
 // Gi, the free-space wedge F(S,p), and the resulting stab region S) at every
-// step of every prefix.  With --json-stream (used by the Flask server), stdout
-// is NDJSON: header line, one prefix per line, then done.  Without it, the
-// whole trace is one JSON object.  No human-readable text is ever written in
-// this mode so stdout stays machine-readable.
+// step of every prefix. It intentionally remains separate from the optimized
+// shared loop in simplify_core.h so it can record every candidate. With
+// --json-stream (used by the Flask server), stdout is NDJSON: header line, one
+// prefix per line, then done. Without it, the whole trace is one JSON object.
+// No human-readable text is ever written in this mode so stdout stays
+// machine-readable.
 namespace webtrace {
 
 struct Candidate {
@@ -164,8 +165,8 @@ inline void write_json(std::ostream& os, double EPSILON, double DELTA, double ti
 
 }  // namespace webtrace
 
-// Web-trace twin of get_longest_stab: identical control flow, additionally
-// records P, Gi, F[i], new_S[i], alive/dead, and buffer at every step.
+// Dedicated web-trace loop recording P, Gi, F[i], new_S[i], alive/dead, and
+// buffer at every step.
 int get_longest_stab_web(const std::vector<Point>& stream, int cur,
                          std::vector<Point>& simplified,
                          double EPSILON, double DELTA,
@@ -307,7 +308,8 @@ std::vector<Point> simplify(const std::vector<Point>& stream,
         StabScratch scratch;
         int cur = 0;
         while (cur != int(stream.size()))
-            cur = get_longest_stab(stream, cur, simplified, EPSILON, DELTA, scratch);
+            cur = get_longest_stab(stream, cur, simplified, EPSILON, DELTA,
+                                   scratch);
     }
     double ms = std::chrono::duration<double, std::milli>(
         std::chrono::high_resolution_clock::now() - t0).count();

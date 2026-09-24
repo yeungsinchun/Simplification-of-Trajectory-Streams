@@ -1,5 +1,9 @@
+#include "drawing.h"
+#include "simplify_core.h"
+#include "simplify_geometry.h"
 #include <CGAL/Boolean_set_operations_2.h>
 #include <CGAL/Iso_rectangle_2.h>
+#include <QApplication>
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -11,10 +15,6 @@
 #include <limits>
 #include <string>
 #include <vector>
-#include <QApplication>
-#include "drawing.h"
-#include "simplify_core.h"
-#include "simplify_geometry.h"
 
 // ===========================================================================
 //  Global parameters
@@ -178,42 +178,55 @@ int out_stream(int test_case_no, const std::vector<Point>& stream) {
 // the selected highest-index live anchor: its wedge F, the hull Gi, and its
 // stab region S from before the step.
 class GuiStabObserver {
-public:
-    explicit GuiStabObserver(MultiViewer* viewer) : viewer_(viewer) {}
+  public:
+    explicit GuiStabObserver(MultiViewer *viewer) : viewer_(viewer) {}
 
-    void stab_begin(const Point& p0) {
-        if (!viewer_) return;
+    void stab_begin(const Point &p0) {
+        if (!viewer_)
+            return;
         viewer_->markP0(p0);
         viewer_->addOriginalPoint(p0);
     }
 
-    void anchor_wedge(int /*anchor*/, const std::vector<Point>& S,
-                      const std::vector<Point>& F) {
-        if (!viewer_) return;
-        if (showS) pending_S_ = S;
-        if (showF) pending_F_ = F;
+    void anchor_wedge(int /*anchor*/, const std::vector<Point> &S,
+                      const std::vector<Point> &F) {
+        if (!viewer_)
+            return;
+        if (showS)
+            pending_S_ = S;
+        if (showF)
+            pending_F_ = F;
     }
 
     void anchor_survived(int /*anchor*/) {
-        if (showS) S_ = pending_S_;
-        if (showF) F_ = pending_F_;
+        if (showS)
+            S_ = pending_S_;
+        if (showF)
+            F_ = pending_F_;
     }
 
-    void step_end(int cur, const Point& pi, const std::vector<Point>& Gi) {
-        if (!viewer_) return;
-        const QColor step_colors[] = {Qt::red, Qt::blue, Qt::green, Qt::magenta, Qt::cyan};
+    void step_end(int cur, const Point &pi, const std::vector<Point> &Gi) {
+        if (!viewer_)
+            return;
+        const QColor step_colors[] = {Qt::red, Qt::blue, Qt::green, Qt::magenta,
+                                      Qt::cyan};
         const QColor color = step_colors[cur % 5];
-        if (showF) viewer_->addPolygon(Polygon(F_.begin(), F_.end()), color);
-        if (showG) viewer_->addPolygon(Polygon(Gi.begin(), Gi.end()), color);
-        if (showS) viewer_->addPolygon(Polygon(S_.begin(), S_.end()), color);
+        if (showF)
+            viewer_->addPolygon(Polygon(F_.begin(), F_.end()), color);
+        if (showG)
+            viewer_->addPolygon(Polygon(Gi.begin(), Gi.end()), color);
+        if (showS)
+            viewer_->addPolygon(Polygon(S_.begin(), S_.end()), color);
         viewer_->addOriginalPoint(pi);
         viewer_->markPi(pi);
         viewer_process_events();
-        if (!keep_polygons) viewer_->clearPolygons();
+        if (!keep_polygons)
+            viewer_->clearPolygons();
     }
 
-    void stab_end(const std::array<Point, 2>& segment) {
-        if (!viewer_) return;
+    void stab_end(const std::array<Point, 2> &segment) {
+        if (!viewer_)
+            return;
         viewer_->addSimplifiedPoint(segment[0]);
         viewer_->addSimplifiedPoint(segment[1]);
         viewer_->clearMarkedP0();
@@ -221,8 +234,8 @@ public:
         viewer_process_events();
     }
 
-private:
-    MultiViewer* viewer_;
+  private:
+    MultiViewer *viewer_;
     std::vector<Point> pending_S_, pending_F_, S_, F_;
 };
 
@@ -238,7 +251,8 @@ std::vector<Point> simplify(const std::vector<Point>& stream,
     GuiStabObserver observer(viewer);
     int cur = 0;
     while (cur != static_cast<int>(stream.size())) {
-        cur = get_longest_stab(stream, cur, simplified, epsilon, delta, scratch, observer);
+        cur = get_longest_stab(stream, cur, simplified, epsilon, delta, scratch,
+                               observer);
     }
     auto core_end = std::chrono::high_resolution_clock::now();
     double core_ms = std::chrono::duration<double, std::milli>(core_end - core_start).count();

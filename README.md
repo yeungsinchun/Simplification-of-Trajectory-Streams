@@ -129,6 +129,13 @@ The optional `plot_curve` viewer from older local builds may be unavailable in
 the current CMake configuration; use `simplify_with_gui` for the supported GUI
 workflow.
 
+The Qt viewer and headless program use the same stab loop. Candidate anchors
+come only from the boundary of the start point's grid, and `-F`, `-G`, and `-S`
+show the highest-index live anchor that supplies the current candidate segment.
+Geometry fast paths may skip anchors proven unable to intersect the current
+grid hull; those rejected anchors have no overlay, while the selected segment
+and its displayed intermediate geometry are unchanged.
+
 ### Compare baselines in the web visualizer
 
 The Flask app in `web/` overlays this project's output against DOTS, DP, and
