@@ -13,6 +13,7 @@
 #include <vector>
 #include <QApplication>
 #include "drawing.h"
+#include "simplify_core.h"
 #include "simplify_geometry.h"
 
 // ===========================================================================
@@ -170,92 +171,60 @@ int out_stream(int test_case_no, const std::vector<Point>& stream) {
 }
 
 // ===========================================================================
-//  Core algorithm
+//  Stab drawing (algorithm: simplify_core.h)
 // ===========================================================================
 
-int get_longest_stab(const std::vector<Point>& stream, int cur,
-                     std::vector<Point>& simplified,
-                     double epsilon, double delta,
-                     MultiViewer* viewer = nullptr) {
-    const Point& p0 = stream[cur];
-    std::vector<Point> P;
-    P = get_boundary_points_from_grid(p0, epsilon, delta);
+// Draws one stab of the shared core loop (simplify_core.h). Each step shows
+// the lowest-index anchor still live after that step: its wedge F, the hull
+// Gi, and its stab region S from before the step.
+class GuiStabObserver {
+public:
+    explicit GuiStabObserver(MultiViewer* viewer) : viewer_(viewer) {}
 
-    if (viewer) {
-        viewer->markP0(p0);
-        viewer->addOriginalPoint(p0);
+    void stab_begin(const Point& p0) {
+        if (!viewer_) return;
+        viewer_->markP0(p0);
+        viewer_->addOriginalPoint(p0);
     }
 
-    std::array<Point, 2> buffer = {p0, p0};
-    const int Pn = static_cast<int>(P.size());
-    std::vector<std::vector<Point>> S(Pn);
-    for (int i = 0; i < Pn; ++i) S[i] = {P[i]};
-    int dead_cnt = 0;
-    std::vector<int> dead(Pn);
-    std::vector<std::vector<Point>> new_S(Pn);
-    std::vector<std::vector<Point>> F(Pn);
-    std::vector<Point> Gi;
-
-    cur++;
-    while (cur < static_cast<int>(stream.size())) {
-        const Point& pi = stream[cur];
-        Gi = get_conv_from_grid(pi, epsilon, delta);
-
-        for (int i = 0; i < Pn; ++i) {
-            if (dead[i]) continue;
-            find_F(P[i], S[i], F[i]);
-            bool hit;
-            hit = intersect(F[i], Gi, new_S[i]);
-            if (!hit) {
-                dead[i] = true;
-                dead_cnt++;
-            }
-        }
-
-        bool has_candidate = false;
-        for (int i = Pn - 1; i >= 0 && !has_candidate; --i) {
-            if (dead[i] || new_S[i].empty()) continue;
-            buffer[0] = P[i];
-            buffer[1] = new_S[i].front();
-            has_candidate = true;
-        }
-        if (!has_candidate || dead_cnt == Pn) break;
-
-        if (viewer) {
-            const QColor step_colors[] = {Qt::red, Qt::blue, Qt::green, Qt::magenta, Qt::cyan};
-            const QColor color = step_colors[cur % 5];
-            for (int i = 0; i < Pn; ++i) {
-                if (dead[i]) continue;
-                if (showF) viewer->addPolygon(Polygon(F[i].begin(), F[i].end()), color);
-                if (showG) viewer->addPolygon(Polygon(Gi.begin(), Gi.end()), color);
-                if (showS) viewer->addPolygon(Polygon(S[i].begin(), S[i].end()), color);
-                break;
-            }
-        }
-
-        for (int i = 0; i < Pn; ++i) {
-            if (!dead[i]) S[i].swap(new_S[i]);
-        }
-        if (viewer) {
-            viewer->addOriginalPoint(pi);
-            viewer->markPi(pi);
-            viewer_process_events();
-            if (!keep_polygons) viewer->clearPolygons();
-        }
-        cur++;
+    void anchor_wedge(int /*anchor*/, const std::vector<Point>& S,
+                      const std::vector<Point>& F) {
+        if (!viewer_ || have_drawn_anchor_) return;
+        if (showS) S_ = S;
+        if (showF) F_ = F;
     }
 
-    simplified.emplace_back(buffer[0]);
-    simplified.emplace_back(buffer[1]);
-    if (viewer) {
-        viewer->addSimplifiedPoint(buffer[0]);
-        viewer->addSimplifiedPoint(buffer[1]);
-        viewer->clearMarkedP0();
-        viewer->clearMarkedPi();
+    void anchor_survived(int /*anchor*/) { have_drawn_anchor_ = true; }
+
+    void step_end(int cur, const Point& pi, const std::vector<Point>& Gi) {
+        have_drawn_anchor_ = false;
+        if (!viewer_) return;
+        const QColor step_colors[] = {Qt::red, Qt::blue, Qt::green, Qt::magenta, Qt::cyan};
+        const QColor color = step_colors[cur % 5];
+        if (showF) viewer_->addPolygon(Polygon(F_.begin(), F_.end()), color);
+        if (showG) viewer_->addPolygon(Polygon(Gi.begin(), Gi.end()), color);
+        if (showS) viewer_->addPolygon(Polygon(S_.begin(), S_.end()), color);
+        viewer_->addOriginalPoint(pi);
+        viewer_->markPi(pi);
+        viewer_process_events();
+        if (!keep_polygons) viewer_->clearPolygons();
+    }
+
+    void stab_end(const std::array<Point, 2>& segment) {
+        have_drawn_anchor_ = false;
+        if (!viewer_) return;
+        viewer_->addSimplifiedPoint(segment[0]);
+        viewer_->addSimplifiedPoint(segment[1]);
+        viewer_->clearMarkedP0();
+        viewer_->clearMarkedPi();
         viewer_process_events();
     }
-    return cur;
-}
+
+private:
+    MultiViewer* viewer_;
+    bool have_drawn_anchor_ = false;
+    std::vector<Point> S_, F_;
+};
 
 std::vector<Point> simplify(const std::vector<Point>& stream,
                             double epsilon, double delta,
@@ -265,9 +234,11 @@ std::vector<Point> simplify(const std::vector<Point>& stream,
     std::cout << "Simplifying...\n";
 
     auto core_start = std::chrono::high_resolution_clock::now();
+    StabScratch scratch;
+    GuiStabObserver observer(viewer);
     int cur = 0;
     while (cur != static_cast<int>(stream.size())) {
-        cur = get_longest_stab(stream, cur, simplified, epsilon, delta, viewer);
+        cur = get_longest_stab(stream, cur, simplified, epsilon, delta, scratch, observer);
     }
     auto core_end = std::chrono::high_resolution_clock::now();
     double core_ms = std::chrono::duration<double, std::milli>(core_end - core_start).count();
