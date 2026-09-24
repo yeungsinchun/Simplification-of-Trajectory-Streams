@@ -20,18 +20,18 @@ struct StabScratch {
     sh_double::FastClipBuffers clip_buffers;
 };
 
-int get_longest_stab(const std::vector<Point>& stream, int cur,
-                     std::vector<Point>& simplified,
-                     double EPSILON, double DELTA, StabScratch& scratch) {
+int get_longest_stab(const std::vector<Point> &stream, int cur,
+                     std::vector<Point> &simplified, double EPSILON,
+                     double DELTA, StabScratch &scratch) {
     TIMER("get_longest_stab");
     const Point& p0 = stream[cur];
-    auto& P = scratch.P;
-    auto& Gi = scratch.Gi;
-    auto& S = scratch.S;
-    auto& F = scratch.F;
-    auto& active = scratch.active;
-    auto& stab_bounds = scratch.stab_bounds;
-    auto& anchor_outside = scratch.anchor_outside;
+    auto &P = scratch.P;
+    auto &Gi = scratch.Gi;
+    auto &S = scratch.S;
+    auto &F = scratch.F;
+    auto &active = scratch.active;
+    auto &stab_bounds = scratch.stab_bounds;
+    auto &anchor_outside = scratch.anchor_outside;
     {
         TIMER("boundary_P");
         P = get_boundary_points_from_grid(p0, EPSILON, DELTA);
@@ -64,10 +64,12 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
             bool full_bbox, disjoint;
             {
                 TIMER("find_F");
-                full_bbox = find_F(P[i], S[i], F, &scratch.prepared_Gi,
-                                   &disjoint, &stab_bounds[i], &anchor_outside[i]);
+                full_bbox =
+                    find_F(P[i], S[i], F, &scratch.prepared_Gi, &disjoint,
+                           &stab_bounds[i], &anchor_outside[i]);
             }
-            if (disjoint) continue;
+            if (disjoint)
+                continue;
             bool hit;
             {
                 TIMER("intersect");
@@ -76,10 +78,10 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
                     S[i] = bbox_result;
                     stab_bounds[i] = bbox_bounds;
                 } else {
-                    hit = intersect_prepared(F, scratch.prepared_Gi,
-                                             S[i],
+                    hit = intersect_prepared(F, scratch.prepared_Gi, S[i],
                                              anchor_outside[i] && !full_bbox
-                                                 ? nullptr : &stab_bounds[i],
+                                                 ? nullptr
+                                                 : &stab_bounds[i],
                                              scratch.clip_buffers);
                     if (full_bbox) {
                         bbox_result = S[i];
@@ -89,11 +91,13 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
                     }
                 }
             }
-            if (!hit) continue;
+            if (!hit)
+                continue;
             active[surviving++] = i;
         }
         active.resize(surviving);
-        if (active.empty()) break;
+        if (active.empty())
+            break;
         const int chosen = active.back();
         buffer[0] = P[chosen];
         buffer[1] = S[chosen].front();
@@ -193,7 +197,9 @@ inline void write_prefix(std::ostream& os, const PrefixTrace& p) {
         const StepTrace& s = p.steps[si];
         os << "{\"stream_idx\":" << s.stream_idx << ',';
         os << "\"pi\":"; write_point(os, s.pi); os << ',';
-        os << "\"Gi\":"; write_points(os, s.Gi); os << ',';
+        os << "\"Gi\":";
+        write_points(os, s.Gi);
+        os << ',';
         os << "\"candidates\":[";
         bool first_cand = true;
         for (std::size_t ci = 0; ci < s.candidates.size(); ++ci) {
@@ -201,8 +207,10 @@ inline void write_prefix(std::ostream& os, const PrefixTrace& p) {
             // Previously-dead candidates are omitted (anchors only, via P).
             // The < 3 bound mirrors the viewer's just-died predicate
             // (dead but F.length >= 3); smaller wedges never display.
-            if (!c.alive && c.F.size() < 3) continue;
-            if (!first_cand) os << ',';
+            if (!c.alive && c.F.size() < 3)
+                continue;
+            if (!first_cand)
+                os << ',';
             first_cand = false;
             os << "{\"idx\":" << c.grid_pt_idx
                << ",\"alive\":" << (c.alive ? "true" : "false") << ',';
@@ -281,7 +289,8 @@ inline void write_json(std::ostream& os, double EPSILON, double DELTA, double ti
 }  // namespace webtrace
 
 // Web-trace twin of get_longest_stab: identical control flow, additionally
-// records P, Gi, F[i], new_S[i], alive/dead, and buffer at every step.
+// records P, Gi, F[i], new_S[i], and alive/dead state at every step. The
+// prefix's final chosen segment is recorded once in PrefixTrace::output.
 int get_longest_stab_web(const std::vector<Point>& stream, int cur,
                          std::vector<Point>& simplified,
                          double EPSILON, double DELTA,
@@ -422,7 +431,8 @@ std::vector<Point> simplify(const std::vector<Point>& stream,
         StabScratch scratch;
         int cur = 0;
         while (cur != int(stream.size()))
-            cur = get_longest_stab(stream, cur, simplified, EPSILON, DELTA, scratch);
+            cur = get_longest_stab(stream, cur, simplified, EPSILON, DELTA,
+                                   scratch);
     }
     double ms = std::chrono::duration<double, std::milli>(
         std::chrono::high_resolution_clock::now() - t0).count();

@@ -132,11 +132,12 @@ struct FastClipBuffer {
     size_t capacity = small.size();
     size_t size = 0;
 
-    Vec2* data() { return large ? large.get() : small.data(); }
-    const Vec2* data() const { return large ? large.get() : small.data(); }
+    Vec2 *data() { return large ? large.get() : small.data(); }
+    const Vec2 *data() const { return large ? large.get() : small.data(); }
 
     void ensure(size_t needed) {
-        if (needed <= capacity) return;
+        if (needed <= capacity)
+            return;
         const size_t next = std::max(needed, capacity * 2);
         auto replacement = std::make_unique<Vec2[]>(next);
         std::copy_n(data(), size, replacement.get());
@@ -149,14 +150,15 @@ struct FastClipBuffers {
     FastClipBuffer first, second;
 };
 
-__attribute__((always_inline)) inline bool crop_to_left_of_edge_fast(
-        const Vec2* polygon, size_t n, const ClipEdge& edge,
-        Vec2* cropped, size_t& cropped_size) {
+__attribute__((always_inline)) inline bool
+crop_to_left_of_edge_fast(const Vec2 *polygon, size_t n, const ClipEdge &edge,
+                          Vec2 *cropped, size_t &cropped_size) {
     cropped_size = 0;
-    if (n == 0) return false;
+    if (n == 0)
+        return false;
     const double x0 = edge.start[0], y0 = edge.start[1];
     const double dx = edge.dx, dy = edge.dy;
-    auto side = [&](const Vec2& p) {
+    auto side = [&](const Vec2 &p) {
         return dx * (p[1] - y0) - dy * (p[0] - x0);
     };
     double orient_prev = side(polygon[n - 1]);
@@ -164,15 +166,17 @@ __attribute__((always_inline)) inline bool crop_to_left_of_edge_fast(
     double orient_curr = 0.0;
     for (; i < n; ++i) {
         orient_curr = side(polygon[i]);
-        if (orient_curr < 0.0 || orient_prev < 0.0) break;
+        if (orient_curr < 0.0 || orient_prev < 0.0)
+            break;
         orient_prev = orient_curr;
     }
-    if (i == n) return false;
+    if (i == n)
+        return false;
 
     Vec2 prev = polygon[i == 0 ? n - 1 : i - 1];
     std::copy_n(polygon, i, cropped);
     cropped_size = i;
-    auto emit_vertex = [&](const Vec2& curr, double orientation) {
+    auto emit_vertex = [&](const Vec2 &curr, double orientation) {
         const bool curr_inside = orientation >= 0.0;
         const bool prev_inside = orient_prev >= 0.0;
         if (curr_inside) {
@@ -189,7 +193,7 @@ __attribute__((always_inline)) inline bool crop_to_left_of_edge_fast(
     };
     emit_vertex(polygon[i], orient_curr);
     for (++i; i < n; ++i) {
-        const Vec2& curr = polygon[i];
+        const Vec2 &curr = polygon[i];
         emit_vertex(curr, side(curr));
     }
     return true;
@@ -325,14 +329,14 @@ struct AxisBounds {
         max_y = std::max(max_y, y);
     }
 
-    bool contains(const Point& p) const {
+    bool contains(const Point &p) const {
         const double x = CGAL::to_double(p.x()), y = CGAL::to_double(p.y());
         return x >= min_x && x <= max_x && y >= min_y && y <= max_y;
     }
 };
 
-inline void prepare_clip_polygon(const std::vector<Point>& Q_in,
-                                 PreparedClipPolygon& prepared) {
+inline void prepare_clip_polygon(const std::vector<Point> &Q_in,
+                                 PreparedClipPolygon &prepared) {
     thread_local std::vector<Point> unique;
     dedup_into(Q_in, unique);
     sh_double::assign_ccw_doubles(unique, prepared.vertices);
@@ -341,8 +345,8 @@ inline void prepare_clip_polygon(const std::vector<Point>& Q_in,
     prepared.min_x = prepared.min_y = std::numeric_limits<double>::infinity();
     prepared.max_x = prepared.max_y = -std::numeric_limits<double>::infinity();
     for (size_t i = 0; i < prepared.vertices.size(); ++i) {
-        const auto& a = prepared.vertices[i];
-        const auto& b = prepared.vertices[(i + 1) % prepared.vertices.size()];
+        const auto &a = prepared.vertices[i];
+        const auto &b = prepared.vertices[(i + 1) % prepared.vertices.size()];
         prepared.edges.push_back({a, b[0] - a[0], b[1] - a[1]});
         prepared.min_x = std::min(prepared.min_x, a[0]);
         prepared.max_x = std::max(prepared.max_x, a[0]);
@@ -351,52 +355,57 @@ inline void prepare_clip_polygon(const std::vector<Point>& Q_in,
     }
 }
 
-__attribute__((always_inline)) inline bool intersect_prepared(
-        const std::vector<Point>& P_in, const PreparedClipPolygon& Q,
-        std::vector<Point>& result, AxisBounds* result_bounds,
-        sh_double::FastClipBuffers& buffers) {
+__attribute__((always_inline)) inline bool
+intersect_prepared(const std::vector<Point> &P_in, const PreparedClipPolygon &Q,
+                   std::vector<Point> &result, AxisBounds *result_bounds,
+                   sh_double::FastClipBuffers &buffers) {
     if (P_in.size() < 3 || Q.vertices.size() < 3) {
         result.clear();
         return false;
     }
-    sh_double::FastClipBuffer* subject = &buffers.first;
-    sh_double::FastClipBuffer* scratch = &buffers.second;
+    sh_double::FastClipBuffer *subject = &buffers.first;
+    sh_double::FastClipBuffer *scratch = &buffers.second;
     subject->size = 0;
     subject->ensure(P_in.size());
     constexpr double EPS2 = 1e-12;
-    auto close = [](const sh_double::Vec2& a, const sh_double::Vec2& b) {
+    auto close = [](const sh_double::Vec2 &a, const sh_double::Vec2 &b) {
         const double dx = a[0] - b[0], dy = a[1] - b[1];
         return dx * dx + dy * dy <= EPS2;
     };
     // find_F supplies an ordered ring whose inherited S vertices were already
     // deduplicated when the previous stab polygon was produced.
-    for (const Point& p : P_in) {
+    for (const Point &p : P_in) {
         const sh_double::Vec2 v = sh_double::to_vec2(p);
         subject->data()[subject->size++] = v;
     }
 
     // find_F emits CCW vertices, so the subject needs no area scan/reversal.
-    for (const auto& edge : Q.edges) {
-        if (subject->size < 3) break;
+    for (const auto &edge : Q.edges) {
+        if (subject->size < 3)
+            break;
         scratch->size = 0;
         scratch->ensure(subject->size * 2 + 2);
-        if (sh_double::crop_to_left_of_edge_fast(
-                subject->data(), subject->size, edge, scratch->data(), scratch->size))
+        if (sh_double::crop_to_left_of_edge_fast(subject->data(), subject->size,
+                                                 edge, scratch->data(),
+                                                 scratch->size))
             std::swap(subject, scratch);
     }
 
     result.clear();
-    if (result_bounds) *result_bounds = {};
+    if (result_bounds)
+        *result_bounds = {};
     if (subject->size >= 3) {
         result.reserve(subject->size);
         sh_double::Vec2 first{}, last{};
         bool have_last = false;
         for (size_t i = 0; i < subject->size; ++i) {
-            const auto& v = subject->data()[i];
+            const auto &v = subject->data()[i];
             if (!have_last || !close(v, last)) {
                 result.emplace_back(v[0], v[1]);
-                if (result_bounds) result_bounds->include(v[0], v[1]);
-                if (!have_last) first = v;
+                if (result_bounds)
+                    result_bounds->include(v[0], v[1]);
+                if (!have_last)
+                    first = v;
                 last = v;
                 have_last = true;
             }
@@ -781,7 +790,8 @@ inline std::vector<Point> get_boundary_points_from_grid(const Point& p, double E
  * Algorithm: O(n) scan; keep argmin / argmax of orientation(p, S[i], S[j])
  * in pure doubles. Collinear ties: either vertex is a valid support.
  */
-inline std::array<int, 2> find_tangent_idx(const Point& p, const std::vector<Point>& S) {
+inline std::array<int, 2> find_tangent_idx(const Point &p,
+                                           const std::vector<Point> &S) {
     const int n = static_cast<int>(S.size());
 
     const double pdx = CGAL::to_double(p.x());
@@ -795,13 +805,18 @@ inline std::array<int, 2> find_tangent_idx(const Point& p, const std::vector<Poi
         const double wx = CGAL::to_double(S[j].x()) - pdx;
         const double wy = CGAL::to_double(S[j].y()) - pdy;
         if (rtx * wy - rty * wx < 0.0) {
-            rt = j; rtx = wx; rty = wy;
+            rt = j;
+            rtx = wx;
+            rty = wy;
         }
         if (ltx * wy - lty * wx > 0.0) {
-            lt = j; ltx = wx; lty = wy;
+            lt = j;
+            ltx = wx;
+            lty = wy;
         }
     }
-    if (rt == lt) return {-1, -1};
+    if (rt == lt)
+        return {-1, -1};
     return {std::min(rt, lt), std::max(rt, lt)};
 }
 
@@ -826,7 +841,8 @@ inline bool wedge_gi_disjoint(const Point& p, const std::vector<Point>& S,
     if (sn < 3) return false;                    // single point / degenerate: F = bbox
     if (point_in_convex(p, S)) return false;     // p inside S: F = whole bbox
     const auto tangent = find_tangent_idx(p, S);
-    if (tangent[0] < 0) return false;             // find_F bails here anyway
+    if (tangent[0] < 0)
+        return false; // find_F bails here anyway
 
     const double px = CGAL::to_double(p.x()), py = CGAL::to_double(p.y());
     const double t0x = CGAL::to_double(S[tangent[0]].x()) - px;
@@ -889,37 +905,41 @@ inline bool wedge_gi_disjoint(const Point& p, const std::vector<Point>& S,
  * @param F Output polygon, CCW.
  * @param clip_bounds Optional prepared Gi, used only for its bbox prune.
  * @param disjoint Optional out-flag for the case-2b prune.
- * @param stab_bounds Optional bbox of S; skips the p ∈ S test when p is outside.
+ * @param stab_bounds Optional bbox of S; skips the p ∈ S test when p is
+ * outside.
  * @param anchor_outside Optional per-anchor latch: once p lies outside S it
  *        stays outside every later S, so the p ∈ S test is skipped.
  * @return true when F is the full working bbox.
  */
-__attribute__((always_inline)) inline bool find_F(
-        const Point& p, const std::vector<Point>& S, std::vector<Point>& F,
-        const PreparedClipPolygon* clip_bounds = nullptr,
-        bool* disjoint = nullptr,
-        const AxisBounds* stab_bounds = nullptr,
-        uint8_t* anchor_outside = nullptr) {
+__attribute__((always_inline)) inline bool
+find_F(const Point &p, const std::vector<Point> &S, std::vector<Point> &F,
+       const PreparedClipPolygon *clip_bounds = nullptr,
+       bool *disjoint = nullptr, const AxisBounds *stab_bounds = nullptr,
+       uint8_t *anchor_outside = nullptr) {
     F.clear();
-    if (disjoint) *disjoint = false;
+    if (disjoint)
+        *disjoint = false;
     assert(S.size() != 2);
     auto use_bbox = [&] {
         const auto corners = current_bbox_corner();
         F.assign(corners.begin(), corners.end());
-        if (anchor_outside) *anchor_outside = false;
+        if (anchor_outside)
+            *anchor_outside = false;
     };
     if (S.size() == 1) {
         use_bbox();
         return true;
     }
     if (!anchor_outside || !*anchor_outside) {
-        if ((!stab_bounds || stab_bounds->contains(p)) && point_in_convex(p, S)) {
+        if ((!stab_bounds || stab_bounds->contains(p)) &&
+            point_in_convex(p, S)) {
             use_bbox();
             return true;
         }
         // Each later stab polygon is contained in the continuation wedge.
         // The anchor lies outside that wedge once it lies outside S.
-        if (anchor_outside) *anchor_outside = true;
+        if (anchor_outside)
+            *anchor_outside = true;
     }
 
     const auto tangent = find_tangent_idx(p, S);
@@ -941,11 +961,12 @@ __attribute__((always_inline)) inline bool find_F(
             const double xmax = clip_bounds->max_x - px;
             const double ymin = clip_bounds->min_y - py;
             const double ymax = clip_bounds->max_y - py;
-            const double lo = tx * (tx >= 0 ? ymin : ymax) -
-                              ty * (ty >= 0 ? xmax : xmin);
-            const double hi = tx * (tx >= 0 ? ymax : ymin) -
-                              ty * (ty >= 0 ? xmin : xmax);
-            const double tolerance = 64.0 * std::numeric_limits<double>::epsilon() *
+            const double lo =
+                tx * (tx >= 0 ? ymin : ymax) - ty * (ty >= 0 ? xmax : xmin);
+            const double hi =
+                tx * (tx >= 0 ? ymax : ymin) - ty * (ty >= 0 ? xmin : xmax);
+            const double tolerance = 64.0 *
+                                     std::numeric_limits<double>::epsilon() *
                                      (std::abs(tx) + std::abs(ty)) *
                                      (std::abs(xmin) + std::abs(xmax) +
                                       std::abs(ymin) + std::abs(ymax) + 1.0);
@@ -954,9 +975,10 @@ __attribute__((always_inline)) inline bool find_F(
         const auto first = range(ax, ay);
         const auto second = range(bx, by);
         *disjoint = turn > 0.0
-            ? (first[1] < -first[2] || second[0] > second[2])
-            : (first[0] > first[2] || second[1] < -second[2]);
-        if (*disjoint) return false;
+                        ? (first[1] < -first[2] || second[0] > second[2])
+                        : (first[0] > first[2] || second[1] < -second[2]);
+        if (*disjoint)
+            return false;
     }
 
     auto hit1 = ray_hit_bbox(p, S[tangent[0]]);
