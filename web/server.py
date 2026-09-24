@@ -121,7 +121,17 @@ def trace_json_response(tracejson):
 
 
 def stream_simplify_trace(cmd, label):
-    """Run simplify with --json-stream and yield NDJSON lines as they are produced."""
+    """Run simplify with --json-stream and yield NDJSON lines as they are produced.
+
+    When the client advertises gzip support, the stream is compressed
+    incrementally (one compressobj over the whole response, so Cloud Run
+    counts compressed bytes against its 32 MiB response limit). Browsers
+    transparently decode Content-Encoding: gzip even for streamed bodies.
+    """
+    import zlib
+    accepted_encodings = request.headers.get('Accept-Encoding', '').lower()
+    use_gzip = 'gzip' in accepted_encodings
+
     def generate():
         # Keep stderr on a pipe but drain it in a thread so a full stderr
         # buffer cannot deadlock the C++ process while we read stdout.
@@ -144,52 +154,70 @@ def stream_simplify_trace(cmd, label):
         stderr_thread = threading.Thread(target=_drain_stderr, daemon=True)
         stderr_thread.start()
 
-        emitted = False
-        try:
-            assert proc.stdout is not None
-            for line in proc.stdout:
-                if line:
-                    emitted = True
-                    yield line if line.endswith('\n') else line + '\n'
-            proc.wait(timeout=300)
-            stderr_thread.join(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait()
-            yield json.dumps({
-                'type': 'error',
-                'message': 'Building the green path took too long. Try a shorter trajectory or a larger Match / Grid.',
-            }) + '\n'
-            return
-        except Exception as e:
-            proc.kill()
-            proc.wait()
-            print(f"[{label}] simplify exception: {e}")
-            yield json.dumps({
-                'type': 'error',
-                'message': 'Could not build the green path for this trajectory. Try again in a moment.',
-            }) + '\n'
-            return
+        def raw_lines():
+            emitted = False
+            try:
+                assert proc.stdout is not None
+                for line in proc.stdout:
+                    if line:
+                        emitted = True
+                        yield line if line.endswith('\n') else line + '\n'
+                proc.wait(timeout=300)
+                stderr_thread.join(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+                yield json.dumps({
+                    'type': 'error',
+                    'message': 'Building the green path took too long. Try a shorter trajectory or a larger Match / Grid.',
+                }) + '\n'
+                return
+            except Exception as e:
+                proc.kill()
+                proc.wait()
+                print(f"[{label}] simplify exception: {e}")
+                yield json.dumps({
+                    'type': 'error',
+                    'message': 'Could not build the green path for this trajectory. Try again in a moment.',
+                }) + '\n'
+                return
 
-        err = ''.join(stderr_chunks).strip()
-        if err:
-            print(f"[{label}] C++ stderr:\n{err}")
-        if proc.returncode != 0:
-            print(f"[{label}] simplify failed: {err or 'no stderr'}")
-            yield json.dumps({
-                'type': 'error',
-                'message': 'Could not build the green path for this trajectory. Try again, or pick another trajectory.',
-            }) + '\n'
+            err = ''.join(stderr_chunks).strip()
+            if err:
+                print(f"[{label}] C++ stderr:\n{err}")
+            if proc.returncode != 0:
+                print(f"[{label}] simplify failed: {err or 'no stderr'}")
+                yield json.dumps({
+                    'type': 'error',
+                    'message': 'Could not build the green path for this trajectory. Try again, or pick another trajectory.',
+                }) + '\n'
 
+        if not use_gzip:
+            yield from raw_lines()
+            return
+        # One compressor over the whole response (wbits=31: gzip wrapper).
+        comp = zlib.compressobj(6, zlib.DEFLATED, 31)
+        for line in raw_lines():
+            chunk = comp.compress(line.encode('utf-8'))
+            if chunk:
+                yield chunk
+        tail = comp.flush()
+        if tail:
+            yield tail
+
+    headers = {
+        'Cache-Control': 'no-cache',
+        'X-Accel-Buffering': 'no',
+        # Disable Flask/Werkzeug buffering hints for proxies.
+        'Connection': 'keep-alive',
+    }
+    if use_gzip:
+        headers['Content-Encoding'] = 'gzip'
+        headers['Vary'] = 'Accept-Encoding'
     return Response(
         generate(),
         mimetype='application/x-ndjson',
-        headers={
-            'Cache-Control': 'no-cache',
-            'X-Accel-Buffering': 'no',
-            # Disable Flask/Werkzeug buffering hints for proxies.
-            'Connection': 'keep-alive',
-        },
+        headers=headers,
     )
 
 

@@ -118,6 +118,16 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
 // this mode so stdout stays machine-readable.
 namespace webtrace {
 
+// Wire-format version. v1 (no "v" key): every step carries all Pn candidates
+// positionally with full setprecision(17) geometry. v2: 9 significant digits,
+// steps carry only alive + just-died candidates (dead anchors come from the
+// prefix P array), and the unread per-step buffer is gone. The viewer expands
+// v2 steps back to positional form on receipt, so v1 traces still parse.
+inline constexpr int kTraceVersion = 2;
+// 9 significant digits: sub-pixel at every zoom the canvas supports, while
+// roughly halving coordinate bytes vs setprecision(17).
+inline constexpr int kTracePrecision = 9;
+
 struct Candidate {
     int grid_pt_idx = 0;
     bool alive = true;
@@ -130,8 +140,10 @@ struct StepTrace {
     int stream_idx = 0;        // index into the full input stream of the point consumed this step
     Point pi{0, 0};
     std::vector<Point> Gi;     // conv(G_i): convex hull of the delta-disk grid samples around pi
+    // Diet (v2): only alive + just-died candidates. Previously-dead candidates
+    // carry nothing the viewer displays (their dots come from PrefixTrace.P),
+    // so they are omitted; the viewer re-expands to positional form.
     std::vector<Candidate> candidates;
-    std::array<Point, 2> buffer{Point(0, 0), Point(0, 0)};
 };
 
 struct PrefixTrace {
@@ -182,11 +194,16 @@ inline void write_prefix(std::ostream& os, const PrefixTrace& p) {
         os << "{\"stream_idx\":" << s.stream_idx << ',';
         os << "\"pi\":"; write_point(os, s.pi); os << ',';
         os << "\"Gi\":"; write_points(os, s.Gi); os << ',';
-        os << "\"buffer\":["; write_point(os, s.buffer[0]); os << ','; write_point(os, s.buffer[1]); os << "],";
         os << "\"candidates\":[";
+        bool first_cand = true;
         for (std::size_t ci = 0; ci < s.candidates.size(); ++ci) {
-            if (ci) os << ',';
             const Candidate& c = s.candidates[ci];
+            // Previously-dead candidates are omitted (anchors only, via P).
+            // The < 3 bound mirrors the viewer's just-died predicate
+            // (dead but F.length >= 3); smaller wedges never display.
+            if (!c.alive && c.F.size() < 3) continue;
+            if (!first_cand) os << ',';
+            first_cand = false;
             os << "{\"idx\":" << c.grid_pt_idx
                << ",\"alive\":" << (c.alive ? "true" : "false") << ',';
             os << "\"F\":"; write_points(os, c.F); os << ',';
@@ -201,8 +218,9 @@ inline void write_prefix(std::ostream& os, const PrefixTrace& p) {
 
 inline void write_stream_header(std::ostream& os, double EPSILON, double DELTA,
                                 const std::vector<Point>& stream) {
-    os << std::setprecision(17);
+    os << std::setprecision(kTracePrecision);
     os << "{\"type\":\"header\",";
+    os << "\"v\":" << kTraceVersion << ',';
     os << "\"eps\":";       write_num(os, EPSILON);                       os << ',';
     os << "\"delta\":";     write_num(os, DELTA);                         os << ',';
     os << "\"grid_val\":";  write_num(os, GRID_val(EPSILON, DELTA));      os << ',';
@@ -217,7 +235,7 @@ inline void write_stream_header(std::ostream& os, double EPSILON, double DELTA,
 }
 
 inline void write_stream_prefix(std::ostream& os, const PrefixTrace& p) {
-    os << std::setprecision(17);
+    os << std::setprecision(kTracePrecision);
     os << "{\"type\":\"prefix\",\"data\":";
     write_prefix(os, p);
     os << "}\n";
@@ -225,7 +243,7 @@ inline void write_stream_prefix(std::ostream& os, const PrefixTrace& p) {
 
 inline void write_stream_done(std::ostream& os, double time_ms,
                               const std::vector<Point>& simplified) {
-    os << std::setprecision(17);
+    os << std::setprecision(kTracePrecision);
     os << "{\"type\":\"done\",";
     os << "\"time_ms\":"; write_num(os, time_ms); os << ',';
     os << "\"simplified\":"; write_points(os, simplified); os << ',';
@@ -237,8 +255,9 @@ inline void write_json(std::ostream& os, double EPSILON, double DELTA, double ti
                        const std::vector<Point>& stream,
                        const std::vector<Point>& simplified,
                        const std::vector<PrefixTrace>& prefixes) {
-    os << std::setprecision(17);
+    os << std::setprecision(kTracePrecision);
     os << "{";
+    os << "\"v\":" << kTraceVersion << ',';
     os << "\"eps\":";       write_num(os, EPSILON);                       os << ',';
     os << "\"delta\":";     write_num(os, DELTA);                         os << ',';
     os << "\"time_ms\":";   write_num(os, time_ms);                       os << ',';
@@ -327,7 +346,6 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
             buffer[1] = new_S[i].front();
             has_candidate = true;
         }
-        step.buffer = buffer;
         trace.steps.push_back(std::move(step));
 
         if (!has_candidate || dead_cnt == Pn) break;
