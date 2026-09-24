@@ -1,0 +1,40 @@
+name: GUI build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+# Builds the simplify_with_gui target (Qt) that correctness.yml and
+# benchmark.yml skip with -DBUILD_GUI=OFF. Headers shared with the GUI
+# target must compile under Qt, where `emit` is a macro; the headless
+# `simplify` target alone cannot catch that class of breakage.
+jobs:
+  gui-build:
+    name: "build simplify_with_gui (Qt)"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          # Lightest reliable Qt on the runner: distro packages, not a
+          # full Qt installer. qt6-base-dev covers Core/Gui/Widgets/
+          # OpenGL/OpenGLWidgets, qt6-svg-dev covers Svg, and
+          # libcgal-qt6-dev provides CGAL's Qt6 component. No cache:
+          # apt installs need none (nothing to reuse across runs).
+          sudo apt-get install -y cmake build-essential \
+            libcgal-dev libcgal-qt6-dev qt6-base-dev qt6-svg-dev
+
+      - name: Configure (default BUILD_GUI=ON)
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build simplify_with_gui
+        run: cmake --build build --target simplify_with_gui -j"$(nproc)"
