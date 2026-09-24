@@ -172,7 +172,7 @@ __attribute__((always_inline)) inline bool crop_to_left_of_edge_fast(
     Vec2 prev = polygon[i == 0 ? n - 1 : i - 1];
     std::copy_n(polygon, i, cropped);
     cropped_size = i;
-    auto emit = [&](const Vec2& curr, double orientation) {
+    auto emit_vertex = [&](const Vec2& curr, double orientation) {
         const bool curr_inside = orientation >= 0.0;
         const bool prev_inside = orient_prev >= 0.0;
         if (curr_inside) {
@@ -187,10 +187,10 @@ __attribute__((always_inline)) inline bool crop_to_left_of_edge_fast(
         prev = curr;
         orient_prev = orientation;
     };
-    emit(polygon[i], orient_curr);
+    emit_vertex(polygon[i], orient_curr);
     for (++i; i < n; ++i) {
         const Vec2& curr = polygon[i];
-        emit(curr, side(curr));
+        emit_vertex(curr, side(curr));
     }
     return true;
 }
