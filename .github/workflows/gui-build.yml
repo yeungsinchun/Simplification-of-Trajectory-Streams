@@ -1,0 +1,66 @@
+name: GUI build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+# Builds the simplify_with_gui target (Qt) that correctness.yml and
+# benchmark.yml skip with -DBUILD_GUI=OFF. Headers shared with the GUI
+# target must compile under Qt, where `emit` is a macro; the headless
+# `simplify` target alone cannot catch that class of breakage.
+jobs:
+  gui-build:
+    name: "build simplify_with_gui (Qt)"
+    runs-on: ubuntu-latest
+
+    env:
+      CGAL_VERSION: "6.0.1"
+      CGAL_DIR: "${{ github.workspace }}/cgal"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          # Lightest reliable Qt on the runner: distro packages, not a
+          # full Qt installer. qt6-base-dev covers Core/Gui/Widgets/
+          # OpenGL/OpenGLWidgets, qt6-svg-dev covers Svg. libcgal-dev
+          # is kept for the GMP/MPFR/Boost toolchain chain even though
+          # the Qt6-capable CGAL headers below take precedence: Ubuntu
+          # 24.04 ships CGAL 5.6, which is Qt5-only (no libcgal-qt6-dev
+          # exists there), while our GUI target needs CGAL::CGAL_Qt6.
+          sudo apt-get install -y cmake build-essential \
+            libcgal-dev qt6-base-dev qt6-svg-dev
+
+      # CGAL is header-only: cache the extracted 6.x headers so only a
+      # cache miss pays the ~25 MB download.
+      - name: Cache CGAL headers
+        id: cache-cgal
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CGAL_DIR }}
+          key: cgal-headers-${{ env.CGAL_VERSION }}-${{ runner.os }}
+
+      - name: Fetch CGAL headers
+        if: steps.cache-cgal.outputs.cache-hit != 'true'
+        run: |
+          rm -rf "${{ env.CGAL_DIR }}"
+          mkdir -p "${{ env.CGAL_DIR }}"
+          curl -sSL -o /tmp/cgal.tar.xz \
+            "https://github.com/CGAL/cgal/releases/download/v${CGAL_VERSION}/CGAL-${CGAL_VERSION}.tar.xz"
+          tar -xf /tmp/cgal.tar.xz -C /tmp
+          cp -r "/tmp/CGAL-${CGAL_VERSION}/." "${{ env.CGAL_DIR }}/"
+          rm -rf "/tmp/CGAL-${CGAL_VERSION}" /tmp/cgal.tar.xz
+
+      - name: Configure (default BUILD_GUI=ON, CGAL 6.x headers)
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCGAL_DIR="${{ env.CGAL_DIR }}"
+
+      - name: Build simplify_with_gui
+        run: cmake --build build --target simplify_with_gui -j"$(nproc)"

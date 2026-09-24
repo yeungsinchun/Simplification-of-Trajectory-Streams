@@ -36,6 +36,17 @@ Gated averages intentionally omit `--time` so timing stays comparable to older b
 
 Artifacts: `benchmark-<label>-e…-d…` with `benchmark.tsv` / `benchmark.json`. Job summaries highlight wins and regressions per setting.
 
+### gui-build.yml - Qt GUI build
+**Triggers:** Push to main, pull requests to main, manual dispatch
+
+Builds the `simplify_with_gui` target with the default `BUILD_GUI=ON`
+using distro Qt packages (`qt6-base-dev`, `qt6-svg-dev`) plus pinned
+CGAL 6.x headers fetched from the CGAL release tarball (cached): Ubuntu
+24.04 ships CGAL 5.6, which is Qt5-only, while the GUI target needs
+`CGAL::CGAL_Qt6`. The correctness and benchmark workflows build with
+`-DBUILD_GUI=OFF`, so without this job a Qt-only breakage (e.g. an
+identifier colliding with Qt's `emit` macro) compiles clean in CI.
+
 ### deploy.yml - Cloud Run deploy
 **Triggers:** Push to main, manual dispatch
 
