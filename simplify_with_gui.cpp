@@ -175,8 +175,8 @@ int out_stream(int test_case_no, const std::vector<Point>& stream) {
 // ===========================================================================
 
 // Draws one stab of the shared core loop (simplify_core.h). Each step shows
-// the lowest-index anchor still live after that step: its wedge F, the hull
-// Gi, and its stab region S from before the step.
+// the selected highest-index live anchor: its wedge F, the hull Gi, and its
+// stab region S from before the step.
 class GuiStabObserver {
 public:
     explicit GuiStabObserver(MultiViewer* viewer) : viewer_(viewer) {}
@@ -189,15 +189,17 @@ public:
 
     void anchor_wedge(int /*anchor*/, const std::vector<Point>& S,
                       const std::vector<Point>& F) {
-        if (!viewer_ || have_drawn_anchor_) return;
-        if (showS) S_ = S;
-        if (showF) F_ = F;
+        if (!viewer_) return;
+        if (showS) pending_S_ = S;
+        if (showF) pending_F_ = F;
     }
 
-    void anchor_survived(int /*anchor*/) { have_drawn_anchor_ = true; }
+    void anchor_survived(int /*anchor*/) {
+        if (showS) S_ = pending_S_;
+        if (showF) F_ = pending_F_;
+    }
 
     void step_end(int cur, const Point& pi, const std::vector<Point>& Gi) {
-        have_drawn_anchor_ = false;
         if (!viewer_) return;
         const QColor step_colors[] = {Qt::red, Qt::blue, Qt::green, Qt::magenta, Qt::cyan};
         const QColor color = step_colors[cur % 5];
@@ -211,7 +213,6 @@ public:
     }
 
     void stab_end(const std::array<Point, 2>& segment) {
-        have_drawn_anchor_ = false;
         if (!viewer_) return;
         viewer_->addSimplifiedPoint(segment[0]);
         viewer_->addSimplifiedPoint(segment[1]);
@@ -222,8 +223,7 @@ public:
 
 private:
     MultiViewer* viewer_;
-    bool have_drawn_anchor_ = false;
-    std::vector<Point> S_, F_;
+    std::vector<Point> pending_S_, pending_F_, S_, F_;
 };
 
 std::vector<Point> simplify(const std::vector<Point>& stream,
