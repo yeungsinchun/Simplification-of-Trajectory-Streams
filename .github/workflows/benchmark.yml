@@ -157,7 +157,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           path: orig
-          ref: ${{ github.event.pull_request.base_sha || github.event.before }}
+          ref: ${{ github.event.pull_request.base.sha || github.event.before }}
           submodules: recursive
 
       - name: Compute delta exactly as DELTA_NUMER/(1+EPSILON)

@@ -7,7 +7,7 @@ This directory contains CI/CD workflows for the trajectory simplification projec
 ### correctness.yml - Correctness regression
 **Triggers:** Push to main, pull requests to main, manual dispatch
 
-Compares Fréchet distance and point counts for derived benchmark trajectories against the previous commit.
+Compares Fréchet distance and point counts for derived benchmark trajectories against the baseline commit: the PR base (`github.event.pull_request.base.sha`) on pull requests, or the previous commit (`github.event.before`) on pushes.
 
 Runs 20 parallel matrix jobs (same `(ε, δ, size)` triples as the benchmark gate):
 
@@ -43,7 +43,7 @@ Artifacts: `correctness-<label>` with `correctness.tsv` and `correctness.json`. 
 ### benchmark.yml - Performance regression
 **Triggers:** Push to main, pull requests to main, manual dispatch
 
-Same 20 parallel `(ε, δ, size)` matrix jobs as correctness (table above). For each setting, averages `BENCH_RUNS=5` Release runs of `SIMPLIFY_CORE_MS` on its 10 IDs (small: 11..20 or large: 21..30, new vs previous commit) and enforces:
+Same 20 parallel `(ε, δ, size)` matrix jobs as correctness (table above). For each setting, averages `BENCH_RUNS=5` Release runs of `SIMPLIFY_CORE_MS` on its 10 IDs (small: 11..20 or large: 21..30, new vs the same baseline commit as correctness) and enforces:
 
 1. **Mean gate:** over IDs with `orig_ms ≥ MIN_BENCH_MS` (1 ms), `mean(new) ≤ mean(orig) × MEAN_LIMIT` with `MEAN_LIMIT=1.05` (cannot worsen by more than 1.05×). Replaces a zero-tolerance `mean(new) < mean(orig)` check that failed `mid` on ~0.2% noise with `gated_n=1`.
 2. **Per-ID gate:** for those same gated IDs, `new_ms ≤ orig_ms * 1.20` (was 1.50).
