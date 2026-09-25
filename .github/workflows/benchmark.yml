@@ -311,7 +311,12 @@ jobs:
               || { echo "❌ ops capture failed for ID=$ID"; exit 1; }
 
             RATIO=$(awk -v o="$ORIG_MS" -v n="$NEW_MS" \
-                      'BEGIN { if (o+0 > 0) printf "%.3f", n/o; else print "inf" }')
+                      'BEGIN { if (o+0 > 0) printf "%.17g", n/o; else print "inf" }')
+            if [ "$RATIO" = "inf" ]; then
+              RATIO_REPORT=inf
+            else
+              printf -v RATIO_REPORT '%.3f' "$RATIO"
+            fi
 
             GATED=0
             if awk -v o="$ORIG_MS" -v floor="$MIN_BENCH_MS" \
@@ -340,7 +345,7 @@ jobs:
             if [ "$STATUS" = "FAIL_SLOW" ]; then OVERALL_OK=0; fi
 
             printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-              "$ID" "$EPSILON" "$DELTA" "$ORIG_MS_REPORT" "$ORIG_STD_REPORT" "$NEW_MS_REPORT" "$NEW_STD_REPORT" "$RATIO" \
+              "$ID" "$EPSILON" "$DELTA" "$ORIG_MS" "$ORIG_STD" "$NEW_MS" "$NEW_STD" "$RATIO" \
               "$GATED" "$STATUS" "$OPS" >> "$TSV"
 
             MARK=""
@@ -353,7 +358,7 @@ jobs:
                 fi
                 ;;
             esac
-            SUMMARY_ROWS+="| $ID | $ORIG_MS_REPORT ± $ORIG_STD_REPORT | $NEW_MS_REPORT ± $NEW_STD_REPORT | $RATIO | $STATUS$MARK |"$'\n'
+            SUMMARY_ROWS+="| $ID | $ORIG_MS_REPORT ± $ORIG_STD_REPORT | $NEW_MS_REPORT ± $NEW_STD_REPORT | $RATIO_REPORT | $STATUS$MARK |"$'\n'
           done
 
           MEAN_ORIG="n/a"
@@ -361,10 +366,10 @@ jobs:
           MEAN_RATIO="n/a"
           MEAN_OK=1
           if [ "$MEAN_N" -gt 0 ]; then
-            MEAN_ORIG=$(awk -v s="$MEAN_SUM_ORIG" -v n="$MEAN_N" 'BEGIN { printf "%.4f", s / n }')
-            MEAN_NEW=$(awk -v s="$MEAN_SUM_NEW" -v n="$MEAN_N" 'BEGIN { printf "%.4f", s / n }')
+            MEAN_ORIG=$(awk -v s="$MEAN_SUM_ORIG" -v n="$MEAN_N" 'BEGIN { printf "%.17g", s / n }')
+            MEAN_NEW=$(awk -v s="$MEAN_SUM_NEW" -v n="$MEAN_N" 'BEGIN { printf "%.17g", s / n }')
             MEAN_RATIO=$(awk -v o="$MEAN_ORIG" -v n="$MEAN_NEW" \
-                           'BEGIN { if (o+0 > 0) printf "%.3f", n/o; else print "inf" }')
+                           'BEGIN { if (o+0 > 0) printf "%.17g", n/o; else print "inf" }')
             # Mean gate high-confidence: fail iff (mean_new - MEAN_LIMIT*mean_orig) - t*SE_mean > 0
             # SE_mean = sqrt( V_new + (MEAN_LIMIT^2)*V_orig ) where V_* = sum(sigma_i^2/n)/m^2
             MEAN_FAIL=$(welch_verdict "$BENCH_RUNS" "$MEAN_LIMIT" \
@@ -373,6 +378,16 @@ jobs:
             if [ "$MEAN_FAIL" = "1" ]; then
               MEAN_OK=0
               OVERALL_OK=0
+            fi
+          fi
+          MEAN_ORIG_REPORT="$MEAN_ORIG"
+          MEAN_NEW_REPORT="$MEAN_NEW"
+          MEAN_RATIO_REPORT="$MEAN_RATIO"
+          if [ "$MEAN_N" -gt 0 ]; then
+            printf -v MEAN_ORIG_REPORT '%.4f' "$MEAN_ORIG"
+            printf -v MEAN_NEW_REPORT '%.4f' "$MEAN_NEW"
+            if [ "$MEAN_RATIO" != "inf" ]; then
+              printf -v MEAN_RATIO_REPORT '%.3f' "$MEAN_RATIO"
             fi
           fi
 
@@ -384,7 +399,7 @@ jobs:
             echo "- Runs averaged: **${BENCH_RUNS}** per ID (Welford mean±stddev, high-confidence Welch t gating)"
             echo "- Per-ID bar: new ≤ orig × **${SLOWDOWN_LIMIT}** with 95% one-sided CI (fail iff (mu_new - ${SLOWDOWN_LIMIT}·mu_orig) - t·SE > 0, SE = sqrt(σ_new²/n + (${SLOWDOWN_LIMIT}·σ_orig)²/n), Welch df)"
             echo "- Mean bar: mean(new) ≤ mean(orig) × **${MEAN_LIMIT}** over the ${MEAN_N} gated IDs (floor excludes tiny runs), also Welch t gated"
-            echo "- Mean orig: **${MEAN_ORIG}** ms · Mean new: **${MEAN_NEW}** ms · ratio **${MEAN_RATIO}** · mean_ok=${MEAN_OK} (high-conf)"
+            echo "- Mean orig: **${MEAN_ORIG_REPORT}** ms · Mean new: **${MEAN_NEW_REPORT}** ms · ratio **${MEAN_RATIO_REPORT}** · mean_ok=${MEAN_OK} (high-conf)"
             echo ""
             echo "| ID | orig_ms ± std | new_ms ± std | ratio | status |"
             echo "|----|---------------|----------------|------:|--------|"
@@ -401,13 +416,14 @@ jobs:
           python3 - "$TSV" "$JSON" "$EPSILON" "$DELTA" "$LABEL" \
               "$SLOWDOWN_LIMIT" "$MIN_BENCH_MS" "$BENCH_RUNS" \
               "$MEAN_ORIG" "$MEAN_NEW" "$MEAN_RATIO" "$MEAN_OK" "$MEAN_N" "$OVERALL_OK" \
-              "$MEAN_LIMIT" <<'PY'
+              "$MEAN_LIMIT" <<'PY' || exit 1
           import json, sys
           tsv, out, eps, delta, label = sys.argv[1:6]
           slow, floor, runs = sys.argv[6:9]
           mean_o, mean_n, mean_r, mean_ok, mean_cnt, overall = sys.argv[9:15]
           mean_limit = sys.argv[15]
           cases = []
+          display_rows = []
           with open(tsv) as f:
               header = next(f).rstrip("\n").split("\t")
               # header: id e d orig_ms orig_std new_ms new_std ratio gated status ops
@@ -416,6 +432,12 @@ jobs:
                   while len(parts) < 11:
                       parts.append("")
                   id_, e, d, o_ms, o_std, n_ms, n_std, ratio, gated, status, ops = parts[:11]
+                  display = parts.copy()
+                  for index in (3, 4, 5, 6):
+                      display[index] = f"{float(display[index]):.4f}"
+                  if ratio != "inf":
+                      display[7] = f"{float(ratio):.3f}"
+                  display_rows.append(display)
                   op_map = {}
                   if ops:
                       for pair in ops.split(";"):
@@ -462,6 +484,10 @@ jobs:
           with open(out, "w") as f:
               json.dump(doc, f, indent=2)
               f.write("\n")
+          with open(tsv, "w") as f:
+              f.write("\t".join(header) + "\n")
+              for row in display_rows:
+                  f.write("\t".join(row) + "\n")
           PY
 
           echo "Benchmark ${LABEL} (10 runs Welford, high-conf limit ${SLOWDOWN_LIMIT}x, mean ≤ orig×${MEAN_LIMIT})"
