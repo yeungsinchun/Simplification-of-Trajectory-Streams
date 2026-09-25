@@ -267,108 +267,13 @@ jobs:
               | awk '{ printf "%s%s=%.4f", (NR>1?";":""), $2, $3 }'
           }
 
-          # Helper: one-sided 95% t critical value for Welch df.
-          # Uses lookup table for integer df and linear interpolation for
-          # fractional df; for df>30 interpolates towards normal 1.645.
-          t95_for_df() {
-            python3 - "$1" <<'PY'
-          import sys, math
-          df = float(sys.argv[1])
-          # one-sided 95% t table (two-sided 90%) for df=1..30, 40,60,120,inf
-          table = {
-              1: 6.314, 2: 2.920, 3: 2.353, 4: 2.132, 5: 2.015, 6: 1.943, 7: 1.895, 8: 1.860, 9: 1.833,
-              10: 1.812, 11: 1.796, 12: 1.782, 13: 1.771, 14: 1.761, 15: 1.753, 16: 1.746, 17: 1.740, 18: 1.734,
-              19: 1.729, 20: 1.725, 21: 1.721, 22: 1.717, 23: 1.714, 24: 1.711, 25: 1.708, 26: 1.706, 27: 1.703,
-              28: 1.701, 29: 1.699, 30: 1.697, 40: 1.684, 60: 1.671, 120: 1.658, 1000: 1.645
-          }
-          if df <= 1:
-              print(f"{table[1]:.4f}")
-              sys.exit(0)
-          if df >= 1000:
-              print("1.6450")
-              sys.exit(0)
-          # sorted keys
-          keys = sorted(table.keys())
-          # exact hit
-          if df in table:
-              print(f"{table[int(df)]:.4f}")
-              sys.exit(0)
-          # interpolate
-          # find bracketing keys
-          lower = keys[0]
-          upper = keys[-1]
-          for k in keys:
-              if k < df:
-                  lower = k
-              elif k > df:
-                  upper = k
-                  break
-          if lower == upper:
-              print(f"{table[lower]:.4f}")
-          else:
-              # linear interpolation in df (good enough for t)
-              t_lo = table[lower]
-              t_hi = table[upper]
-              # interpolate proportionally; for large gaps use linear
-              frac = (df - lower) / (upper - lower)
-              t = t_lo + frac * (t_hi - t_lo)
-              print(f"{t:.4f}")
-          PY
-          }
-
-          # Decide FAIL_SLOW with high confidence (one-sided 95% Welch t).
-          # SE = sqrt(sigma_new^2/n + (limit*sigma_orig)^2/n)
-          # Welch df, t_0.95, then L = (mu_new - limit*mu_orig) - t*SE
-          # FAIL_SLOW only if L > 0 (high confidence new is worse).
-          is_fail_slow() {
-            local mu_orig=$1 sigma_orig=$2 mu_new=$3 sigma_new=$4 n=$5 limit=$6
-            python3 - "$mu_orig" "$sigma_orig" "$mu_new" "$sigma_new" "$n" "$limit" <<'PY'
-          import sys, math
-          mu_o = float(sys.argv[1]); s_o = float(sys.argv[2])
-          mu_n = float(sys.argv[3]); s_n = float(sys.argv[4])
-          n = int(float(sys.argv[5])); limit = float(sys.argv[6])
-          # scaled orig stddev
-          s_o_scaled = limit * s_o
-          se_sq = (s_n*s_n)/n + (s_o_scaled*s_o_scaled)/n
-              # use se
-          if se_sq <= 1e-12:
-              diff = mu_n - limit*mu_o
-              print("1" if diff > 1e-9 else "0")
-              sys.exit(0)
-          se = math.sqrt(se_sq)
-          v1 = (s_n*s_n)/n
-          v2 = (s_o_scaled*s_o_scaled)/n
-          num = (v1+v2)*(v1+v2)
-          den = 0
-          if v1 > 1e-12:
-              den += (v1*v1)/(n-1)
-          if v2 > 1e-12:
-              den += (v2*v2)/(n-1)
-          if den <= 1e-18:
-              df = 2*n - 2
-          else:
-              df = num/den
-          # t table
-          table = {1:6.314,2:2.920,3:2.353,4:2.132,5:2.015,6:1.943,7:1.895,8:1.860,9:1.833,10:1.812,11:1.796,12:1.782,13:1.771,14:1.761,15:1.753,16:1.746,17:1.740,18:1.734,19:1.729,20:1.725,21:1.721,22:1.717,23:1.714,24:1.711,25:1.708,26:1.706,27:1.703,28:1.701,29:1.699,30:1.697,40:1.684,60:1.671,120:1.658,1000:1.645}
-          def t95(d):
-              if d <= 1: return table[1]
-              if d >= 1000: return 1.645
-              ks = sorted(table.keys())
-              if int(d) in table and abs(d-int(d))<1e-9:
-                  return table[int(d)]
-              lo = ks[0]; hi = ks[-1]
-              for k in ks:
-                  if k < d: lo=k
-                  elif k > d: hi=k; break
-              if lo==hi: return table[lo]
-              t_lo=table[lo]; t_hi=table[hi]
-              frac=(d-lo)/(hi-lo)
-              return t_lo+frac*(t_hi-t_lo)
-          t = t95(df)
-          diff = mu_n - limit*mu_o
-          lb = diff - t*se
-          print("1" if lb > 0 else "0")
-          PY
+          welch_verdict() {
+            local result
+            result=$(python3 new/scripts/ci/welch.py "$@") || return 1
+            case "$result" in
+              0|1) printf '%s' "$result" ;;
+              *) echo "Invalid Welch verdict: $result" >&2; return 1 ;;
+            esac
           }
 
           IDS_ARR=($IDS)
@@ -392,8 +297,8 @@ jobs:
           declare -a GATED_NEW_STD=()
 
           for ID in "${IDS_ARR[@]}"; do
-            ORIG_STATS=$(bench_stats_ms orig "$ID" orig)
-            NEW_STATS=$(bench_stats_ms new "$ID" new)
+            ORIG_STATS=$(bench_stats_ms orig "$ID" orig) || exit 1
+            NEW_STATS=$(bench_stats_ms new "$ID" new) || exit 1
             ORIG_MS=$(echo "$ORIG_STATS" | awk '{print $1}')
             ORIG_STD=$(echo "$ORIG_STATS" | awk '{print $2}')
             NEW_MS=$(echo "$NEW_STATS" | awk '{print $1}')
@@ -420,7 +325,7 @@ jobs:
             STATUS="OK"
             if [ "$GATED" -eq 1 ]; then
               # High-confidence FAIL_SLOW: fail iff (mu_new - 1.20*mu_orig) - t*SE > 0
-              FAIL=$(is_fail_slow "$ORIG_MS" "$ORIG_STD" "$NEW_MS" "$NEW_STD" "$BENCH_RUNS" "$SLOWDOWN_LIMIT")
+              FAIL=$(welch_verdict "$BENCH_RUNS" "$SLOWDOWN_LIMIT" "$ORIG_MS" "$ORIG_STD" "$NEW_MS" "$NEW_STD") || exit 1
               if [ "$FAIL" = "1" ]; then
                 STATUS="FAIL_SLOW"
               fi
@@ -458,81 +363,9 @@ jobs:
                            'BEGIN { if (o+0 > 0) printf "%.3f", n/o; else print "inf" }')
             # Mean gate high-confidence: fail iff (mean_new - MEAN_LIMIT*mean_orig) - t*SE_mean > 0
             # SE_mean = sqrt( V_new + (MEAN_LIMIT^2)*V_orig ) where V_* = sum(sigma_i^2/n)/m^2
-            MEAN_FAIL=$(python3 - "$BENCH_RUNS" "$MEAN_LIMIT" "$MEAN_N" \
-              "${GATED_ORIG_MS[*]}" "${GATED_ORIG_STD[*]}" "${GATED_NEW_MS[*]}" "${GATED_NEW_STD[*]}" <<'PY'
-          import sys, math
-          n = int(sys.argv[1]); limit = float(sys.argv[2]); m = int(sys.argv[3])
-          orig_ms = list(map(float, sys.argv[4].split())) if sys.argv[4].strip() else []
-          orig_std = list(map(float, sys.argv[5].split())) if sys.argv[5].strip() else []
-          new_ms = list(map(float, sys.argv[6].split())) if sys.argv[6].strip() else []
-          new_std = list(map(float, sys.argv[7].split())) if sys.argv[7].strip() else []
-          if m==0:
-              print("0"); sys.exit(0)
-          mean_o = sum(orig_ms)/m
-          mean_n = sum(new_ms)/m
-          # variances of per-ID means
-          v_o_is = [ (s*s)/n for s in orig_std ]
-          v_n_is = [ (s*s)/n for s in new_std ]
-          sum_v_o = sum(v_o_is)
-          sum_v_n = sum(v_n_is)
-          var_mean_o = sum_v_o/(m*m) if m else 0
-          var_mean_n = sum_v_n/(m*m) if m else 0
-          var_mean_o_scaled = (limit*limit)*var_mean_o
-          se_sq = var_mean_n + var_mean_o_scaled
-          if se_sq <= 1e-12:
-              diff = mean_n - limit*mean_o
-              print("1" if diff > 1e-9 else "0")
-              sys.exit(0)
-          se = math.sqrt(se_sq)
-          # effective df for each combined variance via Welch-Satterthwaite
-          def eff_df(v_is, sum_v):
-              if sum_v <= 1e-18:
-                  return 1e9
-              num = sum_v*sum_v
-              den = 0
-              for v in v_is:
-                  if v <= 1e-18: continue
-                  den += (v*v)/(n-1)
-              if den <= 1e-18:
-                  return 1e9
-              # scale by 1/m^2: both num and den scaled by 1/m^4 -> df unchanged
-              return num/den
-          df_n_eff = eff_df(v_n_is, sum_v_n)
-          df_o_eff = eff_df(v_o_is, sum_v_o)
-          # combined Welch df
-          v1 = var_mean_n
-          v2 = var_mean_o_scaled
-          if v1 <= 1e-18 and v2 <= 1e-18:
-              df = 2*m*n -2
-          elif v1 <= 1e-18:
-              df = df_o_eff
-          elif v2 <= 1e-18:
-              df = df_n_eff
-          else:
-              num = (v1+v2)*(v1+v2)
-              den = (v1*v1)/df_n_eff + (v2*v2)/df_o_eff
-              df = num/den if den>1e-18 else 2*m*n-2
-          table = {1:6.314,2:2.920,3:2.353,4:2.132,5:2.015,6:1.943,7:1.895,8:1.860,9:1.833,10:1.812,11:1.796,12:1.782,13:1.771,14:1.761,15:1.753,16:1.746,17:1.740,18:1.734,19:1.729,20:1.725,21:1.721,22:1.717,23:1.714,24:1.711,25:1.708,26:1.706,27:1.703,28:1.701,29:1.699,30:1.697,40:1.684,60:1.671,120:1.658,1000:1.645}
-          def t95(d):
-              if d <= 1: return table[1]
-              if d >= 1000: return 1.645
-              ks = sorted(table.keys())
-              if int(d) in table and abs(d-int(d))<1e-9:
-                  return table[int(d)]
-              lo = ks[0]; hi = ks[-1]
-              for k in ks:
-                  if k < d: lo=k
-                  elif k > d: hi=k; break
-              if lo==hi: return table[lo]
-              t_lo=table[lo]; t_hi=table[hi]
-              frac=(d-lo)/(hi-lo)
-              return t_lo+frac*(t_hi-t_lo)
-          t = t95(df)
-          diff = mean_n - limit*mean_o
-          lb = diff - t*se
-          print("1" if lb > 0 else "0")
-          PY
-            )
+            MEAN_FAIL=$(welch_verdict "$BENCH_RUNS" "$MEAN_LIMIT" \
+              "${GATED_ORIG_MS[*]}" "${GATED_ORIG_STD[*]}" \
+              "${GATED_NEW_MS[*]}" "${GATED_NEW_STD[*]}") || exit 1
             if [ "$MEAN_FAIL" = "1" ]; then
               MEAN_OK=0
               OVERALL_OK=0
@@ -647,4 +480,3 @@ jobs:
         with:
           name: benchmark-${{ matrix.label }}
           path: new/bench-report/
-
