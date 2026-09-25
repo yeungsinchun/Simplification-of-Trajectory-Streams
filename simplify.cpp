@@ -20,18 +20,18 @@ struct StabScratch {
     sh_double::FastClipBuffers clip_buffers;
 };
 
-int get_longest_stab(const std::vector<Point>& stream, int cur,
-                     std::vector<Point>& simplified,
-                     double EPSILON, double DELTA, StabScratch& scratch) {
+int get_longest_stab(const std::vector<Point> &stream, int cur,
+                     std::vector<Point> &simplified, double EPSILON,
+                     double DELTA, StabScratch &scratch) {
     TIMER("get_longest_stab");
     const Point& p0 = stream[cur];
-    auto& P = scratch.P;
-    auto& Gi = scratch.Gi;
-    auto& S = scratch.S;
-    auto& F = scratch.F;
-    auto& active = scratch.active;
-    auto& stab_bounds = scratch.stab_bounds;
-    auto& anchor_outside = scratch.anchor_outside;
+    auto &P = scratch.P;
+    auto &Gi = scratch.Gi;
+    auto &S = scratch.S;
+    auto &F = scratch.F;
+    auto &active = scratch.active;
+    auto &stab_bounds = scratch.stab_bounds;
+    auto &anchor_outside = scratch.anchor_outside;
     {
         TIMER("boundary_P");
         P = get_boundary_points_from_grid(p0, EPSILON, DELTA);
@@ -64,10 +64,12 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
             bool full_bbox, disjoint;
             {
                 TIMER("find_F");
-                full_bbox = find_F(P[i], S[i], F, &scratch.prepared_Gi,
-                                   &disjoint, &stab_bounds[i], &anchor_outside[i]);
+                full_bbox =
+                    find_F(P[i], S[i], F, &scratch.prepared_Gi, &disjoint,
+                           &stab_bounds[i], &anchor_outside[i]);
             }
-            if (disjoint) continue;
+            if (disjoint)
+                continue;
             bool hit;
             {
                 TIMER("intersect");
@@ -76,10 +78,10 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
                     S[i] = bbox_result;
                     stab_bounds[i] = bbox_bounds;
                 } else {
-                    hit = intersect_prepared(F, scratch.prepared_Gi,
-                                             S[i],
+                    hit = intersect_prepared(F, scratch.prepared_Gi, S[i],
                                              anchor_outside[i] && !full_bbox
-                                                 ? nullptr : &stab_bounds[i],
+                                                 ? nullptr
+                                                 : &stab_bounds[i],
                                              scratch.clip_buffers);
                     if (full_bbox) {
                         bbox_result = S[i];
@@ -89,11 +91,13 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
                     }
                 }
             }
-            if (!hit) continue;
+            if (!hit)
+                continue;
             active[surviving++] = i;
         }
         active.resize(surviving);
-        if (active.empty()) break;
+        if (active.empty())
+            break;
         const int chosen = active.back();
         buffer[0] = P[chosen];
         buffer[1] = S[chosen].front();
@@ -404,7 +408,8 @@ std::vector<Point> simplify(const std::vector<Point>& stream,
         StabScratch scratch;
         int cur = 0;
         while (cur != int(stream.size()))
-            cur = get_longest_stab(stream, cur, simplified, EPSILON, DELTA, scratch);
+            cur = get_longest_stab(stream, cur, simplified, EPSILON, DELTA,
+                                   scratch);
     }
     double ms = std::chrono::duration<double, std::milli>(
         std::chrono::high_resolution_clock::now() - t0).count();
