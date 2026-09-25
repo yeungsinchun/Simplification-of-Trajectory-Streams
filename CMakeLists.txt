@@ -16,11 +16,13 @@ option(BUILD_GUI "Build the Qt viewer (simplify_with_gui)" ON)
 
 # Headless simplify binary — always built, no Qt dependency.
 find_package(CGAL REQUIRED)
+find_package(Threads REQUIRED)
 add_executable(simplify
   simplify.cpp
 )
 target_link_libraries(simplify
   CGAL::CGAL
+  Threads::Threads
 )
 
 # Baseline binaries used by the web compare pane and benchmark.py.

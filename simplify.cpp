@@ -1,6 +1,11 @@
+#include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <fstream>
 #include <iomanip>
+#include <memory>
+#include <mutex>
+#include <thread>
 
 #include "simplify_geometry.h"
 #include "simplify_io.h"
@@ -10,15 +15,212 @@
 //  Core algorithm (opt-in TIMER sites; active only when --time is set)
 // ===========================================================================
 
+// Per-thread state for one anchor update: the wedge F, clip buffers, and the
+// per-step cache for anchors whose F is the whole bbox (they all clip the
+// same polygon against the same Gi, so the result is identical).
+struct AnchorWorker {
+    std::vector<Point> F, bbox_result;
+    sh_double::FastClipBuffers clip_buffers;
+    AxisBounds bbox_bounds;
+    bool bbox_cached = false, bbox_hit = false;
+};
+
+// Persistent helpers for the anchor loop. Within one stream step every live
+// anchor's find_F + clip reads only shared step data (P, Gi) and writes only
+// its own S/bounds/latch, so anchors can be updated in any order on any
+// thread. Survivors are compacted afterwards in index order, so the output
+// is identical to the sequential loop.
+//
+// Work is claimed in small chunks through one ticket holding (generation,
+// next index); a claim is valid only while the generation still matches, and
+// run() waits for finished items rather than for every helper, so a helper
+// the OS has descheduled never stalls a step. Idle helpers spin for up to
+// kIdleSpin and then sleep on a condition variable.
+class AnchorPool {
+  public:
+    explicit AnchorPool(int participants) : workers_(participants) {
+        for (int t = 1; t < participants; ++t)
+            threads_.emplace_back([this, t] { helper_loop(t); });
+    }
+    ~AnchorPool() {
+        stop_.store(true);
+        publish(0, nullptr, nullptr);
+        for (auto &thread : threads_)
+            thread.join();
+    }
+    AnchorPool(const AnchorPool &) = delete;
+    AnchorPool &operator=(const AnchorPool &) = delete;
+
+    int participants() const { return int(workers_.size()); }
+    AnchorWorker &worker(int t) { return workers_[t]; }
+
+    // Calls fn(begin, end, worker) on chunks covering [0, count) across all
+    // participants (the caller included); returns once every call finished.
+    template <class Fn> void run(int count, Fn &fn) {
+        const uint64_t generation = publish(
+            count, &fn, [](void *job, int begin, int end, AnchorWorker &w) {
+                (*static_cast<Fn *>(job))(begin, end, w);
+            });
+        drain(0, generation);
+        while (done_.load(std::memory_order_acquire) != count)
+            cpu_relax();
+    }
+
+  private:
+    using Call = void (*)(void *, int, int, AnchorWorker &);
+    struct Job {
+        std::atomic<void *> ctx{nullptr};
+        std::atomic<Call> call{nullptr};
+        std::atomic<int> count{0};
+    };
+    static constexpr int kChunk = 4;
+
+    // Steps arrive every few microseconds while a run is busy; helpers idle
+    // this long (e.g. after the run) go to sleep.
+    static constexpr auto kIdleSpin = std::chrono::milliseconds(1);
+
+    static void cpu_relax() {
+#if defined(__aarch64__)
+        asm volatile("yield");
+#elif defined(__x86_64__) || defined(__i386__)
+        __builtin_ia32_pause();
+#endif
+    }
+
+    // Jobs alternate between two slots; a slot is rewritten only after the
+    // generation using it has finished and the next one has been published.
+    uint64_t publish(int count, void *ctx, Call call) {
+        const uint64_t generation = (ticket_.load() >> 32) + 1;
+        Job &job = jobs_[generation & 1];
+        job.ctx.store(ctx, std::memory_order_relaxed);
+        job.call.store(call, std::memory_order_relaxed);
+        job.count.store(count, std::memory_order_relaxed);
+        done_.store(0, std::memory_order_relaxed);
+        ticket_.store(generation << 32);
+        if (sleepers_.load() > 0) {
+            std::lock_guard<std::mutex> lock(mutex_);
+            wake_.notify_all();
+        }
+        return generation;
+    }
+
+    void drain(int t, uint64_t generation) {
+        AnchorWorker &w = workers_[t];
+        const Job &job = jobs_[generation & 1];
+        uint64_t ticket = ticket_.load(std::memory_order_acquire);
+        for (;;) {
+            if ((ticket >> 32) != generation)
+                return;
+            const int begin = int(uint32_t(ticket));
+            const int count = job.count.load(std::memory_order_relaxed);
+            if (begin >= count)
+                return;
+            if (!ticket_.compare_exchange_weak(ticket, ticket + kChunk,
+                                               std::memory_order_acq_rel,
+                                               std::memory_order_acquire))
+                continue;
+            const int end = std::min(begin + kChunk, count);
+            void *ctx = job.ctx.load(std::memory_order_relaxed);
+            const Call call = job.call.load(std::memory_order_relaxed);
+            call(ctx, begin, end, w);
+            done_.fetch_add(end - begin, std::memory_order_release);
+            ticket = ticket_.load(std::memory_order_acquire);
+        }
+    }
+
+    void helper_loop(int t) {
+        uint64_t seen = 0;
+        for (;;) {
+            uint64_t generation;
+            auto idle_since = std::chrono::steady_clock::now();
+            for (int spins = 0; (generation = ticket_.load() >> 32) == seen;
+                 ++spins) {
+                cpu_relax();
+                if (spins % 64 != 63 ||
+                    std::chrono::steady_clock::now() - idle_since < kIdleSpin)
+                    continue;
+                std::unique_lock<std::mutex> lock(mutex_);
+                sleepers_.fetch_add(1);
+                wake_.wait(lock, [&] { return (ticket_.load() >> 32) != seen; });
+                sleepers_.fetch_sub(1);
+            }
+            seen = generation;
+            if (stop_.load())
+                return;
+            drain(t, generation);
+        }
+    }
+
+    std::vector<AnchorWorker> workers_;
+    std::vector<std::thread> threads_;
+    Job jobs_[2];
+    std::atomic<uint64_t> ticket_{0};
+    std::atomic<int> done_{0}, sleepers_{0};
+    std::atomic<bool> stop_{false};
+    std::mutex mutex_;
+    std::condition_variable wake_;
+};
+
+// Parallel updates pay a hand-off and a join per step, so only steps with at
+// least this much work (live anchors x Gi edges) use the pool; small steps
+// (coarse epsilon, few live anchors) stay on the calling thread.
+constexpr size_t kParallelMinWork = 256;
+
 struct StabScratch {
-    std::vector<Point> P, Gi, F;
+    std::vector<Point> P, Gi;
     std::vector<std::vector<Point>> S;
     std::vector<int> active;
     std::vector<AxisBounds> stab_bounds;
     std::vector<uint8_t> anchor_outside;
     PreparedClipPolygon prepared_Gi;
-    sh_double::FastClipBuffers clip_buffers;
+    AnchorWorker serial;
+    int threads = 1;
+    std::unique_ptr<AnchorPool> pool;
+    std::vector<uint8_t> keep;
 };
+
+// Steps anchors active[begin..end): S[i] = F(S[i], P[i]) ∩ Gi, and keep[k] is
+// 0 when anchor active[k] dies. Out of line so the sequential loop and the
+// pool share a single copy of the inlined geometry (a second copy pushes GCC
+// past its inlining budget and slows the sequential loop by ~20%); one call
+// covers a whole step or chunk, so the call itself costs nothing measurable.
+__attribute__((noinline)) void update_anchors(StabScratch &scratch, int begin,
+                                              int end, AnchorWorker &w) {
+    auto &S = scratch.S;
+    auto &stab_bounds = scratch.stab_bounds;
+    auto &anchor_outside = scratch.anchor_outside;
+    for (int k = begin; k < end; ++k) {
+        const int i = scratch.active[k];
+        bool full_bbox, disjoint;
+        {
+            TIMER("find_F");
+            full_bbox = find_F(scratch.P[i], S[i], w.F, &scratch.prepared_Gi,
+                               &disjoint, &stab_bounds[i], &anchor_outside[i]);
+        }
+        if (disjoint) {
+            scratch.keep[k] = false;
+            continue;
+        }
+        TIMER("intersect");
+        if (full_bbox && w.bbox_cached) {
+            S[i] = w.bbox_result;
+            stab_bounds[i] = w.bbox_bounds;
+            scratch.keep[k] = w.bbox_hit;
+            continue;
+        }
+        const bool hit = intersect_prepared(
+            w.F, scratch.prepared_Gi, S[i],
+            anchor_outside[i] && !full_bbox ? nullptr : &stab_bounds[i],
+            w.clip_buffers);
+        if (full_bbox) {
+            w.bbox_result = S[i];
+            w.bbox_bounds = stab_bounds[i];
+            w.bbox_hit = hit;
+            w.bbox_cached = true;
+        }
+        scratch.keep[k] = hit;
+    }
+}
 
 int get_longest_stab(const std::vector<Point> &stream, int cur,
                      std::vector<Point> &simplified, double EPSILON,
@@ -28,7 +230,6 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
     auto &P = scratch.P;
     auto &Gi = scratch.Gi;
     auto &S = scratch.S;
-    auto &F = scratch.F;
     auto &active = scratch.active;
     auto &stab_bounds = scratch.stab_bounds;
     auto &anchor_outside = scratch.anchor_outside;
@@ -56,45 +257,28 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
             Gi = get_conv_from_grid(stream[cur], EPSILON, DELTA);
         }
         prepare_clip_polygon(Gi, scratch.prepared_Gi);
-        std::vector<Point> bbox_result;
-        AxisBounds bbox_bounds;
-        bool bbox_cached = false, bbox_hit = false;
-        size_t surviving = 0;
-        for (int i : active) {
-            bool full_bbox, disjoint;
-            {
-                TIMER("find_F");
-                full_bbox =
-                    find_F(P[i], S[i], F, &scratch.prepared_Gi, &disjoint,
-                           &stab_bounds[i], &anchor_outside[i]);
-            }
-            if (disjoint)
-                continue;
-            bool hit;
-            {
-                TIMER("intersect");
-                if (full_bbox && bbox_cached) {
-                    hit = bbox_hit;
-                    S[i] = bbox_result;
-                    stab_bounds[i] = bbox_bounds;
-                } else {
-                    hit = intersect_prepared(F, scratch.prepared_Gi, S[i],
-                                             anchor_outside[i] && !full_bbox
-                                                 ? nullptr
-                                                 : &stab_bounds[i],
-                                             scratch.clip_buffers);
-                    if (full_bbox) {
-                        bbox_result = S[i];
-                        bbox_bounds = stab_bounds[i];
-                        bbox_hit = hit;
-                        bbox_cached = true;
-                    }
-                }
-            }
-            if (!hit)
-                continue;
-            active[surviving++] = i;
+        const int count = int(active.size());
+        scratch.keep.resize(count);
+        // Timers keep global state, so --time runs stay sequential.
+        if (scratch.threads > 1 && !timer_detail::enabled() &&
+            size_t(count) * scratch.prepared_Gi.edges.size() >=
+                kParallelMinWork) {
+            if (!scratch.pool)
+                scratch.pool = std::make_unique<AnchorPool>(scratch.threads);
+            for (int t = 0; t < scratch.pool->participants(); ++t)
+                scratch.pool->worker(t).bbox_cached = false;
+            auto job = [&](int begin, int end, AnchorWorker &w) {
+                update_anchors(scratch, begin, end, w);
+            };
+            scratch.pool->run(count, job);
+        } else {
+            scratch.serial.bbox_cached = false;
+            update_anchors(scratch, 0, count, scratch.serial);
         }
+        size_t surviving = 0;
+        for (int k = 0; k < count; ++k)
+            if (scratch.keep[k])
+                active[surviving++] = active[k];
         active.resize(surviving);
         if (active.empty())
             break;
@@ -406,6 +590,7 @@ std::vector<Point> simplify(const std::vector<Point>& stream,
     {
         TIMER("total");
         StabScratch scratch;
+        scratch.threads = simplify_threads;
         int cur = 0;
         while (cur != int(stream.size()))
             cur = get_longest_stab(stream, cur, simplified, EPSILON, DELTA,
