@@ -17,20 +17,76 @@ debug/
 taxi_log_2008_by_id/
 .cache/
 /data/
+!data/
 
-# CI regression fixtures: the raw input trajectories for IDs 1..10 must be
-# checked into git so the CI workflow can run the simplify binary against a
-# deterministic dataset without needing Kaggle access at build time.
+# CI regression fixtures: the raw input trajectories must be checked into git
+# so the CI workflow can run the simplify binary against a deterministic dataset
+# without needing Kaggle access at build time.
+# Original 10 trajectories (varied sizes 5..5618):
+!data/1/
 !data/1/original.txt
+!data/2/
 !data/2/original.txt
+!data/3/
 !data/3/original.txt
+!data/4/
 !data/4/original.txt
+!data/5/
 !data/5/original.txt
+!data/6/
 !data/6/original.txt
+!data/7/
 !data/7/original.txt
+!data/8/
 !data/8/original.txt
+!data/9/
 !data/9/original.txt
+!data/10/
 !data/10/original.txt
+# Derived benchmark sets (scripts/derive_benchmark_data.py -- deterministic
+# fixed-prefix truncation of the 10 originals):
+#   small ~100 pts: 11..20 -> first 100 pts of 1..10 (data/8 stays 5)
+#   large ~1000 pts: 21..30 -> first 1000 pts of 1..10
+!data/11/
+!data/11/original.txt
+!data/12/
+!data/12/original.txt
+!data/13/
+!data/13/original.txt
+!data/14/
+!data/14/original.txt
+!data/15/
+!data/15/original.txt
+!data/16/
+!data/16/original.txt
+!data/17/
+!data/17/original.txt
+!data/18/
+!data/18/original.txt
+!data/19/
+!data/19/original.txt
+!data/20/
+!data/20/original.txt
+!data/21/
+!data/21/original.txt
+!data/22/
+!data/22/original.txt
+!data/23/
+!data/23/original.txt
+!data/24/
+!data/24/original.txt
+!data/25/
+!data/25/original.txt
+!data/26/
+!data/26/original.txt
+!data/27/
+!data/27/original.txt
+!data/28/
+!data/28/original.txt
+!data/29/
+!data/29/original.txt
+!data/30/
+!data/30/original.txt
 
 # Python and notebook caches
 __pycache__/
@@ -50,6 +106,67 @@ results/*.png
 # (Only the carve-out entries above are allowed under data/; everything else
 # under data/ remains ignored.)
 data/**/*
+!data/
+!data/1/
+!data/1/original.txt
+!data/2/
+!data/2/original.txt
+!data/3/
+!data/3/original.txt
+!data/4/
+!data/4/original.txt
+!data/5/
+!data/5/original.txt
+!data/6/
+!data/6/original.txt
+!data/7/
+!data/7/original.txt
+!data/8/
+!data/8/original.txt
+!data/9/
+!data/9/original.txt
+!data/10/
+!data/10/original.txt
+!data/11/
+!data/11/original.txt
+!data/12/
+!data/12/original.txt
+!data/13/
+!data/13/original.txt
+!data/14/
+!data/14/original.txt
+!data/15/
+!data/15/original.txt
+!data/16/
+!data/16/original.txt
+!data/17/
+!data/17/original.txt
+!data/18/
+!data/18/original.txt
+!data/19/
+!data/19/original.txt
+!data/20/
+!data/20/original.txt
+!data/21/
+!data/21/original.txt
+!data/22/
+!data/22/original.txt
+!data/23/
+!data/23/original.txt
+!data/24/
+!data/24/original.txt
+!data/25/
+!data/25/original.txt
+!data/26/
+!data/26/original.txt
+!data/27/
+!data/27/original.txt
+!data/28/
+!data/28/original.txt
+!data/29/
+!data/29/original.txt
+!data/30/
+!data/30/original.txt
 
 # Trace JSON produced by `simplify --web-server` for the local web visualizer.
 # These can be tens to hundreds of MB and are meant to be generated on demand.

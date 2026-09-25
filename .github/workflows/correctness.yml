@@ -7,34 +7,129 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# Same (epsilon, delta) matrix as benchmark.yml so quality and speed gates
+# Same (epsilon, delta, size) matrix as benchmark.yml so quality and speed gates
 # cover identical settings in parallel jobs. Pair rationale:
 #   see .github/workflows/README.md (authoritative matrix table).
 jobs:
   correctness-vs-prev:
-    name: "correct e=${{ matrix.epsilon }} d=${{ matrix.delta }}"
+    name: "correct ${{ matrix.label }} e=${{ matrix.epsilon }}"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
+          # extra-coarse-e 299
           - epsilon: "299"
-            delta: "1"
-            label: coarse-e
-          - epsilon: "0.5"
-            delta: "300"
-            label: fine-e
+            delta_numer: "300"
+            size: "small"
+            label: "extra-coarse-e-d300-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "299"
+            delta_numer: "300"
+            size: "large"
+            label: "extra-coarse-e-d300-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          - epsilon: "299"
+            delta_numer: "1000"
+            size: "small"
+            label: "extra-coarse-e-d1000-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "299"
+            delta_numer: "1000"
+            size: "large"
+            label: "extra-coarse-e-d1000-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          # coarse-e 30
+          - epsilon: "30"
+            delta_numer: "300"
+            size: "small"
+            label: "coarse-e-d300-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "30"
+            delta_numer: "300"
+            size: "large"
+            label: "coarse-e-d300-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          - epsilon: "30"
+            delta_numer: "1000"
+            size: "small"
+            label: "coarse-e-d1000-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "30"
+            delta_numer: "1000"
+            size: "large"
+            label: "coarse-e-d1000-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          # mid-e 5
           - epsilon: "5"
-            delta: "50"
-            label: mid
-          - epsilon: "1"
-            delta: "999"
-            label: large-d
+            delta_numer: "300"
+            size: "small"
+            label: "mid-e-d300-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "5"
+            delta_numer: "300"
+            size: "large"
+            label: "mid-e-d300-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          - epsilon: "5"
+            delta_numer: "1000"
+            size: "small"
+            label: "mid-e-d1000-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "5"
+            delta_numer: "1000"
+            size: "large"
+            label: "mid-e-d1000-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          # fine-e 0.5
+          - epsilon: "0.5"
+            delta_numer: "300"
+            size: "small"
+            label: "fine-e-d300-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "0.5"
+            delta_numer: "300"
+            size: "large"
+            label: "fine-e-d300-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          - epsilon: "0.5"
+            delta_numer: "1000"
+            size: "small"
+            label: "fine-e-d1000-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "0.5"
+            delta_numer: "1000"
+            size: "large"
+            label: "fine-e-d1000-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          # extra-fine-e 0.1
+          - epsilon: "0.1"
+            delta_numer: "300"
+            size: "small"
+            label: "extra-fine-e-d300-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "0.1"
+            delta_numer: "300"
+            size: "large"
+            label: "extra-fine-e-d300-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          - epsilon: "0.1"
+            delta_numer: "1000"
+            size: "small"
+            label: "extra-fine-e-d1000-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "0.1"
+            delta_numer: "1000"
+            size: "large"
+            label: "extra-fine-e-d1000-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
 
     env:
       EPSILON: ${{ matrix.epsilon }}
-      DELTA: ${{ matrix.delta }}
+      DELTA_NUMER: ${{ matrix.delta_numer }}
       LABEL: ${{ matrix.label }}
+      SIZE: ${{ matrix.size }}
+      IDS: ${{ matrix.ids }}
       DIST_TOL: "0.01"
       POINTS_TOL: "0"
 
@@ -52,12 +147,20 @@ jobs:
           ref: ${{ github.event.pull_request.base_sha || github.event.before }}
           submodules: recursive
 
+      - name: Compute delta exactly as DELTA_NUMER/(1+EPSILON)
+        run: |
+          DELTA=$(python3 -c "import sys; eps=float(sys.argv[1]); numer=float(sys.argv[2]); print('{:.15g}'.format(numer/(1+eps)))" "$EPSILON" "$DELTA_NUMER")
+          echo "Computed DELTA=$DELTA from $DELTA_NUMER/(1+$EPSILON)"
+          echo "DELTA=$DELTA" >> "$GITHUB_ENV"
+          echo "EPSILON=$EPSILON DELTA=$DELTA LABEL=$LABEL SIZE=$SIZE"
+
       - name: Sync data from new to old
         run: |
           mkdir -p orig/data
-          for id in 1 2 3 4 5 6 7 8 9 10; do
+          for id in $IDS; do
             cp -r "new/data/$id" "orig/data/$id"
           done
+          echo "Synced IDs: $IDS for $LABEL (e=$EPSILON d=$DELTA)"
 
       - name: Install build dependencies
         run: |
@@ -86,11 +189,11 @@ jobs:
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF
           cmake --build build --target simplify -j"$(nproc)"
 
-      - name: Run correctness comparison (IDs 1..10)
+      - name: Run correctness comparison
         run: |
           set -uo pipefail
 
-          IDS=(1 2 3 4 5 6 7 8 9 10)
+          IDS_ARR=($IDS)
           REPORT_DIR=new/correct-report
           mkdir -p "$REPORT_DIR"
           RESULTS="$REPORT_DIR/correctness.tsv"
@@ -102,9 +205,9 @@ jobs:
           ROWS="| ID | orig dist | new dist | Δ dist | orig pts | new pts | Δ pts | verdict |"$'\n'
           ROWS+="|----|----------:|---------:|-------:|---------:|--------:|------:|---------|"$'\n'
 
-          for ID in "${IDS[@]}"; do
+          for ID in "${IDS_ARR[@]}"; do
             echo "============================================================"
-            echo "ID=$ID  e=$EPSILON  d=$DELTA"
+            echo "ID=$ID  e=$EPSILON  d=$DELTA  label=$LABEL"
             echo "============================================================"
 
             ( cd orig/ && \
@@ -177,6 +280,8 @@ jobs:
           {
             echo "## Correctness \`${LABEL}\` (e=${EPSILON}, d=${DELTA})"
             echo ""
+            echo "- Size: **${SIZE}** · IDs: **${IDS}**"
+            echo "- Delta computed as **${DELTA_NUMER}/(1+${EPSILON}) = ${DELTA}**"
             echo "- DIST_TOL=${DIST_TOL} · POINTS_TOL=${POINTS_TOL}"
             echo ""
             printf '%s' "$ROWS"
@@ -243,5 +348,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: correctness-${{ matrix.label }}-e${{ matrix.epsilon }}-d${{ matrix.delta }}
+          name: correctness-${{ matrix.label }}
           path: new/correct-report/

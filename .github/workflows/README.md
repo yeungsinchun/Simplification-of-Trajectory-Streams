@@ -7,25 +7,43 @@ This directory contains CI/CD workflows for the trajectory simplification projec
 ### correctness.yml - Correctness regression
 **Triggers:** Push to main, pull requests to main, manual dispatch
 
-Compares Fréchet distance and point counts for datasets 1..10 against the previous commit.
+Compares Fréchet distance and point counts for derived benchmark trajectories against the previous commit.
 
-Runs four parallel matrix jobs (same `(ε, δ)` pairs as the benchmark gate):
+Runs 20 parallel matrix jobs (same `(ε, δ, size)` triples as the benchmark gate):
 
-| label | ε | δ | why |
-| --- | --- | --- | --- |
-| `coarse-e` | 299 | 1 | Historical CI pair (large match tolerance) |
-| `fine-e` | 0.5 | 300 | Tight ε (headless CLI default) with large δ (corridor constant from `scripts/benchmark_e.py`) |
-| `mid` | 5 | 50 | Mid-range; δ ≈ 300/(1+ε) corridor scaling from `scripts/benchmark_e.py` |
-| `large-d` | 1 | 999 | Small ε with a very large δ (stresses the time/corridor axis differently from `fine-e`) |
+| label | ε | δ formula | δ | size | IDs | why |
+| --- | --- | --- | --- | --- | --- | --- |
+| `extra-coarse-e-d300-small` | 299 | 300/(1+ε) | 1 | small ~100 pts | 11..20 | Largest ε, tight corridor (corridor area constant) |
+| `extra-coarse-e-d300-large` | 299 | 300/(1+ε) | 1 | large ~1000 pts | 21..30 | Same ε/δ, larger trajectory stresses length scaling |
+| `extra-coarse-e-d1000-small` | 299 | 1000/(1+ε) | 3.333… | small ~100 pts | 11..20 | Same ε, looser corridor (1000 scale) |
+| `extra-coarse-e-d1000-large` | 299 | 1000/(1+ε) | 3.333… | large ~1000 pts | 21..30 | Same ε, larger + looser |
+| `coarse-e-d300-small` | 30 | 300/(1+ε) | 9.677… | small | 11..20 | Coarse ε |
+| `coarse-e-d300-large` | 30 | 300/(1+ε) | 9.677… | large | 21..30 | Coarse ε, large |
+| `coarse-e-d1000-small` | 30 | 1000/(1+ε) | 32.258… | small | 11..20 | Coarse ε, looser δ |
+| `coarse-e-d1000-large` | 30 | 1000/(1+ε) | 32.258… | large | 21..30 | Coarse ε, large + looser |
+| `mid-e-d300-small` | 5 | 300/(1+ε) | 50 | small | 11..20 | Mid ε, δ=50 (historical mid) |
+| `mid-e-d300-large` | 5 | 300/(1+ε) | 50 | large | 21..30 | Mid ε, large |
+| `mid-e-d1000-small` | 5 | 1000/(1+ε) | 166.666… | small | 11..20 | Mid ε, looser δ |
+| `mid-e-d1000-large` | 5 | 1000/(1+ε) | 166.666… | large | 21..30 | Mid ε, large + looser |
+| `fine-e-d300-small` | 0.5 | 300/(1+ε) | 200 | small | 11..20 | Fine ε (headless default) |
+| `fine-e-d300-large` | 0.5 | 300/(1+ε) | 200 | large | 21..30 | Fine ε, large |
+| `fine-e-d1000-small` | 0.5 | 1000/(1+ε) | 666.666… | small | 11..20 | Fine ε, looser δ |
+| `fine-e-d1000-large` | 0.5 | 1000/(1+ε) | 666.666… | large | 21..30 | Fine ε, large + looser |
+| `extra-fine-e-d300-small` | 0.1 | 300/(1+ε) | 272.727… | small | 11..20 | Extra-fine ε |
+| `extra-fine-e-d300-large` | 0.1 | 300/(1+ε) | 272.727… | large | 21..30 | Extra-fine ε, large |
+| `extra-fine-e-d1000-small` | 0.1 | 1000/(1+ε) | 909.090… | small | 11..20 | Extra-fine ε, looser δ |
+| `extra-fine-e-d1000-large` | 0.1 | 1000/(1+ε) | 909.090… | large | 21..30 | Extra-fine ε, large + looser |
+
+Epsilon tiers are `extra-coarse-e` 299, `coarse-e` 30, `mid-e` 5, `fine-e` 0.5, `extra-fine-e` 0.1. Delta is computed exactly as `300/(1+e)` or `1000/(1+e)` in the job (`python3 -c "numer/(1+eps)"` with `:.15g`), not hardcoded, so floating error cannot drift. The `d300` / `d1000` suffix and `small`/`large` suffix in the label make each of the 20 configurations self-describing. Size maps to deterministic datasets derived by `scripts/derive_benchmark_data.py`: `small` IDs 11..20 are first 100 points of original 1..10 (data/8 stays 5, avg 90.5), `large` IDs 21..30 are first 1000 points of original 1..10 (3×1000 + 7 smaller, avg ~695). Original data/1..10 sizes 5..5618 are not uniformly ~100 or ~1000, so the prefix derivation is required; see the script header for rationale and alternatives considered.
 
 Tolerances (unchanged without evidence): `DIST_TOL=0.01`, `POINTS_TOL=0`.
 
-Artifacts: `correctness-<label>-e…-d…` with `correctness.tsv` and `correctness.json`. Job summary tables show per-ID wins/fails.
+Artifacts: `correctness-<label>` with `correctness.tsv` and `correctness.json`. Job summary tables show per-ID wins/fails. Delta is printed as `DELTA_NUMER/(1+EPSILON) = DELTA` in logs.
 
 ### benchmark.yml - Performance regression
 **Triggers:** Push to main, pull requests to main, manual dispatch
 
-Same four parallel `(ε, δ)` matrix jobs as correctness. For each setting, averages `BENCH_RUNS=5` Release runs of `SIMPLIFY_CORE_MS` on IDs 1..10 (new vs previous commit) and enforces:
+Same 20 parallel `(ε, δ, size)` matrix jobs as correctness (table above). For each setting, averages `BENCH_RUNS=5` Release runs of `SIMPLIFY_CORE_MS` on its 10 IDs (small: 11..20 or large: 21..30, new vs previous commit) and enforces:
 
 1. **Mean gate:** over IDs with `orig_ms ≥ MIN_BENCH_MS` (1 ms), `mean(new) ≤ mean(orig) × MEAN_LIMIT` with `MEAN_LIMIT=1.05` (cannot worsen by more than 1.05×). Replaces a zero-tolerance `mean(new) < mean(orig)` check that failed `mid` on ~0.2% noise with `gated_n=1`.
 2. **Per-ID gate:** for those same gated IDs, `new_ms ≤ orig_ms * 1.20` (was 1.50).
@@ -34,7 +52,9 @@ IDs with `orig_ms` strictly below 1 ms are reported as `SKIP_FLOOR` and excluded
 
 Gated averages intentionally omit `--time` so timing stays comparable to older binaries. After averages, the new binary runs once per ID with `--time` and must exit 0 with at least one `TIMER_MS` line (blank ops is a failure). Phase counters (`hull_Gi`, `find_F`, `intersect`, `boundary_P`, …) land in the TSV `ops` column and nested `ops` objects in JSON.
 
-Artifacts: `benchmark-<label>-e…-d…` with `benchmark.tsv` / `benchmark.json`. Job summaries highlight wins and regressions per setting.
+Artifacts: `benchmark-<label>` with `benchmark.tsv` / `benchmark.json`. Job summaries highlight wins and regressions per setting. Each job logs `Computed DELTA=… from NUMER/(1+EPSILON)` and `Synced IDs: …`.
+
+Runtime: 20 jobs each build once and run 10 IDs ×5 averages +10 --time runs =60 simplify invocations. On a local Release build the full 20×10 correctness sweep (~200 Fréchet runs) and 20×10 benchmark sweep (~1000 timed runs) each complete in under a few minutes; measured total for the entire matrix (both workflows sequentially, `BENCH_RUNS=5`) is reported in the PR that introduced the matrix.
 
 ### gui-build.yml - Qt GUI build
 **Triggers:** Push to main, pull requests to main, manual dispatch
