@@ -7,34 +7,132 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# Four (epsilon, delta) settings run as parallel matrix jobs so a slow
+# 20 (epsilon, delta, size) settings run as parallel matrix jobs so a slow
 # setting cannot hide regressions in another. Pair rationale:
 #   see .github/workflows/README.md (authoritative matrix table).
+#   epsilon tiers: 299 (extra-coarse), 30 (coarse), 5 (mid), 0.5 (fine), 0.1 (extra-fine)
+#   delta = 300/(1+epsilon) or 1000/(1+epsilon) computed exactly in the job
+#   size: small ~100 pts (IDs 11..20), large ~1000 pts (IDs 21..30) derived via scripts/derive_benchmark_data.py
 jobs:
   bench-vs-prev:
-    name: "bench e=${{ matrix.epsilon }} d=${{ matrix.delta }}"
+    name: "bench ${{ matrix.label }} e=${{ matrix.epsilon }}"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
+          # extra-coarse-e 299
           - epsilon: "299"
-            delta: "1"
-            label: coarse-e
-          - epsilon: "0.5"
-            delta: "300"
-            label: fine-e
+            delta_numer: "300"
+            size: "small"
+            label: "extra-coarse-e-d300-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "299"
+            delta_numer: "300"
+            size: "large"
+            label: "extra-coarse-e-d300-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          - epsilon: "299"
+            delta_numer: "1000"
+            size: "small"
+            label: "extra-coarse-e-d1000-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "299"
+            delta_numer: "1000"
+            size: "large"
+            label: "extra-coarse-e-d1000-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          # coarse-e 30
+          - epsilon: "30"
+            delta_numer: "300"
+            size: "small"
+            label: "coarse-e-d300-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "30"
+            delta_numer: "300"
+            size: "large"
+            label: "coarse-e-d300-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          - epsilon: "30"
+            delta_numer: "1000"
+            size: "small"
+            label: "coarse-e-d1000-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "30"
+            delta_numer: "1000"
+            size: "large"
+            label: "coarse-e-d1000-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          # mid-e 5
           - epsilon: "5"
-            delta: "50"
-            label: mid
-          - epsilon: "1"
-            delta: "999"
-            label: large-d
+            delta_numer: "300"
+            size: "small"
+            label: "mid-e-d300-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "5"
+            delta_numer: "300"
+            size: "large"
+            label: "mid-e-d300-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          - epsilon: "5"
+            delta_numer: "1000"
+            size: "small"
+            label: "mid-e-d1000-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "5"
+            delta_numer: "1000"
+            size: "large"
+            label: "mid-e-d1000-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          # fine-e 0.5
+          - epsilon: "0.5"
+            delta_numer: "300"
+            size: "small"
+            label: "fine-e-d300-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "0.5"
+            delta_numer: "300"
+            size: "large"
+            label: "fine-e-d300-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          - epsilon: "0.5"
+            delta_numer: "1000"
+            size: "small"
+            label: "fine-e-d1000-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "0.5"
+            delta_numer: "1000"
+            size: "large"
+            label: "fine-e-d1000-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          # extra-fine-e 0.1
+          - epsilon: "0.1"
+            delta_numer: "300"
+            size: "small"
+            label: "extra-fine-e-d300-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "0.1"
+            delta_numer: "300"
+            size: "large"
+            label: "extra-fine-e-d300-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          - epsilon: "0.1"
+            delta_numer: "1000"
+            size: "small"
+            label: "extra-fine-e-d1000-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "0.1"
+            delta_numer: "1000"
+            size: "large"
+            label: "extra-fine-e-d1000-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
 
     env:
       EPSILON: ${{ matrix.epsilon }}
-      DELTA: ${{ matrix.delta }}
+      DELTA_NUMER: ${{ matrix.delta_numer }}
       LABEL: ${{ matrix.label }}
+      SIZE: ${{ matrix.size }}
+      IDS: ${{ matrix.ids }}
       # Per-ID bar: new_ms <= orig_ms * SLOWDOWN_LIMIT when orig is above floor.
       SLOWDOWN_LIMIT: "1.20"
       # Averaged runs per binary/ID. Raised from 3 -> 5 so the stricter mean
@@ -62,12 +160,20 @@ jobs:
           ref: ${{ github.event.pull_request.base_sha || github.event.before }}
           submodules: recursive
 
+      - name: Compute delta exactly as DELTA_NUMER/(1+EPSILON)
+        run: |
+          DELTA=$(python3 -c "import sys; eps=float(sys.argv[1]); numer=float(sys.argv[2]); print('{:.15g}'.format(numer/(1+eps)))" "$EPSILON" "$DELTA_NUMER")
+          echo "Computed DELTA=$DELTA from $DELTA_NUMER/(1+$EPSILON)"
+          echo "DELTA=$DELTA" >> "$GITHUB_ENV"
+          echo "EPSILON=$EPSILON DELTA=$DELTA LABEL=$LABEL SIZE=$SIZE"
+
       - name: Sync data from new to old
         run: |
           mkdir -p orig/data
-          for id in 1 2 3 4 5 6 7 8 9 10; do
+          for id in $IDS; do
             cp -r "new/data/$id" "orig/data/$id"
           done
+          echo "Synced IDs: $IDS for $LABEL (e=$EPSILON d=$DELTA)"
 
       - name: Install build dependencies
         run: |
@@ -88,7 +194,7 @@ jobs:
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF
           cmake --build build --target simplify -j"$(nproc)"
 
-      - name: Run benchmark comparison (IDs 1..10)
+      - name: Run benchmark comparison
         run: |
           set -uo pipefail
 
@@ -138,7 +244,7 @@ jobs:
               | awk '{ printf "%s%s=%.4f", (NR>1?";":""), $2, $3 }'
           }
 
-          IDS=(1 2 3 4 5 6 7 8 9 10)
+          IDS_ARR=($IDS)
           REPORT_DIR=new/bench-report
           mkdir -p "$REPORT_DIR"
           TSV="$REPORT_DIR/benchmark.tsv"
@@ -152,7 +258,7 @@ jobs:
           MEAN_N=0
           SUMMARY_ROWS=""
 
-          for ID in "${IDS[@]}"; do
+          for ID in "${IDS_ARR[@]}"; do
             ORIG_MS=$(bench_avg_ms orig "$ID" orig)
             NEW_MS=$(bench_avg_ms new "$ID" new)
             OPS=$(capture_ops "$ID") \
@@ -219,6 +325,8 @@ jobs:
           {
             echo "## Benchmark \`${LABEL}\` (e=${EPSILON}, d=${DELTA})"
             echo ""
+            echo "- Size: **${SIZE}** · IDs: **${IDS}**"
+            echo "- Delta computed as **${DELTA_NUMER}/(1+${EPSILON}) = ${DELTA}**"
             echo "- Runs averaged: **${BENCH_RUNS}** per ID (no \`--time\` for gated ms)"
             echo "- Per-ID bar: new ≤ orig × **${SLOWDOWN_LIMIT}** (IDs with orig ≥ ${MIN_BENCH_MS} ms)"
             echo "- Mean bar: mean(new) ≤ mean(orig) × **${MEAN_LIMIT}** over the ${MEAN_N} gated IDs (floor excludes tiny runs)"
@@ -316,5 +424,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: benchmark-${{ matrix.label }}-e${{ matrix.epsilon }}-d${{ matrix.delta }}
+          name: benchmark-${{ matrix.label }}
           path: new/bench-report/
