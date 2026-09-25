@@ -45,10 +45,10 @@ Artifacts: `correctness-<label>` with `correctness.tsv` and `correctness.json`. 
 
 Same 20 parallel `(ε, δ, size)` matrix jobs as correctness (table above). For each setting, runs `BENCH_RUNS=10` Release invocations of `SIMPLIFY_CORE_MS` per ID for each binary (small: 11..20 or large: 21..30, new vs the same baseline commit as correctness), computes per-ID mean and sample stddev via Welford's online algorithm, and enforces high-confidence gates (one-sided 95% CI with Welch t, fail only when confident new is worse):
 
-1. **Mean gate:** over IDs with `orig_ms ≥ MIN_BENCH_MS` (1 ms), `mean(new) ≤ mean(orig) × MEAN_LIMIT` with `MEAN_LIMIT=1.05` (cannot worsen by more than 1.05×) but gated as `(mu_new - 1.05·mu_orig) - t_{0.95}·SE_mean > 0` where `SE_mean` propagates per-ID `σ/√n` via Welch-Satterthwaite. Replaces a zero-tolerance `mean(new) < mean(orig)` check that failed `mid` on ~0.2% noise with `gated_n=1` and the prior naive 1.05× on 5 runs that still failed spuriously 80/82.
+1. **Mean gate:** over IDs with `orig_ms ≥ MIN_BENCH_MS` (1 ms), `mean(new) ≤ mean(orig) × MEAN_LIMIT` with `MEAN_LIMIT=1.05` (cannot worsen by more than 1.05×) but gated as `(mu_new - 1.05·mu_orig) - t_{0.95}·SE_mean > 0` where `SE_mean` propagates per-ID `σ/√n` via Welch-Satterthwaite.
 2. **Per-ID gate:** for those same gated IDs, `new_ms ≤ orig_ms * 1.20` (was 1.50) but now high-confidence: `SE = sqrt(σ_new²/n + (1.20·σ_orig)²/n)`, Welch `df`, `t_{0.95}`, fail `FAIL_SLOW` iff `(mu_new - 1.20·mu_orig) - t·SE > 0`.
 
-IDs with `orig_ms` strictly below 1 ms are reported as `SKIP_FLOOR` and excluded from both gates; everything at or above 1 ms is gated. Before the confidence gate the 5-run naive means failed 80/82 matrix runs spuriously on 5-run noise; the 10-run Welch gating eliminates those false positives while still catching true ~20%+ regressions.
+IDs with `orig_ms` strictly below 1 ms are reported as `SKIP_FLOOR` and excluded from both gates; everything at or above 1 ms is gated. The prior five-run gate failed 80 of 82 matrix runs. The confidence bounds require evidence above the limit before reporting a regression.
 
 Local `SIMPLIFY_CORE_MS` means can swing under host load. When comparing commits locally, interleave baseline and candidate runs and inspect per-ID minima alongside the ten-run Welford means/stddevs used by CI; the benchmark JSON/TSV now include `orig_std`/`new_std` per ID.
 
@@ -56,7 +56,7 @@ Gated averages intentionally omit `--time` so timing stays comparable to older b
 
 Artifacts: `benchmark-<label>` with `benchmark.tsv` / `benchmark.json`. TSV header is `id e d orig_ms orig_std new_ms new_std ratio gated status ops`; its statistics are rounded for display. JSON `cases` preserve the Welford mean and sample stddev at the precision used by the Welch gates. Job summaries show `orig_ms ± std` / `new_ms ± std` and mark `FAIL_SLOW` only when the Welch 95% lower bound exceeds the limit. Each job logs `Computed DELTA=… from NUMER/(1+EPSILON)` and `Synced IDs: …`.
 
-Runtime: 20 jobs each build both binaries and run 10 IDs × (10 orig + 10 new + 1 new --time) = 210 simplify invocations per job. On a local Release build the full 20×10 correctness sweep (~200 Fréchet runs) and benchmark sweep (4,000 sampled invocations plus 200 ops runs, 4,200 total) each complete in under a few minutes; measured total for the entire matrix (both workflows sequentially, `BENCH_RUNS=10`) is reported in the PR that introduced the matrix. The prior `BENCH_RUNS=5` naive-mean gate failed 80/82 runs spuriously; the 10-run high-confidence gate removes that noise.
+Runtime: 20 jobs each build both binaries and run 10 IDs × (10 orig + 10 new + 1 new --time) = 210 simplify invocations per job. Across the matrix, the benchmark runs 4,000 sampled invocations plus 200 ops runs (4,200 total). The separate correctness sweep covers 20 × 10 cases.
 
 ### gui-build.yml - Qt GUI build
 **Triggers:** Push to main, pull requests to main, manual dispatch

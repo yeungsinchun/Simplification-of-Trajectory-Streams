@@ -135,16 +135,12 @@ jobs:
       IDS: ${{ matrix.ids }}
       # Per-ID bar: new_ms <= orig_ms * SLOWDOWN_LIMIT when orig is above floor.
       SLOWDOWN_LIMIT: "1.20"
-      # Averaged runs per binary/ID. Raised from 5 -> 10 so the 1.2x/1.05x bars
-      # with high-confidence (Welch t) gating have tighter SE and fewer spurious
-      # failures: 80/82 matrix runs failed spuriously with 5 naive means.
+      # Ten samples per binary/ID tighten the confidence bounds for both gates.
       BENCH_RUNS: "10"
       # IDs with orig_ms < MIN_BENCH_MS are excluded from the mean gate and
       # from the per-ID multiplicative check (sub-millisecond runs only).
       MIN_BENCH_MS: "1"
-      # Mean bar: mean(new) must not exceed mean(orig) * MEAN_LIMIT (1.05x).
-      # Now gated with high confidence (Welch t) like the per-ID bar, not on
-      # naive means alone. Replaces a zero-tolerance mean(new)<mean(orig) check.
+      # Apply the same Welch confidence rule to the gated-ID mean.
       MEAN_LIMIT: "1.05"
 
     steps:
@@ -276,7 +272,7 @@ jobs:
             esac
           }
 
-          IDS_ARR=($IDS)
+          read -r -a IDS_ARR <<< "$IDS"
           REPORT_DIR=new/bench-report
           mkdir -p "$REPORT_DIR"
           TSV="$REPORT_DIR/benchmark.tsv"
