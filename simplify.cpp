@@ -10,26 +10,44 @@
 //  Core algorithm (opt-in TIMER sites; active only when --time is set)
 // ===========================================================================
 
+struct StabScratch {
+    std::vector<Point> P, Gi, F;
+    std::vector<std::vector<Point>> S;
+    std::vector<int> active;
+    std::vector<AxisBounds> stab_bounds;
+    std::vector<uint8_t> anchor_outside;
+    PreparedClipPolygon prepared_Gi;
+    sh_double::FastClipBuffers clip_buffers;
+};
 
-int get_longest_stab(const std::vector<Point>& stream, int cur,
-                     std::vector<Point>& simplified,
-                     double EPSILON, double DELTA) {
+int get_longest_stab(const std::vector<Point> &stream, int cur,
+                     std::vector<Point> &simplified, double EPSILON,
+                     double DELTA, StabScratch &scratch) {
     TIMER("get_longest_stab");
     const Point& p0 = stream[cur];
-    std::vector<Point> P;
+    auto &P = scratch.P;
+    auto &Gi = scratch.Gi;
+    auto &S = scratch.S;
+    auto &F = scratch.F;
+    auto &active = scratch.active;
+    auto &stab_bounds = scratch.stab_bounds;
+    auto &anchor_outside = scratch.anchor_outside;
     {
         TIMER("boundary_P");
         P = get_boundary_points_from_grid(p0, EPSILON, DELTA);
     }
     std::array<Point, 2> buffer = {p0, p0};
     const int Pn = (int)P.size();
-    std::vector<std::vector<Point>> S(Pn);
-    for (int i = 0; i < Pn; ++i) S[i] = {P[i]};
-    int dead_cnt = 0;
-    std::vector<int> dead(Pn);
-    std::vector<std::vector<Point>> new_S(Pn);
-    std::vector<std::vector<Point>> F(Pn);
-    std::vector<Point> Gi;
+    S.resize(Pn);
+    stab_bounds.resize(Pn);
+    anchor_outside.assign(Pn, 0);
+    active.clear();
+    active.reserve(Pn);
+    for (int i = 0; i < Pn; ++i) {
+        S[i].clear();
+        S[i].push_back(P[i]);
+        active.push_back(i);
+    }
 
     cur++;
     while (cur < int(stream.size())) {
@@ -37,34 +55,52 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
             TIMER("hull_Gi");
             Gi = get_conv_from_grid(stream[cur], EPSILON, DELTA);
         }
-        for (int i = 0; i < Pn; ++i) {
-            if (dead[i]) continue;
-
+        prepare_clip_polygon(Gi, scratch.prepared_Gi);
+        std::vector<Point> bbox_result;
+        AxisBounds bbox_bounds;
+        bool bbox_cached = false, bbox_hit = false;
+        size_t surviving = 0;
+        for (int i : active) {
+            bool full_bbox, disjoint;
             {
                 TIMER("find_F");
-                find_F(P[i], S[i], F[i]);
+                full_bbox =
+                    find_F(P[i], S[i], F, &scratch.prepared_Gi, &disjoint,
+                           &stab_bounds[i], &anchor_outside[i]);
             }
-
+            if (disjoint)
+                continue;
             bool hit;
             {
                 TIMER("intersect");
-                hit = intersect(F[i], Gi, new_S[i]);
+                if (full_bbox && bbox_cached) {
+                    hit = bbox_hit;
+                    S[i] = bbox_result;
+                    stab_bounds[i] = bbox_bounds;
+                } else {
+                    hit = intersect_prepared(F, scratch.prepared_Gi, S[i],
+                                             anchor_outside[i] && !full_bbox
+                                                 ? nullptr
+                                                 : &stab_bounds[i],
+                                             scratch.clip_buffers);
+                    if (full_bbox) {
+                        bbox_result = S[i];
+                        bbox_bounds = stab_bounds[i];
+                        bbox_hit = hit;
+                        bbox_cached = true;
+                    }
+                }
             }
-            if (!hit) {
-                dead[i] = true;
-                dead_cnt++;
-            }
+            if (!hit)
+                continue;
+            active[surviving++] = i;
         }
-        bool has_candidate = false;
-        for (int i = Pn - 1; i >= 0 && !has_candidate; --i) {
-            if (dead[i] || new_S[i].empty()) continue;
-            buffer[0] = P[i];
-            buffer[1] = new_S[i].front();
-            has_candidate = true;
-        }
-        if (!has_candidate || dead_cnt == Pn) break;
-        for (int i = 0; i < Pn; ++i)
-            if (!dead[i]) S[i].swap(new_S[i]);
+        active.resize(surviving);
+        if (active.empty())
+            break;
+        const int chosen = active.back();
+        buffer[0] = P[chosen];
+        buffer[1] = S[chosen].front();
         cur++;
     }
     simplified.emplace_back(buffer[0]);
@@ -369,9 +405,11 @@ std::vector<Point> simplify(const std::vector<Point>& stream,
     auto t0 = std::chrono::high_resolution_clock::now();
     {
         TIMER("total");
+        StabScratch scratch;
         int cur = 0;
         while (cur != int(stream.size()))
-            cur = get_longest_stab(stream, cur, simplified, EPSILON, DELTA);
+            cur = get_longest_stab(stream, cur, simplified, EPSILON, DELTA,
+                                   scratch);
     }
     double ms = std::chrono::duration<double, std::milli>(
         std::chrono::high_resolution_clock::now() - t0).count();
