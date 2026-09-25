@@ -200,7 +200,7 @@ jobs:
           set -uo pipefail
 
           # bench_stats_ms runs BENCH_RUNS timed invocations and returns
-          # "mean stddev" (both %.4f) using Welford's online algorithm for
+          # "mean stddev" using Welford's online algorithm for
           # numerical stability. Sample stddev uses Bessel's correction (n-1).
           bench_stats_ms() {
             local dir=$1 id=$2 tag=$3
@@ -227,22 +227,22 @@ jobs:
               count=$((count + 1))
               # delta = x - mean
               local delta
-              delta=$(awk -v x="$ms" -v m="$mean" 'BEGIN { printf "%.10f", x - m }')
-              mean=$(awk -v m="$mean" -v d="$delta" -v c="$count" 'BEGIN { printf "%.10f", m + d / c }')
+              delta=$(awk -v x="$ms" -v m="$mean" 'BEGIN { printf "%.17g", x - m }')
+              mean=$(awk -v m="$mean" -v d="$delta" -v c="$count" 'BEGIN { printf "%.17g", m + d / c }')
               local delta2
-              delta2=$(awk -v x="$ms" -v m="$mean" 'BEGIN { printf "%.10f", x - m }')
-              m2=$(awk -v cur="$m2" -v d="$delta" -v d2="$delta2" 'BEGIN { printf "%.10f", cur + d * d2 }')
+              delta2=$(awk -v x="$ms" -v m="$mean" 'BEGIN { printf "%.17g", x - m }')
+              m2=$(awk -v cur="$m2" -v d="$delta" -v d2="$delta2" 'BEGIN { printf "%.17g", cur + d * d2 }')
             done
 
             local variance=0
             local stddev=0
             if [ "$count" -gt 1 ]; then
-              variance=$(awk -v m2="$m2" -v c="$count" 'BEGIN { printf "%.10f", m2 / (c - 1) }')
+              variance=$(awk -v m2="$m2" -v c="$count" 'BEGIN { printf "%.17g", m2 / (c - 1) }')
               # guard tiny negative due to fp
-              variance=$(awk -v v="$variance" 'BEGIN { if (v < 0) v = 0; printf "%.10f", v }')
-              stddev=$(awk -v v="$variance" 'BEGIN { printf "%.10f", sqrt(v) }')
+              variance=$(awk -v v="$variance" 'BEGIN { if (v < 0) v = 0; printf "%.17g", v }')
+              stddev=$(awk -v v="$variance" 'BEGIN { printf "%.17g", sqrt(v) }')
             fi
-            printf "%.4f %.4f" "$mean" "$stddev"
+            printf '%s %s' "$mean" "$stddev"
           }
 
           # One --time run on new only (gated averages stay without --time so
@@ -303,6 +303,10 @@ jobs:
             ORIG_STD=$(echo "$ORIG_STATS" | awk '{print $2}')
             NEW_MS=$(echo "$NEW_STATS" | awk '{print $1}')
             NEW_STD=$(echo "$NEW_STATS" | awk '{print $2}')
+            printf -v ORIG_MS_REPORT '%.4f' "$ORIG_MS"
+            printf -v ORIG_STD_REPORT '%.4f' "$ORIG_STD"
+            printf -v NEW_MS_REPORT '%.4f' "$NEW_MS"
+            printf -v NEW_STD_REPORT '%.4f' "$NEW_STD"
             OPS=$(capture_ops "$ID") \
               || { echo "❌ ops capture failed for ID=$ID"; exit 1; }
 
@@ -313,8 +317,8 @@ jobs:
             if awk -v o="$ORIG_MS" -v floor="$MIN_BENCH_MS" \
                    'BEGIN { exit !(o+0 >= floor) }'; then
               GATED=1
-              MEAN_SUM_ORIG=$(awk -v s="$MEAN_SUM_ORIG" -v m="$ORIG_MS" 'BEGIN { print s + m }')
-              MEAN_SUM_NEW=$(awk -v s="$MEAN_SUM_NEW" -v m="$NEW_MS" 'BEGIN { print s + m }')
+              MEAN_SUM_ORIG=$(awk -v s="$MEAN_SUM_ORIG" -v m="$ORIG_MS" 'BEGIN { printf "%.17g", s + m }')
+              MEAN_SUM_NEW=$(awk -v s="$MEAN_SUM_NEW" -v m="$NEW_MS" 'BEGIN { printf "%.17g", s + m }')
               MEAN_N=$((MEAN_N + 1))
               GATED_ORIG_MS+=("$ORIG_MS")
               GATED_ORIG_STD+=("$ORIG_STD")
@@ -336,7 +340,7 @@ jobs:
             if [ "$STATUS" = "FAIL_SLOW" ]; then OVERALL_OK=0; fi
 
             printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-              "$ID" "$EPSILON" "$DELTA" "$ORIG_MS" "$ORIG_STD" "$NEW_MS" "$NEW_STD" "$RATIO" \
+              "$ID" "$EPSILON" "$DELTA" "$ORIG_MS_REPORT" "$ORIG_STD_REPORT" "$NEW_MS_REPORT" "$NEW_STD_REPORT" "$RATIO" \
               "$GATED" "$STATUS" "$OPS" >> "$TSV"
 
             MARK=""
@@ -349,7 +353,7 @@ jobs:
                 fi
                 ;;
             esac
-            SUMMARY_ROWS+="| $ID | $ORIG_MS ± $ORIG_STD | $NEW_MS ± $NEW_STD | $RATIO | $STATUS$MARK |"$'\n'
+            SUMMARY_ROWS+="| $ID | $ORIG_MS_REPORT ± $ORIG_STD_REPORT | $NEW_MS_REPORT ± $NEW_STD_REPORT | $RATIO | $STATUS$MARK |"$'\n'
           done
 
           MEAN_ORIG="n/a"
