@@ -441,7 +441,6 @@ jobs:
                       "status": status,
                       "orig_ops": orig_op_map,
                       "new_ops": new_op_map,
-                      "ops": new_op_map,
                   })
           def num_or_none(s):
               try:
@@ -538,11 +537,6 @@ jobs:
           echo "=== end preview ==="
           # Append aggregated summary to job summary
           cat /tmp/bench-report/summary.md >> "$GITHUB_STEP_SUMMARY"
-          # Also keep copies in repo for artifact sanity if needed
-          mkdir -p repo/bench-report
-          cp /tmp/bench-report/report.html repo/bench-report/report.html || true
-          cp /tmp/bench-report/summary.md repo/bench-report/summary.md || true
-
       - name: Upload HTML report artifact
         if: always()
         uses: actions/upload-artifact@v7

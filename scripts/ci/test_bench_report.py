@@ -27,7 +27,6 @@ def _make_fake_doc(label="mid-e-d300-small", epsilon=5, delta=50, gated=10, mean
             "status": "OK",
             "orig_ops": orig_ops,
             "new_ops": new_ops,
-            "ops": new_ops,
         })
     return {
         "label": label,
@@ -112,6 +111,7 @@ def test_basic():
         # strip orig_ops to simulate old artifact
         for c in legacy_doc["cases"]:
             c.pop("orig_ops", None)
+            c["ops"] = c.pop("new_ops")
         legacy_path.write_text(json.dumps(legacy_doc))
         proc2 = subprocess.run(
             [sys.executable, str(script), "--reports-dir", str(td_path), "--output-md", str(td_path/"summary2.md")],
