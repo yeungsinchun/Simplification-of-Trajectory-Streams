@@ -21,7 +21,9 @@ def _make_fake_doc(label="mid-e-d300-small", epsilon=5, delta=50, gated=10, mean
             "e": epsilon,
             "d": delta,
             "orig_ms": orig_ms,
+            "orig_std": 0.1234,
             "new_ms": new_ms,
+            "new_std": 0.0567,
             "ratio": new_ms/orig_ms,
             "gated": True,
             "status": "OK",
@@ -97,6 +99,8 @@ def test_basic():
         assert "<table" in html
         assert "bar-track" in html or "bar " in html
         assert "mid-e-d300-small" in html
+        assert "<th>orig std ms</th>" in html and "<th>new std ms</th>" in html
+        assert "<td>0.1234</td>" in html and "<td>0.0567</td>" in html
         assert "https://github.com/example/repo/actions/runs/12345" in html
         # Check comment has marker and headline
         assert "<!-- bench-report -->" in comment

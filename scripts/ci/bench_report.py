@@ -642,11 +642,13 @@ def render_html(docs: List[Dict[str, Any]], phase_info: Dict[str, Any], run_url:
         if not cases:
             continue
         html_parts.append(f'<h3 class="mono">{label}</h3>')
-        html_parts.append('<div style="overflow:auto"><table><thead><tr><th>ID</th><th>orig ms</th><th>new ms</th><th>ratio (new/orig)</th><th>speedup</th><th>gated</th><th>status</th></tr></thead><tbody>')
+        html_parts.append('<div style="overflow:auto"><table><thead><tr><th>ID</th><th>orig ms</th><th>orig std ms</th><th>new ms</th><th>new std ms</th><th>ratio (new/orig)</th><th>speedup</th><th>gated</th><th>status</th></tr></thead><tbody>')
         for c in sorted(cases, key=lambda x: x.get("id")):
             cid = c.get("id")
             o_ms = c.get("orig_ms")
             n_ms = c.get("new_ms")
+            o_std = c.get("orig_std")
+            n_std = c.get("new_std")
             ratio = c.get("ratio")
             gated = c.get("gated")
             status = c.get("status","")
@@ -657,7 +659,9 @@ def render_html(docs: List[Dict[str, Any]], phase_info: Dict[str, Any], run_url:
                 speed_s = "n/a"
             ratio_s = f"{ratio:.3f}" if isinstance(ratio, (int,float)) else "n/a"
             pill = '<span class="pill pill-pass">OK</span>' if status == "OK" else '<span class="pill pill-fail">FAIL</span>' if gated else '<span class="muted">SKIP</span>'
-            html_parts.append(f'<tr><td>{cid}</td><td>{o_ms:.3f}</td><td>{n_ms:.3f}</td><td>{ratio_s}</td><td>{speed_s}</td><td>{"yes" if gated else "no"}</td><td>{pill}</td></tr>')
+            o_std_s = f"{o_std:.4f}" if isinstance(o_std, (int, float)) else "n/a"
+            n_std_s = f"{n_std:.4f}" if isinstance(n_std, (int, float)) else "n/a"
+            html_parts.append(f'<tr><td>{cid}</td><td>{o_ms:.3f}</td><td>{o_std_s}</td><td>{n_ms:.3f}</td><td>{n_std_s}</td><td>{ratio_s}</td><td>{speed_s}</td><td>{"yes" if gated else "no"}</td><td>{pill}</td></tr>')
         html_parts.append('</tbody></table></div>')
     html_parts.append('</div>')
 
