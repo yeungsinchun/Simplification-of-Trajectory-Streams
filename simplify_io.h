@@ -28,6 +28,9 @@ inline bool web_server_flag = false;
 inline bool json_stream_flag = false;
 inline bool help_flag = false;
 inline bool time_flag = false;
+// Threads advancing the anchors of a step (--workers); 1 runs the sequential
+// simplifier. Output is identical for every value.
+inline int workers = 1;
 inline std::string json_output_path = "";
 
 // ===========================================================================
@@ -47,7 +50,8 @@ inline void print_help(const char* prog) {
                  "stdout for the web visualizer (suppresses all other stdout text)\n"
               << "  --json-stream    With --web-server, emit NDJSON (header, one prefix per line, done)\n"
               << "  --json-output <path>  Write JSON trace to file instead of stdout (use with --web-server)\n"
-              << "  --time           Opt-in phase timers (stderr TIMING SUMMARY + TIMER_MS lines)\n"
+              << "  --time           Opt-in phase timers (stderr TIMING SUMMARY + TIMER_MS lines; runs single-threaded)\n"
+              << "  --workers <n>    Threads advancing each step's anchors (default 1 = sequential; output is identical for any n)\n"
               << "  -h               Show this help and exit\n"
               << "\n"
               << "Shorthand: " << prog << " <id> [flags] is equivalent to '--in <id> --out [flags]'\n";
@@ -63,6 +67,10 @@ inline int parse_arguments(int argc, char** argv, int& test_case_no) {
             json_output_path = argv[++i];
         }
         else if (strcmp(argv[i],"--time") == 0) time_flag = true;
+        else if (strcmp(argv[i],"--workers") == 0 && i+1 < argc) {
+            try { workers = std::stoi(argv[++i]); } catch(...) { workers = 0; }
+            if (workers < 1) { std::cerr << "Invalid --workers value\n"; return 1; }
+        }
         else if (strcmp(argv[i],"--gui") == 0 || strcmp(argv[i],"-F") == 0 ||
                  strcmp(argv[i],"-G") == 0 || strcmp(argv[i],"-S") == 0) {
             std::cerr << "GUI options require simplify_with_gui\n";

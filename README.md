@@ -117,7 +117,9 @@ x y
 This reads `data/1/original.txt` and writes `data/1/simplify.txt`. The
 shorthand `./build/simplify 1` is equivalent to `--in 1 --out`. Useful options
 include `-d DELTA`, `-e EPSILON`, `--dist`, `--time` (opt-in phase timers on
-stderr), and `--gui` on the GUI target.
+stderr), `--workers N` (advance each step's anchors on N threads; default 1 is
+sequential and the output is identical for any N), and `--gui` on the GUI
+target.
 
 ### Visualize output
 

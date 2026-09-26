@@ -203,10 +203,13 @@ jobs:
             local sum=0
             local run ms
 
+            # Timings are single-threaded: --workers 1 pins the sequential
+            # simplifier (binaries without the flag ignore it and are
+            # sequential anyway).
             for run in $(seq 1 "$BENCH_RUNS"); do
               local log="/tmp/${tag}_${id}_r${run}.log"
               ( cd "$dir/" && \
-                ./build/simplify "$id" -e "$EPSILON" -d "$DELTA" \
+                ./build/simplify "$id" -e "$EPSILON" -d "$DELTA" --workers 1 \
                   > "$log" 2>&1 ) \
                 || { echo "❌ ${tag^^} run failed for ID=$id (run $run/$BENCH_RUNS)"; cat "$log"; exit 1; }
 

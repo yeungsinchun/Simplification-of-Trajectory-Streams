@@ -240,6 +240,18 @@ jobs:
 
             echo "  new:  dist=$NEW_DIST  points=$NEW_POINTS"
 
+            # --workers only changes who advances the anchors, never the
+            # output: a 4-worker rerun must write a byte-identical file.
+            cp "new/data/$ID/simplify.txt" "/tmp/new_seq_$ID.txt"
+            ( cd new/ && \
+              ./build/simplify "$ID" -e "$EPSILON" -d "$DELTA" --workers 4 \
+                > "/tmp/new_workers_$ID.log" 2>&1 ) \
+              || { echo "❌ NEW --workers 4 run failed for ID=$ID"; cat "/tmp/new_workers_$ID.log"; exit 1; }
+            if ! cmp -s "/tmp/new_seq_$ID.txt" "new/data/$ID/simplify.txt"; then
+              echo "❌ --workers 4 output differs from the sequential output for ID=$ID"
+              exit 1
+            fi
+
             if [ -z "$ORIG_DIST" ] || [ -z "$NEW_DIST" ]; then
               echo "❌ Could not parse Fréchet distance for ID=$ID"
               echo "--- orig log ---"
