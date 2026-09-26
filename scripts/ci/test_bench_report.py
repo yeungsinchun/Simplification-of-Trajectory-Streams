@@ -27,7 +27,6 @@ def _make_fake_doc(label="mid-e-d300-small", epsilon=5, delta=50, gated=9, mean_
             "status": "OK" if i < 11+gated else "SKIP_FLOOR",
             "orig_ops": orig_ops,
             "new_ops": new_ops,
-            "ops": new_ops,
         })
     return {
         "label": label,
@@ -104,21 +103,6 @@ def test_basic():
         assert "Benchmark Report" in comment
         assert "artifact" in comment
         print("test_basic passed")
-
-        # Test legacy handling: one doc with only 'ops' (no orig_ops)
-        legacy_path = td_path / "benchmark-legacy" / "benchmark.json"
-        legacy_path.parent.mkdir(exist_ok=True)
-        legacy_doc = _make_fake_doc(label="legacy-small")
-        # strip orig_ops to simulate old artifact
-        for c in legacy_doc["cases"]:
-            c.pop("orig_ops", None)
-        legacy_path.write_text(json.dumps(legacy_doc))
-        proc2 = subprocess.run(
-            [sys.executable, str(script), "--reports-dir", str(td_path), "--output-md", str(td_path/"summary2.md")],
-            capture_output=True, text=True
-        )
-        assert proc2.returncode == 0, f"legacy handling failed: {proc2.stderr}"
-        print("legacy handling passed")
 
 if __name__ == "__main__":
     test_basic()

@@ -400,7 +400,6 @@ jobs:
                       "status": status,
                       "orig_ops": parse_ops(orig_ops_str),
                       "new_ops": parse_ops(new_ops_str),
-                      "ops": parse_ops(new_ops_str),
                   })
           def num_or_none(s):
               try:

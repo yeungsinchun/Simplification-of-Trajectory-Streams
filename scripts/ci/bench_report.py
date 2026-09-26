@@ -19,9 +19,7 @@ locally on saved logs:
     --run-url https://github.com/org/repo/actions/runs/123
 
 If --reports-dir contains downloaded artifacts in subdirectories
-(benchmark-<label>/benchmark.json) it recurses. It also handles legacy
-JSON where only `ops` (new) is present; newer artifacts contain `orig_ops`
-and `new_ops`.
+(benchmark-<label>/benchmark.json) it recurses.
 
 No external dependencies; only stdlib.
 """
@@ -152,18 +150,8 @@ def compute_phase_totals(docs: List[Dict[str, Any]]) -> Dict[str, Any]:
         new_totals: Dict[str, float] = defaultdict(float)
         # collect totals per case
         for case in cases:
-            # Support both new schema (orig_ops/new_ops) and legacy (ops)
             orig_ops = case.get("orig_ops")
             new_ops = case.get("new_ops")
-            # fallback legacy: case["ops"] is new_ops
-            if new_ops is None:
-                new_ops = case.get("ops", {})
-            if orig_ops is None:
-                orig_ops = {}
-                # legacy has no orig_ops
-                # try orig_ops field maybe empty
-                # keep empty
-                pass
             # orig_ops/new_ops could be dict or empty
             if isinstance(orig_ops, dict):
                 for k, v in orig_ops.items():
