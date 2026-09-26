@@ -133,14 +133,11 @@ jobs:
       LABEL: ${{ matrix.label }}
       SIZE: ${{ matrix.size }}
       IDS: ${{ matrix.ids }}
-      # Per-ID bar: new_ms <= orig_ms * SLOWDOWN_LIMIT when orig is above floor.
+      # Per-ID bar: new_ms <= orig_ms * SLOWDOWN_LIMIT.
       SLOWDOWN_LIMIT: "1.20"
       # Ten samples per binary/ID tighten the confidence bounds for both gates.
       BENCH_RUNS: "10"
-      # IDs with orig_ms < MIN_BENCH_MS are excluded from the mean gate and
-      # from the per-ID multiplicative check (sub-millisecond runs only).
-      MIN_BENCH_MS: "1"
-      # Apply the same Welch confidence rule to the gated-ID mean.
+      # Mean bar: mean(new) must not exceed mean(orig) * MEAN_LIMIT (1.05x) with Welch.
       MEAN_LIMIT: "1.05"
 
     steps:
@@ -241,22 +238,24 @@ jobs:
             printf '%s %s' "$mean" "$stddev"
           }
 
-          # One --time run on new only (gated averages stay without --time so
-          # they match orig binaries that may lack TIMER support). New must
-          # exit 0 and emit TIMER_MS lines; blank ops is not a pass.
+          # Gated averages stay without --time so they match older binaries.
           capture_ops() {
-            local id=$1
-            local log="/tmp/new_${id}_time.log"
-            if ! ( cd new/ && \
+            local side=$1 id=$2
+            local log="/tmp/${side}_${id}_time.log"
+            if ! ( cd "$side"/ && \
               ./build/simplify "$id" -e "$EPSILON" -d "$DELTA" --time \
                 > "$log" 2>&1 ); then
-              echo "❌ --time capture failed for ID=$id" >&2
-              cat "$log" >&2
+              if [ "$side" = new ]; then
+                echo "❌ --time capture failed for ID=$id" >&2
+                cat "$log" >&2
+              fi
               return 1
             fi
             if ! grep -q '^TIMER_MS ' "$log"; then
-              echo "❌ Missing TIMER_MS lines for ID=$id" >&2
-              cat "$log" >&2
+              if [ "$side" = new ]; then
+                echo "❌ Missing TIMER_MS lines for ID=$id" >&2
+                cat "$log" >&2
+              fi
               return 1
             fi
             grep '^TIMER_MS ' "$log" \
@@ -278,7 +277,7 @@ jobs:
           TSV="$REPORT_DIR/benchmark.tsv"
           JSON="$REPORT_DIR/benchmark.json"
 
-          printf 'id\te\td\torig_ms\torig_std\tnew_ms\tnew_std\tratio\tgated\tstatus\tops\n' > "$TSV"
+          printf 'id\te\td\torig_ms\torig_std\tnew_ms\tnew_std\tratio\tgated\tstatus\torig_ops\tnew_ops\n' > "$TSV"
 
           OVERALL_OK=1
           MEAN_SUM_ORIG=0
@@ -303,7 +302,8 @@ jobs:
             printf -v ORIG_STD_REPORT '%.4f' "$ORIG_STD"
             printf -v NEW_MS_REPORT '%.4f' "$NEW_MS"
             printf -v NEW_STD_REPORT '%.4f' "$NEW_STD"
-            OPS=$(capture_ops "$ID") \
+            ORIG_OPS=$(capture_ops orig "$ID") || ORIG_OPS=""
+            NEW_OPS=$(capture_ops new "$ID") \
               || { echo "❌ ops capture failed for ID=$ID"; exit 1; }
 
             RATIO=$(awk -v o="$ORIG_MS" -v n="$NEW_MS" \
@@ -314,40 +314,31 @@ jobs:
               printf -v RATIO_REPORT '%.3f' "$RATIO"
             fi
 
-            GATED=0
-            if awk -v o="$ORIG_MS" -v floor="$MIN_BENCH_MS" \
-                   'BEGIN { exit !(o+0 >= floor) }'; then
-              GATED=1
-              MEAN_SUM_ORIG=$(awk -v s="$MEAN_SUM_ORIG" -v m="$ORIG_MS" 'BEGIN { printf "%.17g", s + m }')
-              MEAN_SUM_NEW=$(awk -v s="$MEAN_SUM_NEW" -v m="$NEW_MS" 'BEGIN { printf "%.17g", s + m }')
-              MEAN_N=$((MEAN_N + 1))
-              GATED_ORIG_MS+=("$ORIG_MS")
-              GATED_ORIG_STD+=("$ORIG_STD")
-              GATED_NEW_MS+=("$NEW_MS")
-              GATED_NEW_STD+=("$NEW_STD")
-            fi
+            GATED=1
+            MEAN_SUM_ORIG=$(awk -v s="$MEAN_SUM_ORIG" -v m="$ORIG_MS" 'BEGIN { printf "%.17g", s + m }')
+            MEAN_SUM_NEW=$(awk -v s="$MEAN_SUM_NEW" -v m="$NEW_MS" 'BEGIN { printf "%.17g", s + m }')
+            MEAN_N=$((MEAN_N + 1))
+            GATED_ORIG_MS+=("$ORIG_MS")
+            GATED_ORIG_STD+=("$ORIG_STD")
+            GATED_NEW_MS+=("$NEW_MS")
+            GATED_NEW_STD+=("$NEW_STD")
 
             STATUS="OK"
-            if [ "$GATED" -eq 1 ]; then
-              # High-confidence FAIL_SLOW: fail iff (mu_new - 1.20*mu_orig) - t*SE > 0
-              FAIL=$(welch_verdict "$BENCH_RUNS" "$SLOWDOWN_LIMIT" "$ORIG_MS" "$ORIG_STD" "$NEW_MS" "$NEW_STD") || exit 1
-              if [ "$FAIL" = "1" ]; then
-                STATUS="FAIL_SLOW"
-              fi
-            else
-              STATUS="SKIP_FLOOR"
+            # High-confidence FAIL_SLOW: fail iff (mu_new - 1.20*mu_orig) - t*SE > 0
+            FAIL=$(welch_verdict "$BENCH_RUNS" "$SLOWDOWN_LIMIT" "$ORIG_MS" "$ORIG_STD" "$NEW_MS" "$NEW_STD") || exit 1
+            if [ "$FAIL" = "1" ]; then
+              STATUS="FAIL_SLOW"
             fi
 
             if [ "$STATUS" = "FAIL_SLOW" ]; then OVERALL_OK=0; fi
 
-            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
               "$ID" "$EPSILON" "$DELTA" "$ORIG_MS" "$ORIG_STD" "$NEW_MS" "$NEW_STD" "$RATIO" \
-              "$GATED" "$STATUS" "$OPS" >> "$TSV"
+              "$GATED" "$STATUS" "$ORIG_OPS" "$NEW_OPS" >> "$TSV"
 
             MARK=""
             case "$STATUS" in
               FAIL_SLOW) MARK=" ❌ high-conf" ;;
-              SKIP_FLOOR) MARK=" (below ${MIN_BENCH_MS}ms floor)" ;;
               OK)
                 if awk -v r="$RATIO" 'BEGIN { exit !(r+0 < 1.0) }'; then
                   MARK=" ✅ win"
@@ -393,8 +384,8 @@ jobs:
             echo "- Size: **${SIZE}** · IDs: **${IDS}**"
             echo "- Delta computed as **${DELTA_NUMER}/(1+${EPSILON}) = ${DELTA}**"
             echo "- Runs averaged: **${BENCH_RUNS}** per ID (Welford mean±stddev, high-confidence Welch t gating)"
-            echo "- Per-ID bar: new ≤ orig × **${SLOWDOWN_LIMIT}** with 95% one-sided CI (fail iff (mu_new - ${SLOWDOWN_LIMIT}·mu_orig) - t·SE > 0, SE = sqrt(σ_new²/n + (${SLOWDOWN_LIMIT}·σ_orig)²/n), Welch df)"
-            echo "- Mean bar: mean(new) ≤ mean(orig) × **${MEAN_LIMIT}** over the ${MEAN_N} gated IDs (floor excludes tiny runs), also Welch t gated"
+            echo "- Per-ID bar: new ≤ orig × **${SLOWDOWN_LIMIT}** with 95% one-sided CI (fail iff (mu_new - ${SLOWDOWN_LIMIT}·mu_orig) - t·SE > 0, SE = sqrt(σ_new²/n + (${SLOWDOWN_LIMIT}·σ_orig)²/n), Welch df) — all 10 IDs"
+            echo "- Mean bar: mean(new) ≤ mean(orig) × **${MEAN_LIMIT}** over ${MEAN_N} IDs, also Welch t gated"
             echo "- Mean orig: **${MEAN_ORIG_REPORT}** ms · Mean new: **${MEAN_NEW_REPORT}** ms · ratio **${MEAN_RATIO_REPORT}** · mean_ok=${MEAN_OK} (high-conf)"
             echo ""
             echo "| ID | orig_ms ± std | new_ms ± std | ratio | status |"
@@ -410,39 +401,33 @@ jobs:
 
           # Compact JSON for artifacts (ops as nested object when present).
           python3 - "$TSV" "$JSON" "$EPSILON" "$DELTA" "$LABEL" \
-              "$SLOWDOWN_LIMIT" "$MIN_BENCH_MS" "$BENCH_RUNS" \
+              "$SLOWDOWN_LIMIT" "$BENCH_RUNS" \
               "$MEAN_ORIG" "$MEAN_NEW" "$MEAN_RATIO" "$MEAN_OK" "$MEAN_N" "$OVERALL_OK" \
               "$MEAN_LIMIT" <<'PY' || exit 1
           import json, sys
           tsv, out, eps, delta, label = sys.argv[1:6]
-          slow, floor, runs = sys.argv[6:9]
-          mean_o, mean_n, mean_r, mean_ok, mean_cnt, overall = sys.argv[9:15]
-          mean_limit = sys.argv[15]
+          slow, runs = sys.argv[6:8]
+          mean_o, mean_n, mean_r, mean_ok, mean_cnt, overall = sys.argv[8:14]
+          mean_limit = sys.argv[14]
           cases = []
           display_rows = []
           with open(tsv) as f:
               header = next(f).rstrip("\n").split("\t")
-              # header: id e d orig_ms orig_std new_ms new_std ratio gated status ops
+              # header: id e d orig_ms orig_std new_ms new_std ratio gated status orig_ops new_ops
               for line in f:
                   parts = line.rstrip("\n").split("\t")
-                  while len(parts) < 11:
-                      parts.append("")
-                  id_, e, d, o_ms, o_std, n_ms, n_std, ratio, gated, status, ops = parts[:11]
+                  id_, e, d, o_ms, o_std, n_ms, n_std, ratio, gated, status, orig_ops, new_ops = parts
                   display = parts.copy()
                   for index in (3, 4, 5, 6):
                       display[index] = f"{float(display[index]):.4f}"
                   if ratio != "inf":
                       display[7] = f"{float(ratio):.3f}"
                   display_rows.append(display)
-                  op_map = {}
-                  if ops:
-                      for pair in ops.split(";"):
-                          if "=" in pair:
-                              k, v = pair.split("=", 1)
-                              try:
-                                  op_map[k] = float(v)
-                              except ValueError:
-                                  op_map[k] = v
+                  def parse_ops(raw):
+                      return {key: float(value) for key, value in
+                              (pair.split("=", 1) for pair in raw.split(";") if pair)}
+                  orig_op_map = parse_ops(orig_ops)
+                  new_op_map = parse_ops(new_ops)
                   cases.append({
                       "id": int(id_),
                       "e": float(e),
@@ -454,7 +439,8 @@ jobs:
                       "ratio": None if ratio == "inf" else float(ratio),
                       "gated": gated == "1",
                       "status": status,
-                      "ops": op_map,
+                      "orig_ops": orig_op_map,
+                      "new_ops": new_op_map,
                   })
           def num_or_none(s):
               try:
@@ -466,7 +452,7 @@ jobs:
               "epsilon": float(eps),
               "delta": float(delta),
               "slowdown_limit": float(slow),
-              "min_bench_ms": float(floor),
+              "min_bench_ms": 0.0,
               "bench_runs": int(runs),
               "mean_limit": float(mean_limit),
               "gated_count": int(mean_cnt),
@@ -493,8 +479,8 @@ jobs:
           if [ "$OVERALL_OK" -ne 1 ]; then
             echo ""
             echo "❌ Performance regression for e=${EPSILON} d=${DELTA}:"
-            echo "   high-confidence per-ID new > orig*${SLOWDOWN_LIMIT} (above ${MIN_BENCH_MS}ms floor), and/or"
-            echo "   high-confidence mean(new) > mean(orig)*${MEAN_LIMIT} over gated IDs."
+            echo "   high-confidence per-ID new > orig*${SLOWDOWN_LIMIT}, and/or"
+            echo "   high-confidence mean(new) > mean(orig)*${MEAN_LIMIT} over all IDs."
             echo "   (fail iff (mu - limit*mu_orig) - t_{0.95}*SE > 0, Welch df)"
             exit 1
           fi
@@ -506,3 +492,87 @@ jobs:
         with:
           name: benchmark-${{ matrix.label }}
           path: new/bench-report/
+
+  bench-report:
+    name: bench report
+    needs: bench-vs-prev
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      actions: read
+    steps:
+      - name: Checkout (for report script)
+        uses: actions/checkout@v7
+        with:
+          path: repo
+          ref: ${{ github.sha }}
+
+      - name: Download benchmark artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: benchmark-*
+          path: /tmp/bench-artifacts
+          merge-multiple: false
+
+      - name: Generate report
+        run: |
+          set -e
+          echo "Artifacts downloaded to /tmp/bench-artifacts:"
+          find /tmp/bench-artifacts -type f | head -n 100 || true
+          mkdir -p /tmp/bench-report
+          python3 repo/scripts/ci/bench_report.py \
+            --reports-dir /tmp/bench-artifacts \
+            --output-md /tmp/bench-report/summary.md \
+            --output-html /tmp/bench-report/report.html \
+            --output-comment /tmp/bench-report/comment.md \
+            --run-url "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --run-id "${{ github.run_id }}" \
+            --sha "${{ github.sha }}" \
+            --expected-configs 20
+          echo "=== markdown preview ==="
+          cat /tmp/bench-report/summary.md
+          echo "=== end preview ==="
+          # Append aggregated summary to job summary
+          cat /tmp/bench-report/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload HTML report artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-report
+          path: /tmp/bench-report/report.html
+          if-no-files-found: warn
+
+      - name: Post sticky PR comment
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -e
+          COMMENT_FILE=/tmp/bench-report/comment.md
+          if [ ! -f "$COMMENT_FILE" ]; then
+            echo "No comment file, skipping PR comment"
+            exit 0
+          fi
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          REPO="${{ github.repository }}"
+          echo "PR_NUMBER=$PR_NUMBER REPO=$REPO"
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No PR number, skip"
+            exit 0
+          fi
+          # Search for existing bench-report comment
+          echo "Searching for existing bench-report comment..."
+          set +e
+          EXISTING_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate 2>/dev/null | jq -r '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("<!-- bench-report -->"))) | .id' | head -n1)
+          set -e
+          if [ -n "$EXISTING_ID" ] && [ "$EXISTING_ID" != "null" ]; then
+            echo "Updating existing comment $EXISTING_ID"
+            gh api --method PATCH "repos/$REPO/issues/comments/$EXISTING_ID" -f body="$(cat "$COMMENT_FILE")"
+          else
+            echo "Creating new comment"
+            gh api --method POST "repos/$REPO/issues/$PR_NUMBER/comments" -f body="$(cat "$COMMENT_FILE")"
+          fi
