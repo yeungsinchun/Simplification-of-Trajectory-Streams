@@ -7,45 +7,140 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# Four (epsilon, delta) settings run as parallel matrix jobs so a slow
+# 20 (epsilon, delta, size) settings run as parallel matrix jobs so a slow
 # setting cannot hide regressions in another. Pair rationale:
 #   see .github/workflows/README.md (authoritative matrix table).
+#   epsilon tiers: 299 (extra-coarse), 30 (coarse), 5 (mid), 0.5 (fine), 0.1 (extra-fine)
+#   delta = 300/(1+epsilon) or 1000/(1+epsilon) computed exactly in the job
+#   size: small ~100 pts (IDs 11..20), large ~1000 pts (IDs 21..30) derived via scripts/derive_benchmark_data.py
 jobs:
   bench-vs-prev:
-    name: "bench e=${{ matrix.epsilon }} d=${{ matrix.delta }}"
+    name: "bench ${{ matrix.label }} e=${{ matrix.epsilon }}"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
+          # extra-coarse-e 299
           - epsilon: "299"
-            delta: "1"
-            label: coarse-e
-          - epsilon: "0.5"
-            delta: "300"
-            label: fine-e
+            delta_numer: "300"
+            size: "small"
+            label: "extra-coarse-e-d300-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "299"
+            delta_numer: "300"
+            size: "large"
+            label: "extra-coarse-e-d300-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          - epsilon: "299"
+            delta_numer: "1000"
+            size: "small"
+            label: "extra-coarse-e-d1000-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "299"
+            delta_numer: "1000"
+            size: "large"
+            label: "extra-coarse-e-d1000-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          # coarse-e 30
+          - epsilon: "30"
+            delta_numer: "300"
+            size: "small"
+            label: "coarse-e-d300-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "30"
+            delta_numer: "300"
+            size: "large"
+            label: "coarse-e-d300-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          - epsilon: "30"
+            delta_numer: "1000"
+            size: "small"
+            label: "coarse-e-d1000-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "30"
+            delta_numer: "1000"
+            size: "large"
+            label: "coarse-e-d1000-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          # mid-e 5
           - epsilon: "5"
-            delta: "50"
-            label: mid
-          - epsilon: "1"
-            delta: "999"
-            label: large-d
+            delta_numer: "300"
+            size: "small"
+            label: "mid-e-d300-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "5"
+            delta_numer: "300"
+            size: "large"
+            label: "mid-e-d300-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          - epsilon: "5"
+            delta_numer: "1000"
+            size: "small"
+            label: "mid-e-d1000-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "5"
+            delta_numer: "1000"
+            size: "large"
+            label: "mid-e-d1000-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          # fine-e 0.5
+          - epsilon: "0.5"
+            delta_numer: "300"
+            size: "small"
+            label: "fine-e-d300-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "0.5"
+            delta_numer: "300"
+            size: "large"
+            label: "fine-e-d300-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          - epsilon: "0.5"
+            delta_numer: "1000"
+            size: "small"
+            label: "fine-e-d1000-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "0.5"
+            delta_numer: "1000"
+            size: "large"
+            label: "fine-e-d1000-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          # extra-fine-e 0.1
+          - epsilon: "0.1"
+            delta_numer: "300"
+            size: "small"
+            label: "extra-fine-e-d300-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "0.1"
+            delta_numer: "300"
+            size: "large"
+            label: "extra-fine-e-d300-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
+          - epsilon: "0.1"
+            delta_numer: "1000"
+            size: "small"
+            label: "extra-fine-e-d1000-small"
+            ids: "11 12 13 14 15 16 17 18 19 20"
+          - epsilon: "0.1"
+            delta_numer: "1000"
+            size: "large"
+            label: "extra-fine-e-d1000-large"
+            ids: "21 22 23 24 25 26 27 28 29 30"
 
     env:
       EPSILON: ${{ matrix.epsilon }}
-      DELTA: ${{ matrix.delta }}
+      DELTA_NUMER: ${{ matrix.delta_numer }}
       LABEL: ${{ matrix.label }}
+      SIZE: ${{ matrix.size }}
+      IDS: ${{ matrix.ids }}
       # Per-ID bar: new_ms <= orig_ms * SLOWDOWN_LIMIT when orig is above floor.
       SLOWDOWN_LIMIT: "1.20"
-      # Averaged runs per binary/ID. Raised from 3 -> 5 so the stricter mean
-      # and 1.2x bars are less sensitive to single-run wall-clock noise.
-      BENCH_RUNS: "5"
+      # Ten samples per binary/ID tighten the confidence bounds for both gates.
+      BENCH_RUNS: "10"
       # IDs with orig_ms < MIN_BENCH_MS are excluded from the mean gate and
       # from the per-ID multiplicative check (sub-millisecond runs only).
       MIN_BENCH_MS: "1"
-      # Mean bar: mean(new) must not exceed mean(orig) * MEAN_LIMIT (1.05x).
-      # Replaces a zero-tolerance mean(new)<mean(orig) check that failed mid
-      # on ~0.2% noise with gated_n=1. Still far tighter than the old 1.5x cap.
+      # Apply the same Welch confidence rule to the gated-ID mean.
       MEAN_LIMIT: "1.05"
 
     steps:
@@ -59,15 +154,23 @@ jobs:
         uses: actions/checkout@v7
         with:
           path: orig
-          ref: ${{ github.event.pull_request.base_sha || github.event.before }}
+          ref: ${{ github.event.pull_request.base.sha || github.event.before }}
           submodules: recursive
+
+      - name: Compute delta exactly as DELTA_NUMER/(1+EPSILON)
+        run: |
+          DELTA=$(python3 -c "import sys; eps=float(sys.argv[1]); numer=float(sys.argv[2]); print('{:.15g}'.format(numer/(1+eps)))" "$EPSILON" "$DELTA_NUMER")
+          echo "Computed DELTA=$DELTA from $DELTA_NUMER/(1+$EPSILON)"
+          echo "DELTA=$DELTA" >> "$GITHUB_ENV"
+          echo "EPSILON=$EPSILON DELTA=$DELTA LABEL=$LABEL SIZE=$SIZE"
 
       - name: Sync data from new to old
         run: |
           mkdir -p orig/data
-          for id in 1 2 3 4 5 6 7 8 9 10; do
+          for id in $IDS; do
             cp -r "new/data/$id" "orig/data/$id"
           done
+          echo "Synced IDs: $IDS for $LABEL (e=$EPSILON d=$DELTA)"
 
       - name: Install build dependencies
         run: |
@@ -88,32 +191,54 @@ jobs:
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF
           cmake --build build --target simplify -j"$(nproc)"
 
-      - name: Run benchmark comparison (IDs 1..10)
+      - name: Run benchmark comparison
         run: |
           set -uo pipefail
 
-          bench_avg_ms() {
+          # bench_stats_ms runs BENCH_RUNS timed invocations and returns
+          # "mean stddev" using Welford's online algorithm for
+          # numerical stability. Sample stddev uses Bessel's correction (n-1).
+          bench_stats_ms() {
             local dir=$1 id=$2 tag=$3
-            local sum=0
-            local run ms
-
-            for run in $(seq 1 "$BENCH_RUNS"); do
+            local n="$BENCH_RUNS"
+            local count=0
+            local mean=0
+            local m2=0
+            local ms
+            local run
+            for run in $(seq 1 "$n"); do
               local log="/tmp/${tag}_${id}_r${run}.log"
               ( cd "$dir/" && \
                 ./build/simplify "$id" -e "$EPSILON" -d "$DELTA" \
                   > "$log" 2>&1 ) \
-                || { echo "❌ ${tag^^} run failed for ID=$id (run $run/$BENCH_RUNS)"; cat "$log"; exit 1; }
+                || { echo "❌ ${tag^^} run failed for ID=$id (run $run/$n)"; cat "$log"; exit 1; }
 
               ms=$(grep '^SIMPLIFY_CORE_MS:' "$log" | awk '{print $2}')
               if [ -z "$ms" ]; then
-                echo "❌ Missing SIMPLIFY_CORE_MS for ID=$id (run $run/$BENCH_RUNS)"
+                echo "❌ Missing SIMPLIFY_CORE_MS for ID=$id (run $run/$n)"
                 cat "$log"
                 exit 1
               fi
-              sum=$(awk -v s="$sum" -v m="$ms" 'BEGIN { print s + m }')
+              # Welford update
+              count=$((count + 1))
+              # delta = x - mean
+              local delta
+              delta=$(awk -v x="$ms" -v m="$mean" 'BEGIN { printf "%.17g", x - m }')
+              mean=$(awk -v m="$mean" -v d="$delta" -v c="$count" 'BEGIN { printf "%.17g", m + d / c }')
+              local delta2
+              delta2=$(awk -v x="$ms" -v m="$mean" 'BEGIN { printf "%.17g", x - m }')
+              m2=$(awk -v cur="$m2" -v d="$delta" -v d2="$delta2" 'BEGIN { printf "%.17g", cur + d * d2 }')
             done
 
-            awk -v s="$sum" -v n="$BENCH_RUNS" 'BEGIN { printf "%.4f", s / n }'
+            local variance=0
+            local stddev=0
+            if [ "$count" -gt 1 ]; then
+              variance=$(awk -v m2="$m2" -v c="$count" 'BEGIN { printf "%.17g", m2 / (c - 1) }')
+              # guard tiny negative due to fp
+              variance=$(awk -v v="$variance" 'BEGIN { if (v < 0) v = 0; printf "%.17g", v }')
+              stddev=$(awk -v v="$variance" 'BEGIN { printf "%.17g", sqrt(v) }')
+            fi
+            printf '%s %s' "$mean" "$stddev"
           }
 
           # One --time run on new only (gated averages stay without --time so
@@ -138,13 +263,22 @@ jobs:
               | awk '{ printf "%s%s=%.4f", (NR>1?";":""), $2, $3 }'
           }
 
-          IDS=(1 2 3 4 5 6 7 8 9 10)
+          welch_verdict() {
+            local result
+            result=$(python3 new/scripts/ci/welch.py "$@") || return 1
+            case "$result" in
+              0|1) printf '%s' "$result" ;;
+              *) echo "Invalid Welch verdict: $result" >&2; return 1 ;;
+            esac
+          }
+
+          read -r -a IDS_ARR <<< "$IDS"
           REPORT_DIR=new/bench-report
           mkdir -p "$REPORT_DIR"
           TSV="$REPORT_DIR/benchmark.tsv"
           JSON="$REPORT_DIR/benchmark.json"
 
-          printf 'id\te\td\torig_ms\tnew_ms\tratio\tgated\tstatus\tops\n' > "$TSV"
+          printf 'id\te\td\torig_ms\torig_std\tnew_ms\tnew_std\tratio\tgated\tstatus\tops\n' > "$TSV"
 
           OVERALL_OK=1
           MEAN_SUM_ORIG=0
@@ -152,28 +286,52 @@ jobs:
           MEAN_N=0
           SUMMARY_ROWS=""
 
-          for ID in "${IDS[@]}"; do
-            ORIG_MS=$(bench_avg_ms orig "$ID" orig)
-            NEW_MS=$(bench_avg_ms new "$ID" new)
+          # collect per-ID stats for mean-gate Welch
+          declare -a GATED_ORIG_MS=()
+          declare -a GATED_ORIG_STD=()
+          declare -a GATED_NEW_MS=()
+          declare -a GATED_NEW_STD=()
+
+          for ID in "${IDS_ARR[@]}"; do
+            ORIG_STATS=$(bench_stats_ms orig "$ID" orig) || exit 1
+            NEW_STATS=$(bench_stats_ms new "$ID" new) || exit 1
+            ORIG_MS=$(echo "$ORIG_STATS" | awk '{print $1}')
+            ORIG_STD=$(echo "$ORIG_STATS" | awk '{print $2}')
+            NEW_MS=$(echo "$NEW_STATS" | awk '{print $1}')
+            NEW_STD=$(echo "$NEW_STATS" | awk '{print $2}')
+            printf -v ORIG_MS_REPORT '%.4f' "$ORIG_MS"
+            printf -v ORIG_STD_REPORT '%.4f' "$ORIG_STD"
+            printf -v NEW_MS_REPORT '%.4f' "$NEW_MS"
+            printf -v NEW_STD_REPORT '%.4f' "$NEW_STD"
             OPS=$(capture_ops "$ID") \
               || { echo "❌ ops capture failed for ID=$ID"; exit 1; }
 
             RATIO=$(awk -v o="$ORIG_MS" -v n="$NEW_MS" \
-                      'BEGIN { if (o+0 > 0) printf "%.3f", n/o; else print "inf" }')
+                      'BEGIN { if (o+0 > 0) printf "%.17g", n/o; else print "inf" }')
+            if [ "$RATIO" = "inf" ]; then
+              RATIO_REPORT=inf
+            else
+              printf -v RATIO_REPORT '%.3f' "$RATIO"
+            fi
 
             GATED=0
             if awk -v o="$ORIG_MS" -v floor="$MIN_BENCH_MS" \
                    'BEGIN { exit !(o+0 >= floor) }'; then
               GATED=1
-              MEAN_SUM_ORIG=$(awk -v s="$MEAN_SUM_ORIG" -v m="$ORIG_MS" 'BEGIN { print s + m }')
-              MEAN_SUM_NEW=$(awk -v s="$MEAN_SUM_NEW" -v m="$NEW_MS" 'BEGIN { print s + m }')
+              MEAN_SUM_ORIG=$(awk -v s="$MEAN_SUM_ORIG" -v m="$ORIG_MS" 'BEGIN { printf "%.17g", s + m }')
+              MEAN_SUM_NEW=$(awk -v s="$MEAN_SUM_NEW" -v m="$NEW_MS" 'BEGIN { printf "%.17g", s + m }')
               MEAN_N=$((MEAN_N + 1))
+              GATED_ORIG_MS+=("$ORIG_MS")
+              GATED_ORIG_STD+=("$ORIG_STD")
+              GATED_NEW_MS+=("$NEW_MS")
+              GATED_NEW_STD+=("$NEW_STD")
             fi
 
             STATUS="OK"
             if [ "$GATED" -eq 1 ]; then
-              if awk -v n="$NEW_MS" -v o="$ORIG_MS" -v lim="$SLOWDOWN_LIMIT" \
-                     'BEGIN { exit !(o+0 > 0 && n+0 > o*lim + 1e-9) }'; then
+              # High-confidence FAIL_SLOW: fail iff (mu_new - 1.20*mu_orig) - t*SE > 0
+              FAIL=$(welch_verdict "$BENCH_RUNS" "$SLOWDOWN_LIMIT" "$ORIG_MS" "$ORIG_STD" "$NEW_MS" "$NEW_STD") || exit 1
+              if [ "$FAIL" = "1" ]; then
                 STATUS="FAIL_SLOW"
               fi
             else
@@ -182,13 +340,13 @@ jobs:
 
             if [ "$STATUS" = "FAIL_SLOW" ]; then OVERALL_OK=0; fi
 
-            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-              "$ID" "$EPSILON" "$DELTA" "$ORIG_MS" "$NEW_MS" "$RATIO" \
+            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+              "$ID" "$EPSILON" "$DELTA" "$ORIG_MS" "$ORIG_STD" "$NEW_MS" "$NEW_STD" "$RATIO" \
               "$GATED" "$STATUS" "$OPS" >> "$TSV"
 
             MARK=""
             case "$STATUS" in
-              FAIL_SLOW) MARK=" ❌" ;;
+              FAIL_SLOW) MARK=" ❌ high-conf" ;;
               SKIP_FLOOR) MARK=" (below ${MIN_BENCH_MS}ms floor)" ;;
               OK)
                 if awk -v r="$RATIO" 'BEGIN { exit !(r+0 < 1.0) }'; then
@@ -196,7 +354,7 @@ jobs:
                 fi
                 ;;
             esac
-            SUMMARY_ROWS+="| $ID | $ORIG_MS | $NEW_MS | $RATIO | $STATUS$MARK |"$'\n'
+            SUMMARY_ROWS+="| $ID | $ORIG_MS_REPORT ± $ORIG_STD_REPORT | $NEW_MS_REPORT ± $NEW_STD_REPORT | $RATIO_REPORT | $STATUS$MARK |"$'\n'
           done
 
           MEAN_ORIG="n/a"
@@ -204,34 +362,49 @@ jobs:
           MEAN_RATIO="n/a"
           MEAN_OK=1
           if [ "$MEAN_N" -gt 0 ]; then
-            MEAN_ORIG=$(awk -v s="$MEAN_SUM_ORIG" -v n="$MEAN_N" 'BEGIN { printf "%.4f", s / n }')
-            MEAN_NEW=$(awk -v s="$MEAN_SUM_NEW" -v n="$MEAN_N" 'BEGIN { printf "%.4f", s / n }')
+            MEAN_ORIG=$(awk -v s="$MEAN_SUM_ORIG" -v n="$MEAN_N" 'BEGIN { printf "%.17g", s / n }')
+            MEAN_NEW=$(awk -v s="$MEAN_SUM_NEW" -v n="$MEAN_N" 'BEGIN { printf "%.17g", s / n }')
             MEAN_RATIO=$(awk -v o="$MEAN_ORIG" -v n="$MEAN_NEW" \
-                           'BEGIN { if (o+0 > 0) printf "%.3f", n/o; else print "inf" }')
-            # Mean bar: fail if mean(new) > mean(orig) * MEAN_LIMIT.
-            if awk -v n="$MEAN_NEW" -v o="$MEAN_ORIG" -v lim="$MEAN_LIMIT" \
-                   'BEGIN { exit !(o+0 > 0 && n+0 > o*lim + 1e-9) }'; then
+                           'BEGIN { if (o+0 > 0) printf "%.17g", n/o; else print "inf" }')
+            # Mean gate high-confidence: fail iff (mean_new - MEAN_LIMIT*mean_orig) - t*SE_mean > 0
+            # SE_mean = sqrt( V_new + (MEAN_LIMIT^2)*V_orig ) where V_* = sum(sigma_i^2/n)/m^2
+            MEAN_FAIL=$(welch_verdict "$BENCH_RUNS" "$MEAN_LIMIT" \
+              "${GATED_ORIG_MS[*]}" "${GATED_ORIG_STD[*]}" \
+              "${GATED_NEW_MS[*]}" "${GATED_NEW_STD[*]}") || exit 1
+            if [ "$MEAN_FAIL" = "1" ]; then
               MEAN_OK=0
               OVERALL_OK=0
+            fi
+          fi
+          MEAN_ORIG_REPORT="$MEAN_ORIG"
+          MEAN_NEW_REPORT="$MEAN_NEW"
+          MEAN_RATIO_REPORT="$MEAN_RATIO"
+          if [ "$MEAN_N" -gt 0 ]; then
+            printf -v MEAN_ORIG_REPORT '%.4f' "$MEAN_ORIG"
+            printf -v MEAN_NEW_REPORT '%.4f' "$MEAN_NEW"
+            if [ "$MEAN_RATIO" != "inf" ]; then
+              printf -v MEAN_RATIO_REPORT '%.3f' "$MEAN_RATIO"
             fi
           fi
 
           {
             echo "## Benchmark \`${LABEL}\` (e=${EPSILON}, d=${DELTA})"
             echo ""
-            echo "- Runs averaged: **${BENCH_RUNS}** per ID (no \`--time\` for gated ms)"
-            echo "- Per-ID bar: new ≤ orig × **${SLOWDOWN_LIMIT}** (IDs with orig ≥ ${MIN_BENCH_MS} ms)"
-            echo "- Mean bar: mean(new) ≤ mean(orig) × **${MEAN_LIMIT}** over the ${MEAN_N} gated IDs (floor excludes tiny runs)"
-            echo "- Mean orig: **${MEAN_ORIG}** ms · Mean new: **${MEAN_NEW}** ms · ratio **${MEAN_RATIO}** · mean_ok=${MEAN_OK}"
+            echo "- Size: **${SIZE}** · IDs: **${IDS}**"
+            echo "- Delta computed as **${DELTA_NUMER}/(1+${EPSILON}) = ${DELTA}**"
+            echo "- Runs averaged: **${BENCH_RUNS}** per ID (Welford mean±stddev, high-confidence Welch t gating)"
+            echo "- Per-ID bar: new ≤ orig × **${SLOWDOWN_LIMIT}** with 95% one-sided CI (fail iff (mu_new - ${SLOWDOWN_LIMIT}·mu_orig) - t·SE > 0, SE = sqrt(σ_new²/n + (${SLOWDOWN_LIMIT}·σ_orig)²/n), Welch df)"
+            echo "- Mean bar: mean(new) ≤ mean(orig) × **${MEAN_LIMIT}** over the ${MEAN_N} gated IDs (floor excludes tiny runs), also Welch t gated"
+            echo "- Mean orig: **${MEAN_ORIG_REPORT}** ms · Mean new: **${MEAN_NEW_REPORT}** ms · ratio **${MEAN_RATIO_REPORT}** · mean_ok=${MEAN_OK} (high-conf)"
             echo ""
-            echo "| ID | orig_ms | new_ms | ratio | status |"
-            echo "|----|--------:|-------:|------:|--------|"
+            echo "| ID | orig_ms ± std | new_ms ± std | ratio | status |"
+            echo "|----|---------------|----------------|------:|--------|"
             printf '%s' "$SUMMARY_ROWS"
             echo ""
             if [ "$OVERALL_OK" -eq 1 ]; then
-              echo "✅ Benchmark OK for this setting"
+              echo "✅ Benchmark OK for this setting (high-confidence)"
             else
-              echo "❌ Regression for this setting (per-ID 1.2x and/or mean gate)"
+              echo "❌ Regression for this setting (high-confidence per-ID 1.2x and/or mean gate)"
             fi
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
@@ -239,20 +412,28 @@ jobs:
           python3 - "$TSV" "$JSON" "$EPSILON" "$DELTA" "$LABEL" \
               "$SLOWDOWN_LIMIT" "$MIN_BENCH_MS" "$BENCH_RUNS" \
               "$MEAN_ORIG" "$MEAN_NEW" "$MEAN_RATIO" "$MEAN_OK" "$MEAN_N" "$OVERALL_OK" \
-              "$MEAN_LIMIT" <<'PY'
+              "$MEAN_LIMIT" <<'PY' || exit 1
           import json, sys
           tsv, out, eps, delta, label = sys.argv[1:6]
           slow, floor, runs = sys.argv[6:9]
           mean_o, mean_n, mean_r, mean_ok, mean_cnt, overall = sys.argv[9:15]
           mean_limit = sys.argv[15]
           cases = []
+          display_rows = []
           with open(tsv) as f:
-              next(f)
+              header = next(f).rstrip("\n").split("\t")
+              # header: id e d orig_ms orig_std new_ms new_std ratio gated status ops
               for line in f:
                   parts = line.rstrip("\n").split("\t")
-                  while len(parts) < 9:
+                  while len(parts) < 11:
                       parts.append("")
-                  id_, e, d, o_ms, n_ms, ratio, gated, status, ops = parts[:9]
+                  id_, e, d, o_ms, o_std, n_ms, n_std, ratio, gated, status, ops = parts[:11]
+                  display = parts.copy()
+                  for index in (3, 4, 5, 6):
+                      display[index] = f"{float(display[index]):.4f}"
+                  if ratio != "inf":
+                      display[7] = f"{float(ratio):.3f}"
+                  display_rows.append(display)
                   op_map = {}
                   if ops:
                       for pair in ops.split(";"):
@@ -267,7 +448,9 @@ jobs:
                       "e": float(e),
                       "d": float(d),
                       "orig_ms": float(o_ms),
+                      "orig_std": float(o_std) if o_std not in ("", "n/a") else 0.0,
                       "new_ms": float(n_ms),
+                      "new_std": float(n_std) if n_std not in ("", "n/a") else 0.0,
                       "ratio": None if ratio == "inf" else float(ratio),
                       "gated": gated == "1",
                       "status": status,
@@ -297,24 +480,29 @@ jobs:
           with open(out, "w") as f:
               json.dump(doc, f, indent=2)
               f.write("\n")
+          with open(tsv, "w") as f:
+              f.write("\t".join(header) + "\n")
+              for row in display_rows:
+                  f.write("\t".join(row) + "\n")
           PY
 
-          echo "Benchmark ${LABEL} (avg of ${BENCH_RUNS} runs, limit ${SLOWDOWN_LIMIT}x, mean ≤ orig×${MEAN_LIMIT})"
+          echo "Benchmark ${LABEL} (10 runs Welford, high-conf limit ${SLOWDOWN_LIMIT}x, mean ≤ orig×${MEAN_LIMIT})"
           column -t -s $'\t' "$TSV" || cat "$TSV"
           echo "mean_orig=${MEAN_ORIG} mean_new=${MEAN_NEW} mean_ratio=${MEAN_RATIO} gated_n=${MEAN_N} mean_ok=${MEAN_OK}"
 
           if [ "$OVERALL_OK" -ne 1 ]; then
             echo ""
             echo "❌ Performance regression for e=${EPSILON} d=${DELTA}:"
-            echo "   per-ID new > orig*${SLOWDOWN_LIMIT} (above ${MIN_BENCH_MS}ms floor), and/or"
-            echo "   mean(new) > mean(orig)*${MEAN_LIMIT} over gated IDs."
+            echo "   high-confidence per-ID new > orig*${SLOWDOWN_LIMIT} (above ${MIN_BENCH_MS}ms floor), and/or"
+            echo "   high-confidence mean(new) > mean(orig)*${MEAN_LIMIT} over gated IDs."
+            echo "   (fail iff (mu - limit*mu_orig) - t_{0.95}*SE > 0, Welch df)"
             exit 1
           fi
-          echo "✅ Benchmark OK"
+          echo "✅ Benchmark OK (high-confidence)"
 
       - name: Upload benchmark report
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: benchmark-${{ matrix.label }}-e${{ matrix.epsilon }}-d${{ matrix.delta }}
+          name: benchmark-${{ matrix.label }}
           path: new/bench-report/
