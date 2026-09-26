@@ -222,23 +222,41 @@ jobs:
             awk -v s="$sum" -v n="$BENCH_RUNS" 'BEGIN { printf "%.4f", s / n }'
           }
 
-          # One --time run on new only (gated averages stay without --time so
-          # they match orig binaries that may lack TIMER support). New must
-          # exit 0 and emit TIMER_MS lines; blank ops is not a pass.
           capture_ops() {
-            local id=$1
-            local log="/tmp/new_${id}_time.log"
-            if ! ( cd new/ && \
+            local dir=$1 id=$2 tag=$3
+            local log="/tmp/${tag}_${id}_time.log"
+            if ! ( cd "$dir/" && \
               ./build/simplify "$id" -e "$EPSILON" -d "$DELTA" --time \
                 > "$log" 2>&1 ); then
-              echo "❌ --time capture failed for ID=$id" >&2
+              echo "❌ --time capture failed for ID=$id ($tag)" >&2
               cat "$log" >&2
               return 1
             fi
             if ! grep -q '^TIMER_MS ' "$log"; then
-              echo "❌ Missing TIMER_MS lines for ID=$id" >&2
+              echo "❌ Missing TIMER_MS lines for ID=$id ($tag)" >&2
               cat "$log" >&2
               return 1
+            fi
+            grep '^TIMER_MS ' "$log" \
+              | awk '{ printf "%s%s=%.4f", (NR>1?";":""), $2, $3 }'
+          }
+
+          capture_ops_allow_empty() {
+            local dir=$1 id=$2 tag=$3
+            local log="/tmp/${tag}_${id}_time.log"
+            if ! ( cd "$dir/" && \
+              ./build/simplify "$id" -e "$EPSILON" -d "$DELTA" --time \
+                > "$log" 2>&1 ); then
+              echo "⚠️ --time capture failed for ID=$id ($tag), treating as empty" >&2
+              cat "$log" >&2
+              echo ""
+              return 0
+            fi
+            if ! grep -q '^TIMER_MS ' "$log"; then
+              echo "⚠️ Missing TIMER_MS for ID=$id ($tag), treating as empty" >&2
+              cat "$log" >&2
+              echo ""
+              return 0
             fi
             grep '^TIMER_MS ' "$log" \
               | awk '{ printf "%s%s=%.4f", (NR>1?";":""), $2, $3 }'
@@ -250,7 +268,7 @@ jobs:
           TSV="$REPORT_DIR/benchmark.tsv"
           JSON="$REPORT_DIR/benchmark.json"
 
-          printf 'id\te\td\torig_ms\tnew_ms\tratio\tgated\tstatus\tops\n' > "$TSV"
+          printf 'id\te\td\torig_ms\tnew_ms\tratio\tgated\tstatus\torig_ops\tnew_ops\n' > "$TSV"
 
           OVERALL_OK=1
           MEAN_SUM_ORIG=0
@@ -261,8 +279,9 @@ jobs:
           for ID in "${IDS_ARR[@]}"; do
             ORIG_MS=$(bench_avg_ms orig "$ID" orig)
             NEW_MS=$(bench_avg_ms new "$ID" new)
-            OPS=$(capture_ops "$ID") \
-              || { echo "❌ ops capture failed for ID=$ID"; exit 1; }
+            ORIG_OPS=$(capture_ops_allow_empty orig "$ID" orig) || ORIG_OPS=""
+            NEW_OPS=$(capture_ops new "$ID" new) \
+              || { echo "❌ ops capture failed for ID=$ID (new)"; exit 1; }
 
             RATIO=$(awk -v o="$ORIG_MS" -v n="$NEW_MS" \
                       'BEGIN { if (o+0 > 0) printf "%.3f", n/o; else print "inf" }')
@@ -288,9 +307,9 @@ jobs:
 
             if [ "$STATUS" = "FAIL_SLOW" ]; then OVERALL_OK=0; fi
 
-            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
               "$ID" "$EPSILON" "$DELTA" "$ORIG_MS" "$NEW_MS" "$RATIO" \
-              "$GATED" "$STATUS" "$OPS" >> "$TSV"
+              "$GATED" "$STATUS" "$ORIG_OPS" "$NEW_OPS" >> "$TSV"
 
             MARK=""
             case "$STATUS" in
@@ -343,7 +362,7 @@ jobs:
             fi
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
-          # Compact JSON for artifacts (ops as nested object when present).
+          # Compact JSON for artifacts (orig_ops/new_ops as nested objects).
           python3 - "$TSV" "$JSON" "$EPSILON" "$DELTA" "$LABEL" \
               "$SLOWDOWN_LIMIT" "$MIN_BENCH_MS" "$BENCH_RUNS" \
               "$MEAN_ORIG" "$MEAN_NEW" "$MEAN_RATIO" "$MEAN_OK" "$MEAN_N" "$OVERALL_OK" \
@@ -353,40 +372,51 @@ jobs:
           slow, floor, runs = sys.argv[6:9]
           mean_o, mean_n, mean_r, mean_ok, mean_cnt, overall = sys.argv[9:15]
           mean_limit = sys.argv[15]
-          cases = []
+          def parse_ops(s):
+              m={}
+              if s:
+                  for pair in s.split(";"):
+                      if "=" in pair:
+                          k,v = pair.split("=",1)
+                          try:
+                              m[k]=float(v)
+                          except ValueError:
+                              m[k]=v
+              return m
+          cases=[]
           with open(tsv) as f:
               next(f)
               for line in f:
-                  parts = line.rstrip("\n").split("\t")
-                  while len(parts) < 9:
-                      parts.append("")
-                  id_, e, d, o_ms, n_ms, ratio, gated, status, ops = parts[:9]
-                  op_map = {}
-                  if ops:
-                      for pair in ops.split(";"):
-                          if "=" in pair:
-                              k, v = pair.split("=", 1)
-                              try:
-                                  op_map[k] = float(v)
-                              except ValueError:
-                                  op_map[k] = v
+                  parts=line.rstrip("\n").split("\t")
+                  # TSV now has 10 columns: ... orig_ops new_ops
+                  # Handle legacy 9-col files gracefully
+                  if len(parts)==9:
+                      id_,e,d,o_ms,n_ms,ratio,gated,status,ops = parts
+                      orig_ops_str=""
+                      new_ops_str=ops
+                  else:
+                      while len(parts)<10:
+                          parts.append("")
+                      id_,e,d,o_ms,n_ms,ratio,gated,status,orig_ops_str,new_ops_str = parts[:10]
                   cases.append({
                       "id": int(id_),
                       "e": float(e),
                       "d": float(d),
                       "orig_ms": float(o_ms),
                       "new_ms": float(n_ms),
-                      "ratio": None if ratio == "inf" else float(ratio),
-                      "gated": gated == "1",
+                      "ratio": None if ratio=="inf" else float(ratio),
+                      "gated": gated=="1",
                       "status": status,
-                      "ops": op_map,
+                      "orig_ops": parse_ops(orig_ops_str),
+                      "new_ops": parse_ops(new_ops_str),
+                      "ops": parse_ops(new_ops_str),
                   })
           def num_or_none(s):
               try:
                   return float(s)
               except ValueError:
                   return None
-          doc = {
+          doc={
               "label": label,
               "epsilon": float(eps),
               "delta": float(delta),
@@ -398,12 +428,12 @@ jobs:
               "mean_orig_ms": num_or_none(mean_o),
               "mean_new_ms": num_or_none(mean_n),
               "mean_ratio": num_or_none(mean_r),
-              "mean_ok": mean_ok == "1",
-              "overall_ok": overall == "1",
+              "mean_ok": mean_ok=="1",
+              "overall_ok": overall=="1",
               "cases": cases,
           }
-          with open(out, "w") as f:
-              json.dump(doc, f, indent=2)
+          with open(out,"w") as f:
+              json.dump(doc,f,indent=2)
               f.write("\n")
           PY
 
@@ -426,3 +456,91 @@ jobs:
         with:
           name: benchmark-${{ matrix.label }}
           path: new/bench-report/
+
+  bench-report:
+    name: bench report
+    needs: bench-vs-prev
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      actions: read
+    steps:
+      - name: Checkout (for report script)
+        uses: actions/checkout@v7
+        with:
+          path: repo
+          ref: ${{ github.sha }}
+
+      - name: Download benchmark artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: benchmark-*
+          path: /tmp/bench-artifacts
+          merge-multiple: false
+
+      - name: Generate report
+        run: |
+          set -e
+          echo "Artifacts downloaded to /tmp/bench-artifacts:"
+          find /tmp/bench-artifacts -type f | head -n 100 || true
+          mkdir -p /tmp/bench-report
+          python3 repo/scripts/ci/bench_report.py \
+            --reports-dir /tmp/bench-artifacts \
+            --output-md /tmp/bench-report/summary.md \
+            --output-html /tmp/bench-report/report.html \
+            --output-comment /tmp/bench-report/comment.md \
+            --run-url "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --run-id "${{ github.run_id }}" \
+            --sha "${{ github.sha }}"
+          echo "=== markdown preview ==="
+          cat /tmp/bench-report/summary.md
+          echo "=== end preview ==="
+          # Append aggregated summary to job summary
+          cat /tmp/bench-report/summary.md >> "$GITHUB_STEP_SUMMARY"
+          # Also keep copies in repo for artifact sanity if needed
+          mkdir -p repo/bench-report
+          cp /tmp/bench-report/report.html repo/bench-report/report.html || true
+          cp /tmp/bench-report/summary.md repo/bench-report/summary.md || true
+
+      - name: Upload HTML report artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-report
+          path: /tmp/bench-report/report.html
+          if-no-files-found: warn
+
+      - name: Post sticky PR comment
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -e
+          COMMENT_FILE=/tmp/bench-report/comment.md
+          if [ ! -f "$COMMENT_FILE" ]; then
+            echo "No comment file, skipping PR comment"
+            exit 0
+          fi
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          REPO="${{ github.repository }}"
+          echo "PR_NUMBER=$PR_NUMBER REPO=$REPO"
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No PR number, skip"
+            exit 0
+          fi
+          # Search for existing bench-report comment
+          echo "Searching for existing bench-report comment..."
+          set +e
+          EXISTING_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate 2>/dev/null | jq -r '.[] | select(.body | contains("<!-- bench-report -->")) | .id' | head -n1)
+          set -e
+          if [ -n "$EXISTING_ID" ] && [ "$EXISTING_ID" != "null" ]; then
+            echo "Updating existing comment $EXISTING_ID"
+            gh api --method PATCH "repos/$REPO/issues/comments/$EXISTING_ID" -f body="$(cat "$COMMENT_FILE")"
+          else
+            echo "Creating new comment"
+            gh api --method POST "repos/$REPO/issues/$PR_NUMBER/comments" -f body="$(cat "$COMMENT_FILE")"
+          fi
