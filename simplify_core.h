@@ -23,9 +23,8 @@
 // in P order, alive after the final covered point to the first vertex of
 // its S.
 
-// Working memory for advancing anchors through one stream step. It carries
-// nothing between anchors except the whole-box clip, which is the same for
-// every anchor at a step (see Anchor::advance).
+// Reusable working memory for advancing anchors through one stream step. The
+// whole-box clip is shared by every anchor with that wedge at the step.
 class StepWorkspace {
   public:
     // Called before the first anchor of each step.

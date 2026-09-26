@@ -309,8 +309,8 @@ inline bool intersect(const std::vector<Point> &P_in,
 //
 // The reachable-region construction from the streaming simplification
 // algorithm: the bounding box, the delta-disk grid, and the free-space wedge
-// F(S,p).  Shared by both the headless (simplify.cpp) and GUI
-// (simplify_with_gui.cpp) front-ends, so it lives here as inline definitions.
+// F(S,p). Shared by the headless core (simplify_core.h), web trace
+// (simplify.cpp), and GUI (simplify_with_gui.cpp).
 
 // Axis-aligned working bounding box, sized per input by configure_bbox().
 // inline (C++17) so both translation units share one definition.

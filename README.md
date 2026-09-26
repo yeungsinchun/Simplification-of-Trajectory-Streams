@@ -17,7 +17,8 @@ https://simplify-viewer-522405269791.asia-east2.run.app
 
 ## Repository layout
 
-- `simplify.cpp`: headless implementation of the paper's algorithm.
+- `simplify_core.h`: headless streaming algorithm and its anchor workspace.
+- `simplify.cpp`: headless command-line and web-trace front-ends.
 - `simplify_with_gui.cpp`, `drawing.cpp`, `drawing.h`: optional Qt viewer.
 - `scripts/prepare_dataset.py`: download T-Drive and normalize it into the canonical curve format.
 - `scripts/benchmark.py`: long-running comparison against the DOTS baseline.
