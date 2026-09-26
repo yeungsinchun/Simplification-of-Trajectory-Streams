@@ -388,16 +388,7 @@ jobs:
               next(f)
               for line in f:
                   parts=line.rstrip("\n").split("\t")
-                  # TSV now has 10 columns: ... orig_ops new_ops
-                  # Handle legacy 9-col files gracefully
-                  if len(parts)==9:
-                      id_,e,d,o_ms,n_ms,ratio,gated,status,ops = parts
-                      orig_ops_str=""
-                      new_ops_str=ops
-                  else:
-                      while len(parts)<10:
-                          parts.append("")
-                      id_,e,d,o_ms,n_ms,ratio,gated,status,orig_ops_str,new_ops_str = parts[:10]
+                  id_,e,d,o_ms,n_ms,ratio,gated,status,orig_ops_str,new_ops_str = parts
                   cases.append({
                       "id": int(id_),
                       "e": float(e),

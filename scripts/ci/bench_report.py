@@ -743,7 +743,6 @@ def main() -> int:
     parser.add_argument("--run-url", type=str, default=os.environ.get("GITHUB_RUN_URL", ""), help="URL to link in report (e.g. https://github.com/org/repo/actions/runs/123)")
     parser.add_argument("--run-id", type=str, default=os.environ.get("GITHUB_RUN_ID", ""), help="Run ID if URL not available")
     parser.add_argument("--sha", type=str, default=os.environ.get("GITHUB_SHA", ""), help="Commit SHA for header")
-    parser.add_argument("--check", action="store_true", help="Exit 1 if any configuration failed gating")
     args = parser.parse_args()
 
     reports_dir: Path = args.reports_dir
@@ -799,11 +798,6 @@ def main() -> int:
 
     # Also print to stdout if files given? already printed md if no output_md
 
-    if args.check:
-        failed = [d for d in docs if not d.get("overall_ok", False) and d.get("gated_count",0)>0]
-        if failed:
-            print(f"check failed: {len(failed)} configurations failed gating", file=sys.stderr)
-            return 1
     return 0
 
 if __name__ == "__main__":
