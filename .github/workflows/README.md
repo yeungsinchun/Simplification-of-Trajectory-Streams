@@ -52,11 +52,17 @@ IDs with `orig_ms` strictly below 1 ms are reported as `SKIP_FLOOR` and excluded
 
 Local `SIMPLIFY_CORE_MS` means can swing under host load. When comparing commits locally, interleave baseline and candidate runs and inspect per-ID minima alongside the five-run means used by CI.
 
-Gated averages intentionally omit `--time` so timing stays comparable to older binaries. After averages, the new binary runs once per ID with `--time` and must exit 0 with at least one `TIMER_MS` line (blank ops is a failure). Phase counters (`hull_Gi`, `find_F`, `intersect`, `boundary_P`, …) land in the TSV `ops` column and nested `ops` objects in JSON.
+Gated averages intentionally omit `--time` so timing stays comparable to older binaries. After averages, both binaries run once per ID with `--time`: the new binary must exit 0 with at least one `TIMER_MS` line (blank ops is a failure); the orig binary is allowed to be empty (for old baselines lacking timers). Phase counters (`hull_Gi`, `find_F`, `intersect`, `boundary_P`, …) land in the TSV `orig_ops`/`new_ops` columns and nested `orig_ops`/`new_ops` objects in JSON.
 
 Artifacts: `benchmark-<label>` with `benchmark.tsv` / `benchmark.json`. Job summaries highlight wins and regressions per setting. Each job logs `Computed DELTA=… from NUMER/(1+EPSILON)` and `Synced IDs: …`.
 
-Runtime: 20 jobs each build once and run 10 IDs ×5 averages +10 --time runs =60 simplify invocations. On a local Release build the full 20×10 correctness sweep (~200 Fréchet runs) and 20×10 benchmark sweep (~1000 timed runs) each complete in under a few minutes; measured total for the entire matrix (both workflows sequentially, `BENCH_RUNS=5`) is reported in the PR that introduced the matrix.
+After all 20 matrix jobs, `bench-report` (always runs) aggregates `benchmark.json` across all labels via `scripts/ci/bench_report.py` (`--reports-dir`, `--output-md/html/comment`):
+
+- **Job summary (GITHUB_STEP_SUMMARY)**: overall table per configuration (gated mean orig ms, new ms, speedup orig/new, pass/fail vs thresholds) plus a global per-phase before/after table with time shares aggregated from the `TIMER_MS` lines (summed over IDs and configurations, share = phase/total). It also includes per-configuration phase speedups. Generate the same report locally from downloaded artifacts with `python scripts/ci/bench_report.py --reports-dir bench-artifacts --output-html report.html`.
+- **HTML artifact**: self-contained `benchmark-report` (single `report.html` with tables + inline CSS bar charts, no external assets) uploaded via `actions/upload-artifact`.
+- **Sticky PR comment**: single comment with `<!-- bench-report -->` marker containing headline speedups and a link to the run, updated in place on each push (gh api `PATCH` if existing, `POST` otherwise). Push to `main` skips the comment.
+
+Runtime: each of the 20 jobs builds both binaries once. For each of 10 IDs, it runs five untimed averages per binary and one `--time` capture per binary: 120 simplify invocations per job, 2,400 across the matrix. The measured runtime for the matrix is reported in the PR that introduced it.
 
 ### gui-build.yml - Qt GUI build
 **Triggers:** Push to main, pull requests to main, manual dispatch
