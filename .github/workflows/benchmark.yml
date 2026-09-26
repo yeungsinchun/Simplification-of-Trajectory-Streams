@@ -262,7 +262,7 @@ jobs:
               | awk '{ printf "%s%s=%.4f", (NR>1?";":""), $2, $3 }'
           }
 
-          IDS_ARR=($IDS)
+          read -r -a IDS_ARR <<< "$IDS"
           REPORT_DIR=new/bench-report
           mkdir -p "$REPORT_DIR"
           TSV="$REPORT_DIR/benchmark.tsv"
