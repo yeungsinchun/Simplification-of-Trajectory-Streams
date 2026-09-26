@@ -361,7 +361,8 @@ def render_markdown(docs: List[Dict[str, Any]], phase_info: Dict[str, Any], run_
     # Compute global total times for shares (using total timer if present else sum leaves)
     leaf_orig_global = sum(global_orig.get(k, 0) for k in leaf_phases)
     leaf_new_global = sum(global_new.get(k, 0) for k in leaf_phases)
-    other_comparable = orig_available and all(p in phase_info["global_orig_phases"] and p in phase_info["global_new_phases"] for p in leaf_phases)
+    orig_other_available = orig_available and all(p in phase_info["global_orig_phases"] for p in leaf_phases)
+    new_other_available = all(p in phase_info["global_new_phases"] for p in leaf_phases)
     global_orig_total = global_orig.get("total", leaf_orig_global) or leaf_orig_global or 1
     global_new_total = global_new.get("total", leaf_new_global) or leaf_new_global or 1
     # Build phase table: phase | orig ms | orig share | new ms | new share | speedup
@@ -373,10 +374,10 @@ def render_markdown(docs: List[Dict[str, Any]], phase_info: Dict[str, Any], run_
         n_ms = global_new.get(phase, 0) if phase in phase_info["global_new_phases"] else None
         lines.append(f"| {phase} | {phase_ms(o_ms)} | {phase_share(o_ms, global_orig_total)} | {phase_ms(n_ms)} | {phase_share(n_ms, global_new_total)} | {phase_speedup(o_ms, n_ms)} |")
     # Other
-    if (orig_available and global_orig_total > leaf_orig_global) or global_new_total > leaf_new_global:
-        o_other = max(0, global_orig_total - leaf_orig_global) if orig_available else None
-        n_other = max(0, global_new_total - leaf_new_global)
-        lines.append(f"| _other_ (total − leaves) | {phase_ms(o_other)} | {phase_share(o_other, global_orig_total)} | {phase_ms(n_other)} | {phase_share(n_other, global_new_total)} | {phase_speedup(o_other if other_comparable else None, n_other)} |")
+    if (orig_other_available and global_orig_total > leaf_orig_global) or (new_other_available and global_new_total > leaf_new_global):
+        o_other = max(0, global_orig_total - leaf_orig_global) if orig_other_available else None
+        n_other = max(0, global_new_total - leaf_new_global) if new_other_available else None
+        lines.append(f"| _other_ (total − leaves) | {phase_ms(o_other)} | {phase_share(o_other, global_orig_total)} | {phase_ms(n_other)} | {phase_share(n_other, global_new_total)} | {phase_speedup(o_other, n_other)} |")
     # Totals
     # global_orig_total and new may be total timer, which includes overhead; show
     lines.append(f"| **total** | {phase_ms(global_orig_total if orig_available else None)} | {phase_share(global_orig_total if orig_available else None, global_orig_total)} | {phase_ms(global_new_total)} | {phase_share(global_new_total, global_new_total)} | {phase_speedup(global_orig_total if orig_available else None, global_new_total)} |")
@@ -576,7 +577,8 @@ def render_html(docs: List[Dict[str, Any]], phase_info: Dict[str, Any], run_url:
     # Determine totals
     leaf_orig_global = sum(global_orig.get(k, 0) for k in leaf_phases)
     leaf_new_global = sum(global_new.get(k, 0) for k in leaf_phases)
-    other_comparable = orig_available and all(p in phase_info["global_orig_phases"] and p in phase_info["global_new_phases"] for p in leaf_phases)
+    orig_other_available = orig_available and all(p in phase_info["global_orig_phases"] for p in leaf_phases)
+    new_other_available = all(p in phase_info["global_new_phases"] for p in leaf_phases)
     global_orig_total = global_orig.get("total", leaf_orig_global) or leaf_orig_global or 1
     global_new_total = global_new.get("total", leaf_new_global) or leaf_new_global or 1
     html_parts.append('<div style="overflow:auto"><table><thead><tr><th>Phase</th><th>orig ms</th><th>orig share</th><th>new ms</th><th>new share</th><th>speedup</th><th>share bar (orig → new)</th></tr></thead><tbody>')
@@ -590,14 +592,13 @@ def render_html(docs: List[Dict[str, Any]], phase_info: Dict[str, Any], run_url:
         bar = f'<span class="bar" style="background:{col};width:{o_w:.1f}px"></span> → <span class="bar" style="background:{col};opacity:.55;width:{n_w:.1f}px"></span>'
         html_parts.append(f'<tr><td class="mono">{phase}</td><td>{phase_ms(o_ms)}</td><td>{phase_share(o_ms, global_orig_total)}</td><td>{phase_ms(n_ms)}</td><td>{phase_share(n_ms, global_new_total)}</td><td>{phase_speedup(o_ms, n_ms)}</td><td>{bar}</td></tr>')
     # other
-    if (orig_available and global_orig_total > leaf_orig_global) or global_new_total > leaf_new_global:
-        o_other = max(0, global_orig_total - leaf_orig_global) if orig_available else None
-        n_other = max(0, global_new_total - leaf_new_global)
-        n_share = n_other / global_new_total * 100 if global_new_total else 0
+    if (orig_other_available and global_orig_total > leaf_orig_global) or (new_other_available and global_new_total > leaf_new_global):
+        o_other = max(0, global_orig_total - leaf_orig_global) if orig_other_available else None
+        n_other = max(0, global_new_total - leaf_new_global) if new_other_available else None
         o_w = (o_other or 0) / max_phase * 80 if max_phase else 0
-        n_w = n_other / max_phase * 80 if max_phase else 0
+        n_w = (n_other or 0) / max_phase * 80 if max_phase else 0
         bar = f'<span class="bar" style="background:#64748b;width:{o_w:.1f}px"></span> → <span class="bar" style="background:#64748b;opacity:.55;width:{n_w:.1f}px"></span>'
-        html_parts.append(f'<tr><td class="mono"><em>other</em></td><td>{phase_ms(o_other)}</td><td>{phase_share(o_other, global_orig_total)}</td><td>{phase_ms(n_other)}</td><td>{n_share:.1f}%</td><td>{phase_speedup(o_other if other_comparable else None, n_other)}</td><td>{bar}</td></tr>')
+        html_parts.append(f'<tr><td class="mono"><em>other</em></td><td>{phase_ms(o_other)}</td><td>{phase_share(o_other, global_orig_total)}</td><td>{phase_ms(n_other)}</td><td>{phase_share(n_other, global_new_total)}</td><td>{phase_speedup(o_other, n_other)}</td><td>{bar}</td></tr>')
     html_parts.append(f'<tr style="font-weight:700;background:#12161d"><td>total</td><td>{phase_ms(global_orig_total if orig_available else None)}</td><td>{phase_share(global_orig_total if orig_available else None, global_orig_total)}</td><td>{phase_ms(global_new_total)}</td><td>100%</td><td>{phase_speedup(global_orig_total if orig_available else None, global_new_total)}</td><td></td></tr>')
     html_parts.append('</tbody></table></div></div>')
 
@@ -734,7 +735,6 @@ def main() -> int:
     parser.add_argument("--run-url", type=str, default=os.environ.get("GITHUB_RUN_URL", ""), help="URL to link in report (e.g. https://github.com/org/repo/actions/runs/123)")
     parser.add_argument("--run-id", type=str, default=os.environ.get("GITHUB_RUN_ID", ""), help="Run ID if URL not available")
     parser.add_argument("--sha", type=str, default=os.environ.get("GITHUB_SHA", ""), help="Commit SHA for header")
-    parser.add_argument("--check", action="store_true", help="Exit 1 if any configuration failed gating")
     parser.add_argument("--expected-configs", type=int, help="Expected number of distinct configurations")
     args = parser.parse_args()
 
@@ -791,14 +791,6 @@ def main() -> int:
 
     # Also print to stdout if files given? already printed md if no output_md
 
-    if args.check:
-        if args.expected_configs is not None and len({d.get("label") for d in docs}) != args.expected_configs:
-            print("check failed: incomplete matrix", file=sys.stderr)
-            return 1
-        failed = [d for d in docs if not d.get("overall_ok", False)]
-        if failed:
-            print(f"check failed: {len(failed)} configurations failed gating", file=sys.stderr)
-            return 1
     return 0
 
 if __name__ == "__main__":

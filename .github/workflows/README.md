@@ -52,9 +52,9 @@ All 10 IDs per configuration are gated (no floor); sub-millisecond runs are incl
 
 Local `SIMPLIFY_CORE_MS` means can swing under host load. When comparing commits locally, interleave baseline and candidate runs and inspect per-ID minima alongside the ten-run Welford means/stddevs used by CI; the benchmark JSON/TSV now include `orig_std`/`new_std` per ID.
 
-Gated averages intentionally omit `--time` so timing stays comparable to older binaries. After averages, the new binary runs once per ID with `--time` and must exit 0 with at least one `TIMER_MS` line (blank ops is a failure). Phase counters (`hull_Gi`, `find_F`, `intersect`, `boundary_P`, …) land in the TSV `orig_ops`/`new_ops` columns and nested `orig_ops`/`new_ops` objects in JSON (legacy `ops` is kept as alias for `new_ops`).
+Gated averages intentionally omit `--time` so timing stays comparable to older binaries. After averages, each binary runs once per ID with `--time`. The new binary must exit 0 with at least one `TIMER_MS` line; an older baseline without timers yields unavailable baseline phases. Phase counters (`hull_Gi`, `find_F`, `intersect`, `boundary_P`, …) land in the TSV `orig_ops`/`new_ops` columns and nested `orig_ops`/`new_ops` objects in JSON (legacy `ops` is kept as alias for `new_ops`).
 
-Artifacts: `benchmark-<label>` with `benchmark.tsv` / `benchmark.json`. TSV header is `id e d orig_ms orig_std new_ms new_std ratio gated status ops`; its statistics are rounded for display. JSON `cases` preserve the Welford mean and sample stddev at the precision used by the Welch gates. Job summaries show `orig_ms ± std` / `new_ms ± std` and mark `FAIL_SLOW` only when the Welch 95% lower bound exceeds the limit. Each job logs `Computed DELTA=… from NUMER/(1+EPSILON)` and `Synced IDs: …`.
+Artifacts: `benchmark-<label>` with `benchmark.tsv` / `benchmark.json`. TSV header is `id e d orig_ms orig_std new_ms new_std ratio gated status orig_ops new_ops`; its statistics are rounded for display. JSON `cases` preserve the Welford mean and sample stddev at the precision used by the Welch gates. Job summaries show `orig_ms ± std` / `new_ms ± std` and mark `FAIL_SLOW` only when the Welch 95% lower bound exceeds the limit. Each job logs `Computed DELTA=… from NUMER/(1+EPSILON)` and `Synced IDs: …`.
 
 After all 20 matrix jobs, `bench-report` (always runs) aggregates `benchmark.json` across all labels via `scripts/ci/bench_report.py` (`--reports-dir`, `--output-md/html/comment`):
 
@@ -64,7 +64,7 @@ After all 20 matrix jobs, `bench-report` (always runs) aggregates `benchmark.jso
 
 The report marks a missing configuration as an incomplete matrix. Missing baseline timers or phases appear as `n/a` in phase comparisons rather than zero.
 
-Runtime: 20 jobs each build both binaries and run 10 IDs × (10 orig + 10 new + 1 new --time) = 210 simplify invocations per job. Across the matrix, the benchmark runs 4,000 sampled invocations plus 200 ops runs (4,200 total). The separate correctness sweep covers 20 × 10 cases.
+Runtime: 20 jobs each build both binaries and run 10 IDs × (10 orig + 10 new + 2 --time) = 220 simplify invocations per job. Across the matrix, the benchmark runs 4,000 sampled invocations plus 400 ops runs (4,400 total). The separate correctness sweep covers 20 × 10 cases.
 
 ### gui-build.yml - Qt GUI build
 **Triggers:** Push to main, pull requests to main, manual dispatch

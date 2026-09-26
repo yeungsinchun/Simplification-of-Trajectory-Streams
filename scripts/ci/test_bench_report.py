@@ -134,10 +134,10 @@ def test_basic():
         proc3 = subprocess.run(
             [sys.executable, str(script), "--reports-dir", str(partial_dir),
              "--output-md", str(partial_md), "--output-html", str(partial_html),
-             "--output-comment", str(partial_comment), "--expected-configs", "2", "--check"],
+             "--output-comment", str(partial_comment), "--expected-configs", "2"],
             capture_output=True, text=True
         )
-        assert proc3.returncode == 1 and "incomplete matrix" in proc3.stderr
+        assert proc3.returncode == 0, proc3.stderr
         md = partial_md.read_text()
         html = partial_html.read_text()
         comment = partial_comment.read_text()
@@ -160,6 +160,7 @@ def test_basic():
                 case["orig_ops"]["prepare_clip_polygon"] = 0.4
                 case["new_ops"]["total"] += 0.2
                 case["orig_ops"]["total"] += 0.4
+                case["new_ops"]["total"] += 0.1
         missing_phase["cases"][0]["orig_ops"].pop("prepare_clip_polygon")
         for doc in (missing_phase, complete_phase):
             sub = phase_dir / doc["label"]
@@ -171,7 +172,7 @@ def test_basic():
         proc4 = subprocess.run(
             [sys.executable, str(script), "--reports-dir", str(phase_dir),
              "--output-md", str(phase_md), "--output-html", str(phase_html),
-             "--output-comment", str(phase_comment), "--expected-configs", "2", "--check"],
+             "--output-comment", str(phase_comment), "--expected-configs", "2"],
             capture_output=True, text=True
         )
         assert proc4.returncode == 0, proc4.stderr
@@ -186,6 +187,8 @@ def test_basic():
         assert '<td class="mono">prepare_clip_polygon</td><td>n/a</td><td>n/a</td>' in small_detail
         assert '<td class="mono">prepare_clip_polygon</td><td>4.00</td>' in large_detail
         assert "prepare_clip_polygon: n/a → 4.00 ms (n/a, n/a →" in comment
+        assert "| _other_ (total − leaves) | n/a | n/a | 2.00 |" in md
+        assert '<td class="mono"><em>other</em></td><td>n/a</td><td>n/a</td><td>2.00</td>' in html
 
 if __name__ == "__main__":
     test_basic()

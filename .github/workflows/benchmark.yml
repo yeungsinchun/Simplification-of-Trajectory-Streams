@@ -238,22 +238,24 @@ jobs:
             printf '%s %s' "$mean" "$stddev"
           }
 
-          # One --time run on new only (gated averages stay without --time so
-          # they match orig binaries that may lack TIMER support). New must
-          # exit 0 and emit TIMER_MS lines; blank ops is not a pass.
+          # Gated averages stay without --time so they match older binaries.
           capture_ops() {
-            local id=$1
-            local log="/tmp/new_${id}_time.log"
-            if ! ( cd new/ && \
+            local side=$1 id=$2
+            local log="/tmp/${side}_${id}_time.log"
+            if ! ( cd "$side"/ && \
               ./build/simplify "$id" -e "$EPSILON" -d "$DELTA" --time \
                 > "$log" 2>&1 ); then
-              echo "❌ --time capture failed for ID=$id" >&2
-              cat "$log" >&2
+              if [ "$side" = new ]; then
+                echo "❌ --time capture failed for ID=$id" >&2
+                cat "$log" >&2
+              fi
               return 1
             fi
             if ! grep -q '^TIMER_MS ' "$log"; then
-              echo "❌ Missing TIMER_MS lines for ID=$id" >&2
-              cat "$log" >&2
+              if [ "$side" = new ]; then
+                echo "❌ Missing TIMER_MS lines for ID=$id" >&2
+                cat "$log" >&2
+              fi
               return 1
             fi
             grep '^TIMER_MS ' "$log" \
@@ -275,7 +277,7 @@ jobs:
           TSV="$REPORT_DIR/benchmark.tsv"
           JSON="$REPORT_DIR/benchmark.json"
 
-          printf 'id\te\td\torig_ms\torig_std\tnew_ms\tnew_std\tratio\tgated\tstatus\tops\n' > "$TSV"
+          printf 'id\te\td\torig_ms\torig_std\tnew_ms\tnew_std\tratio\tgated\tstatus\torig_ops\tnew_ops\n' > "$TSV"
 
           OVERALL_OK=1
           MEAN_SUM_ORIG=0
@@ -300,7 +302,8 @@ jobs:
             printf -v ORIG_STD_REPORT '%.4f' "$ORIG_STD"
             printf -v NEW_MS_REPORT '%.4f' "$NEW_MS"
             printf -v NEW_STD_REPORT '%.4f' "$NEW_STD"
-            OPS=$(capture_ops "$ID") \
+            ORIG_OPS=$(capture_ops orig "$ID") || ORIG_OPS=""
+            NEW_OPS=$(capture_ops new "$ID") \
               || { echo "❌ ops capture failed for ID=$ID"; exit 1; }
 
             RATIO=$(awk -v o="$ORIG_MS" -v n="$NEW_MS" \
@@ -329,9 +332,9 @@ jobs:
 
             if [ "$STATUS" = "FAIL_SLOW" ]; then OVERALL_OK=0; fi
 
-            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
               "$ID" "$EPSILON" "$DELTA" "$ORIG_MS" "$ORIG_STD" "$NEW_MS" "$NEW_STD" "$RATIO" \
-              "$GATED" "$STATUS" "$OPS" >> "$TSV"
+              "$GATED" "$STATUS" "$ORIG_OPS" "$NEW_OPS" >> "$TSV"
 
             MARK=""
             case "$STATUS" in
@@ -410,27 +413,21 @@ jobs:
           display_rows = []
           with open(tsv) as f:
               header = next(f).rstrip("\n").split("\t")
-              # header: id e d orig_ms orig_std new_ms new_std ratio gated status ops
+              # header: id e d orig_ms orig_std new_ms new_std ratio gated status orig_ops new_ops
               for line in f:
                   parts = line.rstrip("\n").split("\t")
-                  while len(parts) < 11:
-                      parts.append("")
-                  id_, e, d, o_ms, o_std, n_ms, n_std, ratio, gated, status, ops = parts[:11]
+                  id_, e, d, o_ms, o_std, n_ms, n_std, ratio, gated, status, orig_ops, new_ops = parts
                   display = parts.copy()
                   for index in (3, 4, 5, 6):
                       display[index] = f"{float(display[index]):.4f}"
                   if ratio != "inf":
                       display[7] = f"{float(ratio):.3f}"
                   display_rows.append(display)
-                  op_map = {}
-                  if ops:
-                      for pair in ops.split(";"):
-                          if "=" in pair:
-                              k, v = pair.split("=", 1)
-                              try:
-                                  op_map[k] = float(v)
-                              except ValueError:
-                                  op_map[k] = v
+                  def parse_ops(raw):
+                      return {key: float(value) for key, value in
+                              (pair.split("=", 1) for pair in raw.split(";") if pair)}
+                  orig_op_map = parse_ops(orig_ops)
+                  new_op_map = parse_ops(new_ops)
                   cases.append({
                       "id": int(id_),
                       "e": float(e),
@@ -442,7 +439,9 @@ jobs:
                       "ratio": None if ratio == "inf" else float(ratio),
                       "gated": gated == "1",
                       "status": status,
-                      "ops": op_map,
+                      "orig_ops": orig_op_map,
+                      "new_ops": new_op_map,
+                      "ops": new_op_map,
                   })
           def num_or_none(s):
               try:
@@ -532,7 +531,8 @@ jobs:
             --output-comment /tmp/bench-report/comment.md \
             --run-url "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
             --run-id "${{ github.run_id }}" \
-            --sha "${{ github.sha }}"
+            --sha "${{ github.sha }}" \
+            --expected-configs 20
           echo "=== markdown preview ==="
           cat /tmp/bench-report/summary.md
           echo "=== end preview ==="
@@ -573,7 +573,7 @@ jobs:
           # Search for existing bench-report comment
           echo "Searching for existing bench-report comment..."
           set +e
-          EXISTING_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate 2>/dev/null | jq -r '.[] | select(.body | contains("<!-- bench-report -->")) | .id' | head -n1)
+          EXISTING_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate 2>/dev/null | jq -r '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("<!-- bench-report -->"))) | .id' | head -n1)
           set -e
           if [ -n "$EXISTING_ID" ] && [ "$EXISTING_ID" != "null" ]; then
             echo "Updating existing comment $EXISTING_ID"
