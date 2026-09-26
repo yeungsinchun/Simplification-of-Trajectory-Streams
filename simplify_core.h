@@ -94,7 +94,7 @@ class Anchor {
 };
 
 // The anchors of the current stab, in P order, and which of them are live.
-// Storage is kept across stabs, so steady-state stabs do not allocate.
+// Anchor and live-index storage is reused across stabs.
 class AnchorSet {
   public:
     void reset(const std::vector<Point> &P) {
