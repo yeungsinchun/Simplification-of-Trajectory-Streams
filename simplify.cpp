@@ -2,117 +2,15 @@
 #include <fstream>
 #include <iomanip>
 
-#include "simplify_geometry.h"
+#include "simplify_core.h"
 #include "simplify_io.h"
 #include "timer.h"
-
-// ===========================================================================
-//  Core algorithm (opt-in TIMER sites; active only when --time is set)
-// ===========================================================================
-
-struct StabScratch {
-    std::vector<Point> P, Gi, F;
-    std::vector<std::vector<Point>> S;
-    std::vector<int> active;
-    std::vector<AxisBounds> stab_bounds;
-    std::vector<uint8_t> anchor_outside;
-    PreparedClipPolygon prepared_Gi;
-    sh_double::FastClipBuffers clip_buffers;
-};
-
-int get_longest_stab(const std::vector<Point> &stream, int cur,
-                     std::vector<Point> &simplified, double EPSILON,
-                     double DELTA, StabScratch &scratch) {
-    TIMER("get_longest_stab");
-    const Point& p0 = stream[cur];
-    auto &P = scratch.P;
-    auto &Gi = scratch.Gi;
-    auto &S = scratch.S;
-    auto &F = scratch.F;
-    auto &active = scratch.active;
-    auto &stab_bounds = scratch.stab_bounds;
-    auto &anchor_outside = scratch.anchor_outside;
-    {
-        TIMER("boundary_P");
-        P = get_boundary_points_from_grid(p0, EPSILON, DELTA);
-    }
-    std::array<Point, 2> buffer = {p0, p0};
-    const int Pn = (int)P.size();
-    S.resize(Pn);
-    stab_bounds.resize(Pn);
-    anchor_outside.assign(Pn, 0);
-    active.clear();
-    active.reserve(Pn);
-    for (int i = 0; i < Pn; ++i) {
-        S[i].clear();
-        S[i].push_back(P[i]);
-        active.push_back(i);
-    }
-
-    cur++;
-    while (cur < int(stream.size())) {
-        {
-            TIMER("hull_Gi");
-            Gi = get_conv_from_grid(stream[cur], EPSILON, DELTA);
-        }
-        prepare_clip_polygon(Gi, scratch.prepared_Gi);
-        std::vector<Point> bbox_result;
-        AxisBounds bbox_bounds;
-        bool bbox_cached = false, bbox_hit = false;
-        size_t surviving = 0;
-        for (int i : active) {
-            bool full_bbox, disjoint;
-            {
-                TIMER("find_F");
-                full_bbox =
-                    find_F(P[i], S[i], F, &scratch.prepared_Gi, &disjoint,
-                           &stab_bounds[i], &anchor_outside[i]);
-            }
-            if (disjoint)
-                continue;
-            bool hit;
-            {
-                TIMER("intersect");
-                if (full_bbox && bbox_cached) {
-                    hit = bbox_hit;
-                    S[i] = bbox_result;
-                    stab_bounds[i] = bbox_bounds;
-                } else {
-                    hit = intersect_prepared(F, scratch.prepared_Gi, S[i],
-                                             anchor_outside[i] && !full_bbox
-                                                 ? nullptr
-                                                 : &stab_bounds[i],
-                                             scratch.clip_buffers);
-                    if (full_bbox) {
-                        bbox_result = S[i];
-                        bbox_bounds = stab_bounds[i];
-                        bbox_hit = hit;
-                        bbox_cached = true;
-                    }
-                }
-            }
-            if (!hit)
-                continue;
-            active[surviving++] = i;
-        }
-        active.resize(surviving);
-        if (active.empty())
-            break;
-        const int chosen = active.back();
-        buffer[0] = P[chosen];
-        buffer[1] = S[chosen].front();
-        cur++;
-    }
-    simplified.emplace_back(buffer[0]);
-    simplified.emplace_back(buffer[1]);
-    return cur;
-}
 
 // ===========================================================================
 //  Web-server trace mode (--web-server)
 // ===========================================================================
 //
-// Mirrors get_longest_stab/simplify exactly, but instead of only emitting the
+// Mirrors the stab loop of simplify_core.h, but instead of only emitting the
 // final two-point segment per prefix, it records every intermediate value the
 // paper's construction produces (the boundary anchors P, the delta-disk hull
 // Gi, the free-space wedge F(S,p), and the resulting stab region S) at every
@@ -265,8 +163,8 @@ inline void write_json(std::ostream& os, double EPSILON, double DELTA, double ti
 
 }  // namespace webtrace
 
-// Web-trace twin of get_longest_stab: identical control flow, additionally
-// records P, Gi, F[i], new_S[i], alive/dead, and buffer at every step.
+// Web-trace twin of the stab loop in simplify_core.h: records P, Gi, F[i],
+// new_S[i], alive/dead, and buffer at every step.
 int get_longest_stab_web(const std::vector<Point>& stream, int cur,
                          std::vector<Point>& simplified,
                          double EPSILON, double DELTA,
@@ -405,11 +303,7 @@ std::vector<Point> simplify(const std::vector<Point>& stream,
     auto t0 = std::chrono::high_resolution_clock::now();
     {
         TIMER("total");
-        StabScratch scratch;
-        int cur = 0;
-        while (cur != int(stream.size()))
-            cur = get_longest_stab(stream, cur, simplified, EPSILON, DELTA,
-                                   scratch);
+        simplified = Simplifier(EPSILON, DELTA).simplify(stream);
     }
     double ms = std::chrono::duration<double, std::milli>(
         std::chrono::high_resolution_clock::now() - t0).count();

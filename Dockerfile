@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /build
 
 # Headless simplify sources
-COPY simplify.cpp simplify_geometry.h simplify_io.h timer.h CMakeLists.txt ./
+COPY simplify.cpp simplify_core.h simplify_geometry.h simplify_io.h timer.h CMakeLists.txt ./
 
 # Pin traj-compression to the gitlink SHA. The Docker context excludes .git
 # (and Cloud Run uploads exclude the submodule), so baseline sources are
