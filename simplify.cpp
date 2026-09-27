@@ -55,7 +55,10 @@ int get_longest_stab(const std::vector<Point> &stream, int cur,
             TIMER("hull_Gi");
             Gi = get_conv_from_grid(stream[cur], EPSILON, DELTA);
         }
-        prepare_clip_polygon(Gi, scratch.prepared_Gi);
+        {
+            TIMER("prepare_clip_polygon");
+            prepare_clip_polygon(Gi, scratch.prepared_Gi);
+        }
         std::vector<Point> bbox_result;
         AxisBounds bbox_bounds;
         bool bbox_cached = false, bbox_hit = false;
