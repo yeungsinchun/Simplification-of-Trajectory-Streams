@@ -9,10 +9,12 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <concepts>
 #include <cstdint>
 #include <iterator>
 #include <limits>
 #include <optional>
+#include <span>
 #include <vector>
 
 using Kernel = CGAL::Exact_predicates_inexact_constructions_kernel;
@@ -36,14 +38,15 @@ struct ClipEdge {
     double dx, dy;
 };
 
-inline Vec2 to_vec2(const Point &p) {
+[[nodiscard]] inline Vec2 to_vec2(const Point &p) {
     return {CGAL::to_double(p.x()), CGAL::to_double(p.y())};
 }
 
 // Point on segment p→q where orient along that segment is zero:
 //   (1-t)*orient_p + t*orient_q = 0  =>  t = orient_p / (orient_p - orient_q).
-inline Vec2 crossing_on_segment(const Vec2& p, const Vec2& q,
-                                double orient_p, double orient_q) {
+[[nodiscard]] inline Vec2 crossing_on_segment(const Vec2 &p, const Vec2 &q,
+                                              double orient_p,
+                                              double orient_q) {
     const double t = orient_p / (orient_p - orient_q);
     return {p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])};
 }
@@ -51,7 +54,7 @@ inline Vec2 crossing_on_segment(const Vec2& p, const Vec2& q,
 // Keep the part of polygon[0..n) in the closed left half-plane of `edge`,
 // writing it to `cropped`. Returns false, leaving `cropped` unused, when the
 // whole polygon is already inside (the common case).
-__attribute__((always_inline)) inline bool
+[[nodiscard]] __attribute__((always_inline)) inline bool
 crop_to_left_of_edge(const Vec2 *polygon, size_t n, const ClipEdge &edge,
                      Vec2 *cropped, size_t &cropped_size) {
     cropped_size = 0;
@@ -117,10 +120,13 @@ crop_to_left_of_edge(const Vec2 *polygon, size_t n, const ClipEdge &edge,
  * Threshold EPS2 = 1e-12 (= (1e-6)^2): above ULP noise from find_F, below
  * real feature size. Prevents near-zero-length edges from reaching the clip.
  */
-inline void dedup_into(const std::vector<Point>& poly, std::vector<Point>& out) {
+inline void dedup_into(std::span<const Point> poly, std::vector<Point> &out) {
     out.clear();
     const int n = static_cast<int>(poly.size());
-    if (n < 2) { out = poly; return; }
+    if (n < 2) {
+        out.assign(poly.begin(), poly.end());
+        return;
+    }
     constexpr double EPS2 = 1e-12;
     auto close = [](const Point& a, const Point& b) {
         const double dx = CGAL::to_double(a.x()) - CGAL::to_double(b.x());
@@ -161,7 +167,7 @@ struct AxisBounds {
         max_y = std::max(max_y, y);
     }
 
-    bool contains(const Point &p) const {
+    [[nodiscard]] bool contains(const Point &p) const {
         const double x = CGAL::to_double(p.x()), y = CGAL::to_double(p.y());
         return x >= min_x && x <= max_x && y >= min_y && y <= max_y;
     }
@@ -172,7 +178,7 @@ struct AxisBounds {
 // clip any number of polygons against it.
 class ConvexRegion {
   public:
-    void assign(const std::vector<Point> &ring) {
+    void assign(std::span<const Point> ring) {
         dedup_into(ring, ring_);
         make_ccw(ring_);
         edges_.clear();
@@ -187,8 +193,10 @@ class ConvexRegion {
         }
     }
 
-    const std::vector<sh_double::ClipEdge> &edges() const { return edges_; }
-    const AxisBounds &bounds() const { return bounds_; }
+    [[nodiscard]] const std::vector<sh_double::ClipEdge> &edges() const {
+        return edges_;
+    }
+    [[nodiscard]] const AxisBounds &bounds() const { return bounds_; }
 
   private:
     std::vector<Point> ring_;
@@ -209,8 +217,8 @@ class ConvexClipper {
      * @param result_bounds Optional; receives the bounding box of result.
      * @return true iff result has at least 3 vertices; otherwise it is empty.
      */
-    __attribute__((always_inline)) bool
-    clip(const std::vector<Point> &subject, const ConvexRegion &region,
+    __attribute__((always_inline)) [[nodiscard]] bool
+    clip(std::span<const Point> subject, const ConvexRegion &region,
          std::vector<Point> &result, AxisBounds *result_bounds = nullptr) {
         if (subject.size() < 3 || region.edges().size() < 3) {
             result.clear();
@@ -291,9 +299,9 @@ class ConvexClipper {
  * @param result Cleared; on success holds CCW intersection (>=3 verts).
  * @return true iff result is a non-degenerate polygon.
  */
-inline bool intersect(const std::vector<Point> &P_in,
-                      const std::vector<Point> &Q_in,
-                      std::vector<Point> &result) {
+[[nodiscard]] inline bool intersect(std::span<const Point> P_in,
+                                    std::span<const Point> Q_in,
+                                    std::vector<Point> &result) {
     thread_local std::vector<Point> subject;
     thread_local ConvexRegion region;
     thread_local ConvexClipper clipper;
@@ -326,11 +334,12 @@ inline double expected_frechet_squared = 0.0;
 // Point-in-CCW-convex-polygon via filtered orientation: a double determinant
 // guarded by its a-priori rounding bound resolves the clear majority; only
 // genuinely ambiguous (near-boundary) corners defer to the exact predicate.
-inline bool point_in_convex(const Point& p, const std::vector<Point>& poly, bool ccw = true) {
+[[nodiscard]] inline bool
+point_in_convex(const Point &p, std::span<const Point> poly, bool ccw = true) {
     const int n = static_cast<int>(poly.size());
     // A point cannot be inside a polygon with fewer than 3 vertices
     if (n < 3) return false;
-    
+
     const int bad = ccw ? -1 : 1;   // sign that means "outside" (right for CCW, left for CW)
     const double px = CGAL::to_double(p.x()), py = CGAL::to_double(p.y());
     for (int i = 0; i < n; ++i) {
@@ -357,7 +366,8 @@ inline bool point_in_convex(const Point& p, const std::vector<Point>& poly, bool
 }
 
 // First intersection of the ray p->dir with the working bbox, in doubles.
-inline std::optional<Point> ray_hit_bbox(const Point& p, const Point& dir) {
+[[nodiscard]] inline std::optional<Point> ray_hit_bbox(const Point &p,
+                                                       const Point &dir) {
     double px = CGAL::to_double(p.x()), py = CGAL::to_double(p.y());
     double dx = CGAL::to_double(dir.x()) - px,
            dy = CGAL::to_double(dir.y()) - py;
@@ -383,14 +393,14 @@ enum class Bbox_edge {
     TR = 4, TOP = 5,    TL = 6, LEFT = 7
 };
 
-inline std::array<Point, 4> current_bbox_corner() {
+[[nodiscard]] inline std::array<Point, 4> current_bbox_corner() {
     return {
         Point(BMIN, BMIN), Point(BMAX, BMIN), Point(BMAX, BMAX), Point(BMIN, BMAX)
     };
 }
 
 // Classify which bbox edge (or corner) the point s lies on.
-inline std::optional<Bbox_edge> which_edge(const Point& s) {
+[[nodiscard]] inline std::optional<Bbox_edge> which_edge(const Point &s) {
     double x = CGAL::to_double(s.x()), y = CGAL::to_double(s.y());
     bool on_left   = std::abs(x - BMIN) < GEOM_TOL;
     bool on_right  = std::abs(x - BMAX) < GEOM_TOL;
@@ -426,17 +436,19 @@ inline void append_rect_pts(std::vector<Point>& out, Bbox_edge from, Bbox_edge t
 }
 
 // Grid spacing and disk radius from the (epsilon, delta) parameters.
-inline double GRID_val(double EPSILON, double DELTA, int multiplier = 1) {
+[[nodiscard]] inline double GRID_val(double EPSILON, double DELTA,
+                                     int multiplier = 1) {
     return EPSILON * DELTA / (2.0 * std::sqrt(2.0)) / multiplier;
 }
 
-inline double R_val(double EPSILON, double DELTA) {
+[[nodiscard]] inline double R_val(double EPSILON, double DELTA) {
     return (1.0 + EPSILON / 2.0) * DELTA;
 }
 
 // Size the working bbox to the input plus one grid-reach of padding, so every
 // grid corner and wedge ray stays inside the box.
-inline void configure_bbox(const std::vector<Point>& stream, double EPSILON, double DELTA) {
+inline void configure_bbox(std::span<const Point> stream, double EPSILON,
+                           double DELTA) {
     double min_coord = std::numeric_limits<double>::infinity();
     double max_coord = -std::numeric_limits<double>::infinity();
     for (const Point& point : stream) {
@@ -451,7 +463,9 @@ inline void configure_bbox(const std::vector<Point>& stream, double EPSILON, dou
 
 // All distinct grid corners within radius R of p (the delta-disk sample set).
 // Updates expected_frechet_squared with the farthest corner offset seen.
-inline std::vector<Point> get_points_from_grid(const Point& p, double EPSILON, double DELTA, int multiplier = 1) {
+[[nodiscard]] inline std::vector<Point>
+get_points_from_grid(const Point &p, double EPSILON, double DELTA,
+                     int multiplier = 1) {
     const double px = CGAL::to_double(p.x());
     const double py = CGAL::to_double(p.y());
     const double GRID = GRID_val(EPSILON, DELTA, multiplier);
@@ -528,9 +542,14 @@ inline std::vector<Point> get_points_from_grid(const Point& p, double EPSILON, d
 class TranslatedGridShape {
   public:
     // `build` maps the grid samples around the origin to the shape there.
-    template <class Build>
-    std::vector<Point> at(const Point &p, double EPSILON, double DELTA,
-                          int multiplier, Build &&build) {
+    template <typename Build>
+        requires std::invocable<Build, const std::vector<Point> &> &&
+                 std::convertible_to<
+                     std::invoke_result_t<Build, const std::vector<Point> &>,
+                     std::vector<Point>>
+    [[nodiscard]] std::vector<Point> at(const Point &p, double EPSILON,
+                                        double DELTA, int multiplier,
+                                        Build &&build) {
         if (EPSILON != eps_ || DELTA != delta_ || multiplier != multiplier_) {
             const std::vector<Point> shape = build(
                 get_points_from_grid(Point(0, 0), EPSILON, DELTA, multiplier));
@@ -560,8 +579,10 @@ class TranslatedGridShape {
 };
 
 // Convex hull of the delta-disk grid samples around p (the region conv(G_i)).
-inline std::vector<Point> get_conv_from_grid(const Point &p, double EPSILON,
-                                             double DELTA, int multiplier = 1) {
+[[nodiscard]] inline std::vector<Point> get_conv_from_grid(const Point &p,
+                                                           double EPSILON,
+                                                           double DELTA,
+                                                           int multiplier = 1) {
     thread_local TranslatedGridShape hull;
     return hull.at(p, EPSILON, DELTA, multiplier,
                    [](const std::vector<Point> &samples) {
@@ -575,7 +596,9 @@ inline std::vector<Point> get_conv_from_grid(const Point &p, double EPSILON,
 // Boundary anchors for P: discrete convex outline of the grid samples -
 // leftmost and rightmost on every y-row, plus every sample on the topmost
 // and bottommost rows.
-inline std::vector<Point> get_boundary_points_from_grid(const Point& p, double EPSILON, double DELTA, int multiplier = 1) {
+[[nodiscard]] inline std::vector<Point>
+get_boundary_points_from_grid(const Point &p, double EPSILON, double DELTA,
+                              int multiplier = 1) {
     thread_local TranslatedGridShape outline;
     return outline.at(
         p, EPSILON, DELTA, multiplier, [](const std::vector<Point> &all) {
@@ -621,8 +644,8 @@ inline std::vector<Point> get_boundary_points_from_grid(const Point& p, double E
  * Algorithm: O(n) scan; keep argmin / argmax of orientation(p, S[i], S[j])
  * in pure doubles. Collinear ties: either vertex is a valid support.
  */
-inline std::array<int, 2> find_tangent_idx(const Point &p,
-                                           const std::vector<Point> &S) {
+[[nodiscard]] inline std::array<int, 2>
+find_tangent_idx(const Point &p, std::span<const Point> S) {
     const int n = static_cast<int>(S.size());
 
     const double pdx = CGAL::to_double(p.x());
@@ -686,8 +709,8 @@ enum class Wedge {
  * @param p_outside_S Optional latch: once p lies outside S it stays outside
  *        every later S, so the p ∈ S test is skipped. Cleared on whole_box.
  */
-__attribute__((always_inline)) inline Wedge
-find_F(const Point &p, const std::vector<Point> &S, std::vector<Point> &F,
+__attribute__((always_inline)) [[nodiscard]] inline Wedge
+find_F(const Point &p, std::span<const Point> S, std::vector<Point> &F,
        const AxisBounds *target = nullptr, const AxisBounds *S_bounds = nullptr,
        bool *p_outside_S = nullptr) {
     F.clear();

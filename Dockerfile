@@ -1,13 +1,22 @@
-FROM ubuntu:22.04 AS builder
+FROM ubuntu:24.04 AS builder
 
+# g++-14 is required for C++23 deducing-this and <print> (CGAL 5.6/6.x
+# itself only needs C++17, but this repo now uses C++23). The default
+# g++ on 24.04 is 13, which lacks both features.
 RUN apt-get update && apt-get install -y \
     build-essential \
+    g++-14 \
     cmake \
     libcgal-dev \
     qt6-base-dev \
     git \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+# Make g++-14 the default so cmake picks it without extra flags.
+RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100 && \
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100 && \
+    update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-14 100 && \
+    update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-14 100
 
 WORKDIR /build
 
@@ -25,17 +34,17 @@ RUN cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF && \
     cmake --build build --target simplify dots dp squish -j"$(nproc)"
 
 # Final stage: Python runtime on Ubuntu
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 # Install Python and runtime dependencies.
 # CGAL is header-only at build time; simplify needs GMP/MPFR at runtime.
 # dots needs Qt6 Core (libQt6Core).
 RUN apt-get update && apt-get install -y \
-    python3.11 \
-    python3-pip \
+    python3 \
+    python3-venv \
     libgmp10 \
     libmpfr6 \
-    libqt6core6 \
+    libqt6core6t64 \
     curl \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -44,7 +53,7 @@ RUN apt-get update && apt-get install -y \
 # platform architecture (x86_64 vs aarch64), downloads the right tarball via
 # juliaup, and exposes the `julia` binary on PATH. The default install root
 # is /root/.juliaup when running as root, which we add to PATH for later
-# steps. The Ubuntu 22.04 apt repo does not ship a usable `julia` package,
+# steps. The Ubuntu 24.04 apt repo does not ship a usable `julia` package,
 # so this is the canonical install path.
 #
 # Cloud Build has flaked here with opaque "Building Container ... failed"
@@ -89,9 +98,8 @@ RUN set -eux; \
 # Sanity-check that the julia binary actually runs in the final image
 RUN julia --version
 
-# Make python3.11 the default
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 && \
-    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
 
@@ -107,7 +115,7 @@ COPY data/ /app/data/
 COPY scripts/ /app/scripts/
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r /app/web/requirements.txt
+RUN python -m pip install --no-cache-dir -r /app/web/requirements.txt
 
 # Pre-install the FrechetDist and ArgParse Julia packages so the first
 # /api/frechet request doesn't pay the full Pkg.add cost (and so the image is

@@ -5,12 +5,16 @@
 #include <cmath>
 #include <cstring>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <limits>
 #include <string>
 #include <vector>
+#if __has_include(<print>)
+#include <print>
+#endif
 #include <QApplication>
 #include "drawing.h"
 #include "simplify_geometry.h"
@@ -38,19 +42,47 @@ bool help_flag = false;
 // ===========================================================================
 
 static void print_help() {
-    std::cout << "Usage: simplify_with_gui [options]\n"
-              << "  --in <id>        Read input from data/<id>/original.txt (resolved absolutely)\n"
-              << "  --out            Write output to data/<id>/simplify.txt (requires --in <id>)\n"
-              << "  --dist           After output, compute Frechet distance with --in <id>\n"
-              << "  --keep           Do not clear F/G/S polygons between steps\n"
-              << "  --no-simp        Do not show the simplified curve in GUI\n"
-              << "  --labels         Show vertex labels (indices) in GUI\n"
-              << "  -F/-G/-S         Show F, G, or S debug polygons in GUI\n"
-              << "  -d <delta>       Override DELTA (default " << DELTA << ")\n"
-              << "  -e <epsilon>     Override EPSILON (default " << EPSILON << ")\n"
-              << "  -h               Show this help and exit\n"
-              << "\n"
-              << "Shorthand: simplify_with_gui <id> [flags] is equivalent to '--in <id> --out [flags]'\n";
+#if __has_include(<print>)
+    std::println("Usage: simplify_with_gui [options]");
+    std::println("  --in <id>        Read input from data/<id>/original.txt "
+                 "(resolved absolutely)");
+    std::println("  --out            Write output to data/<id>/simplify.txt "
+                 "(requires --in <id>)");
+    std::println("  --dist           After output, compute Frechet distance "
+                 "with --in <id>");
+    std::println(
+        "  --keep           Do not clear F/G/S polygons between steps");
+    std::println("  --no-simp        Do not show the simplified curve in GUI");
+    std::println("  --labels         Show vertex labels (indices) in GUI");
+    std::println("  -F/-G/-S         Show F, G, or S debug polygons in GUI");
+    std::println("  -d <delta>       Override DELTA (default {})", DELTA);
+    std::println("  -e <epsilon>     Override EPSILON (default {})", EPSILON);
+    std::println("  -h               Show this help and exit");
+    std::println("");
+    std::println("Shorthand: simplify_with_gui <id> [flags] is equivalent to "
+                 "'--in <id> --out [flags]'");
+#else
+    std::cout
+        << std::format("Usage: simplify_with_gui [options]\n")
+        << "  --in <id>        Read input from data/<id>/original.txt "
+           "(resolved absolutely)\n"
+        << "  --out            Write output to data/<id>/simplify.txt "
+           "(requires --in <id>)\n"
+        << "  --dist           After output, compute Frechet distance with "
+           "--in <id>\n"
+        << "  --keep           Do not clear F/G/S polygons between steps\n"
+        << "  --no-simp        Do not show the simplified curve in GUI\n"
+        << "  --labels         Show vertex labels (indices) in GUI\n"
+        << "  -F/-G/-S         Show F, G, or S debug polygons in GUI\n"
+        << std::format("  -d <delta>       Override DELTA (default {})\n",
+                       DELTA)
+        << std::format("  -e <epsilon>     Override EPSILON (default {})\n",
+                       EPSILON)
+        << "  -h               Show this help and exit\n"
+        << "\n"
+        << "Shorthand: simplify_with_gui <id> [flags] is equivalent to '--in "
+           "<id> --out [flags]'\n";
+#endif
 }
 
 int parse_arguments(int argc, char** argv, int& test_case_no) {
@@ -64,12 +96,28 @@ int parse_arguments(int argc, char** argv, int& test_case_no) {
         else if (std::strcmp(argv[i], "-G") == 0) showG = true;
         else if (std::strcmp(argv[i], "-S") == 0) showS = true;
         else if (std::strcmp(argv[i], "-d") == 0 && i + 1 < argc) {
-            try { DELTA = std::stod(argv[++i]); }
-            catch (...) { std::cerr << "Invalid -d value\n"; return 1; }
+            try {
+                DELTA = std::stod(argv[++i]);
+            } catch (...) {
+#if __has_include(<print>)
+                std::println(stderr, "Invalid -d value");
+#else
+                std::cerr << std::format("Invalid -d value\n");
+#endif
+                return 1;
+            }
         }
         else if (std::strcmp(argv[i], "-e") == 0 && i + 1 < argc) {
-            try { EPSILON = std::stod(argv[++i]); }
-            catch (...) { std::cerr << "Invalid -e value\n"; return 1; }
+            try {
+                EPSILON = std::stod(argv[++i]);
+            } catch (...) {
+#if __has_include(<print>)
+                std::println(stderr, "Invalid -e value");
+#else
+                std::cerr << std::format("Invalid -e value\n");
+#endif
+                return 1;
+            }
         }
         else if (std::strcmp(argv[i], "-h") == 0) {
             print_help();
@@ -77,8 +125,16 @@ int parse_arguments(int argc, char** argv, int& test_case_no) {
             return 0;
         }
         else if (std::strcmp(argv[i], "--in") == 0 && i + 1 < argc) {
-            try { test_case_no = std::stoi(argv[++i]); }
-            catch (...) { std::cerr << "Invalid --in argument\n"; return 1; }
+            try {
+                test_case_no = std::stoi(argv[++i]);
+            } catch (...) {
+#if __has_include(<print>)
+                std::println(stderr, "Invalid --in argument");
+#else
+                std::cerr << std::format("Invalid --in argument\n");
+#endif
+                return 1;
+            }
         }
     }
 
@@ -89,7 +145,11 @@ int parse_arguments(int argc, char** argv, int& test_case_no) {
             test_case_no = std::stoi(argv[1]);
             out_flag = true;
         } catch (...) {
-            std::cout << "Command parse error\n";
+#if __has_include(<print>)
+            std::println("Command parse error");
+#else
+            std::cout << std::format("Command parse error\n");
+#endif
             return 1;
         }
     }
@@ -120,7 +180,15 @@ int get_repo_root(char** argv, std::filesystem::path& root) {
         try {
             root = find_repo_root(std::filesystem::current_path(), 5);
         } catch (const std::filesystem::filesystem_error& error) {
-            std::cerr << "Error: could not resolve the data directory: " << error.what() << "\n";
+#if __has_include(<print>)
+            std::println(stderr,
+                         "Error: could not resolve the data directory: {}",
+                         error.what());
+#else
+            std::cerr << std::format(
+                "Error: could not resolve the data directory: {}\n",
+                error.what());
+#endif
             return 1;
         }
     }
@@ -130,15 +198,29 @@ int get_repo_root(char** argv, std::filesystem::path& root) {
 int read_stream(int test_case_no, std::vector<Point>& stream) {
     if (test_case_no != -1) {
         auto input_path = repo_root / "data" / std::to_string(test_case_no) / "original.txt";
-        std::cout << input_path.string() << '\n';
+#if __has_include(<print>)
+        std::println("{}", input_path.string());
+#else
+        std::cout << std::format("{}\n", input_path.string());
+#endif
         std::ifstream fin(input_path);
         if (!fin) {
-            std::cerr << "Cannot open " << input_path.string() << "\n";
+#if __has_include(<print>)
+            std::println(stderr, "Cannot open {}", input_path.string());
+#else
+            std::cerr << std::format("Cannot open {}\n", input_path.string());
+#endif
             return 1;
         }
         int count = 0;
         if (!(fin >> count)) {
-            std::cerr << "Empty or invalid input in " << input_path.string() << "\n";
+#if __has_include(<print>)
+            std::println(stderr, "Empty or invalid input in {}",
+                         input_path.string());
+#else
+            std::cerr << std::format("Empty or invalid input in {}\n",
+                                     input_path.string());
+#endif
             return 1;
         }
         stream.clear();
@@ -146,7 +228,13 @@ int read_stream(int test_case_no, std::vector<Point>& stream) {
         for (int i = 0; i < count; ++i) {
             double x, y;
             if (!(fin >> x >> y)) {
-                std::cerr << "Malformed pair at index " << i << " in " << input_path.string() << "\n";
+#if __has_include(<print>)
+                std::println(stderr, "Malformed pair at index {} in {}", i,
+                             input_path.string());
+#else
+                std::cerr << std::format("Malformed pair at index {} in {}\n",
+                                         i, input_path.string());
+#endif
                 return 1;
             }
             stream.emplace_back(x, y);
@@ -165,7 +253,11 @@ int out_stream(int test_case_no, const std::vector<Point>& stream) {
     for (const auto& point : stream) {
         output << CGAL::to_double(point.x()) << ' ' << CGAL::to_double(point.y()) << '\n';
     }
-    std::cout << "Output Written\n";
+#if __has_include(<print>)
+    std::println("Output Written");
+#else
+    std::cout << std::format("Output Written\n");
+#endif
     return 0;
 }
 
@@ -203,7 +295,7 @@ int get_longest_stab(const std::vector<Point>& stream, int cur,
 
         for (int i = 0; i < Pn; ++i) {
             if (dead[i]) continue;
-            find_F(P[i], S[i], F[i]);
+            (void)find_F(P[i], S[i], F[i]);
             bool hit;
             hit = intersect(F[i], Gi, new_S[i]);
             if (!hit) {
@@ -262,7 +354,11 @@ std::vector<Point> simplify(const std::vector<Point>& stream,
                             MultiViewer* viewer = nullptr) {
     configure_bbox(stream, epsilon, delta);
     std::vector<Point> simplified;
-    std::cout << "Simplifying...\n";
+#if __has_include(<print>)
+    std::println("Simplifying...");
+#else
+    std::cout << std::format("Simplifying...\n");
+#endif
 
     auto core_start = std::chrono::high_resolution_clock::now();
     int cur = 0;
@@ -271,11 +367,24 @@ std::vector<Point> simplify(const std::vector<Point>& stream,
     }
     auto core_end = std::chrono::high_resolution_clock::now();
     double core_ms = std::chrono::duration<double, std::milli>(core_end - core_start).count();
-    std::fprintf(stderr, "SIMPLIFY_CORE_MS %.4f\n", core_ms);
+#if __has_include(<print>)
+    std::println(stderr, "SIMPLIFY_CORE_MS {:.4f}", core_ms);
+#else
+    std::cerr << std::format("SIMPLIFY_CORE_MS {:.4f}\n", core_ms);
+#endif
 
-    std::cout << "Expected Frechet distance: " << std::sqrt(expected_frechet_squared) << '\n';
-    std::cout << "The original stream of size " << stream.size()
-              << " is simplified to " << simplified.size() << " points.\n";
+#if __has_include(<print>)
+    std::println("Expected Frechet distance: {:.6g}",
+                 std::sqrt(expected_frechet_squared));
+    std::println("The original stream of size {} is simplified to {} points.",
+                 stream.size(), simplified.size());
+#else
+    std::cout << std::format("Expected Frechet distance: {:.6g}\n",
+                             std::sqrt(expected_frechet_squared));
+    std::cout << std::format(
+        "The original stream of size {} is simplified to {} points.\n",
+        stream.size(), simplified.size());
+#endif
     return simplified;
 }
 
@@ -286,7 +395,11 @@ std::vector<Point> simplify(const std::vector<Point>& stream,
 int main(int argc, char** argv) {
     int test_case_no = -1;
     int code = get_repo_root(argv, repo_root);
-    std::cout << repo_root.string() << std::endl;
+#if __has_include(<print>)
+    std::println("{}", repo_root.string());
+#else
+    std::cout << std::format("{}\n", repo_root.string());
+#endif
     if (code != 0) return code;
 
     code = parse_arguments(argc, argv, test_case_no);

@@ -2,6 +2,7 @@
 #define SIMPLIFY_CORE_H
 
 #include <array>
+#include <concepts>
 #include <vector>
 
 #include "simplify_geometry.h"
@@ -82,7 +83,9 @@ class Anchor {
     }
 
     // Segment from the anchor into its stab region.
-    std::array<Point, 2> segment() const { return {p_, S_.front()}; }
+    [[nodiscard]] std::array<Point, 2> segment() const {
+        return {p_, S_.front()};
+    }
 
   private:
     Point p_;
@@ -107,7 +110,7 @@ class AnchorSet {
     }
 
     // Keeps the live anchors for which keep(anchor) is true, in order.
-    template <class Keep> void retain(Keep &&keep) {
+    template <std::predicate<Anchor &> Keep> void retain(Keep &&keep) {
         size_t kept = 0;
         for (const int i : live_)
             if (keep(anchors_[i]))
@@ -115,8 +118,8 @@ class AnchorSet {
         live_.resize(kept);
     }
 
-    bool empty() const { return live_.empty(); }
-    const Anchor &last() const { return anchors_[live_.back()]; }
+    [[nodiscard]] bool empty() const { return live_.empty(); }
+    [[nodiscard]] const Anchor &last() const { return anchors_[live_.back()]; }
 
   private:
     std::vector<Anchor> anchors_;
@@ -125,62 +128,64 @@ class AnchorSet {
 
 // Streaming simplification by repeated longest stabs.
 //
-// CRTP base: Derived may shadow advance_anchors() to change how one step
-// updates the live anchors; calls are resolved at compile time, so the
-// default sequential loop pays nothing for the customization point.
-template <class Derived> class StreamSimplifier {
+// Deducing-this base: Derived may shadow advance_anchors(this auto&&, …) to
+// change how one step updates the live anchors; calls are resolved at
+// compile time via the deduced self, so the default sequential loop pays
+// nothing for the customization point.
+class StreamSimplifier {
   public:
     StreamSimplifier(double epsilon, double delta)
         : epsilon_(epsilon), delta_(delta) {}
 
-    std::vector<Point> simplify(const std::vector<Point> &stream) {
+    [[nodiscard]] std::vector<Point>
+    simplify(this auto &&self, const std::vector<Point> &stream) {
         std::vector<Point> simplified;
         int cur = 0;
         while (cur != int(stream.size()))
-            cur = longest_stab(stream, cur, simplified);
+            cur = self.longest_stab(stream, cur, simplified);
         return simplified;
     }
 
   protected:
     // S ← F(S, p) ∩ G for every live anchor, dropping the emptied ones.
-    void advance_anchors(const ConvexRegion &G) {
-        workspace_.begin_step();
-        anchors_.retain(
-            [&](Anchor &anchor) { return anchor.advance(G, workspace_); });
+    void advance_anchors(this auto &&self, const ConvexRegion &G) {
+        self.workspace_.begin_step();
+        self.anchors_.retain(
+            [&](Anchor &anchor) { return anchor.advance(G, self.workspace_); });
     }
 
     AnchorSet anchors_;
     StepWorkspace workspace_;
 
   private:
-    Derived &derived() { return static_cast<Derived &>(*this); }
-
     // Consumes stream[cur..] while some anchor survives, appends the stab's
     // segment to `simplified`, and returns the index of the first point the
     // stab could not cover.
-    int longest_stab(const std::vector<Point> &stream, int cur,
-                     std::vector<Point> &simplified) {
+    int longest_stab(this auto &&self, const std::vector<Point> &stream,
+                     int cur, std::vector<Point> &simplified) {
         TIMER("get_longest_stab");
         const Point &p0 = stream[cur];
         {
             TIMER("boundary_P");
-            anchors_.reset(get_boundary_points_from_grid(p0, epsilon_, delta_));
+            self.anchors_.reset(
+                get_boundary_points_from_grid(p0, self.epsilon_, self.delta_));
         }
         std::array<Point, 2> segment = {p0, p0};
         for (++cur; cur < int(stream.size()); ++cur) {
-            std::vector<Point> hull;
+            std::vector<Point> Gi;
             {
                 TIMER("hull_Gi");
-                hull = get_conv_from_grid(stream[cur], epsilon_, delta_);
+                Gi =
+                    get_conv_from_grid(stream[cur], self.epsilon_, self.delta_);
             }
             {
                 TIMER("prepare_clip_polygon");
-                Gi_.assign(hull);
+                self.Gi_.assign(Gi);
             }
-            derived().advance_anchors(Gi_);
-            if (anchors_.empty())
+            self.advance_anchors(self.Gi_);
+            if (self.anchors_.empty())
                 break;
-            segment = anchors_.last().segment();
+            segment = self.anchors_.last().segment();
         }
         simplified.push_back(segment[0]);
         simplified.push_back(segment[1]);
@@ -192,7 +197,7 @@ template <class Derived> class StreamSimplifier {
 };
 
 // The sequential simplifier.
-class Simplifier final : public StreamSimplifier<Simplifier> {
+class Simplifier final : public StreamSimplifier {
   public:
     using StreamSimplifier::StreamSimplifier;
 };

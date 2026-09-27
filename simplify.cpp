@@ -1,6 +1,10 @@
 #include <chrono>
+#include <format>
 #include <fstream>
 #include <iomanip>
+#if __has_include(<print>)
+#include <print>
+#endif
 
 #include "simplify_core.h"
 #include "simplify_io.h"
@@ -204,10 +208,10 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
                 step.candidates.push_back(std::move(cand));
                 continue;
             }
-            
-            find_F(P[i], S[i], F[i]);
+
+            (void)find_F(P[i], S[i], F[i]);
             cand.F = F[i];
-            
+
             if (!intersect(F[i], Gi, new_S[i])) {
                 dead[i] = true;
                 dead_cnt++;
@@ -216,7 +220,7 @@ int get_longest_stab_web(const std::vector<Point>& stream, int cur,
                 cand.alive = true;
                 cand.S = new_S[i];
                 std::vector<Point> F_Si_temp;
-                find_F(P[i], new_S[i], F_Si_temp);
+                (void)find_F(P[i], new_S[i], F_Si_temp);
                 cand.F_Si = F_Si_temp;
             }
             step.candidates.push_back(std::move(cand));
@@ -255,7 +259,7 @@ std::vector<Point> simplify_web(const std::vector<Point>& stream,
     if (json_stream_flag && json_output_path.empty()) {
         stream_out = &std::cout;
         if (!stream.empty())
-            get_boundary_points_from_grid(stream[0], EPSILON, DELTA);
+            (void)get_boundary_points_from_grid(stream[0], EPSILON, DELTA);
         webtrace::write_stream_header(*stream_out, EPSILON, DELTA, stream);
         stream_out->flush();
     }
@@ -272,16 +276,26 @@ std::vector<Point> simplify_web(const std::vector<Point>& stream,
             stream_out->flush();
         }
     }
-    
-    std::cerr << "SIMPLIFY_CORE_MS: " << std::fixed << std::setprecision(4) << core_ms << '\n';
-    
+
+#if __has_include(<print>)
+    std::println(stderr, "SIMPLIFY_CORE_MS: {:.4f}", core_ms);
+#else
+    std::cerr << std::format("SIMPLIFY_CORE_MS: {:.4f}\n", core_ms);
+#endif
+
     if (stream_out) {
         webtrace::write_stream_done(*stream_out, core_ms, simplified);
         stream_out->flush();
     } else if (!json_output_path.empty()) {
         std::ofstream ofs(json_output_path);
         if (!ofs) {
-            std::cerr << "Failed to open output file: " << json_output_path << '\n';
+#if __has_include(<print>)
+            std::println(stderr, "Failed to open output file: {}",
+                         json_output_path);
+#else
+            std::cerr << std::format("Failed to open output file: {}\n",
+                                     json_output_path);
+#endif
             return simplified;
         }
         webtrace::write_json(ofs, EPSILON, DELTA, core_ms, stream, simplified, prefixes);
@@ -308,7 +322,11 @@ std::vector<Point> simplify(const std::vector<Point>& stream,
     double ms = std::chrono::duration<double, std::milli>(
         std::chrono::high_resolution_clock::now() - t0).count();
 
-    std::cerr << "SIMPLIFY_CORE_MS: " << std::fixed << std::setprecision(4) << ms << '\n';
+#if __has_include(<print>)
+    std::println(stderr, "SIMPLIFY_CORE_MS: {:.4f}", ms);
+#else
+    std::cerr << std::format("SIMPLIFY_CORE_MS: {:.4f}\n", ms);
+#endif
     if (time_flag) {
         print_timing_summary();
         print_timing_machine();
@@ -324,7 +342,7 @@ std::vector<Point> simplify(const std::vector<Point>& stream,
 
 int main(int argc, char** argv) {
     std::ios::sync_with_stdio(false);
-    
+
     int test_case_no = -1;
     int code = get_repo_root(argv, repo_root);
     if (code != 0) {

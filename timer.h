@@ -2,12 +2,16 @@
 #define TIMER_H
 
 #include <chrono>
+#include <cstdio>
+#include <format>
 #include <functional>
 #include <map>
 #include <set>
-#include <vector>
 #include <string>
-#include <cstdio>
+#include <vector>
+#if __has_include(<print>)
+#include <print>
+#endif
 
 namespace timer_detail {
     // Runtime switch. When false (default) every TIMER() is a cheap no-op:
@@ -82,8 +86,14 @@ inline void print_timing_machine() {
     if (t.empty()) return;
     for (const auto& kv : t) {
         long long calls = timer_detail::counters()[kv.first];
-        fprintf(stderr, "TIMER_MS %s %.4f %lld\n",
-                kv.first.c_str(), kv.second, calls);
+#if __has_include(<print>)
+        std::println(stderr, "TIMER_MS {} {:.4f} {}", kv.first, kv.second,
+                     calls);
+#else
+        auto s =
+            std::format("TIMER_MS {} {:.4f} {}\n", kv.first, kv.second, calls);
+        std::fputs(s.c_str(), stderr);
+#endif
     }
 }
 
@@ -92,7 +102,13 @@ inline void print_timing_summary() {
     if (t.empty()) return;
     double grand = t.count("total") ? t["total"] : 0.0;
 
-    fprintf(stderr, "\n========== TIMING SUMMARY ==========\n");
+#if __has_include(<print>)
+    std::println(stderr, "");
+    std::println(stderr, "========== TIMING SUMMARY ==========");
+#else
+    std::fputs(std::format("\n========== TIMING SUMMARY ==========\n").c_str(),
+               stderr);
+#endif
     // Column widths must match between header and data.  Numeric columns
     // are right-aligned at fixed positions; the name column always has
     // the same total width (indent + name = 28) so the numbers stay
@@ -101,10 +117,21 @@ inline void print_timing_summary() {
     const int NAME_TOTAL_WIDTH = 28;
     std::string header_left = "Operation";
     header_left.append(NAME_TOTAL_WIDTH - header_left.size(), ' ');
-    fprintf(stderr, "%s %12s %12s %10s %9s %9s\n",
-            header_left.c_str(),
-            "Wall (ms)", "Self (ms)", "Calls", "% Total", "% Parent");
-    fprintf(stderr, "--------------------------------------------------------------------------------\n");
+#if __has_include(<print>)
+    std::println(stderr, "{} {:>12} {:>12} {:>10} {:>9} {:>9}", header_left,
+                 "Wall (ms)", "Self (ms)", "Calls", "% Total", "% Parent");
+    std::println(stderr, "-----------------------------------------------------"
+                         "---------------------------");
+#else
+    std::fputs(std::format("{} {:>12} {:>12} {:>10} {:>9} {:>9}\n", header_left,
+                           "Wall (ms)", "Self (ms)", "Calls", "% Total",
+                           "% Parent")
+                   .c_str(),
+               stderr);
+    std::fputs("---------------------------------------------------------------"
+               "-----------------\n",
+               stderr);
+#endif
 
     auto report_one = [&](const std::string& name, int depth,
                           double parent_wall) {
@@ -124,8 +151,15 @@ inline void print_timing_summary() {
         std::string left = std::string(indent_cols, ' ') + shown;
         if ((int)left.size() < NAME_TOTAL_WIDTH) left.append(NAME_TOTAL_WIDTH - left.size(), ' ');
         else if ((int)left.size() > NAME_TOTAL_WIDTH) left.resize(NAME_TOTAL_WIDTH);
-        fprintf(stderr, "%s %12.2f %12.2f %10lld %8.1f%% %8.1f%%\n",
-                left.c_str(), wall, self, calls, pct_total, pct_parent);
+#if __has_include(<print>)
+        std::println(stderr, "{} {:12.2f} {:12.2f} {:10} {:8.1f}% {:8.1f}%",
+                     left, wall, self, calls, pct_total, pct_parent);
+#else
+        std::fputs(std::format("{} {:12.2f} {:12.2f} {:10} {:8.1f}% {:8.1f}%\n",
+                               left, wall, self, calls, pct_total, pct_parent)
+                       .c_str(),
+                   stderr);
+#endif
     };
 
     // Recursive tree print starting at `total`.  `simplify` is the
@@ -153,9 +187,20 @@ inline void print_timing_summary() {
     };
 
     print_recursive("total", 0, grand);
-    fprintf(stderr, "--------------------------------------------------------------------------------\n");
-    fprintf(stderr, "%-28s %12.2f\n", "TOTAL (wall time)", grand);
-    fprintf(stderr, "====================================\n");
+#if __has_include(<print>)
+    std::println(stderr, "-----------------------------------------------------"
+                         "---------------------------");
+    std::println(stderr, "{:<28} {:12.2f}", "TOTAL (wall time)", grand);
+    std::println(stderr, "====================================");
+#else
+    std::fputs("---------------------------------------------------------------"
+               "-----------------\n",
+               stderr);
+    std::fputs(
+        std::format("{:<28} {:12.2f}\n", "TOTAL (wall time)", grand).c_str(),
+        stderr);
+    std::fputs("====================================\n", stderr);
+#endif
 }
 
 // ===========================================================================

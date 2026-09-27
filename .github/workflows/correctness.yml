@@ -167,7 +167,14 @@ jobs:
           sudo apt-get update
           # qt6-base-dev: DOTS (web/benchmark baseline) needs Qt6 Core at
           # configure time even when BUILD_GUI=OFF.
-          sudo apt-get install -y cmake build-essential libcgal-dev qt6-base-dev
+          # g++-14 is required for C++23 deducing-this and <print>; the
+          # default g++ on 24.04 (13) lacks both. CGAL itself only needs C++17.
+          sudo apt-get install -y cmake build-essential g++-14 libcgal-dev qt6-base-dev
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100
+          sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-14 100
+          sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-14 100
+          g++ --version
 
       - name: Install Julia (for Fréchet distance)
         uses: julia-actions/setup-julia@v3
@@ -193,7 +200,7 @@ jobs:
         run: |
           set -uo pipefail
 
-          IDS_ARR=($IDS)
+          read -ra IDS_ARR <<< "$IDS"
           REPORT_DIR=new/correct-report
           mkdir -p "$REPORT_DIR"
           RESULTS="$REPORT_DIR/correctness.tsv"
