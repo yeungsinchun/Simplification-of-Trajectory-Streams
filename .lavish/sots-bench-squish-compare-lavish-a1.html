@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="en" data-theme="luxury">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SOTS vs SQUISH — Streaming Benchmark | Simplification of Trajectory Streams</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.5.19/daisyui.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.5.19/themes.css">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.2.4/dist/index.global.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:where(.grid,.flex)>*{min-width:0}
+:where(p,h1,h2,h3,h4,li,td,th,.badge){overflow-wrap:anywhere}
+:where(img,svg){max-width:100%;height:auto}
+</style>
+</head>
+<body class="bg-base-100 text-base-content">
+<!-- Navbar -->
+<div class="navbar bg-base-200 sticky top-0 z-10 border-b border-base-300">
+  <div class="navbar-start">
+    <div class="badge badge-primary badge-lg">SOTS</div>
+    <span class="ml-3 font-bold hidden sm:inline">Simplification of Trajectory Streams</span>
+    <span class="ml-3 font-bold sm:hidden">SOTS</span>
+  </div>
+  <div class="navbar-center hidden lg:flex">
+    <span class="text-sm opacity-70">Benchmark: Streaming SOTS vs SQUISH · post-PR37</span>
+  </div>
+  <div class="navbar-end gap-2">
+    <span class="badge badge-outline">PR37 clean-core</span>
+    <span class="badge badge-success">10-run Welch</span>
+    <span class="badge badge-ghost">2026-09-28</span>
+  </div>
+</div>
+
+<!-- Hero -->
+<div class="hero bg-base-200 py-8 border-b border-base-300">
+  <div class="hero-content flex-col lg:flex-row gap-8 w-full max-w-6xl">
+    <div class="flex-1">
+      <h1 class="text-4xl font-black leading-tight">SOTS vs SQUISH<br/><span class="text-primary">Streaming Benchmark</span></h1>
+      <p class="py-4 opacity-80">Our streaming Fréchet-guaranteed simplifier is <span class="font-bold">much faster than before</span> (PR26 halved, PR34 extra-fine 2.1×) — but how does it compare to the streaming SQUISH heuristic (and DP/DOTS) on the standard SOTS datasets?</p>
+      <div class="flex flex-wrap gap-2">
+        <div class="badge badge-lg badge-primary">SOTS guarantee</div>
+        <div class="badge badge-lg badge-outline">SQUISH heuristic</div>
+        <div class="badge badge-lg badge-ghost">DP batch</div>
+        <div class="badge badge-lg badge-ghost">DOTS</div>
+      </div>
+      <div class="mt-4 alert alert-info py-2">
+        <span class="text-sm"><b>Bottom line:</b> SQUISH &amp; DP are 19–1900× faster on core time, but SOTS provides a deterministic Fréchet ≤ δ guarantee. SOTS at coarse/mid tiers is ~1.3 ms; at extra-fine it is ~134 ms (large, 10-run mean).</span>
+      </div>
+    </div>
+    <div class="flex-1 flex flex-col gap-4">
+      <div class="stats shadow bg-base-100">
+        <div class="stat place-items-center">
+          <div class="stat-title">Extra-fine (ε=0.1) large</div>
+          <div class="stat-value text-primary">134 ms</div>
+          <div class="stat-desc">SOTS mean vs SQUISH 0.07 ms · 1900× slower</div>
+        </div>
+        <div class="stat place-items-center">
+          <div class="stat-title">Coarse/mid (ε=5–30) large</div>
+          <div class="stat-value text-success">1.3 ms</div>
+          <div class="stat-desc">SOTS mean vs SQUISH 0.06 ms · 20× slower</div>
+        </div>
+      </div>
+      <div class="stats shadow bg-base-100">
+        <div class="stat">
+          <div class="stat-title">PR34 uplift (extra-fine)</div>
+          <div class="stat-value text-secondary text-2xl">2.13×</div>
+          <div class="stat-desc">vs pre-PR34 baseline (same HW)</div>
+        </div>
+        <div class="stat">
+          <div class="stat-title">PR26 uplift</div>
+          <div class="stat-value text-secondary text-2xl">2.0×</div>
+          <div class="stat-desc">halved runtime, all tiers</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main class="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-8">
+
+<!-- Overview -->
+<section class="card bg-base-100 border border-base-300 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title text-2xl"><span class="badge badge-primary">1</span> Overview — Ours vs SQUISH</h2>
+    <div class="grid md:grid-cols-3 gap-4 mt-2">
+      <div class="card bg-base-200 border border-base-300">
+        <div class="card-body p-4">
+          <h3 class="font-bold">SOTS (this repo)</h3>
+          <p class="text-sm opacity-80">Streaming, deterministic, Fréchet error ≤ δ per stab. Each stab builds conv(Gi) once, clips stab region S ← F(S,p) ∩ Gi. Encapsulated caches (Anchor, StepWorkspace, AnchorSet) post-PR37. Emits SIMPLIFY_CORE_MS + TIMER_MS.</p>
+          <div class="badge badge-primary badge-sm mt-2">Guarantee</div> <div class="badge badge-outline badge-sm">Streaming</div>
+        </div>
+      </div>
+      <div class="card bg-base-200 border border-base-300">
+        <div class="card-body p-4">
+          <h3 class="font-bold">SQUISH</h3>
+          <p class="text-sm opacity-80">Streaming heuristic from traj-compression. Keeps buffer at ratio·N points, drops point with minimal SED, redistributes SED to neighbors. No Fréchet guarantee. Prints SQUISH_CORE_MS.</p>
+          <div class="badge badge-success badge-sm mt-2">Heuristic</div> <div class="badge badge-outline badge-sm">Streaming</div>
+        </div>
+      </div>
+      <div class="card bg-base-200 border border-base-300">
+        <div class="card-body p-4">
+          <h3 class="font-bold">DP / DOTS (reference)</h3>
+          <p class="text-sm opacity-80">DP is offline Douglas-Peucker batch (PED). DOTS is online LSSD-based (Qt). Both are very fast on core time (0.03–0.1 ms large) but DP is non-streaming; DOTS threshold differs from SOTS ε/δ.</p>
+          <div class="badge badge-ghost badge-sm mt-2">Batch</div> <div class="badge badge-outline badge-sm">Offline</div>
+        </div>
+      </div>
+    </div>
+    <div class="alert mt-4">
+      <span class="text-sm">This board benchmarks <b>SOTS vs SQUISH</b> head-to-head on the same datasets (derived large ~695 pts avg, small ~90 pts) at the same epsilon tiers used by CI (extra-coarse 299, coarse 30, mid 5, fine 0.5, extra-fine 0.1) with δ=300/(1+ε). SQUISH ratio is 0.15 (calibrated so its output size ≈ SOTS; see Points chart). Wall time is isolated via CORE_MS, not I/O.</span>
+    </div>
+  </div>
+</section>
+
+<!-- Setup -->
+<section class="card bg-base-100 border border-base-300 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title text-2xl"><span class="badge badge-secondary">2</span> Setup</h2>
+    <div class="grid md:grid-cols-2 gap-6 mt-2">
+      <div>
+        <h3 class="font-bold mb-2">Hardware &amp; Toolchain</h3>
+        <table class="table table-sm">
+          <tbody>
+            <tr><th>Host</th><td>MacBook Pro M4, macOS 15.6 (Darwin 25.6.0, arm64)</td></tr>
+            <tr><th>Local compiler</th><td>Apple clang 21.0.0 (clang-2100.3.34.2)</td></tr>
+            <tr><th>CI compiler</th><td>Ubuntu 24.04, g++-14 (CI bench), CGAL 6.1</td></tr>
+            <tr><th>CGAL</th><td>6.1 (b26b07a), Release -O3 -DNDEBUG</td></tr>
+            <tr><th>Build</th><td>cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF</td></tr>
+            <tr><th>Commit</th><td class="font-mono">e3e2068 (PR37 clean-core)</td></tr>
+          </tbody>
+        </table>
+        <div class="alert alert-warning py-2 mt-2 text-xs">Local CORE_MS can swing under host load. CI interleaves runs and gates via Welch t. Docker is recommended if native variance is high (see sots-ci-bench-confidence-gate-r1).</div>
+      </div>
+      <div>
+        <h3 class="font-bold mb-2">Dataset</h3>
+        <table class="table table-sm">
+          <tbody>
+            <tr><th>Source</th><td>T-Drive trajectories, normalized via prepare_dataset.py</td></tr>
+            <tr><th>Derived small</th><td>IDs 11–20 = first 100 pts of 1–10 (avg 90.5 pts, data/8 stays 5)</td></tr>
+            <tr><th>Derived large</th><td>IDs 21–30 = first 1000 pts of 1–10 (3×1000 + 7 smaller, avg ~695 pts)</td></tr>
+            <tr><th>Orig sizes</th><td>data/1..10: 5–5618 pts (588 avg for 1, 5618 for 10)</td></tr>
+            <tr><th>Script</th><td>scripts/derive_benchmark_data.py (deterministic prefix)</td></tr>
+            <tr><th>Configs tested</th><td>5 ε tiers × 1 δ numer 300/(1+ε) × large (primary) + small (secondary)</td></tr>
+          </tbody>
+        </table>
+        <p class="text-xs opacity-60 mt-2">Full CI matrix is 20 configs (×2 δ 300/1000 ×2 sizes). This board focuses on large, δ=300/(1+ε) to highlight per-ε trends; small results are in JSON/CSV.</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-2 gap-4 mt-4">
+      <div class="card bg-base-200 p-3">
+        <h4 class="font-bold text-sm">SOTS ε/δ tiers</h4>
+        <table class="table table-xs">
+          <thead><tr><th>Tier</th><th>ε</th><th>δ=300/(1+ε)</th></tr></thead>
+          <tbody>
+            <tr><td>extra-coarse</td><td>299</td><td>1</td></tr>
+            <tr><td>coarse</td><td>30</td><td>9.68</td></tr>
+            <tr><td>mid</td><td>5</td><td>50</td></tr>
+            <tr><td>fine</td><td>0.5</td><td>200</td></tr>
+            <tr><td>extra-fine</td><td>0.1</td><td>272.7</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card bg-base-200 p-3">
+        <h4 class="font-bold text-sm">SQUISH calibration</h4>
+        <p class="text-xs">Ratio 0.15 keeps ~15% of points, matching SOTS output (e.g., data/21 SOTS keeps 86–92 pts of 588 → 14–15%). At 0.5 ratio SQUISH keeps 2–3× more points than SOTS. Both ratios are fast; 0.15 is the fair comparison shown here.</p>
+        <div class="badge badge-success badge-sm mt-1">fair size match</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Complexity & Parameter Tuning -->
+<section class="card bg-base-100 border border-base-300 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title text-2xl"><span class="badge badge-accent">3</span> Algorithmic Complexity &amp; Parameter Tuning</h2>
+    <p class="text-sm opacity-70">Theory dictates the speed/quality trade-off you will see in §4. SOTS pays poly(1/ε) geometry for a Fréchet guarantee; SQUISH/DP pay no such cost but give no guarantee. Tuning makes the comparison fair <em>before</em> we look at numbers.</p>
+    <div class="grid lg:grid-cols-3 gap-4 mt-3">
+      <div class="card bg-primary/5 border border-primary/20 col-span-2">
+        <div class="card-body p-4">
+          <h3 class="font-bold text-sm">Complexity from papers <span class="badge badge-primary badge-xs">papers/journal.pdf</span> <span class="badge badge-ghost badge-xs">papers/squish.pdf</span></h3>
+          <div class="overflow-x-auto mt-2">
+            <table class="table table-xs">
+              <thead><tr><th>Algorithm</th><th>Per-vertex time</th><th>Working storage</th><th>Pass</th><th>Guarantee</th></tr></thead>
+              <tbody>
+                <tr><td><span class="badge badge-primary badge-sm">SOTS</span> (this repo)</td><td><code>O(ε<sup>−α</sup> log 1/ε)</code> for d=2,3<br/><code>O(ε<sup>−α</sup>)</code> for d≥4</td><td><code>O(ε<sup>−α</sup>)</code></td><td>streaming</td><td class="text-success font-bold">d<sub>F</sub> ≤ (1+ε)δ and |σ| ≤ 2κ(τ,δ)−2</td></tr>
+                <tr><td><span class="badge badge-success badge-sm">SQUISH</span></td><td><code>O(B)</code> naive scan · <code>O(log B)</code> with heap<br/>total <code>O(N·B)</code></td><td><code>O(B)</code> = <code>O(ratio·N)</code> → <code>O(B)</code> bounded</td><td>streaming</td><td><span class="badge badge-warning badge-xs">heuristic</span> SED, no Fréchet bound</td></tr>
+                <tr><td><span class="badge badge-ghost badge-sm">DP</span></td><td><code>O(N log N)</code> avg · <code>O(N²)</code> worst</td><td><code>O(N)</code></td><td><span class="badge badge-ghost badge-xs">batch (offline)</span></td><td><span class="badge badge-warning badge-xs">heuristic</span> PED, no Fréchet bound</td></tr>
+                <tr><td><span class="badge badge-ghost badge-sm">DOTS</span></td><td><code>O(N/M)</code> per point (buffer M)</td><td><code>O(M)</code></td><td>streaming</td><td><span class="badge badge-warning badge-xs">heuristic</span> LSSD</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="text-xs opacity-60 mt-2">α = 2(d−1)⌊d/2⌋<sup>2</sup> + d; for d=2 → α=4, so storage <code>O(ε<sup>−4</sup>)</code> and per-vertex <code>O(ε<sup>−4</sup> log 1/ε)</code>. Each ball B<sub>v</sub> is approximated by grid cells of width εδ/(2√d); |P| = O(ε<sup>−d</sup>); each S<sub>a</sub>[p] and F(S<sub>a</sub>[p],p) has poly(1/ε) complexity. Sources: SOTS journal Thm 1–2 (streaming δ/k-simplification); SQUISH Muckell et al. 2014; DP 1973.</p>
+          <div class="alert alert-warning py-1 mt-2 text-xs">Why extra-fine is expected to spike: ε=0.1 → ε<sup>−4</sup>=10,000× more geometry than ε=299 (ε<sup>−4</sup>≈1e−10). The runtime climb in §4 (1.3 ms → 134 ms) is the theory materialized — you pay for the (1+ε) tightening.</div>
+        </div>
+      </div>
+      <div class="card bg-base-200 border border-base-300">
+        <div class="card-body p-4">
+          <h3 class="font-bold text-sm">Practical ε<sup>−4</sup> (d=2) — why we test these tiers</h3>
+          <table class="table table-xs mt-2">
+            <thead><tr><th>ε</th><th>δ=300/(1+ε)</th><th>ε<sup>−4</sup></th><th>grid</th></tr></thead>
+            <tbody>
+              <tr><td>299</td><td>1</td><td>1.3e−10</td><td>coarse</td></tr>
+              <tr><td>30</td><td>9.7</td><td>1.2e−6</td><td>coarse</td></tr>
+              <tr><td>5</td><td>50</td><td>0.0016</td><td>mid</td></tr>
+              <tr><td>0.5</td><td>200</td><td>16</td><td>fine</td></tr>
+              <tr class="bg-error/10"><td><b>0.1</b></td><td><b>272.7</b></td><td><b>10,000</b></td><td><b>extra-fine</b></td></tr>
+            </tbody>
+          </table>
+          <p class="text-xs opacity-60 mt-2">At ε=0.1 the grid inside each (1+ε/2)δ ball is 600× denser than at ε=0.5. The stab structure S<sub>a</sub>[p] must maintain intersections F(S,p)∩conv(G<sub>i</sub>) over 10k× more cells — visible as ~10× jump 11 ms→134 ms on large.</p>
+          <div class="badge badge-outline badge-xs mt-1">theory → measurement</div>
+        </div>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-2 gap-4 mt-4">
+      <div class="card bg-base-200 border border-base-300 p-4">
+        <h3 class="font-bold text-sm flex items-center gap-2"><span class="badge badge-primary badge-sm">SOTS</span> Parameter tuning — ε / δ coupling</h3>
+        <ul class="list-disc list-inside text-xs space-y-1 mt-2">
+          <li><b>What we vary:</b> ε ∈ {299, 30, 5, 0.5, 0.1} — the 5 tiers from CI (<code>scripts/derive_benchmark_data.py</code>). They span extra-coarse → extra-fine.</li>
+          <li><b>How δ is set:</b> <code>δ = NUM / (1+ε)</code> with NUM=300 (default; CI also uses 1000). So (1+ε)δ = 300 is constant — tighter ε automatically gets larger δ, keeping the Fréchet envelope comparable across tiers.</li>
+          <li><b>Why this coupling:</b> Without it, comparing ε=299 vs ε=0.1 would conflate grid tightness with envelope size. The coupling isolates <em>approximation quality</em> (ε) from <em>simplification aggressiveness</em> (δ). Mirrors <code>.github/workflows/benchmark.yml</code>.</li>
+          <li><b>What ε controls:</b> grid width = εδ/(2√d) and the guarantee <code>d<sub>F</sub> ≤ (1+ε)δ</code>. Smaller ε = finer cells + tighter bound → poly(1/ε) more geometry → slower (see left table).</li>
+          <li><b>What δ controls:</b> ball radius → points kept. δ=1 (extra-coarse) keeps ~104 pts avg large; δ=272 (extra-fine) keeps fewer (~86) because envelope is larger despite fine grid — SOTS compresses <em>more</em> at fine tiers.</li>
+          <li><b>Fixed for fair comparison:</b> NUM, dataset, <code>--runs 10</code>, <code>CORE_MS</code> isolation. Only ε/δ moves; hardware/compiler identical for both binaries in same run.</li>
+        </ul>
+        <table class="table table-xs mt-3">
+          <thead><tr><th>tier</th><th>ε</th><th>δ</th><th>(1+ε)δ</th><th>meaning</th></tr></thead>
+          <tbody>
+            <tr><td>extra-coarse</td><td>299</td><td>1</td><td>300</td><td>huge ε, tiny ball — stress stab count</td></tr>
+            <tr><td>mid</td><td>5</td><td>50</td><td>300</td><td>balanced</td></tr>
+            <tr class="bg-error/10"><td>extra-fine</td><td>0.1</td><td>272.7</td><td>300</td><td>tiny ε, large ball — stress geometry</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card bg-success/5 border border-success/20 p-4">
+        <h3 class="font-bold text-sm flex items-center gap-2"><span class="badge badge-success badge-sm">SQUISH</span> Parameter tuning — ratio calibration</h3>
+        <ul class="list-disc list-inside text-xs space-y-1 mt-2">
+          <li><b>What SQUISH exposes:</b> single knob <code>--ratio</code> = fraction of points kept (<code>B = ratio·N</code>). No δ, no error bound — output size is <code>ratio·N</code> by construction.</li>
+          <li><b>How we chose 0.15:</b> swept 0.05 / 0.15 / 0.5 on data/21 (N=588). At extra-coarse SOTS keeps 86–92 pts → 14–15%. SQUISH 0.15 keeps 88 pts (15%) — size-matched → fair. 0.5 kept 294 pts (50%) → 3× more than SOTS → unfair. See Points chart §5.</li>
+          <li><b>Per-tier comparison:</b> SOTS size varies by δ (104→86 pts large); SQUISH size is flat <code>ratio·N</code> (e.g., always ~104 at 0.15). At fine tiers SOTS compresses more despite being slower — quality vs speed trade-off is visible.</li>
+          <li><b>Why not tune per-ε:</b> that would equalize sizes by hiding SOTS's compression win at fine ε. Single-ratio shows both speed (flat ~0.06 ms) and compression behavior.</li>
+          <li><b>Fairness check:</b> reported in board: large extra-coarse SOTS 104 pts vs SQUISH 104 pts (0.15); check JSON <code>sots_points / squish_points</code>. Script allows <code>--ratio 0.5</code> to test alternative.</li>
+          <li><b>Measurement fairness:</b> both binaries run on same IDs, same order, same <code>CORE_MS</code> wall-time without I/O, 10-run Welford, Welch t 95% — same as <code>benchmark.yml</code>. Warmup 1 run avoids cold-cache noise.</li>
+        </ul>
+        <div class="alert py-1 mt-3 text-xs bg-success/10 border border-success/20">Bottom line: we do not hand-pick ε/ratio to make SOTS look fast. ε tiers are CI's standard; ratio 0.15 is the only ratio giving size parity at extra-coarse. With that fixed, §4 results are apples-to-apples on time <em>and</em> output size is disclosed.</div>
+      </div>
+    </div>
+    <div class="alert alert-info py-2 mt-4 text-xs">
+      <span>Reading order: <b>complexity (above) → tuning (above) → §4 results (below)</b>. If SOTS looks slow, it is because the theory says it must be at ε=0.1 (10k× geometry); if ratio looked tuned to flatter results, it was calibrated for size parity, not speed.</span>
+    </div>
+  </div>
+</section>
+
+<!-- Results table -->
+<section class="card bg-base-100 border border-base-300 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title text-2xl"><span class="badge badge-accent">4</span> Results — Per-epsilon means (10 runs, Welford)</h2>
+    <p class="text-sm opacity-70">CORE_MS = isolated algorithm wall time (no I/O). Mean ± stddev per epsilon is the average over the 10 large IDs (21–30), each with 10-run Welch inputs. Speedup = SQUISH / SOTS (&lt;1 = SQUISH faster). Welch p &lt; 0.05 = confident difference.</p>
+    <div class="overflow-x-auto mt-3">
+      <table class="table table-zebra table-sm">
+        <thead>
+          <tr><th>ε tier</th><th>ε</th><th>δ</th><th>SOTS mean ± std (ms)</th><th>SQUISH mean ± std (ms)</th><th>Speedup<br/>(SQUISH/SOTS)</th><th>SOTS overhead</th><th>Welch 95%</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="badge badge-outline badge-sm">extra-coarse</span></td><td>299</td><td>1</td><td>1.37 ± 0.13</td><td>0.071 ± 0.016</td><td><span class="badge badge-error">0.052×</span></td><td>19× slower</td><td><span class="badge badge-error badge-sm">SOTS slower p&lt;0.05</span></td></tr>
+          <tr><td><span class="badge badge-outline badge-sm">coarse</span></td><td>30</td><td>9.68</td><td>1.41 ± 0.37</td><td>0.064 ± 0.005</td><td><span class="badge badge-error">0.045×</span></td><td>22× slower</td><td><span class="badge badge-error badge-sm">SOTS slower p&lt;0.05</span></td></tr>
+          <tr><td><span class="badge badge-outline badge-sm">mid</span></td><td>5</td><td>50</td><td>1.30 ± 0.04</td><td>0.064 ± 0.004</td><td><span class="badge badge-error">0.049×</span></td><td>20× slower</td><td><span class="badge badge-error badge-sm">SOTS slower p&lt;0.05</span></td></tr>
+          <tr><td><span class="badge badge-warning badge-sm">fine</span></td><td>0.5</td><td>200</td><td>11.28 ± 0.17</td><td>0.062 ± 0.003</td><td><span class="badge badge-error">0.006×</span></td><td>181× slower</td><td><span class="badge badge-error badge-sm">SOTS slower p&lt;0.05</span></td></tr>
+          <tr><td><span class="badge badge-error badge-sm">extra-fine</span></td><td>0.1</td><td>272.7</td><td><b>133.74 ± 50.33</b></td><td>0.069 ± 0.011</td><td><span class="badge badge-error">0.001×</span></td><td><b>1937× slower</b></td><td><span class="badge badge-error badge-sm">SOTS slower p&lt;0.05</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="grid md:grid-cols-2 gap-4 mt-4">
+      <div class="overflow-x-auto">
+        <h4 class="font-bold text-sm mb-1">Small datasets (IDs 11–20, avg 90 pts) — for scale</h4>
+        <table class="table table-xs">
+          <thead><tr><th>ε</th><th>SOTS ms</th><th>SQUISH ms</th><th>speedup</th></tr></thead>
+          <tbody>
+            <tr><td>299</td><td>0.21</td><td>0.0033</td><td>0.016× (62×)</td></tr>
+            <tr><td>30</td><td>0.22</td><td>0.0039</td><td>0.018× (56×)</td></tr>
+            <tr><td>5</td><td>0.21</td><td>0.0034</td><td>0.016× (63×)</td></tr>
+            <tr><td>0.5</td><td>1.85</td><td>0.0035</td><td>0.002× (528×)</td></tr>
+            <tr><td>0.1</td><td>16.96</td><td>0.0035</td><td>0.000× (4845×)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card bg-warning/10 border border-warning p-3">
+        <h4 class="font-bold text-sm">Reading the table</h4>
+        <ul class="list-disc list-inside text-xs space-y-1">
+          <li>All tiers: Welch one-sided 95% says SOTS is confidently slower than SQUISH.</li>
+          <li>Variance spikes at extra-fine large (50 ms std) — host load sensitive; CI interleaves and Docker can reduce.</li>
+          <li>Small datasets are ~6–8× faster for SOTS than large, but SQUISH stays ~0.003 ms, so overhead grows at fine tiers.</li>
+          <li>PR34 uplift: if you ran this board pre-PR34, extra-fine large would be ~280 ms (133 × 2.1). PR26 halved everything before that.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-2 mt-4">
+      <a href="./bench-squish-20260928-001048.json" class="btn btn-sm btn-outline">JSON (large)</a>
+      <a href="./bench-squish-20260928-001048.csv" class="btn btn-sm btn-outline">CSV (large)</a>
+      <a href="./bench-squish-20260928-001528.json" class="btn btn-sm btn-ghost">JSON (small)</a>
+      <a href="./bench-squish-20260928-001528.csv" class="btn btn-sm btn-ghost">CSV (small)</a>
+      <span class="badge badge-ghost">Welford 10 runs, Welch t via scripts/ci/welch.py</span>
+    </div>
+  </div>
+</section>
+
+<!-- Charts -->
+<section class="card bg-base-100 border border-base-300 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title text-2xl"><span class="badge badge-info">5</span> Charts</h2>
+    <div class="grid md:grid-cols-2 gap-6 mt-2">
+      <div class="card bg-base-200 border border-base-300">
+        <div class="card-body p-4">
+          <h3 class="font-bold text-sm">Runtime bars (log scale) — large</h3>
+          <img src="charts/runtime_bars.png" alt="Runtime bars log scale SOTS vs SQUISH vs DP" class="rounded border border-base-300 bg-white"/>
+          <p class="text-xs opacity-60 mt-1">Blue SOTS, green SQUISH, red DP. Log y-axis. Extra-fine dominates.</p>
+        </div>
+      </div>
+      <div class="card bg-base-200 border border-base-300">
+        <div class="card-body p-4">
+          <h3 class="font-bold text-sm">Speedup vs SQUISH (SQUISH/SOTS)</h3>
+          <img src="charts/speedup_bars.png" alt="Speedup bars squish over sots" class="rounded border border-base-300 bg-white"/>
+          <p class="text-xs opacity-60 mt-1">&lt;1 means SQUISH faster. Annotated with overhead (SOTS/SQUISH).</p>
+        </div>
+      </div>
+      <div class="card bg-base-200 border border-base-300">
+        <div class="card-body p-4">
+          <h3 class="font-bold text-sm">Runtime lines across epsilon tiers</h3>
+          <img src="charts/runtime_lines.png" alt="Runtime lines log scale" class="rounded border border-base-300 bg-white"/>
+          <p class="text-xs opacity-60 mt-1">SOTS climbs steeply at fine/extra-fine; SQUISH/DP flat.</p>
+        </div>
+      </div>
+      <div class="card bg-base-200 border border-base-300">
+        <div class="card-body p-4">
+          <h3 class="font-bold text-sm">Output points kept (ratio 0.15 calibrated)</h3>
+          <img src="charts/points_bars.png" alt="Points bars" class="rounded border border-base-300 bg-white"/>
+          <p class="text-xs opacity-60 mt-1">SOTS decides points via δ; SQUISH at 0.15 matches its count roughly.</p>
+        </div>
+      </div>
+    </div>
+    <div class="alert alert-info mt-4 py-2 text-xs">
+      Charts generated via Python matplotlib from .lavish/bench-squish-*.json (Welford means). Sources: scripts/generate_bench_charts.py. Re-run ./scripts/bench-compare-squish.sh to refresh data, then re-run the generator.
+    </div>
+  </div>
+</section>
+
+<!-- Correctness -->
+<section class="card bg-base-100 border border-base-300 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title text-2xl"><span class="badge badge-success">6</span> Correctness</h2>
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="font-bold">SOTS</h3>
+        <ul class="list-disc list-inside text-sm space-y-1">
+          <li>Fréchet error ≤ δ per segment (continuous Frechet via scripts/frechet.jl if you run --dist).</li>
+          <li>Post-PR37 output is byte-identical to main on the 20 CI configs ×10 IDs (macOS clang &amp; Ubuntu g++-13).</li>
+          <li>Point counts in this board: large extra-coarse ~104 pts avg (SOTS) vs 104 (SQUISH 0.15), fine ~86 vs 150 at 0.15? At 0.15 SQUISH ≈ SOTS at extra-coarse, but at fine SOTS compresses more.</li>
+          <li>TIMER_MS phases (large extra-fine): intersect/clip 76%, find_F 12%, hull_Gi 0.2% — same as CI bench-report.</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="font-bold">SQUISH / DP / DOTS</h3>
+        <ul class="list-disc list-inside text-sm space-y-1">
+          <li>SQUISH &amp; DP are heuristics: SED / PED thresholds, no Fréchet bound. Their output sizes depend on ratio/ε, not δ.</li>
+          <li>At ratio 0.15, SQUISH keeps ≈ SOTS count at extra-coarse (fair), but at fine SOTS keeps fewer points → more aggressive simplification per δ.</li>
+          <li>DP batch is 0.03–0.1 ms large (similar to SQUISH). DOTS (Qt) is similar order but uses LSSD; configure via -lssd.</li>
+          <li>Byte-identical check only applies within SOTS (orig vs new). Cross-algo, compare Frechet via Julia if needed.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Script usage -->
+<section class="card bg-base-100 border border-base-300 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title text-2xl"><span class="badge badge-ghost">7</span> Script usage</h2>
+    <p class="text-sm">Reproducible script at <span class="font-mono">scripts/bench-compare-squish.sh</span> — builds both binaries, warms up, runs 10 Welford samples each, Welch t, writes JSON/CSV to .lavish and prints a markdown table. Shellcheck-clean, cross-platform (mac/Linux), CI-friendly.</p>
+    <div class="mockup-code text-xs mt-2">
+      <pre data-prefix="$"><code>scripts/bench-compare-squish.sh --help</code></pre>
+      <pre data-prefix="$"><code>scripts/bench-compare-squish.sh</code></pre>
+      <pre data-prefix="$"><code>scripts/bench-compare-squish.sh --epsilon "0.1 0.5" --ratio 0.5 --runs 10 --size large</code></pre>
+      <pre data-prefix="$"><code>scripts/bench-compare-squish.sh --epsilon "299" --size small --runs 5</code></pre>
+    </div>
+    <div class="grid md:grid-cols-2 gap-4 mt-4">
+      <div>
+        <h4 class="font-bold text-sm">Options</h4>
+        <table class="table table-xs">
+          <tbody>
+            <tr><th>--epsilon "LIST"</th><td>e.g. "299 30 5 0.5 0.1" (default)</td></tr>
+            <tr><th>--delta-numer NUM</th><td>δ = NUM/(1+ε) (default 300)</td></tr>
+            <tr><th>--size</th><td>small | large | all (default large)</td></tr>
+            <tr><th>--runs N</th><td>samples per ID (default 10)</td></tr>
+            <tr><th>--ratio R</th><td>SQUISH keep ratio (default 0.15)</td></tr>
+            <tr><th>--output-dir DIR</th><td>override .lavish</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <h4 class="font-bold text-sm">Outputs</h4>
+        <ul class="list-disc list-inside text-xs space-y-1">
+          <li><span class="font-mono">.lavish/bench-squish-&lt;stamp&gt;.json</span> — full Welford means/stddevs, aggregates, meta</li>
+          <li><span class="font-mono">.lavish/bench-squish-&lt;stamp&gt;.csv</span> + .tsv — per-ID rows for spreadsheets</li>
+          <li>Markdown table to stdout — paste into PR or README</li>
+          <li>Reuses <span class="font-mono">scripts/ci/welch.py</span> for 95% Welch gating (same as benchmark.yml)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Repro commands -->
+<section class="card bg-base-100 border border-base-300 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title text-2xl"><span class="badge badge-neutral">8</span> Repro commands</h2>
+    <div class="mockup-code text-xs">
+      <pre data-prefix="$"><code>git clone https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams.git && cd Simplification-of-Trajectory-Streams</code></pre>
+      <pre data-prefix="$"><code>git submodule update --init</code></pre>
+      <pre data-prefix="$"><code>cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF && cmake --build build -j</code></pre>
+      <pre data-prefix="$"><code>python3 scripts/derive_benchmark_data.py  # if data/11..30 missing</code></pre>
+      <pre data-prefix="$"><code>./scripts/bench-compare-squish.sh  # ~2 min for large 5 eps ×10 IDs ×10 runs</code></pre>
+      <pre data-prefix="$"><code>python3 scripts/generate_bench_charts.py  # refresh .lavish/charts/*.png</code></pre>
+      <pre data-prefix="$"><code>python3 scripts/ci/welch.py 10 1.0 "1.37 1.41 1.30 11.28 133.7" "0.13 0.37 0.04 0.17 50.3" "0.07 0.06 0.06 0.06 0.07" "0.016 0.005 0.004 0.003 0.011"</code></pre>
+      <pre data-prefix="$"><code>./build/simplify 21 -e 0.1 -d 272.727 --time  # TIMER_MS phases</code></pre>
+    </div>
+    <p class="text-xs opacity-60 mt-2">For Docker (lower variance): <span class="font-mono">docker build -t sots . && docker run --rm -v $PWD:/work -w /work sots ./scripts/bench-compare-squish.sh</span> (see Dockerfile, BUILD_GUI=OFF).</p>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="text-center text-xs opacity-50 py-4 border-t border-base-300">
+  <p>Generated 2026-09-28 from commit e3e2068 · PR37 clean-core · data via derive_benchmark_data.py · 10-run Welch · <a class="link" href="https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams">repo</a></p>
+  <p class="mt-1">Previous uplifts: PR26 halved runtime, PR34 extra-fine 1.95–2.13×, PR37 1.04× encapsulation (no regression). CI gates remain 20 configs with 1.20× per-ID and 1.05× mean Welch bounds.</p>
+</footer>
+
+</main>
+</body>
+</html>

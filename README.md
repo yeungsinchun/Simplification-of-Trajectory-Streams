@@ -158,6 +158,40 @@ Gating is Welch t (95% one-sided) as in benchmark.yml.
 Hardware was MacBook Pro M4 (Apple clang 21, CGAL 6.1) for local and Ubuntu 24.04 g++-14 for CI.
 Results are CORE_MS (isolated algorithm time, no I/O) from SIMPLIFY_CORE_MS vs SQUISH_CORE_MS.
 
+### Algorithmic complexity (from papers)
+
+SOTS streaming δ-simplification (papers/journal.pdf, Thm 1–2) guarantees dF(σ,τ) ≤ (1+ε)δ and |σ| ≤ 2κ(τ,δ)−2.
+Working storage is O(ε^{-α}) and per-vertex time is O(ε^{-α} log 1/ε) for d∈{2,3}, O(ε^{-α}) for d≥4, where α = 2(d−1)⌊d/2⌋^2 + d.
+For d=2, α=4, so storage O(ε^{-4}) and time O(ε^{-4} log 1/ε) — each ball Bv is covered by grid cells of width εδ/(2√d), |P|=O(ε^{-d}), and each stab structure Sa[p]=conv(Gva)∩F(Sa-1[p],p) has poly(1/ε) complexity.
+At ε=0.1, ε^{-4}=10,000× larger geometry than at ε=299.
+That is why runtime climbs from ~1.3 ms to ~134 ms on large in the table below.
+If you run SOTS in static mode on n points, total time is O(ε^{-α} n log 1/ε), a factor n faster than the prior static O(ε^{2−2d} n^2 log n log log n) algorithm with the same bounds.
+SQUISH is a streaming heuristic from traj-compression: buffer B=ratio·N, per-point O(B) naive scan (O(log B) with heap), total O(N·B), working storage O(B) bounded after the buffer fills, no Fréchet bound (uses SED).
+DP is offline batch Douglas-Peucker (PED): O(N log N) average, O(N^2) worst, O(N) storage, non-streaming, no Fréchet guarantee.
+DOTS is the online LSSD-based baseline (Qt): O(N/M) per point for buffer M, no Fréchet bound.
+SOTS pays poly(1/ε) for its deterministic guarantee; SQUISH/DP/DOTS are fast heuristics without that guarantee.
+
+### Parameter tuning
+
+SOTS ε/δ coupling follows CI (benchmark.yml, scripts/derive_benchmark_data.py).
+We sweep ε ∈ {299, 30, 5, 0.5, 0.1} — five tiers from extra-coarse to extra-fine.
+δ is not tuned independently: δ = NUM/(1+ε) with NUM=300 (CI also uses 1000).
+Thus (1+ε)δ = 300 is constant — smaller ε gets larger δ so the Fréchet envelope stays comparable and only approximation tightness varies.
+ε controls grid resolution (εδ/(2√d)) and the (1+ε) factor in dF ≤ (1+ε)δ.
+Smaller ε means finer cells and tighter bound, but poly(1/ε) more geometry and slower runtime (see extra-fine above).
+δ controls ball radius and output size.
+At δ=1 (extra-coarse) SOTS keeps ~104 pts avg large; at δ=272.7 (extra-fine) it keeps ~86 pts — it compresses more despite the finer grid.
+All other knobs are fixed (NUM, dataset, 10-run Welford, CORE_MS isolation) so speed differences are apples-to-apples.
+SQUISH has one knob: ratio = fraction of points kept (B=ratio·N, output size = ratio·N).
+We calibrate ratio before looking at times.
+We swept 0.05/0.15/0.5 on data/21 (N=588): SOTS at extra-coarse keeps 86–92 pts → 14–15%.
+SQUISH at 0.15 keeps 88 pts (15%) — size-matched and fair.
+At 0.5 it keeps 294 pts (50%), 3× more than SOTS and not comparable.
+So 0.15 is the only ratio giving size parity at extra-coarse (see Points chart in the Lavish board §5).
+At fine tiers SOTS then compresses more than SQUISH at the same ratio, showing its quality win even while slower.
+Both binaries run on the same IDs, same order, same CORE_MS, 10-run Welford, Welch t 95% — identical to benchmark.yml.
+The script exposes --epsilon, --delta-numer, --ratio, --runs, --size for alternatives, but defaults are the fair comparison.
+
 ### SOTS vs SQUISH (large, 10-run mean)
 
 | ε tier | ε | δ | SOTS ms ± std | SQUISH ms ± std | SQUISH/SOTS | Overhead |

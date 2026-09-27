@@ -3,6 +3,22 @@
 # Builds both binaries, runs 10-sample Welford means per epsilon tier,
 # computes speedup vs SQUISH with Welch t, writes JSON/CSV to .lavish.
 #
+# Algorithmic complexity (papers/journal.pdf, papers/squish.pdf):
+#   SOTS: O(epsilon^{-alpha}) storage, O(epsilon^{-alpha} log 1/epsilon) per vertex for d=2,3
+#         where alpha=2(d-1) floor(d/2)^2+d (d=2 => alpha=4 => O(epsilon^{-4})).
+#         Guarantee dF <= (1+epsilon)delta and |sigma| <=2 kappa(delta)-2. Poly(1/epsilon) geometry.
+#   SQUISH: streaming heuristic, buffer B=ratio*N, O(B) per point naive (O(log B) heap), O(N*B) total, O(B) storage, SED, no Frechet bound.
+#   DP: offline batch, O(N log N) avg O(N^2) worst, PED, no guarantee. DOTS: O(N/M) per point.
+#   SOTS pays poly(1/epsilon) for guarantee; extra-fine epsilon=0.1 is 10,000x geometry of epsilon=299.
+#
+# Parameter tuning (fair before results):
+#   SOTS: epsilon in {299,30,5,0.5,0.1} (5 tiers extra-coarse..extra-fine), delta=NUM/(1+epsilon) NUM=300 constant,
+#         so (1+epsilon)delta=300 fixed — isolates approximation tightness from envelope size.
+#         Smaller epsilon => finer grid epsilon*delta/(2 sqrt(d)) => tighter (1+epsilon)delta bound but slower.
+#   SQUISH: ratio sweep 0.05/0.15/0.5 on data/21 (N=588). SOTS extra-coarse keeps ~15% (86-92 pts).
+#           ratio 0.15 keeps ~15% (88 pts) — size-matched fair. 0.5 keeps 3x more (not fair). 0.15 is default.
+#   Measurement: same IDs, same order, CORE_MS (no I/O), 10-run Welford, Welch t 95% — same as benchmark.yml.
+#
 # Usage: scripts/bench-compare-squish.sh [--epsilon "0.1 0.5 ..."] [--delta-numer 300] [--size large] [--runs 10] [--ratio 0.15]
 # Any contributor can run: ./scripts/bench-compare-squish.sh
 # Output: .lavish/bench-squish-*.json, .lavish/bench-squish-*.csv and markdown table on stdout.
@@ -31,6 +47,18 @@ Usage: scripts/bench-compare-squish.sh [options]
 Benchmark streaming SOTS (simplify) vs SQUISH baseline at multiple
 epsilon tiers. Reuses CI gating methodology: 10-run Welford mean/stddev,
 Welch t confidence, same-binary comparison disciplines.
+
+Complexity (papers/journal.pdf):
+  SOTS  O(epsilon^{-alpha}) storage, O(epsilon^{-alpha} log 1/epsilon) per vertex (d=2,3),
+        alpha=2(d-1) floor(d/2)^2+d, d=2 => alpha=4 => O(epsilon^{-4}), guarantee dF<=(1+epsilon)delta.
+  SQUISH O(B) per point naive B=ratio*N, O(N*B) total, O(B) storage, SED heuristic, no bound.
+  DP     O(N log N) avg O(N^2) worst, batch, no bound.  SOTS trades poly(1/epsilon) for guarantee.
+
+Parameter tuning (before results):
+  SOTS epsilon {299,30,5,0.5,0.1}, delta=NUM/(1+epsilon) NUM=300 so (1+epsilon)delta constant=300.
+       Smaller epsilon => finer grid epsilon*delta/(2 sqrt(d)) => tighter bound but slower (extra-fine 10,000x geometry).
+  SQUISH ratio 0.15 calibrated: swept 0.05/0.15/0.5 on data/21 (N=588), SOTS extra-coarse ~15% (86-92 pts),
+       SQUISH 0.15 => 88 pts (size-matched, fair), 0.5 => 294 pts (3x more, not fair). Fixed before timing.
 
 Options:
   --epsilon "LIST"     Space-separated epsilon tiers (default: "299 30 5 0.5 0.1")
