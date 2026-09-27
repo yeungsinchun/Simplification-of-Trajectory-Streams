@@ -34,7 +34,7 @@ https://simplify-viewer-522405269791.asia-east2.run.app
 
 Required for the headless program:
 
-- C++23 compiler (Clang 16+ or Apple Clang 15+)
+- C++23 compiler with deducing-this support (GCC 14+, Clang 18+, or Apple Clang 16+; Ubuntu 24.04's default `g++` 13 lacks deducing-this and `<print>` so install `g++-14` — the `Dockerfile` and CI select it via `update-alternatives`; `<print>` has a `__has_include` fallback to `<format>`). The build sets `CMAKE_CXX_STANDARD 23` with `CMAKE_CXX_STANDARD_REQUIRED ON` and `CMAKE_CXX_EXTENSIONS OFF` (CGAL itself only needs C++17).
 - CMake 3.16 or newer
 - CGAL
 - Qt 6 Core (used by the vendored DOTS target)
@@ -52,12 +52,15 @@ python3 -m pip install kagglehub psutil
 julia -e 'using Pkg; Pkg.add("FrechetDist")'
 ```
 
-On Ubuntu:
+On Ubuntu (24.04):
 
 ```bash
 sudo apt update
-sudo apt install build-essential cmake libcgal-dev libcgal-qt6-dev \
+sudo apt install build-essential g++-14 cmake libcgal-dev libcgal-qt6-dev \
   qt6-base-dev julia python3-pip
+# make g++-14 the default (as the Dockerfile and CI do)
+sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100 && \
+  sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100
 python3 -m pip install --user kagglehub psutil
 julia -e 'using Pkg; Pkg.add("FrechetDist")'
 ```
