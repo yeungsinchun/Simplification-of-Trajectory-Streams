@@ -204,7 +204,7 @@ The script exposes --epsilon, --delta-numer, --ratio, --runs, --size for alterna
 
 All tiers are confidently slower than SQUISH (Welch p < 0.05).
 SQUISH is 19–1900× faster on core time but provides no Fréchet guarantee (DP/DOTS core-time comparison deferred).
-SOTS provides deterministic Fréchet ≤ δ per segment.
+SOTS provides deterministic Fréchet ≤ (1+ε)δ per segment (papers/journal.pdf, Thm 1–2).
 Previous uplifts remain.
 PR26 halved runtime across all tiers.
 PR34 extra-fine was 1.95–2.13× and fine was 1.4× vs pre-PR34 on the same hardware.

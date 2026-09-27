@@ -45,7 +45,7 @@
         <div class="badge badge-lg badge-ghost">DOTS</div>
       </div>
       <div class="mt-4 alert alert-info py-2">
-        <span class="text-sm"><b>Bottom line:</b> SQUISH is 19–1900× faster on core time (DP/DOTS comparison deferred), but SOTS provides a deterministic Fréchet ≤ δ guarantee. SOTS at coarse/mid tiers is ~1.3 ms; at extra-fine it is ~134 ms (large, 10-run mean).</span>
+        <span class="text-sm"><b>Bottom line:</b> SQUISH is 19–1900× faster on core time (DP/DOTS comparison deferred), but SOTS provides a deterministic Fréchet ≤ (1+ε)δ guarantee (papers/journal.pdf Thm 1–2). SOTS at coarse/mid tiers is ~1.3 ms; at extra-fine it is ~134 ms (large, 10-run mean).</span>
       </div>
     </div>
     <div class="flex-1 flex flex-col gap-4">
@@ -87,7 +87,7 @@
       <div class="card bg-base-200 border border-base-300">
         <div class="card-body p-4">
           <h3 class="font-bold">SOTS (this repo)</h3>
-          <p class="text-sm opacity-80">Streaming, deterministic, Fréchet error ≤ δ per stab. Each stab builds conv(Gi) once, clips stab region S ← F(S,p) ∩ Gi. Encapsulated caches (Anchor, StepWorkspace, AnchorSet) post-PR37. Emits SIMPLIFY_CORE_MS + TIMER_MS.</p>
+          <p class="text-sm opacity-80">Streaming, deterministic, Fréchet error ≤ (1+ε)δ per stab (papers/journal.pdf Thm 1–2). Each stab builds conv(Gi) once, clips stab region S ← F(S,p) ∩ Gi. Encapsulated caches (Anchor, StepWorkspace, AnchorSet) post-PR37. Emits SIMPLIFY_CORE_MS + TIMER_MS.</p>
           <div class="badge badge-primary badge-sm mt-2">Guarantee</div> <div class="badge badge-outline badge-sm">Streaming</div>
         </div>
       </div>
@@ -190,7 +190,7 @@
             </table>
           </div>
           <p class="text-xs opacity-60 mt-2">α = 2(d−1)⌊d/2⌋<sup>2</sup> + d; for d=2 → α=4, so storage <code>O(ε<sup>−4</sup>)</code> and per-vertex <code>O(ε<sup>−4</sup> log 1/ε)</code>. Each ball B<sub>v</sub> is approximated by grid cells of width εδ/(2√d); |P| = O(ε<sup>−d</sup>); each S<sub>a</sub>[p] and F(S<sub>a</sub>[p],p) has poly(1/ε) complexity. Sources: SOTS journal Thm 1–2 (streaming δ/k-simplification); SQUISH Muckell et al. 2014; DP 1973.</p>
-          <div class="alert alert-warning py-1 mt-2 text-xs">Why extra-fine is expected to spike: ε=0.1 → ε<sup>−4</sup>=10,000× more geometry than ε=299 (ε<sup>−4</sup>≈1e−10). The runtime climb in §4 (1.3 ms → 134 ms) is the theory materialized — you pay for the (1+ε) tightening.</div>
+          <div class="alert alert-warning py-1 mt-2 text-xs">Why extra-fine is expected to spike: ε=0.1 → ε<sup>−4</sup>=10,000 vs ~1.2×10<sup>−10</sup> at ε=299 (≈8×10<sup>13</sup>× larger). The runtime climb in §4 (1.3 ms → 134 ms) is the theory materialized — you pay for the (1+ε) tightening.</div>
         </div>
       </div>
       <div class="card bg-base-200 border border-base-300">
@@ -351,7 +351,7 @@
       <div>
         <h3 class="font-bold">SOTS</h3>
         <ul class="list-disc list-inside text-sm space-y-1">
-          <li>Fréchet error ≤ δ per segment (continuous Frechet via scripts/frechet.jl if you run --dist).</li>
+          <li>Fréchet error ≤ (1+ε)δ per segment (papers/journal.pdf Thm 1–2; continuous Frechet via scripts/frechet.jl if you run --dist).</li>
           <li>Post-PR37 output is byte-identical to main on the 20 CI configs ×10 IDs (macOS clang &amp; Ubuntu g++-13).</li>
           <li>Point counts in this board: large extra-coarse ~104 pts avg (SOTS) vs 104 (SQUISH 0.15), fine ~86 vs 150 at 0.15? At 0.15 SQUISH ≈ SOTS at extra-coarse, but at fine SOTS compresses more.</li>
           <li>TIMER_MS phases (large extra-fine): intersect/clip 76%, find_F 12%, hull_Gi 0.2% — same as CI bench-report.</li>

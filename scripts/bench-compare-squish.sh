@@ -9,7 +9,7 @@
 #         Guarantee dF <= (1+epsilon)delta and |sigma| <=2 kappa(delta)-2. Poly(1/epsilon) geometry.
 #   SQUISH: streaming heuristic, buffer B=ratio*N, O(B) per point naive (O(log B) heap), O(N*B) total, O(B) storage, SED, no Frechet bound.
 #   DP: offline batch, O(N log N) avg O(N^2) worst, PED, no guarantee. DOTS: O(N/M) per point.
-#   SOTS pays poly(1/epsilon) for guarantee; extra-fine epsilon=0.1 is 10,000x geometry of epsilon=299.
+#   SOTS pays poly(1/epsilon) for guarantee; extra-fine epsilon=0.1 has epsilon^{-4}=10,000 vs ~1.2e-10 at epsilon=299 (~8e13x).
 #
 # Parameter tuning (fair before results):
 #   SOTS: epsilon in {299,30,5,0.5,0.1} (5 tiers extra-coarse..extra-fine), delta=NUM/(1+epsilon) NUM=300 constant,
