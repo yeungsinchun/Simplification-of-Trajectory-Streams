@@ -147,16 +147,55 @@ binary is missing, initialize the submodule and rebuild.
 
 ## Benchmarking
 
-The full benchmark is optional and can take hours. It requires the complete
-raw dataset, Julia dependencies, and the `dots` target:
+Streaming SOTS vs SQUISH/DP/DOTS was measured on the standard derived datasets.
+Large IDs 21–30 (avg ~695 pts) are the primary perf signal.
+Small IDs 11–20 (avg ~90 pts) are also recorded.
+Five epsilon tiers were used: 299 (extra-coarse, δ=1), 30 (coarse, δ=9.68), 5 (mid, δ=50), 0.5 (fine, δ=200), 0.1 (extra-fine, δ=272.7).
+SQUISH was run at ratio 0.15 so its output size matches SOTS at extra-coarse.
+Each ID was sampled 10 times.
+Means and stddevs are Welford.
+Gating is Welch t (95% one-sided) as in benchmark.yml.
+Hardware was MacBook Pro M4 (Apple clang 21, CGAL 6.1) for local and Ubuntu 24.04 g++-14 for CI.
+Results are CORE_MS (isolated algorithm time, no I/O) from SIMPLIFY_CORE_MS vs SQUISH_CORE_MS.
+
+### SOTS vs SQUISH (large, 10-run mean)
+
+| ε tier | ε | δ | SOTS ms ± std | SQUISH ms ± std | SQUISH/SOTS | Overhead |
+|---|---|---|---|---|---|---|
+| extra-coarse | 299 | 1 | 1.37 ± 0.13 | 0.071 ± 0.016 | 0.052× | 19× slower |
+| coarse | 30 | 9.68 | 1.41 ± 0.37 | 0.064 ± 0.005 | 0.045× | 22× slower |
+| mid | 5 | 50 | 1.30 ± 0.04 | 0.064 ± 0.004 | 0.049× | 20× slower |
+| fine | 0.5 | 200 | 11.28 ± 0.17 | 0.062 ± 0.003 | 0.006× | 181× slower |
+| extra-fine | 0.1 | 272.7 | 133.74 ± 50.33 | 0.069 ± 0.011 | 0.001× | 1937× slower |
+
+All tiers are confidently slower than SQUISH (Welch p < 0.05).
+SQUISH and DP are 19–1900× faster on core time but provide no Fréchet guarantee.
+SOTS provides deterministic Fréchet ≤ δ per segment.
+Previous uplifts remain.
+PR26 halved runtime across all tiers.
+PR34 extra-fine was 1.95–2.13× and fine was 1.4× vs pre-PR34 on the same hardware.
+PR37 clean-core added 1.04× encapsulation with no regression.
+See the Lavish board at [.lavish/sots-bench-squish-compare-lavish-a1.html](.lavish/sots-bench-squish-compare-lavish-a1.html) (hosted at http://127.0.0.1:4387/session/43f75a0eb8ecc94a).
+Run the repro script:
+
+```bash
+scripts/bench-compare-squish.sh
+scripts/bench-compare-squish.sh --epsilon "0.1 0.5" --ratio 0.15 --runs 10 --size large
+```
+
+The script builds both binaries, warms up, runs 10 Welford samples, Welch-gates, writes JSON/CSV to .lavish/bench-squish-*.json and prints a markdown table.
+It is shellcheck-clean, cross-platform (mac/Linux), and CI-friendly.
+It reuses scripts/ci/welch.py and the same CORE_MS extraction as .github/workflows/benchmark.yml.
+
+The full benchmark is optional and can take hours.
+It requires the complete raw dataset, Julia dependencies, and the `dots` target:
 
 ```bash
 python3 scripts/benchmark.py --a 1 --b 1000 --workers 1 --resume
 ```
 
-The benchmark writes generated files below `data/` and CSV output under
-`results/`. Use `python3 scripts/benchmark.py --help` for resource limits,
-timeouts, worker settings, and resume behavior.
+The benchmark writes generated files below `data/` and CSV output under `results/`.
+Use `python3 scripts/benchmark.py --help` for resource limits, timeouts, worker settings, and resume behavior.
 
 ## Baselines and attribution
 
