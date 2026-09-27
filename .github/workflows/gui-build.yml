@@ -7,10 +7,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# Builds the simplify_with_gui target (Qt) that correctness.yml and
-# benchmark.yml skip with -DBUILD_GUI=OFF. Headers shared with the GUI
-# target must compile under Qt, where `emit` is a macro; the headless
-# `simplify` target alone cannot catch that class of breakage.
+# Builds both front ends and checks the GUI's Frechet output. The
+# correctness and benchmark jobs skip the Qt target with -DBUILD_GUI=OFF;
+# shared headers must compile under Qt, where `emit` is a macro.
 jobs:
   gui-build:
     name: "build simplify_with_gui (Qt)"
@@ -36,8 +35,15 @@ jobs:
           # the Qt6-capable CGAL headers below take precedence: Ubuntu
           # 24.04 ships CGAL 5.6, which is Qt5-only (no libcgal-qt6-dev
           # exists there), while our GUI target needs CGAL::CGAL_Qt6.
-          sudo apt-get install -y cmake build-essential \
+          # g++-14 is required for C++23 deducing-this and <print>; the
+          # default g++ on 24.04 (13) lacks both. CGAL itself only needs C++17.
+          sudo apt-get install -y cmake build-essential g++-14 \
             libcgal-dev qt6-base-dev qt6-svg-dev
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100
+          sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-14 100
+          sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-14 100
+          g++ --version
 
       # CGAL is header-only: cache the extracted 6.x headers so only a
       # cache miss pays the ~25 MB download.
@@ -62,5 +68,8 @@ jobs:
       - name: Configure (default BUILD_GUI=ON, CGAL 6.x headers)
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCGAL_DIR="${{ env.CGAL_DIR }}"
 
-      - name: Build simplify_with_gui
-        run: cmake --build build --target simplify_with_gui -j"$(nproc)"
+      - name: Build simplify and simplify_with_gui
+        run: cmake --build build --target simplify simplify_with_gui -j"$(nproc)"
+
+      - name: Check GUI Frechet output
+        run: python3 scripts/ci/test_gui_frechet_output.py
