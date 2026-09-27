@@ -184,7 +184,7 @@ bench_stats_sots() {
   local id="$1" eps="$2" delta="$3" n="$4"
   local count=0 mean=0 m2=0 ms run log
   for run in $(seq 1 "$n"); do
-    log="$(mktemp)"
+    log="$(mktemp "${TMPDIR:-/tmp}/sots.XXXXXX")"
     if ! ( cd "${REPO_ROOT}" && ./build/simplify "${id}" -e "${eps}" -d "${delta}" >"${log}" 2>&1 ); then
       echo "❌ SOTS run failed id=${id} e=${eps} d=${delta} run ${run}/${n}" >&2
       cat "${log}" >&2
@@ -218,8 +218,8 @@ bench_stats_squish() {
   local id="$1" ratio="$2" n="$3"
   local count=0 mean=0 m2=0 ms run log
   for run in $(seq 1 "$n"); do
-    log="$(mktemp)"
-    out="$(mktemp)"
+    log="$(mktemp "${TMPDIR:-/tmp}/sots.XXXXXX")"
+    out="$(mktemp "${TMPDIR:-/tmp}/sots.XXXXXX")"
     if ! ( ./build/squish "data/${id}/original.txt" "${ratio}" "${out}" >"${log}" 2>&1 ); then
       echo "❌ SQUISH run failed id=${id} ratio=${ratio} run ${run}/${n}" >&2
       cat "${log}" >&2
@@ -304,7 +304,7 @@ printf 'epsilon\tdelta\tdelta_numer\tid\tsots_ms\tsots_std\tsquish_ms\tsquish_st
 
 # Collect for markdown
 MARKDOWN_ROWS=""
-JSON_CASES_TMP="$(mktemp)"
+JSON_CASES_TMP="$(mktemp "${TMPDIR:-/tmp}/sots.XXXXXX")"
 echo "[]" > "${JSON_CASES_TMP}"
 
 # overall aggregates collected via markdown rows and JSON
@@ -351,19 +351,24 @@ for delta_numer in ${DELTA_NUMERS}; do
       squish_std="$(echo "${squish_stats}" | awk '{print $2}')"
 
       # Points: run once to get output sizes
-      sots_out="/tmp/sots_${id}_pts.txt"
-      squish_out="/tmp/squish_${id}_pts.txt"
-      # Use simplify to produce output (we can just count after run)
-      # Simplify writes to data/<id>/simplify.txt, read header
-      # Run simplify once more to ensure output corresponds to this epsilon
-      ./build/simplify "${id}" -e "${eps}" -d "${delta}" > /dev/null 2>&1 || true
+      squish_out="$(mktemp "${TMPDIR:-/tmp}/sots.XXXXXX")"
+      rm -f "data/${id}/simplify.txt"
+      if ! ./build/simplify "${id}" -e "${eps}" -d "${delta}" > /dev/null 2>&1; then
+        echo "Failed to generate simplify.txt id=${id} eps=${eps}" >&2
+        rm -f "${squish_out}"
+        exit 1
+      fi
       sots_pts="0"
       if [ -f "data/${id}/simplify.txt" ]; then
         sots_pts="$(head -n1 "data/${id}/simplify.txt" 2>/dev/null | tr -d '\r' || echo 0)"
       fi
-      ./build/squish "data/${id}/original.txt" "${RATIO}" "${squish_out}" > /dev/null 2>&1 || true
+      if ! ./build/squish "data/${id}/original.txt" "${RATIO}" "${squish_out}" > /dev/null 2>&1; then
+        echo "Failed SQUISH points run id=${id}" >&2
+        rm -f "${squish_out}"
+        exit 1
+      fi
       squish_pts="$(head -n1 "${squish_out}" 2>/dev/null | tr -d '\r' || echo 0)"
-      rm -f "${sots_out}" "${squish_out}"
+      rm -f "${squish_out}"
 
       # Ratio and speedup: squish / sots (how many times faster squish is)
       # Use python for precise

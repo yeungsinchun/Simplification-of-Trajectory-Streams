@@ -37,7 +37,7 @@
   <div class="hero-content flex-col lg:flex-row gap-8 w-full max-w-6xl">
     <div class="flex-1">
       <h1 class="text-4xl font-black leading-tight">SOTS vs SQUISH<br/><span class="text-primary">Streaming Benchmark</span></h1>
-      <p class="py-4 opacity-80">Our streaming Fréchet-guaranteed simplifier is <span class="font-bold">much faster than before</span> (PR26 halved, PR34 extra-fine 2.1×) — but how does it compare to the streaming SQUISH heuristic (and DP/DOTS) on the standard SOTS datasets?</p>
+      <p class="py-4 opacity-80">Our streaming Fréchet-guaranteed simplifier is <span class="font-bold">much faster than before</span> (PR26 halved, PR34 extra-fine 2.1×) — but how does it compare to the streaming SQUISH heuristic on the standard SOTS datasets? (DP/DOTS baselines available via build/dp, build/dots and web visualizer; core-time comparison deferred.)</p>
       <div class="flex flex-wrap gap-2">
         <div class="badge badge-lg badge-primary">SOTS guarantee</div>
         <div class="badge badge-lg badge-outline">SQUISH heuristic</div>
@@ -45,7 +45,7 @@
         <div class="badge badge-lg badge-ghost">DOTS</div>
       </div>
       <div class="mt-4 alert alert-info py-2">
-        <span class="text-sm"><b>Bottom line:</b> SQUISH &amp; DP are 19–1900× faster on core time, but SOTS provides a deterministic Fréchet ≤ δ guarantee. SOTS at coarse/mid tiers is ~1.3 ms; at extra-fine it is ~134 ms (large, 10-run mean).</span>
+        <span class="text-sm"><b>Bottom line:</b> SQUISH is 19–1900× faster on core time (DP/DOTS comparison deferred), but SOTS provides a deterministic Fréchet ≤ δ guarantee. SOTS at coarse/mid tiers is ~1.3 ms; at extra-fine it is ~134 ms (large, 10-run mean).</span>
       </div>
     </div>
     <div class="flex-1 flex flex-col gap-4">
@@ -101,7 +101,7 @@
       <div class="card bg-base-200 border border-base-300">
         <div class="card-body p-4">
           <h3 class="font-bold">DP / DOTS (reference)</h3>
-          <p class="text-sm opacity-80">DP is offline Douglas-Peucker batch (PED). DOTS is online LSSD-based (Qt). Both are very fast on core time (0.03–0.1 ms large) but DP is non-streaming; DOTS threshold differs from SOTS ε/δ.</p>
+          <p class="text-sm opacity-80">DP is offline Douglas-Peucker batch (PED). DOTS is online LSSD-based (Qt). DP is non-streaming; DOTS threshold differs from SOTS ε/δ. Core-time comparison to DP/DOTS is deferred — this board measures SQUISH only.</p>
           <div class="badge badge-ghost badge-sm mt-2">Batch</div> <div class="badge badge-outline badge-sm">Offline</div>
         </div>
       </div>
@@ -311,8 +311,8 @@
       <div class="card bg-base-200 border border-base-300">
         <div class="card-body p-4">
           <h3 class="font-bold text-sm">Runtime bars (log scale) — large</h3>
-          <img src="charts/runtime_bars.png" alt="Runtime bars log scale SOTS vs SQUISH vs DP" class="rounded border border-base-300 bg-white"/>
-          <p class="text-xs opacity-60 mt-1">Blue SOTS, green SQUISH, red DP. Log y-axis. Extra-fine dominates.</p>
+          <img src="charts/runtime_bars.png" alt="Runtime bars log scale SOTS vs SQUISH" class="rounded border border-base-300 bg-white"/>
+          <p class="text-xs opacity-60 mt-1">Blue SOTS, green SQUISH. Log y-axis. Extra-fine dominates.</p>
         </div>
       </div>
       <div class="card bg-base-200 border border-base-300">
@@ -326,7 +326,7 @@
         <div class="card-body p-4">
           <h3 class="font-bold text-sm">Runtime lines across epsilon tiers</h3>
           <img src="charts/runtime_lines.png" alt="Runtime lines log scale" class="rounded border border-base-300 bg-white"/>
-          <p class="text-xs opacity-60 mt-1">SOTS climbs steeply at fine/extra-fine; SQUISH/DP flat.</p>
+          <p class="text-xs opacity-60 mt-1">SOTS climbs steeply at fine/extra-fine; SQUISH flat (DP/DOTS deferred).</p>
         </div>
       </div>
       <div class="card bg-base-200 border border-base-300">
@@ -362,7 +362,7 @@
         <ul class="list-disc list-inside text-sm space-y-1">
           <li>SQUISH &amp; DP are heuristics: SED / PED thresholds, no Fréchet bound. Their output sizes depend on ratio/ε, not δ.</li>
           <li>At ratio 0.15, SQUISH keeps ≈ SOTS count at extra-coarse (fair), but at fine SOTS keeps fewer points → more aggressive simplification per δ.</li>
-          <li>DP batch is 0.03–0.1 ms large (similar to SQUISH). DOTS (Qt) is similar order but uses LSSD; configure via -lssd.</li>
+          <li>DP/DOTS core-time comparison is deferred; both are available via <code>build/dp</code>/<code>build/dots</code> and the web visualizer. DOTS uses LSSD; configure via -lssd.</li>
           <li>Byte-identical check only applies within SOTS (orig vs new). Cross-algo, compare Frechet via Julia if needed.</li>
         </ul>
       </div>

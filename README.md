@@ -147,7 +147,7 @@ binary is missing, initialize the submodule and rebuild.
 
 ## Benchmarking
 
-Streaming SOTS vs SQUISH/DP/DOTS was measured on the standard derived datasets.
+Streaming SOTS vs SQUISH was measured on the standard derived datasets (DP/DOTS baselines are available via `build/dp`/`build/dots` and the web visualizer; core-time comparison to DP/DOTS is deferred).
 Large IDs 21–30 (avg ~695 pts) are the primary perf signal.
 Small IDs 11–20 (avg ~90 pts) are also recorded.
 Five epsilon tiers were used: 299 (extra-coarse, δ=1), 30 (coarse, δ=9.68), 5 (mid, δ=50), 0.5 (fine, δ=200), 0.1 (extra-fine, δ=272.7).
@@ -163,7 +163,7 @@ Results are CORE_MS (isolated algorithm time, no I/O) from SIMPLIFY_CORE_MS vs S
 SOTS streaming δ-simplification (papers/journal.pdf, Thm 1–2) guarantees dF(σ,τ) ≤ (1+ε)δ and |σ| ≤ 2κ(τ,δ)−2.
 Working storage is O(ε^{-α}) and per-vertex time is O(ε^{-α} log 1/ε) for d∈{2,3}, O(ε^{-α}) for d≥4, where α = 2(d−1)⌊d/2⌋^2 + d.
 For d=2, α=4, so storage O(ε^{-4}) and time O(ε^{-4} log 1/ε) — each ball Bv is covered by grid cells of width εδ/(2√d), |P|=O(ε^{-d}), and each stab structure Sa[p]=conv(Gva)∩F(Sa-1[p],p) has poly(1/ε) complexity.
-At ε=0.1, ε^{-4}=10,000× larger geometry than at ε=299.
+At ε=0.1, ε^{-4}=10,000 vs ~1.2×10^{-10} at ε=299 (≈8×10^{13}× larger).
 That is why runtime climbs from ~1.3 ms to ~134 ms on large in the table below.
 If you run SOTS in static mode on n points, total time is O(ε^{-α} n log 1/ε), a factor n faster than the prior static O(ε^{2−2d} n^2 log n log log n) algorithm with the same bounds.
 SQUISH is a streaming heuristic from traj-compression: buffer B=ratio·N, per-point O(B) naive scan (O(log B) with heap), total O(N·B), working storage O(B) bounded after the buffer fills, no Fréchet bound (uses SED).
@@ -203,13 +203,13 @@ The script exposes --epsilon, --delta-numer, --ratio, --runs, --size for alterna
 | extra-fine | 0.1 | 272.7 | 133.74 ± 50.33 | 0.069 ± 0.011 | 0.001× | 1937× slower |
 
 All tiers are confidently slower than SQUISH (Welch p < 0.05).
-SQUISH and DP are 19–1900× faster on core time but provide no Fréchet guarantee.
+SQUISH is 19–1900× faster on core time but provides no Fréchet guarantee (DP/DOTS core-time comparison deferred).
 SOTS provides deterministic Fréchet ≤ δ per segment.
 Previous uplifts remain.
 PR26 halved runtime across all tiers.
 PR34 extra-fine was 1.95–2.13× and fine was 1.4× vs pre-PR34 on the same hardware.
 PR37 clean-core added 1.04× encapsulation with no regression.
-See the Lavish board at [.lavish/sots-bench-squish-compare-lavish-a1.html](.lavish/sots-bench-squish-compare-lavish-a1.html) (hosted at http://127.0.0.1:4387/session/43f75a0eb8ecc94a).
+See the Lavish board at [.lavish/sots-bench-squish-compare-lavish-a1.html](.lavish/sots-bench-squish-compare-lavish-a1.html).
 Run the repro script:
 
 ```bash
