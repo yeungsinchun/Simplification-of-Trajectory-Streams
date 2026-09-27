@@ -19,6 +19,14 @@
 #           ratio 0.15 keeps ~15% (88 pts) — size-matched fair. 0.5 keeps 3x more (not fair). 0.15 is default.
 #   Measurement: same IDs, same order, CORE_MS (no I/O), 10-run Welford, Welch t 95% — same as benchmark.yml.
 #
+# Frechet-matched (error-matched) at dF≈100 — captain request "all algo producing frechet 100":
+#   Main table is size-matched (same output size). For error-matched, tune until measured continuous Frechet (scripts/frechet.jl) ≈100:
+#   SOTS (1+ε)δ=100 → ε=30 δ=3.2258 → dF 96.7, 112 pts, 1.49 ms (also ε=299 δ=0.333 →99.6, ε=5 δ=16.6→83, ε=0.5→100 in 9.89ms).
+#   SQUISH ratio 0.29 → dF 102.1, 170 pts, 0.066 ms (binary-search 0.27→141, 0.29→102, 0.30→40; 0.15→828 is 3.3× worse than SOTS at same size).
+#   DP ε=110 → dF 102.1, 113 pts, 0.026 ms (90→87, 100→96, 110→102). SQUISH needs 1.52× more points than SOTS for same error, still 22× faster; DP 57× faster.
+#   Repro: ./build/simplify 21 -e 30 -d 3.2258 && julia scripts/frechet.jl --id 21 --batch data/21/simplify.txt; ./build/squish data/21/original.txt 0.29 /tmp/s.txt && julia ...; ./build/dp data/21/original.txt 110 /tmp/d.txt && julia ...
+#   Full bench is SQUISH-only (DP/DOTS deferred per F6 docs/claim fix); DP pilot above is via build/dp + frechet.jl, not the main bench loop.
+#
 # Usage: scripts/bench-compare-squish.sh [--epsilon "0.1 0.5 ..."] [--delta-numer 300] [--size large] [--runs 10] [--ratio 0.15]
 # Any contributor can run: ./scripts/bench-compare-squish.sh
 # Output: .lavish/bench-squish-*.json, .lavish/bench-squish-*.csv and markdown table on stdout.
@@ -59,6 +67,13 @@ Parameter tuning (before results):
        Smaller epsilon => finer grid epsilon*delta/(2 sqrt(d)) => tighter bound but slower (extra-fine 10,000x geometry).
   SQUISH ratio 0.15 calibrated: swept 0.05/0.15/0.5 on data/21 (N=588), SOTS extra-coarse ~15% (86-92 pts),
        SQUISH 0.15 => 88 pts (size-matched, fair), 0.5 => 294 pts (3x more, not fair). Fixed before timing.
+
+Frechet-matched at dF≈100 (captain: "all algo producing frechet 100"):
+  Main bench is size-matched (same pts). For error-matched, tune until measured Frechet via scripts/frechet.jl ≈100:
+    SOTS (1+ε)δ=100 → ε=30 δ=3.2258 →96.7, 112 pts, 1.49 ms (ε=299→99.6, ε=5→83, ε=0.5→100 in 9.89ms)
+    SQUISH 0.29 →102.1, 170 pts, 0.066 ms (0.15→828 is 3.3× worse than SOTS at same size, 0.27→141)
+    DP 110 →102.1, 113 pts, 0.026 ms (100→96, 110→102). SQUISH 22× faster than SOTS at same error, DP 57×, but SQUISH needs 1.5× more points.
+  Repro: ./build/simplify 21 -e 30 -d 3.2258 && julia scripts/frechet.jl --id 21 --batch data/21/simplify.txt
 
 Options:
   --epsilon "LIST"     Space-separated epsilon tiers (default: "299 30 5 0.5 0.1")

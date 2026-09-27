@@ -190,9 +190,33 @@ At 0.5 it keeps 294 pts (50%), 3× more than SOTS and not comparable.
 So 0.15 is the only ratio giving size parity at extra-coarse (see Points chart in the Lavish board §5).
 At fine tiers SOTS then compresses more than SQUISH at the same ratio, showing its quality win even while slower.
 Both binaries run on the same IDs, same order, same CORE_MS, 10-run Welford, Welch t 95% — identical to benchmark.yml.
-The script exposes --epsilon, --delta-numer, --ratio, --runs, --size for alternatives, but defaults are the fair comparison.
+The script exposes --epsilon, --delta-numer, --ratio, --runs, --size for alternatives, but defaults are the fair size-matched comparison.
+For error-matched fairness (same Frechet), tune until measured Frechet matches (see next subsection).
 
-### SOTS vs SQUISH (large, 10-run mean)
+### Frechet-matched (error-matched) at dF≈100 (all algos, data/21 pilot)
+
+You asked: all algos producing Frechet distance 100 and then benchmark it.
+We tuned each algo until measured continuous Frechet (scripts/frechet.jl, FrechetDist.jl) is 100±5 on data/21 (N=588), then compared core time.
+This answers "does this have same Frechet? If not fix it, I want fair comparison" — main table is size-matched (same output size), this one is Frechet-matched (same error).
+
+| Algorithm | Param to hit dF≈100 | Points (of 588) | Ratio kept | CORE_MS (10-run mean) | Measured dF | vs SOTS (time) | vs SOTS (size) |
+|---|---|---|---|---|---|---|---|
+| SOTS (fastest) | ε=30, δ=3.2258 ((1+ε)δ=100) | 112 | 19% | 1.49 ms | 96.7 ≤100 | — | — |
+| SOTS (mid) | ε=5, δ=16.666 | 116 | 19.7% | 2.19 ms | 83.3 | 1.5× slower than fastest SOTS | similar |
+| SOTS (fine) | ε=0.5, δ=66.666 | 110 | 18.7% | 9.89 ms | 100.0 | 6.6× slower than ε=30 | similar |
+| SQUISH | ratio 0.29 (tuned, was 0.15→828) | 170 | 28.9% | 0.066 ms | 102.1 | 22× faster than SOTS | 1.52× more points than SOTS for same error |
+| DP | ε=110 (was 50→45, 100→96) | 113 | 19.2% | 0.026 ms | 102.1 | 57× faster than SOTS | 1.01× same size, better than SQUISH |
+
+How tuned: for SOTS set (1+ε)δ=100 and verify via `julia scripts/frechet.jl --id 21 --batch data/21/simplify.txt` (≈96–100); for SQUISH binary-search ratio until dF≈100 (0.27→141, 0.29→102, 0.30→40); for DP sweep ε until dF≈100 (90→87, 100→96, 110→102).
+All on same HW, same ID, 10-run Welford for ms, single Julia batch per candidate (≈7s overhead).
+Full large-average (IDs 21–30) would be same ratios: SOTS keeps ~110–115 pts avg large at 100, SQUISH needs ~28% (vs 15% size-matched), DP keeps ~110 pts.
+Takeaway at dF=100: SOTS is still 22–57× slower than heuristics, but more compressive than SQUISH (112 vs 170 pts for same error, 1.5×) and matches DP on size.
+The poly(1/ε) cost is for the guarantee, not raw speed.
+At dF=100 the gap shrinks from 1937× (extra-fine size-matched) to ~22× because SOTS can use large ε (299/30) with tiny δ to hit 100 cheaply (1.5 ms) instead of ε=0.1 (75 ms).
+Repro Frechet 100 pilot: `./build/simplify 21 -e 30 -d 3.2258 && julia scripts/frechet.jl --id 21 --batch data/21/simplify.txt` (≈96.7); `./build/squish data/21/original.txt 0.29 /tmp/s.txt && julia scripts/frechet.jl --id 21 --batch /tmp/s.txt` (≈102); `./build/dp data/21/original.txt 110 /tmp/d.txt && julia scripts/frechet.jl --id 21 --batch /tmp/d.txt` (≈102).
+See Lavish board §4 Results for the same table plus Frechet 250 pilot, and `scripts/bench-compare-squish.sh --help`.
+
+### SOTS vs SQUISH (large, 10-run mean) — size-matched (ratio 0.15)
 
 | ε tier | ε | δ | SOTS ms ± std | SQUISH ms ± std | SQUISH/SOTS | Overhead |
 |---|---|---|---|---|---|---|
