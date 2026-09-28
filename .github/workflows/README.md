@@ -66,6 +66,29 @@ The report marks a missing configuration as an incomplete matrix. Missing baseli
 
 Runtime: 20 jobs each build both binaries and run 10 IDs × (10 orig + 10 new + 2 --time) = 220 simplify invocations per job. Across the matrix, the benchmark runs 4,000 sampled invocations plus 400 ops runs (4,400 total). The separate correctness sweep covers 20 × 10 cases.
 
+### web-server.yml - Web server trace (NDJSON) regression
+**Triggers:** Push to main, pull requests to main, manual dispatch
+
+Starts the Flask viewer and curls the trace endpoint for trajectory 1 at fine epsilon (`ε=0.5, δ=200`) — the small-sample fine-ε gate requested in the launch brief. Validates the NDJSON (or gzipped NDJSON) stream structure via `scripts/ci/validate_web_trace.py` (v2 `header`/`prefix`/`done` format: parses every line, checks fields, p0/step/candidate geometry, `simplified` and `stream` sizes, `time_ms`, bbox, grid/r, expected Fréchet, prefix sequencing). Also checks `Content-Type: application/x-ndjson`, gunzip path, payload size, and response time.
+
+Checks:
+- HTTP 200 and `Content-Type: application/x-ndjson`
+- NDJSON is valid JSON per line with `type` `header`/`prefix`/`done` (fails on `type: error`)
+- Header epsilon/delta match request, grid/r positive finite, bbox 4 numbers, stream points `N`
+- Each prefix has `p0`, `p0_idx`/`end_idx`, `P`, `output[2]`, `steps` (and steps have `stream_idx`/`pi`/`Gi`/`buffer`/`candidates`); candidates have `idx`/`alive`/`F`/`F_Si`/`S` (alive `S` ≥3)
+- `done` has finite `time_ms ≥0` and `simplified` length even and `=2×prefixes`
+- Gzipped round-trip: request with `Accept-Encoding: gzip` must return `Content-Encoding: gzip` with valid gzip magic, decompressed bytes still pass NDJSON validation, and gzipped wire size is smaller than plain
+- Direct handler smoke: `simplify --web-server --json-stream` output for the same trace must also pass validation and match the server's prefix count
+- Speed/size gates: wall time `≤10 s` (`MAX_TIME_MS`), payload `≥1 KiB` (`MIN_BYTES`); done `time_ms` is reported for regression visibility
+
+Local re-measure without CI:
+```bash
+scripts/check_web_trace.sh                          # plain + gzip + direct, defaults 1/0.5/200
+scripts/check_web_trace.sh --trace-id 1 --epsilon 0.5 --delta 200 --keep
+python3 scripts/ci/validate_web_trace.py --input /tmp/trace.ndjson --epsilon 0.5 --delta 200 --trace-id 1
+```
+Artifacts on failure: plain/gz/gunzipped/direct NDJSON plus `web-server.log`. Job summary reports wall bytes, prefixes/steps, stream→simplified, and core `time_ms`.
+
 ### deploy.yml - Cloud Run deploy
 **Triggers:** Push to main, manual dispatch
 
