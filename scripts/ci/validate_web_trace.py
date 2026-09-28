@@ -164,9 +164,9 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
                 raise ValueError(f"prefix {p_idx}: missing data.{f}")
         if not _is_point(data["p0"]):
             raise ValueError(f"prefix {p_idx}: p0 not a point")
-        if not isinstance(data["p0_idx"], int) or data["p0_idx"] < 0:
+        if type(data["p0_idx"]) is not int or data["p0_idx"] < 0:
             raise ValueError(f"prefix {p_idx}: p0_idx must be non-negative int")
-        if not isinstance(data["end_idx"], int) or data["end_idx"] <= data["p0_idx"]:
+        if type(data["end_idx"]) is not int or data["end_idx"] <= data["p0_idx"]:
             raise ValueError(f"prefix {p_idx}: end_idx must be > p0_idx")
         if data["p0_idx"] >= len(stream):
             raise ValueError(f"prefix {p_idx}: p0_idx {data['p0_idx']} out of range stream len {len(stream)}")
@@ -200,7 +200,7 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
             for sf in ("stream_idx", "pi", "Gi", "buffer", "candidates"):
                 if sf not in step:
                     raise ValueError(f"prefix {p_idx} step {s_idx}: missing {sf}")
-            if not isinstance(step["stream_idx"], int) or not (0 <= step["stream_idx"] < len(stream)):
+            if type(step["stream_idx"]) is not int or not (0 <= step["stream_idx"] < len(stream)):
                 raise ValueError(f"prefix {p_idx} step {s_idx}: stream_idx {step['stream_idx']} out of range [0, {len(stream)})")
             if not _is_point(step["pi"]):
                 raise ValueError(f"prefix {p_idx} step {s_idx}: pi not a point")
@@ -227,7 +227,7 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
                 for cf in ("idx", "alive", "F", "F_Si", "S"):
                     if cf not in cand:
                         raise ValueError(f"prefix {p_idx} step {s_idx} cand {c_idx}: missing {cf}")
-                if not isinstance(cand["idx"], int) or not (0 <= cand["idx"] < len(data["P"])):
+                if type(cand["idx"]) is not int or not (0 <= cand["idx"] < len(data["P"])):
                     raise ValueError(f"prefix {p_idx} step {s_idx} cand {c_idx}: idx {cand['idx']} out of range [0, {len(data['P'])})")
                 if not isinstance(cand["alive"], bool):
                     raise ValueError(f"prefix {p_idx} step {s_idx} cand {c_idx}: alive must be bool")
