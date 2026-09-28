@@ -202,6 +202,8 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
                     raise ValueError(f"prefix {p_idx} step {s_idx}: missing {sf}")
             if type(step["stream_idx"]) is not int or not (0 <= step["stream_idx"] < len(stream)):
                 raise ValueError(f"prefix {p_idx} step {s_idx}: stream_idx {step['stream_idx']} out of range [0, {len(stream)})")
+            if step["stream_idx"] != data["p0_idx"] + 1 + s_idx:
+                raise ValueError(f"prefix {p_idx} step {s_idx}: stream_idx {step['stream_idx']} != expected {data['p0_idx'] + 1 + s_idx}")
             if not _is_point(step["pi"]):
                 raise ValueError(f"prefix {p_idx} step {s_idx}: pi not a point")
             sp_pi = stream[step["stream_idx"]]
@@ -218,8 +220,8 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
             cands = step["candidates"]
             if not isinstance(cands, list):
                 raise ValueError(f"prefix {p_idx} step {s_idx}: candidates must be array")
-            # P and candidates coupling: candidates length should equal len(P)
-            # Not enforced strictly, but warn if mismatch
+            if len(cands) != len(data["P"]):
+                raise ValueError(f"prefix {p_idx} step {s_idx}: candidates len {len(cands)} != len(P) {len(data['P'])}")
             # Validate each candidate
             for c_idx, cand in enumerate(cands):
                 if not isinstance(cand, dict):
@@ -249,6 +251,10 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
                     # If dead but S non-empty, it's stale; but not fatal.
                     pass
 
+        if steps[-1]["stream_idx"] != data["end_idx"] - 1:
+            raise ValueError(f"prefix {p_idx}: last step stream_idx {steps[-1]['stream_idx']} != end_idx-1 {data['end_idx']-1}")
+        if steps[0]["stream_idx"] != data["p0_idx"] + 1:
+            raise ValueError(f"prefix {p_idx}: first step stream_idx {steps[0]['stream_idx']} != p0_idx+1 {data['p0_idx']+1}")
         # Check that p0_idx sequencing across prefixes: each prefix's p0_idx == previous end_idx
         if p_idx > 0:
             prev = prefixes[p_idx - 1]["data"]
@@ -256,6 +262,8 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
                 raise ValueError(f"prefix {p_idx}: p0_idx {data['p0_idx']} != prev end_idx {prev['end_idx']}")
 
         # Check that last step's stream_idx == end_idx -1? In code, end_idx is cur at break, steps cover cur up to cur-1? Actually step stream_idx == cur at each iteration, end_idx == cur after loop. Steps' last stream_idx should be end_idx-1 or end_idx? Let's check: while loop increments cur after processing step. At break, end_idx=cur (first uncovered). Steps last stream_idx = cur-1? For non-breaking final step? But not strict. We'll just check monotonic.
+    if prefixes[-1]["data"]["end_idx"] != len(stream):
+        raise ValueError(f"last prefix end_idx {prefixes[-1]['data']['end_idx']} != stream len {len(stream)} (trace truncated)")
 
     # Done validation
     if done.get("type") != "done":
