@@ -140,6 +140,8 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
     bbox = header["bbox"]
     if not (isinstance(bbox, list) and len(bbox) == 4 and all(_is_finite(v) for v in bbox)):
         raise ValueError(f"header.bbox must be 4 finite numbers, got {bbox!r}")
+    if not (bbox[0] < bbox[2] and bbox[1] < bbox[3]):
+        raise ValueError(f"header.bbox must satisfy min < max, got {bbox!r}")
     stream = header["stream"]
     if not _is_points(stream):
         raise ValueError("header.stream must be array of [x,y] points")
@@ -166,12 +168,10 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
             raise ValueError(f"prefix {p_idx}: p0_idx must be non-negative int")
         if not isinstance(data["end_idx"], int) or data["end_idx"] <= data["p0_idx"]:
             raise ValueError(f"prefix {p_idx}: end_idx must be > p0_idx")
-        # p0 should equal stream[p0_idx] within tolerance (allow floating)
         try:
             sp = stream[data["p0_idx"]]
             if not (_close(data["p0"][0], sp[0]) and _close(data["p0"][1], sp[1])):
-                # Not fatal, but warn; check with looser tolerance
-                pass
+                raise ValueError(f"prefix {p_idx}: p0 {data['p0']!r} != stream[{data['p0_idx']}] {sp!r}")
         except IndexError:
             raise ValueError(f"prefix {p_idx}: p0_idx {data['p0_idx']} out of range stream len {len(stream)}")
         if not _is_points(data["P"]):
@@ -194,17 +194,14 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
             for sf in ("stream_idx", "pi", "Gi", "buffer", "candidates"):
                 if sf not in step:
                     raise ValueError(f"prefix {p_idx} step {s_idx}: missing {sf}")
-            if not isinstance(step["stream_idx"], int) or step["stream_idx"] < 0:
-                raise ValueError(f"prefix {p_idx} step {s_idx}: stream_idx invalid")
+            if not isinstance(step["stream_idx"], int) or not (0 <= step["stream_idx"] < len(stream)):
+                raise ValueError(f"prefix {p_idx} step {s_idx}: stream_idx {step['stream_idx']} out of range [0, {len(stream)})")
             if not _is_point(step["pi"]):
                 raise ValueError(f"prefix {p_idx} step {s_idx}: pi not a point")
-            # Gi must be convex hull points, at least 3 points or maybe empty degenerate?
             Gi = step["Gi"]
-            if not isinstance(Gi, list):
-                raise ValueError(f"prefix {p_idx} step {s_idx}: Gi must be array")
-            # Allow empty Gi? But normally Gi is hull, should have >=3.
-            # Check each point if present.
-            if Gi and not _is_points(Gi):
+            if not isinstance(Gi, list) or not Gi:
+                raise ValueError(f"prefix {p_idx} step {s_idx}: Gi must be non-empty array")
+            if not _is_points(Gi):
                 raise ValueError(f"prefix {p_idx} step {s_idx}: Gi contains invalid point")
             buffer = step["buffer"]
             if not (isinstance(buffer, list) and len(buffer) == 2 and _is_point(buffer[0]) and _is_point(buffer[1])):
@@ -221,8 +218,8 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
                 for cf in ("idx", "alive", "F", "F_Si", "S"):
                     if cf not in cand:
                         raise ValueError(f"prefix {p_idx} step {s_idx} cand {c_idx}: missing {cf}")
-                if not isinstance(cand["idx"], int) or cand["idx"] < 0:
-                    raise ValueError(f"prefix {p_idx} step {s_idx} cand {c_idx}: idx invalid")
+                if not isinstance(cand["idx"], int) or not (0 <= cand["idx"] < len(data["P"])):
+                    raise ValueError(f"prefix {p_idx} step {s_idx} cand {c_idx}: idx {cand['idx']} out of range [0, {len(data['P'])})")
                 if not isinstance(cand["alive"], bool):
                     raise ValueError(f"prefix {p_idx} step {s_idx} cand {c_idx}: alive must be bool")
                 for arr_name in ("F", "F_Si", "S"):
@@ -265,9 +262,7 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
     if len(simplified) < 2:
         raise ValueError(f"done.simplified must have at least 2 points, got {len(simplified)}")
     if len(simplified) % 2 != 0:
-        # Each prefix contributes 2 points, so even. But first and last may share? In simplify_web, each prefix pushes 2 points, so even.
-        # Warn but not fail if odd? For now allow but note.
-        pass
+        raise ValueError(f"done.simplified len {len(simplified)} is odd, expected even (2*prefixes)")
     # Check simplified length == 2 * prefixes
     if len(simplified) != 2 * len(prefixes):
         # In original simplify_web, each prefix pushes exactly 2 points, so should match.
