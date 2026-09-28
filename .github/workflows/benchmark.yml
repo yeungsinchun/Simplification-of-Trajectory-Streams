@@ -173,7 +173,7 @@ jobs:
         run: |
           sudo apt-get update
           # qt6-base-dev: DOTS (web/benchmark baseline) needs Qt6 Core at
-          # configure time even when BUILD_GUI=OFF.
+          # configure time.
           # g++-14 is required for C++23 deducing-this and <print>; the
           # default g++ on 24.04 (13) lacks both. CGAL itself only needs C++17.
           sudo apt-get install -y cmake build-essential g++-14 libcgal-dev qt6-base-dev
@@ -186,13 +186,13 @@ jobs:
       - name: Build original
         working-directory: orig
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --target simplify -j"$(nproc)"
 
       - name: Build new
         working-directory: new
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --target simplify -j"$(nproc)"
 
       - name: Run benchmark comparison

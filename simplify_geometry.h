@@ -317,8 +317,8 @@ class ConvexClipper {
 //
 // The reachable-region construction from the streaming simplification
 // algorithm: the bounding box, the delta-disk grid, and the free-space wedge
-// F(S,p). Shared by the headless core (simplify_core.h), web trace
-// (simplify.cpp), and GUI (simplify_with_gui.cpp).
+// F(S,p). Shared by the headless core (simplify_core.h) and web trace
+// (web_trace.cpp / simplify.cpp).
 
 // Axis-aligned working bounding box, sized per input by configure_bbox().
 // inline (C++17) so both translation units share one definition.

@@ -20,17 +20,16 @@ RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100 && \
 
 WORKDIR /build
 
-# Headless simplify sources
-COPY simplify.cpp simplify_core.h simplify_geometry.h simplify_io.h timer.h CMakeLists.txt ./
+# Headless simplify sources (web trace is separate from core)
+COPY simplify.cpp web_trace.cpp web_trace.h simplify_core.h simplify_geometry.h simplify_io.h timer.h CMakeLists.txt ./
 
 # Pin traj-compression to the gitlink SHA. The Docker context excludes .git
 # (and Cloud Run uploads exclude the submodule), so baseline sources are
-# fetched here. BUILD_GUI=OFF skips the Qt viewer; dots still builds via
-# Qt6 Core from qt6-base-dev.
+# fetched here. dots still builds via Qt6 Core from qt6-base-dev.
 RUN git clone https://github.com/yeungsinchun/traj-compression.git traj-compression && \
     git -C traj-compression checkout ce40df79a77db8eb4bb31d7316a187c07b2ad921
 
-RUN cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF && \
+RUN cmake -B build -DCMAKE_BUILD_TYPE=Release && \
     cmake --build build --target simplify dots dp squish -j"$(nproc)"
 
 # Final stage: Python runtime on Ubuntu

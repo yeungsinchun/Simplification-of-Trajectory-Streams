@@ -110,15 +110,6 @@ inline int parse_arguments(int argc, char** argv, int& test_case_no) {
             json_output_path = argv[++i];
         }
         else if (strcmp(argv[i],"--time") == 0) time_flag = true;
-        else if (strcmp(argv[i],"--gui") == 0 || strcmp(argv[i],"-F") == 0 ||
-                 strcmp(argv[i],"-G") == 0 || strcmp(argv[i],"-S") == 0) {
-#if __has_include(<print>)
-            std::println(stderr, "GUI options require simplify_with_gui");
-#else
-            std::cerr << std::format("GUI options require simplify_with_gui\n");
-#endif
-            return 1;
-        }
         else if (strcmp(argv[i],"-d") == 0 && i+1 < argc) {
             try {
                 DELTA = std::stod(argv[++i]);
