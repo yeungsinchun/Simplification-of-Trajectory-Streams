@@ -248,6 +248,14 @@ The script builds both binaries, warms up, runs 10 Welford samples, Welch-gates,
 It is shellcheck-clean, cross-platform (mac/Linux), and CI-friendly.
 It reuses scripts/ci/welch.py and the same CORE_MS extraction as .github/workflows/benchmark.yml.
 
+The reproducible four-way comparison of SOTS, DOTS, SQUISH and DP is documented
+in [the core benchmark report](docs/fair-core-benchmark.md). It uses the 200 CI
+cases, serial native `core_ms` timings, calibrated common continuous Fréchet
+bounds, and exact SOTS output checks before/after optimization. The
+[interactive Lavish board](.lavish/sots-fair-bench/index.html) shows both phases,
+actual errors, retained points, and raw sample statistics. Open that HTML file
+locally, or run `lavish-axi .lavish/sots-fair-bench/index.html`.
+
 The full benchmark is optional and can take hours.
 It requires the complete raw dataset, Julia dependencies, and the `dots` target:
 
