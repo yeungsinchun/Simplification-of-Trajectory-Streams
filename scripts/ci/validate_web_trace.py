@@ -7,8 +7,6 @@ Expects the v2 trace format:
   prefix lines: {type:"prefix", data:{p0, p0_idx, end_idx, P, output[2], steps:[{stream_idx, pi, Gi, buffer[2], candidates:[{idx, alive, F, F_Si, S}]}]}}
   done line:    {type:"done", time_ms, simplified:[[x,y]], frechet_distance}
 
-Also accepts a monolithic JSON object with .prefixes as fallback (reports warning).
-
 Usage:
   python3 scripts/ci/validate_web_trace.py --input /tmp/trace.ndjson --epsilon 0.5 --delta 200 --trace-id 1
   python3 scripts/ci/validate_web_trace.py --input /tmp/trace.gz --epsilon 0.5 --delta 200 --trace-id 1 --wall-time-ms 1234
@@ -78,59 +76,6 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
     if not lines:
         raise ValueError("empty NDJSON (no lines)")
 
-    # Try monolithic fallback: single JSON object with prefixes
-    if len(lines) == 1:
-        try:
-            obj = json.loads(lines[0])
-            if isinstance(obj, dict) and "prefixes" in obj and isinstance(obj["prefixes"], list):
-                print("warn: input is monolithic JSON (single object with prefixes), not NDJSON — accepting as fallback", file=sys.stderr)
-                # Synthesize ndjson view for validation
-                # Validate that monolith has header-like fields
-                # We'll treat it as header+prefixes+done aggregated; but for CI we prefer NDJSON.
-                # For now, fail if we expected NDJSON? Let's still validate monolith structure loosely.
-                errors = []
-                for k in ("eps", "delta", "stream", "prefixes", "simplified"):
-                    if k not in obj:
-                        errors.append(f"monolithic JSON missing key: {k}")
-                if errors:
-                    raise ValueError("; ".join(errors))
-                if expected_eps is not None and not _close(obj["eps"], expected_eps):
-                    raise ValueError(f"eps mismatch: got {obj['eps']} expected {expected_eps}")
-                if expected_delta is not None and not _close(obj["delta"], expected_delta):
-                    raise ValueError(f"delta mismatch: got {obj['delta']} expected {expected_delta}")
-                if not _is_points(obj["stream"]):
-                    raise ValueError("stream is not an array of [x,y]")
-                if not _is_points(obj["simplified"]):
-                    raise ValueError("simplified is not an array of [x,y]")
-                if orig_n is not None and len(obj["stream"]) != orig_n:
-                    raise ValueError(f"stream length {len(obj['stream'])} != original.txt N {orig_n}")
-                # Validate prefixes count
-                prefixes = obj["prefixes"]
-                if not prefixes:
-                    raise ValueError("prefixes empty")
-                for pi, pref in enumerate(prefixes):
-                    if "p0" not in pref or not _is_point(pref["p0"]):
-                        raise ValueError(f"prefix {pi} missing valid p0")
-                    if "output" not in pref or not isinstance(pref["output"], list) or len(pref["output"]) != 2:
-                        raise ValueError(f"prefix {pi} output must be 2 points")
-                    if "steps" not in pref or not isinstance(pref["steps"], list):
-                        raise ValueError(f"prefix {pi} missing steps")
-                # Consider monolith valid for now
-                return {
-                    "lines": 1,
-                    "bytes": len(raw),
-                    "is_monolithic": True,
-                    "header": {"eps": obj["eps"], "delta": obj["delta"]},
-                    "prefixes": len(prefixes),
-                    "steps": sum(len(p.get("steps", [])) for p in prefixes),
-                    "stream_len": len(obj["stream"]),
-                    "simplified_len": len(obj["simplified"]),
-                    "time_ms": obj.get("time_ms"),
-                    "was_gzipped": False,
-                }
-        except json.JSONDecodeError:
-            pass
-
     # NDJSON path
     header = None
     prefixes = []
@@ -147,8 +92,6 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
             raise ValueError(f"line {idx+1}: expected JSON object, got {type(obj).__name__}")
         typ = obj.get("type")
         if typ not in ("header", "prefix", "done", "error"):
-            # Some older monolithic may lack type, but we already handled single-line monolith.
-            # For NDJSON, type is required.
             raise ValueError(f"line {idx+1}: missing or unknown type: {typ!r} (expected header/prefix/done)")
         if typ == "error":
             raise ValueError(f"line {idx+1}: server emitted error: {obj.get('message')!r}")

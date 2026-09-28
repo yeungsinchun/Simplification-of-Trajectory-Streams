@@ -222,7 +222,7 @@ if [ "$HTTP_CODE" != "200" ]; then
 fi
 
 if ! grep -qi "application/x-ndjson" "$HEADERS_FILE"; then
-  echo "warn: Content-Type is not application/x-ndjson: $(grep -i content-type "$HEADERS_FILE" || echo 'missing')" >&2
+  fail "Content-Type is not application/x-ndjson: $(grep -i content-type "$HEADERS_FILE" || echo 'missing')"
 fi
 
 if [ ! -s "$TRACE_FILE" ]; then
@@ -266,43 +266,28 @@ else
     if grep -qi "content-encoding: gzip" "$GZIP_HEADERS"; then
       HAS_GZIP=1
       echo "    ✓ gzip Content-Encoding present"
-      # Check magic bytes
       if head -c 2 "$TRACE_GZ" | od -An -tx1 | grep -q "1f 8b"; then
         echo "    ✓ gzip magic present"
       else
-        echo "warn: Content-Encoding gzip but file not gzipped (may be auto-decompressed by curl/proxy)" >&2
-        HAS_GZIP=0
+        fail "Content-Encoding gzip but file not gzipped (may be auto-decompressed by curl/proxy)"
       fi
     else
-      echo "warn: server did not return gzip (Content-Encoding missing) — may be small payload or proxy" >&2
+      fail "server did not return gzip (Content-Encoding missing)"
     fi
 
     if [ "$HAS_GZIP" -eq 1 ]; then
       GZ_BYTES="$(wc -c < "$TRACE_GZ" | tr -d '[:space:]')"
-      echo "    gzipped bytes=$GZ_BYTES vs plain $ACTUAL_BYTES ratio=$(python3 -c "print(f'{$GZ_BYTES/$ACTUAL_BYTES:.2%}')" 2>/dev/null || echo '?')"
+      echo "    gzipped bytes=$GZ_BYTES vs plain $ACTUAL_BYTES ratio=$(python3 -c "import sys; print(f'{int(sys.argv[1])/int(sys.argv[2]):.2%}')" "$GZ_BYTES" "$ACTUAL_BYTES" 2>/dev/null || echo '?')"
       if [ "$GZ_BYTES" -ge "$ACTUAL_BYTES" ]; then
-        echo "warn: gzipped size not smaller than plain ($GZ_BYTES >= $ACTUAL_BYTES)" >&2
+        fail "gzipped size not smaller than plain ($GZ_BYTES >= $ACTUAL_BYTES)"
       fi
-      # Decompress and re-validate
       echo "==> gunzip and re-validate"
       python3 -c "import gzip, pathlib; p=pathlib.Path('$TRACE_GZ'); data=gzip.decompress(p.read_bytes()); pathlib.Path('$TRACE_GZ_UNZIPPED').write_bytes(data); print(f'decompressed {len(data)} bytes')" || fail "gunzip failed"
       python3 "$VALIDATOR" --input "$TRACE_GZ_UNZIPPED" --epsilon "$EPSILON" --delta "$DELTA" --trace-id "$TRACE_ID" || fail "gzipped NDJSON validation failed after gunzip"
-
-      # Also check that gunzipped content matches plain (allow minor timing diff in done.time_ms)
-      # Compare prefix count / steps via validator JSON? For now just ensure both valid; strict byte compare is too strict.
       echo "    ✓ gzipped payload decompresses to valid NDJSON"
-    else
-      # Fallback: treat $TRACE_GZ as plain (maybe server didn't gzip small payload, but we still validate)
-      if [ -s "$TRACE_GZ" ]; then
-        echo "    checking non-gzipped fallback payload"
-        # Try to validate as plain if it looks like NDJSON (starts with {)
-        if head -c 1 "$TRACE_GZ" | grep -q "{"; then
-          python3 "$VALIDATOR" --input "$TRACE_GZ" --epsilon "$EPSILON" --delta "$DELTA" --trace-id "$TRACE_ID" || echo "warn: fallback gzip file not valid NDJSON" >&2
-        fi
-      fi
     fi
   else
-    echo "warn: gzip request returned $GZ_CODE" >&2
+    fail "gzip request returned $GZ_CODE (expected 200)"
   fi
 fi
 
@@ -330,7 +315,7 @@ PLAIN_PREFIXES="$(python3 -c "import json; lines=open('$TRACE_FILE').read().stri
 DIRECT_PREFIXES="$(python3 -c "import json; lines=open('$DIRECT_FILE').read().strip().splitlines(); print(sum(1 for l in lines if json.loads(l).get('type')=='prefix'))")"
 echo "    plain prefixes=$PLAIN_PREFIXES direct prefixes=$DIRECT_PREFIXES"
 if [ "$PLAIN_PREFIXES" != "$DIRECT_PREFIXES" ]; then
-  echo "warn: prefix count mismatch plain $PLAIN_PREFIXES vs direct $DIRECT_PREFIXES (check C++ vs server params)" >&2
+  fail "prefix count mismatch plain $PLAIN_PREFIXES vs direct $DIRECT_PREFIXES (check C++ vs server params)"
 fi
 
 # ---------------------------------------------------------------------------
@@ -340,7 +325,7 @@ echo ""
 echo "✅ web trace check passed (trace $TRACE_ID eps=$EPSILON delta=$DELTA)"
 echo "   plain: ${ACTUAL_BYTES}B ${WALL_MS}ms $PLAIN_PREFIXES prefixes"
 if [ -n "${GZ_BYTES:-}" ]; then
-  echo "   gzip:  ${GZ_BYTES}B (ratio $(python3 -c "print(f'{${GZ_BYTES:-0}/$ACTUAL_BYTES:.1%}')" 2>/dev/null || echo '?'))"
+  echo "   gzip:  ${GZ_BYTES}B (ratio $(python3 -c "import sys; print(f'{int(sys.argv[1])/int(sys.argv[2]):.1%}')" "${GZ_BYTES:-0}" "$ACTUAL_BYTES" 2>/dev/null || echo '?'))"
 fi
 echo "   direct: ${DIRECT_BYTES}B $DIRECT_PREFIXES prefixes"
 echo "   server log: $SERVER_LOG"

@@ -193,25 +193,17 @@ jobs:
             python3 scripts/ci/validate_web_trace.py \
               --input /tmp/trace.gunzipped.ndjson \
               --epsilon "$EPSILON" --delta "$DELTA" --trace-id "$TRACE_ID"
-            # Size regression: gzipped should be smaller than plain (allow equal for tiny payloads, but here plain is >1K)
             if [ "$GZ_BYTES" -ge "$BYTES" ]; then
-              echo "⚠️ gzipped ($GZ_BYTES) not smaller than plain ($BYTES) — may be small payload, not fatal"
-            else
-              RATIO=$(python3 -c "print(f'{$GZ_BYTES/$BYTES:.1%}')")
-              echo "✓ gzip compression ratio $RATIO"
-              echo "GZIP_RATIO=$RATIO" >> "$GITHUB_ENV"
+              echo "❌ gzipped ($GZ_BYTES) not smaller than plain ($BYTES)"
+              exit 1
             fi
+            RATIO=$(python3 -c "import sys; print(f'{int(sys.argv[1])/int(sys.argv[2]):.1%}')" "$GZ_BYTES" "$BYTES")
+            echo "✓ gzip compression ratio $RATIO"
+            echo "GZIP_RATIO=$RATIO" >> "$GITHUB_ENV"
             echo "✅ gzipped NDJSON passed"
           else
-            echo "⚠️ server did not return gzip (Content-Encoding missing) — validating fallback body as NDJSON"
-            # Fallback: body may still be plain NDJSON; validate if it looks like NDJSON
-            if head -c 1 /tmp/trace.gz | grep -q "{"; then
-              python3 scripts/ci/validate_web_trace.py \
-                --input /tmp/trace.gz \
-                --epsilon "$EPSILON" --delta "$DELTA" --trace-id "$TRACE_ID" || {
-                echo "⚠️ fallback gzip file not valid NDJSON — continuing (plain already passed)"
-              }
-            fi
+            echo "❌ server did not return gzip (Content-Encoding missing)"
+            exit 1
           fi
 
       - name: Direct handler smoke (no Flask)
