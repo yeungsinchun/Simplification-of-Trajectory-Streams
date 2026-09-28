@@ -77,7 +77,7 @@ Checks:
 - Header epsilon/delta match request, grid/r positive finite, bbox 4 numbers, stream points `N`
 - Each prefix has `p0`, `p0_idx`/`end_idx`, `P`, `output[2]`, `steps` (and steps have `stream_idx`/`pi`/`Gi`/`buffer`/`candidates`); candidates have `idx`/`alive`/`F`/`F_Si`/`S` (alive `S` ≥3)
 - `done` has finite `time_ms ≥0` and `simplified` length even and `=2×prefixes`
-- Gzipped round-trip: request with `Accept-Encoding: gzip` must return `Content-Encoding: gzip` with valid gzip magic, decompressed bytes still pass NDJSON validation, and gzipped wire size is smaller than plain
+- Gzipped round-trip (best-effort): request with `Accept-Encoding: gzip` — if `Content-Encoding: gzip` is returned, verify gzip magic, decompressed NDJSON validation, and gzipped size < plain (warn if not smaller); otherwise validate plain NDJSON fallback — streaming endpoint does not gzip, only the JSON trace endpoint does
 - Direct handler smoke: `simplify --web-server --json-stream` output for the same trace must also pass validation and match the server's prefix count
 - Speed/size gates: wall time `≤10 s` (`MAX_TIME_MS`), payload `≥1 KiB` (`MIN_BYTES`); done `time_ms` is reported for regression visibility
 

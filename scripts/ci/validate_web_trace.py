@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 def _is_finite(v) -> bool:
-    return isinstance(v, (int, float)) and math.isfinite(float(v))
+    return type(v) in (int, float) and math.isfinite(float(v))
 
 def _is_point(p) -> bool:
     return isinstance(p, (list, tuple)) and len(p) == 2 and _is_finite(p[0]) and _is_finite(p[1])
@@ -168,6 +168,12 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
             raise ValueError(f"prefix {p_idx}: p0_idx must be non-negative int")
         if not isinstance(data["end_idx"], int) or data["end_idx"] <= data["p0_idx"]:
             raise ValueError(f"prefix {p_idx}: end_idx must be > p0_idx")
+        if data["p0_idx"] >= len(stream):
+            raise ValueError(f"prefix {p_idx}: p0_idx {data['p0_idx']} out of range stream len {len(stream)}")
+        if data["end_idx"] > len(stream):
+            raise ValueError(f"prefix {p_idx}: end_idx {data['end_idx']} out of range stream len {len(stream)}")
+        if p_idx == 0 and data["p0_idx"] != 0:
+            raise ValueError(f"prefix {p_idx}: first p0_idx must be 0, got {data['p0_idx']}")
         try:
             sp = stream[data["p0_idx"]]
             if not (_close(data["p0"][0], sp[0]) and _close(data["p0"][1], sp[1])):
@@ -198,9 +204,12 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
                 raise ValueError(f"prefix {p_idx} step {s_idx}: stream_idx {step['stream_idx']} out of range [0, {len(stream)})")
             if not _is_point(step["pi"]):
                 raise ValueError(f"prefix {p_idx} step {s_idx}: pi not a point")
+            sp_pi = stream[step["stream_idx"]]
+            if not (_close(step["pi"][0], sp_pi[0]) and _close(step["pi"][1], sp_pi[1])):
+                raise ValueError(f"prefix {p_idx} step {s_idx}: pi {step['pi']!r} != stream[{step['stream_idx']}] {sp_pi!r}")
             Gi = step["Gi"]
-            if not isinstance(Gi, list) or not Gi:
-                raise ValueError(f"prefix {p_idx} step {s_idx}: Gi must be non-empty array")
+            if not isinstance(Gi, list) or len(Gi) < 3:
+                raise ValueError(f"prefix {p_idx} step {s_idx}: Gi must be array with >=3 points, got {len(Gi) if isinstance(Gi, list) else Gi!r}")
             if not _is_points(Gi):
                 raise ValueError(f"prefix {p_idx} step {s_idx}: Gi contains invalid point")
             buffer = step["buffer"]
@@ -263,15 +272,18 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
         raise ValueError(f"done.simplified must have at least 2 points, got {len(simplified)}")
     if len(simplified) % 2 != 0:
         raise ValueError(f"done.simplified len {len(simplified)} is odd, expected even (2*prefixes)")
-    # Check simplified length == 2 * prefixes
     if len(simplified) != 2 * len(prefixes):
-        # In original simplify_web, each prefix pushes exactly 2 points, so should match.
-        # However if prefixes overlap, simplified may still be 2*len. Enforce.
         raise ValueError(f"done.simplified len {len(simplified)} != 2*prefixes {2*len(prefixes)}")
-    # frechet_distance is null in v2 (computed server-side async). Allow null or finite.
+    expected = []
+    for pref in prefixes:
+        expected.extend(pref["data"]["output"])
+    for i, (a, b) in enumerate(zip(simplified, expected)):
+        if not (_close(a[0], b[0]) and _close(a[1], b[1])):
+            raise ValueError(f"done.simplified[{i}] {a!r} != prefix output {b!r}")
     fd = done["frechet_distance"]
-    if fd is not None and not _is_finite(fd):
-        raise ValueError(f"done.frechet_distance must be null or finite, got {fd!r}")
+    if fd is not None:
+        if not _is_finite(fd) or float(fd) < 0:
+            raise ValueError(f"done.frechet_distance must be null or finite >=0, got {fd!r}")
 
     return {
         "lines": len(lines),
