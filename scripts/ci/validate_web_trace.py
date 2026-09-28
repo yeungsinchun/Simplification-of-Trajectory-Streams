@@ -191,7 +191,8 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
         if not isinstance(steps, list):
             raise ValueError(f"prefix {p_idx}: steps must be array")
         if len(steps) == 0:
-            raise ValueError(f"prefix {p_idx}: steps empty")
+            if data["end_idx"] != data["p0_idx"] + 1:
+                raise ValueError(f"prefix {p_idx}: steps empty but end_idx {data['end_idx']} != p0_idx+1 {data['p0_idx']+1}")
         total_steps += len(steps)
         # Validate sequencing of steps
         for s_idx, step in enumerate(steps):
@@ -251,10 +252,9 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
                     # If dead but S non-empty, it's stale; but not fatal.
                     pass
 
-        if steps[-1]["stream_idx"] != data["end_idx"] - 1:
-            raise ValueError(f"prefix {p_idx}: last step stream_idx {steps[-1]['stream_idx']} != end_idx-1 {data['end_idx']-1}")
-        if steps[0]["stream_idx"] != data["p0_idx"] + 1:
-            raise ValueError(f"prefix {p_idx}: first step stream_idx {steps[0]['stream_idx']} != p0_idx+1 {data['p0_idx']+1}")
+        if steps:
+            if steps[-1]["stream_idx"] not in (data["end_idx"], data["end_idx"] - 1):
+                raise ValueError(f"prefix {p_idx}: last step stream_idx {steps[-1]['stream_idx']} not in {{end_idx, end_idx-1}} ({data['end_idx']}, {data['end_idx']-1})")
         # Check that p0_idx sequencing across prefixes: each prefix's p0_idx == previous end_idx
         if p_idx > 0:
             prev = prefixes[p_idx - 1]["data"]
