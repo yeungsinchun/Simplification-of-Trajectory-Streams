@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Serial, native core_ms benchmark with measured continuous Frechet bounds.
 
-See README.md "Benchmarking — SOTS vs DOTS / SQUISH / DP" for the timing and calibration contracts.
+See README.md and results/fair-core/summary.csv (200 cases, 10-run Welford means) for the timing and calibration contracts.
 No process-wall-time fallback, synthetic baseline, or parallel worker is used.
 """
 import argparse
