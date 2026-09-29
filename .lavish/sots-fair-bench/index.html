@@ -12,7 +12,7 @@
 <header>
 <div class="kicker">Trajectory simplification · measured evidence</div>
 <h1>Four algorithms.<br>One measured error budget.</h1>
-<p class="intro">Native SOTS, DOTS, SQUISH and DP on identical trajectories, with sequential execution and <strong>core_ms only</strong>. Initial measurements precede optimization; the final run includes the untouched SOTS binary as a contemporaneous reference.</p>
+<p class="intro">Native SOTS, DOTS, SQUISH and DP on identical trajectories, with sequential execution and <strong>core_ms only</strong>. Initial measurements precede the separately evaluated batch optimization (historical, tracked in follow-up PR-B and not present in this harness-only checkout); the final run includes the untouched SOTS binary as a contemporaneous reference.</p>
 <div><span class="badge">200 cases · 20 input prefixes</span><span class="badge">10 samples per cell</span><span class="badge">Single thread</span><span class="badge">Continuous Fréchet checked</span></div>
 <div class="notice"><strong>Same upper bound; different actual errors.</strong> Native controls are calibrated outside timing. Exact cross-algorithm equality is impossible for some vertex-subset baselines. Actual Fréchet distances and retained points are visible in every table cell. SOTS is required to preserve its exact output before and after.</div>
 </header>
@@ -32,12 +32,12 @@
 </div>
 <div class="grid">
 <div class="panel"><h2>Core time across algorithms</h2><p class="metric-line">Case-balanced arithmetic means, milliseconds. Log scale; lower is faster. Baselines are rerun with unchanged binaries and controls.</p><svg id="bars" class="chart" viewBox="0 0 650 320" role="img" aria-label="Before and after core milliseconds by algorithm"></svg><div class="legend"><span><i class="swatch" style="background:#8b93a3"></i>Initial</span><span><i class="swatch" style="background:#4f9dff"></i>After</span><span><i class="swatch" style="background:#3ddc97"></i>Original SOTS, rerun</span></div></div>
-<div class="panel"><h2>SOTS by approximation tier</h2><p class="metric-line">Case-balanced mean core_ms on a log scale. Holding B fixed changes δ = B/(1+ε). No phase timers in these samples.</p><svg id="lines" class="chart" viewBox="0 0 650 320" role="img" aria-label="SOTS initial, after, and reference time by epsilon"></svg><div class="legend"><span><i class="swatch" style="background:#8b93a3"></i>Initial</span><span><i class="swatch" style="background:#4f9dff"></i>Optimized</span><span><i class="swatch" style="background:#3ddc97"></i>Original, rerun</span></div></div>
+<div class="panel"><h2>SOTS by approximation tier</h2><p class="metric-line">Case-balanced mean core_ms on a log scale. Holding B fixed changes δ = B/(1+ε). No phase timers in these samples.</p><svg id="lines" class="chart" viewBox="0 0 650 320" role="img" aria-label="SOTS initial, after, and reference time by epsilon"></svg><div class="legend"><span><i class="swatch" style="background:#8b93a3"></i>Initial</span><span><i class="swatch" style="background:#4f9dff"></i>After</span><span><i class="swatch" style="background:#3ddc97"></i>Original, rerun</span></div></div>
 </div>
 </section>
 <section class="panel"><div class="table-title"><h2>Per-dataset evidence</h2><button id="download">Download all raw evidence</button></div>
 <p class="muted">Each runtime is <strong>mean ± sample standard deviation in ms</strong>. Below it: actual Fréchet distance (F), retained points (n), and baseline speedup versus SOTS in that phase. All ten raw samples are included in the download. The original rerun is the paired SOTS comparison.</p>
-<label style="max-width:240px;margin-bottom:16px">Table phase<select id="phase"><option value="after">After optimization</option><option value="before">Initial benchmark</option></select></label>
+<label style="max-width:240px;margin-bottom:16px">Table phase<select id="phase"><option value="after">After (historical batch — not in this checkout)</option><option value="before">Initial benchmark</option></select></label>
 <div class="table-wrap"><table><thead><tr><th>Dataset · parameters</th><th>SOTS</th><th>DOTS</th><th>SQUISH</th><th>DP</th><th>Original SOTS rerun</th></tr></thead><tbody id="rows"></tbody></table></div></section>
 <section class="grid"><div class="panel"><h2>What profiling showed</h2><div id="profile"></div></div><div class="panel"><h2>What changed and why</h2><div id="optimizations"></div></div><div class="panel full"><h2>What the results support</h2><div id="conclusion"></div></div></section>
 <section class="panel"><h2>Methodology and limits</h2>

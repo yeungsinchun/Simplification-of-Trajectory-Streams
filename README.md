@@ -138,7 +138,7 @@ and `squish` are produced whenever their `traj-compression` sources exist
 
 ## Benchmarking
 
-Streaming SOTS vs SQUISH was measured on the standard derived datasets (DP/DOTS baselines are available via `build/dp`/`build/dots` and the web visualizer; core-time comparison to DP/DOTS is deferred).
+Streaming SOTS vs SQUISH was measured on the standard derived datasets (DP/DOTS baselines are available via `build/dp`/`build/dots` and the web visualizer; reproducible core-time comparison to DP/DOTS is documented in [the core benchmark report](docs/fair-core-benchmark.md)).
 Large IDs 21–30 (avg ~695 pts) are the primary perf signal.
 Small IDs 11–20 (avg ~90 pts) are also recorded.
 Five epsilon tiers were used: 299 (extra-coarse, δ=1), 30 (coarse, δ=9.68), 5 (mid, δ=50), 0.5 (fine, δ=200), 0.1 (extra-fine, δ=272.7).
@@ -218,7 +218,7 @@ See Lavish board §4 Results for the same table plus Frechet 250 pilot, and `scr
 | extra-fine | 0.1 | 272.7 | 133.74 ± 50.33 | 0.069 ± 0.011 | 0.001× | 1937× slower |
 
 All tiers are confidently slower than SQUISH (Welch p < 0.05).
-SQUISH is 19–1900× faster on core time but provides no Fréchet guarantee (DP/DOTS core-time comparison deferred).
+SQUISH is 19–1900× faster on core time but provides no Fréchet guarantee (four-way core-time comparison including DP/DOTS is documented in [the core benchmark report](docs/fair-core-benchmark.md)).
 SOTS provides deterministic Fréchet ≤ (1+ε)δ per segment (papers/journal.pdf, Thm 1–2).
 Previous uplifts remain.
 PR26 halved runtime across all tiers.
