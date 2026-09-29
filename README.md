@@ -217,7 +217,7 @@ Speedup = SOTS mean / baseline mean (larger = baseline faster).
 | 0.5 | 2.17 | 0.073 (30×) | 0.0048 (457×) | 0.0055 (393×) | 13.64 | 0.39 (35×) | 0.086 (159×) | 0.033 (409×) |
 | 0.1 | 21.07 | 0.063 (334×) | 0.0044 (4,756×) | 0.0053 (4,005×) | 164.16 | 0.41 (399×) | 0.089 (1,836×) | 0.033 (4,915×) |
 
-*Reading*: at coarse/mid ε, SOTS is ~4× slower than DOTS and ~20× slower than SQUISH/DP; at fine ε the gap widens to 34×/175×/406×; at extra-fine it is hundreds to thousands of times slower (391×/1,974×/4,791× overall; small 334×/4,756×/4,005×, large 399×/1,836×/4,915×).  Absolute ms varies with host load (shared M1, no affinity, cold caches); ratios are the stable signal.  Numbers are 10-run Welford means; per-case stddevs are in `summary.csv`.
+*Reading*: at coarse/mid ε, SOTS is ~4× slower than DOTS and ~20× slower than SQUISH/DP; at fine ε the gap widens to 34×/175×/406×; at extra-fine it is hundreds to thousands of times slower (391×/1,974×/4,791× overall; small 334×/4,756×/4,005×, large 399×/1,836×/4,915×).  Absolute ms varies with host load (shared M1, no affinity, cold caches); ratios are the stable signal.  Numbers are 10-run Welford means; aggregated means are in `summary.csv`, per-case stddevs are in `before.json` (and `before.csv`) and regenerated via `scripts/fair_benchmark.py`.
 
 ### Results — Quality (compression and Fréchet distance, case-balanced)
 
