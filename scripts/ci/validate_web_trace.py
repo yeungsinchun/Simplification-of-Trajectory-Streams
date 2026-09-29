@@ -198,7 +198,7 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
         for s_idx, step in enumerate(steps):
             if not isinstance(step, dict):
                 raise ValueError(f"prefix {p_idx} step {s_idx}: not an object")
-            for sf in ("stream_idx", "pi", "Gi", "buffer", "candidates"):
+            for sf in ("stream_idx", "pi", "Gi", "candidates"):
                 if sf not in step:
                     raise ValueError(f"prefix {p_idx} step {s_idx}: missing {sf}")
             if type(step["stream_idx"]) is not int or not (0 <= step["stream_idx"] < len(stream)):
@@ -215,14 +215,25 @@ def validate_ndjson(raw: bytes, expected_eps: float | None, expected_delta: floa
                 raise ValueError(f"prefix {p_idx} step {s_idx}: Gi must be array with >=3 points, got {len(Gi) if isinstance(Gi, list) else Gi!r}")
             if not _is_points(Gi):
                 raise ValueError(f"prefix {p_idx} step {s_idx}: Gi contains invalid point")
-            buffer = step["buffer"]
-            if not (isinstance(buffer, list) and len(buffer) == 2 and _is_point(buffer[0]) and _is_point(buffer[1])):
-                raise ValueError(f"prefix {p_idx} step {s_idx}: buffer must be 2 points")
+            # v2 diet: buffer is omitted (viewer does not use it); accept with or without it
+            if "buffer" in step:
+                buffer = step["buffer"]
+                if not (isinstance(buffer, list) and len(buffer) == 2 and _is_point(buffer[0]) and _is_point(buffer[1])):
+                    raise ValueError(f"prefix {p_idx} step {s_idx}: buffer must be 2 points")
             cands = step["candidates"]
             if not isinstance(cands, list):
                 raise ValueError(f"prefix {p_idx} step {s_idx}: candidates must be array")
-            if len(cands) != len(data["P"]):
-                raise ValueError(f"prefix {p_idx} step {s_idx}: candidates len {len(cands)} != len(P) {len(data['P'])}")
+            # v2 diet: previously-dead candidates (F < 3) are omitted, so sparse array is expected
+            if not (0 < len(cands) <= len(data["P"])):
+                raise ValueError(f"prefix {p_idx} step {s_idx}: candidates len {len(cands)} not in (0, {len(data['P'])}]")
+            seen_idx = set()
+            for _ci in cands:
+                if not isinstance(_ci, dict) or "idx" not in _ci:
+                    raise ValueError(f"prefix {p_idx} step {s_idx}: candidate missing idx")
+                _idx = _ci["idx"]
+                if _idx in seen_idx:
+                    raise ValueError(f"prefix {p_idx} step {s_idx}: duplicate candidate idx {_idx}")
+                seen_idx.add(_idx)
             # Validate each candidate
             for c_idx, cand in enumerate(cands):
                 if not isinstance(cand, dict):
