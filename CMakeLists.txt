@@ -22,16 +22,6 @@ target_link_libraries(simplify
   CGAL::CGAL
 )
 
-# Explicitly requested only: a serial, long-lived sampling-profiler workload.
-add_executable(profile_sots EXCLUDE_FROM_ALL scripts/profile_sots.cpp)
-target_include_directories(profile_sots PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(profile_sots CGAL::CGAL)
-target_compile_options(profile_sots PRIVATE -g)
-
-add_executable(test_clip_batch EXCLUDE_FROM_ALL scripts/test_clip_batch.cpp)
-target_include_directories(test_clip_batch PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(test_clip_batch CGAL::CGAL)
-
 # Baseline binaries used by the web compare pane and benchmark.py.
 # dp / squish need no Qt. dots needs Qt6 Core only (see its CMakeLists).
 set(DP_SRC "${CMAKE_CURRENT_SOURCE_DIR}/traj-compression/batch/DP/DP_adapted.cpp")

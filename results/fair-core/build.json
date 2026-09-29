@@ -22,18 +22,19 @@
   "FrechetDist": "2.1.0",
   "FrechetDist_tree": "a622e7bc4edc4c2442f8108eec2f47de63539d34",
   "baseline_revision": "ce40df79a77db8eb4bb31d7316a187c07b2ad921",
-  "base_revision": "ae91e5633d0cec1d994750dee5b37787877e36a6",
+  "base_revision": "34cf5bb50c7f2bde2e484b4ae0ed707a65d49ad8",
   "before_source_sha256": {
-    "simplify.cpp": "6d4745744eb20c4d87f3f5f81f0bae0f18176383207ad6b19257b39c4a65040a",
+    "simplify.cpp": "48ebd95186ffa64ca61eca8a567fd7ba41c59ad820a9e29055e95e358ed89c32",
     "simplify_core.h": "5adcfadf590f9dd63eafe46b940ca9a61e358fa8eaf63dc26ac0e41f499efb3f",
-    "simplify_geometry.h": "da4cf0d86f92ce9bf7d2a7c33f593a153d30c47b93cf7bf172f4b1a893206d03",
+    "simplify_geometry.h": "de7613aac3c553f97a9b3bcf8bea4bca3bb84105c58f80e1043d87d3faf9c7e0",
     "timer.h": "630445326ba20070481647a4cced922ccab9e3010f9f0978742c55087df18df9"
   },
   "after_source_sha256": {
-    "simplify.cpp": "6d4745744eb20c4d87f3f5f81f0bae0f18176383207ad6b19257b39c4a65040a",
+    "simplify.cpp": "48ebd95186ffa64ca61eca8a567fd7ba41c59ad820a9e29055e95e358ed89c32",
     "simplify_core.h": "5adcfadf590f9dd63eafe46b940ca9a61e358fa8eaf63dc26ac0e41f499efb3f",
-    "simplify_geometry.h": "cb9f12bb274dc5d0a3660926f408e9179585fe8f61c054af666697d3d3abe2e5",
+    "simplify_geometry.h": "de7613aac3c553f97a9b3bcf8bea4bca3bb84105c58f80e1043d87d3faf9c7e0",
     "timer.h": "630445326ba20070481647a4cced922ccab9e3010f9f0978742c55087df18df9"
   },
-  "benchmark_script_sha256": "2ceb9c3b9c263769b004d3a54608df9a3f4552c29abe6524949ac6488b938931"
+  "benchmark_script_sha256": "2ceb9c3b9c263769b004d3a54608df9a3f4552c29abe6524949ac6488b938931",
+  "note": "Harness-only checkout — no batching. Historically evaluated batch (simplify_geometry.h cb9f12bb274dc5d0a3660926f408e9179585fe8f61c054af666697d3d3abe2e5) tracked in follow-up PR-B; local 1.115x evidence retained from that separate evaluation (base ae91e563, see before/after JSON) but not present in this checkout (identical before/after hashes de7613aac3c)."
 }

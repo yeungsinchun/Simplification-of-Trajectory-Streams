@@ -19,10 +19,14 @@ The enumerated distances are preserved in
 
 Every reported output is independently measured by `FrechetDist.jl`'s
 `frechet_c_compute`. The numerical slack on a bound B is `max(1e-7, 1e-9 * B)`;
-actual distances are retained without rounding. The optimized SOTS must produce
-byte-identical curve files and exactly the same measured distance as the initial
-SOTS. Retained point counts and actual distances accompany every runtime row.
-Equal bounds do not mean equal compression, equal errors, or equal guarantees.
+actual distances are retained without rounding. The harness requires any
+evaluated optimization to produce byte-identical curve files and exactly the
+same measured distance as the initial SOTS; this harness-only checkout contains
+no batching (simplify_geometry.h `de7613aac3c` identical to base `34cf5bb`) —
+the four-determinant batch in `crop_to_left_of_edge` evaluated separately is
+tracked in follow-up PR-B. Retained point counts and actual distances accompany
+every runtime row. Equal bounds do not mean equal compression, equal errors, or
+equal guarantees.
 
 SOTS uses dimensionless ε and distance scale δ. DP's epsilon is a perpendicular
 distance, DOTS uses local integral squared synchronous distance (LSSD), and
@@ -65,7 +69,7 @@ to be monotone in native controls: this search finds a verified feasible output,
   `speedup_vs_sots = SOTS mean / algorithm mean`: larger means the baseline is
   faster. Case-balanced group means are descriptive, not uncertainty estimates.
 - The after phase also interleaves the untouched original SOTS binary. This
-  contemporaneous reference distinguishes optimization gains from host drift.
+  contemporaneous reference distinguishes host drift from genuine change.
   It verifies binary hashes, input hashes, configuration, frozen controls and
   output identity. macOS provides no CPU affinity here; this is a shared host,
   so the preserved samples and deviations matter more than isolated minima.
@@ -82,8 +86,11 @@ cmake --build build-before --target simplify dp dots squish --parallel 1
 python3 scripts/fair_benchmark.py --phase before --build-dir build-before
 ```
 
-Preserve those binaries. After applying an optimization, build SOTS separately
-and copy the unchanged baseline binaries into the new build directory:
+Preserve those binaries. When evaluating a change (the batch optimization
+evaluated separately is tracked in follow-up PR-B and not present in this
+harness-only checkout — simplify_geometry.h `de7613aac3c` has no batching),
+build SOTS separately and copy the unchanged baseline binaries into the new
+build directory:
 
 ```sh
 cmake -S . -B build-after -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF
@@ -100,59 +107,6 @@ failed partial phase may be restarted; hash-checked calibrations are reused.
 Small smoke runs can pass `--ids 18 --epsilons 0.5 --bounds 300 --runs 2` to both
 phases. Keep the same options for both phases.
 
-For profiling, independently from benchmark collection:
-
-```sh
-cmake --build build-before --target profile_sots --parallel 1
-xctrace record --template 'Time Profiler' --time-limit 10s \
-  --output profile.trace --launch -- \
-  "$PWD/build-before/profile_sots" "$PWD/data/21/original.txt" 0.1 272.727272727273 10000
-# Linux equivalent: perf record -g -- build-before/profile_sots ...
-build-before/simplify 21 -e 0.1 -d 272.727272727273 --time
-```
-
-The repeated profiler workload warms shape caches after the first iteration;
-the CLI phase timers expose cold grid initialization too. Neither profiler nor
-instrumented phase durations are used as the performance result.
-
-## Profile and chosen optimization
-
-Instruments Time Profiler 27.0 sampled the original implementation for ten
-seconds on ID 21, ε=0.1, δ=272.727272727273. It recorded 9,872 samples on one
-main thread. Edge cropping and its inline helpers account for 7,216 samples
-(73.1%); tangent selection accounts for 623 (6.3%). The exported leaf-frame
-counts are in `results/fair-core/profile-before.json`. These are sampled
-attributions, not precise phase durations. `timers-before.txt` independently
-attributes 78.7% of an instrumented invocation to intersection, with 68,296
-intersection calls and 72,914 wedge updates for 588 input points.
-
-The implemented change batches four determinant tests in the already-inside
-prefix of `crop_to_left_of_edge`. It removes per-vertex branching from that
-common path and exposes independent arithmetic to the compiler. A block with
-an outside vertex falls back to the existing scalar path. Edge traversal,
-intersection formulas, vertex order, tangent selection, and floating-point
-flags stay the same. The optimization uses no new threads, persistent caches,
-or extra trajectory storage.
-
-`test_clip_batch` compares the crop against an independent scalar
-Sutherland–Hodgman oracle, bit for bit, over every inside/outside/on-edge pattern
-through ten vertices and 20,000 seeded random rings (including non-convex
-subjects). Run it with:
-
-```sh
-cmake --build build-after --target test_clip_batch --parallel 1
-build-after/test_clip_batch
-python3 -m unittest discover -s scripts -p test_fair_benchmark.py
-```
-
-The complete after benchmark additionally checks the actual output hashes and
-continuous Fréchet measurements for every case and all four algorithms.
-Local validation passed in both Release and Debug with AddressSanitizer and
-UndefinedBehaviorSanitizer. The benchmark parser tests and existing
-`python3 scripts/ci/test_bench_report.py` report test passed. Chrome checks
-covered the board's case filters, phase switch, SVG charts and contained table
-scrolling on a narrow viewport. Pipeline review and CI are a separate handoff.
-
 ## Further work toward baseline performance
 
 The native algorithms solve different optimization problems. Loop tuning alone
@@ -163,7 +117,7 @@ experiments, in priority order:
 1. Prove and implement anchor dominance or equivalent-state elimination. This
    can reduce the number of polygon updates, but must preserve the longest stab
    and the current last-anchor tie order. Merely dropping nearby anchors can
-   change the output and is outside this optimization's correctness contract.
+   change the output and is outside such an optimization's correctness contract.
 2. Investigate an incremental convex clip representation that avoids scanning
    all crop edges for each anchor. Its handling of tangencies, degenerate rings
    and rounded intersection coordinates needs differential validation before
@@ -182,15 +136,20 @@ workload and must be reported separately.
 ## Recorded results (2026-09-28) — corrected 2026-09-29
 
 Local M1 (Apple clang 21.0.0, CMake 4.1.1, Release `-O3 -DNDEBUG -arch arm64`;
-Julia 1.12.6 / FrechetDist 2.1.0; `results/fair-core/build.json`) measured 1.115×
-vs paired reference on that shared host, but **CI (Ubuntu 24.04 g++-14, 20
+Julia 1.12.6 / FrechetDist 2.1.0) measured 1.115× on a separately evaluated
+batch optimization (simplify_geometry.h `cb9f12bb274` batching four determinant
+tests in the already-inside prefix of `crop_to_left_of_edge`, tracked in
+follow-up PR-B and not present in this harness-only checkout — current
+`de7613aac3c` identical to base `34cf5bb` without batching; see
+`results/fair-core/build.json` for this checkout's build environment) vs paired
+reference on that shared host, but **CI (Ubuntu 24.04 g++-14, 20
 configs ×10 IDs =200 cases, 10 runs, Welch 95% high-confidence) shows mean
 speedup 1.00× (neutral, 0% cut)**. Per-config CI speedups (orig/new): 0.94–1.08×,
 20/20 passed; per-phase intersect 1.07× (3152→2944 ms) but overall neutral. See
 [bench-report](https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/actions/runs/36460949757)
 (Run 36460949757). The table below is the local M1 case-balanced mean
-**core_ms** per ε tier (40 cases), retained as measured; the authoritative
-claim is CI's 1.00×, not the earlier 10.3%.
+**core_ms** per ε tier (40 cases), retained as measured from that separate
+evaluation; the authoritative claim is CI's 1.00×, not the earlier 10.3%.
 
 Each entry below is the case-balanced mean **core_ms** for that ε tier (40
 cases) on the local M1 host, not a pooled uncertainty estimate. Per-dataset
@@ -201,7 +160,7 @@ corresponding JSON files. CI per-config means (orig→new, ms): extra-coarse
 0.21–1.57→0.22–1.61, coarse 0.23–1.73→0.24–1.75, mid 0.14–1.72→0.15–1.76, fine
 1.51–14.67→1.51–14.51, extra-fine 17.63–135.66→16.68–128.67.
 
-| ε | Initial SOTS (M1) | Original rerun (M1) | Optimized SOTS (M1) | DOTS after | SQUISH after | DP after | SOTS gain vs rerun (M1 local) |
+| ε | Initial SOTS (M1) | Original rerun (M1) | Evaluated batch SOTS (M1, historical — not in this checkout) | DOTS after | SQUISH after | DP after | SOTS gain vs rerun (M1 local) |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 299 | 0.94597 | 0.80139 | 0.79851 | 0.19118 | 0.04077 | 0.01765 | 1.004× |
 | 30 | 0.92995 | 0.79505 | 0.79203 | 0.19111 | 0.03919 | 0.01722 | 1.004× |
@@ -209,8 +168,8 @@ corresponding JSON files. CI per-config means (orig→new, ms): extra-coarse
 | 0.5 | 8.98599 | 7.03965 | 6.57931 | 0.19359 | 0.04028 | 0.01709 | 1.070× |
 | 0.1 | 78.55734 | 65.59837 | 58.31398 | 0.19202 | 0.03974 | 0.01751 | 1.125× |
 
-Across all 200 cases on that M1 host, final SOTS averaged 13.4604 ms versus
-15.0092 ms for the original binary in the same run (1.115× local).
+Across all 200 cases on that M1 host, the evaluated batch averaged 13.4604 ms
+versus 15.0092 ms for the original binary in the same run (1.115× local).
 **Corrected claim per CI: 1.00× mean (0% cut, neutral)** across 20 configs
 (Run 36460949757; e.g., extra-coarse-e-d300-small 1.00×, large 0.98×,
 extra-fine-e-d300-large 1.08×, d1000-large 1.05×; mean 1.00×). The local 10.3%
