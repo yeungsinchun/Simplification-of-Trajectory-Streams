@@ -93,9 +93,13 @@ __pycache__/
 *.py[cod]
 .ipynb_checkpoints/
 
-# Generated benchmark output (tracked historical result snapshots remain tracked)
+# Generated benchmark output — bulky JSON and raw CSV are gitignored.
+# Only the compact summary CSV is tracked if README references it.
 results/*.csv
 results/*.png
+results/fair-core/*.json
+results/fair-core/*.csv
+!results/fair-core/summary.csv
 
 # Generated report artifacts (tracked report sources and snapshots remain tracked)
 /report/
@@ -209,7 +213,4 @@ ui_*.h
 
 *.log
 
-/.lavish/*
-!/.lavish/sots-fair-bench/
-/.lavish/sots-fair-bench/*
-!/.lavish/sots-fair-bench/index.html
+.lavish/
