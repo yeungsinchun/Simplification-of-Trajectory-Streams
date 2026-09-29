@@ -192,7 +192,7 @@ inline void write_json(std::ostream& os, double EPSILON, double DELTA, double ti
 }  // namespace webtrace
 
 // Web-trace twin of the stab loop in simplify_core.h: records P, Gi, F[i],
-// new_S[i], alive/dead, and buffer at every step.
+// new_S[i], and alive/dead at every step (per-step buffer is v1-only, omitted in v2 diet).
 int get_longest_stab_web(const std::vector<Point>& stream, int cur,
                          std::vector<Point>& simplified,
                          double EPSILON, double DELTA,
