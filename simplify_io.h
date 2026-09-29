@@ -3,6 +3,8 @@
 
 #include <CGAL/Boolean_set_operations_2.h>
 #include <CGAL/Iso_rectangle_2.h>
+#include <algorithm>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -10,7 +12,12 @@
 #include <iostream>
 #include <limits>
 #include <string>
+#include <thread>
 #include <vector>
+
+#if defined(__linux__)
+#include <sched.h>
+#endif
 
 #include "simplify_geometry.h"
 
@@ -28,6 +35,39 @@ inline bool web_server_flag = false;
 inline bool json_stream_flag = false;
 inline bool help_flag = false;
 inline bool time_flag = false;
+// Default threads for the per-step anchor updates: the usable CPUs, capped
+// at 8. On Linux, containers (Cloud Run, docker --cpus) and taskset limit CPUs
+// through the affinity mask or a cgroup quota that hardware_concurrency()
+// does not see, and oversubscribed helpers would only slow the run down.
+inline int default_simplify_threads() {
+    long n = long(std::thread::hardware_concurrency());
+#if defined(__linux__)
+    cpu_set_t mask;
+    if (sched_getaffinity(0, sizeof(mask), &mask) == 0)
+        n = std::min<long>(n, CPU_COUNT(&mask));
+    auto limit_by_quota = [&n](long quota, long period) {
+        if (quota > 0 && period > 0)
+            n = std::min(n, std::max(1L, (quota + period - 1) / period));
+    };
+    std::string quota;
+    long period = 0;
+    if (std::ifstream v2("/sys/fs/cgroup/cpu.max"); v2 >> quota >> period) {
+        if (quota != "max")
+            limit_by_quota(std::atol(quota.c_str()), period);
+    } else {
+        long v1_quota = 0;
+        std::ifstream q("/sys/fs/cgroup/cpu/cpu.cfs_quota_us");
+        std::ifstream p("/sys/fs/cgroup/cpu/cpu.cfs_period_us");
+        if (q >> v1_quota && p >> period)
+            limit_by_quota(v1_quota, period);
+    }
+#endif
+    return int(std::clamp(n, 1L, 8L));
+}
+
+// Threads for the per-step anchor updates (--threads). Output is identical
+// for every value; 0 on the command line restores the default.
+inline int simplify_threads = default_simplify_threads();
 inline std::string json_output_path = "";
 
 // ===========================================================================
@@ -47,7 +87,8 @@ inline void print_help(const char* prog) {
                  "stdout for the web visualizer (suppresses all other stdout text)\n"
               << "  --json-stream    With --web-server, emit NDJSON (header, one prefix per line, done)\n"
               << "  --json-output <path>  Write JSON trace to file instead of stdout (use with --web-server)\n"
-              << "  --time           Opt-in phase timers (stderr TIMING SUMMARY + TIMER_MS lines)\n"
+              << "  --time           Opt-in phase timers (stderr TIMING SUMMARY + TIMER_MS lines; runs single-threaded)\n"
+              << "  --threads <n>    Threads for per-step anchor updates (default " << simplify_threads << "; output is identical for any n)\n"
               << "  -h               Show this help and exit\n"
               << "\n"
               << "Shorthand: " << prog << " <id> [flags] is equivalent to '--in <id> --out [flags]'\n";
@@ -63,6 +104,12 @@ inline int parse_arguments(int argc, char** argv, int& test_case_no) {
             json_output_path = argv[++i];
         }
         else if (strcmp(argv[i],"--time") == 0) time_flag = true;
+        else if (strcmp(argv[i],"--threads") == 0 && i+1 < argc) {
+            try { simplify_threads = std::stoi(argv[++i]); } catch(...) { std::cerr << "Invalid --threads value\n"; return 1; }
+            if (simplify_threads < 0) { std::cerr << "Invalid --threads value\n"; return 1; }
+            if (simplify_threads == 0)
+                simplify_threads = default_simplify_threads();
+        }
         else if (strcmp(argv[i],"--gui") == 0 || strcmp(argv[i],"-F") == 0 ||
                  strcmp(argv[i],"-G") == 0 || strcmp(argv[i],"-S") == 0) {
             std::cerr << "GUI options require simplify_with_gui\n";

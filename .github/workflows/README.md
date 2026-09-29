@@ -43,28 +43,20 @@ Artifacts: `correctness-<label>` with `correctness.tsv` and `correctness.json`. 
 ### benchmark.yml - Performance regression
 **Triggers:** Push to main, pull requests to main, manual dispatch
 
-Same 20 parallel `(ε, δ, size)` matrix jobs as correctness (table above). For each setting, runs `BENCH_RUNS=10` Release invocations of `SIMPLIFY_CORE_MS` per ID for each binary (small: 11..20 or large: 21..30, new vs the same baseline commit as correctness), computes per-ID mean and sample stddev via Welford's online algorithm, and enforces high-confidence gates (one-sided 95% CI with Welch t, fail only when confident new is worse):
+Same 20 parallel `(ε, δ, size)` matrix jobs as correctness (table above). For each setting, averages `BENCH_RUNS=5` Release runs of `SIMPLIFY_CORE_MS` on its 10 IDs (small: 11..20 or large: 21..30, new vs the same baseline commit as correctness) and enforces:
 
-1. **Mean gate:** over all 10 IDs, `mean(new) ≤ mean(orig) × MEAN_LIMIT` with `MEAN_LIMIT=1.05` (cannot worsen by more than 1.05×) but gated as `(mu_new - 1.05·mu_orig) - t_{0.95}·SE_mean > 0` where `SE_mean` propagates per-ID `σ/√n` via Welch-Satterthwaite.
-2. **Per-ID gate:** for each ID, `new_ms ≤ orig_ms * 1.20` (was 1.50) but now high-confidence: `SE = sqrt(σ_new²/n + (1.20·σ_orig)²/n)`, Welch `df`, `t_{0.95}`, fail `FAIL_SLOW` iff `(mu_new - 1.20·mu_orig) - t·SE > 0`.
+1. **Mean gate:** over IDs with `orig_ms ≥ MIN_BENCH_MS` (1 ms), `mean(new) ≤ mean(orig) × MEAN_LIMIT` with `MEAN_LIMIT=1.05` (cannot worsen by more than 1.05×). Replaces a zero-tolerance `mean(new) < mean(orig)` check that failed `mid` on ~0.2% noise with `gated_n=1`.
+2. **Per-ID gate:** for those same gated IDs, `new_ms ≤ orig_ms * 1.20` (was 1.50).
 
-All 10 IDs per configuration are gated (no floor); sub-millisecond runs are included in both gates. The prior five-run gate failed 80 of 82 matrix runs. The confidence bounds require evidence above the limit before reporting a regression.
+IDs with `orig_ms` strictly below 1 ms are reported as `SKIP_FLOOR` and excluded from both gates; everything at or above 1 ms is gated.
 
-Local `SIMPLIFY_CORE_MS` means can swing under host load. When comparing commits locally, interleave baseline and candidate runs and inspect per-ID minima alongside the ten-run Welford means/stddevs used by CI; the benchmark JSON/TSV now include `orig_std`/`new_std` per ID.
+Local `SIMPLIFY_CORE_MS` means can swing under host load. When comparing commits locally, interleave baseline and candidate runs and inspect per-ID minima alongside the five-run means used by CI.
 
-Gated averages intentionally omit `--time` so timing stays comparable to older binaries. After averages, each binary runs once per ID with `--time`. The new binary must exit 0 with at least one `TIMER_MS` line; an older baseline without timers yields unavailable baseline phases. Phase counters (`hull_Gi`, `find_F`, `intersect`, `boundary_P`, …) land in the TSV `orig_ops`/`new_ops` columns and nested `orig_ops`/`new_ops` objects in JSON.
+Gated averages intentionally omit `--time` so timing stays comparable to older binaries (and because `--time` runs single-threaded, while gated runs use the default `--threads`). After averages, the new binary runs once per ID with `--time` and must exit 0 with at least one `TIMER_MS` line (blank ops is a failure). Phase counters (`hull_Gi`, `find_F`, `intersect`, `boundary_P`, …) land in the TSV `ops` column and nested `ops` objects in JSON.
 
-Artifacts: `benchmark-<label>` with `benchmark.tsv` / `benchmark.json`. TSV header is `id e d orig_ms orig_std new_ms new_std ratio gated status orig_ops new_ops`; its statistics are rounded for display. JSON `cases` preserve the Welford mean and sample stddev at the precision used by the Welch gates. Job summaries show `orig_ms ± std` / `new_ms ± std` and mark `FAIL_SLOW` only when the Welch 95% lower bound exceeds the limit. Each job logs `Computed DELTA=… from NUMER/(1+EPSILON)` and `Synced IDs: …`.
+Artifacts: `benchmark-<label>` with `benchmark.tsv` / `benchmark.json`. Job summaries highlight wins and regressions per setting. Each job logs `Computed DELTA=… from NUMER/(1+EPSILON)` and `Synced IDs: …`.
 
-After all 20 matrix jobs, `bench-report` (always runs) aggregates `benchmark.json` across all labels via `scripts/ci/bench_report.py` (`--reports-dir`, `--output-md/html/comment`):
-
-- **Job summary (GITHUB_STEP_SUMMARY)**: overall table per configuration (mean orig ms, new ms, speedup orig/new, pass/fail vs thresholds — all 10 IDs) plus per-phase before/after table with time shares (intersect/clip, find_F, Gi hull, Gi prep, boundary_P, other) aggregated from the `TIMER_MS` lines (summed over IDs per label, share = phase/total). The same rendering is used locally on saved logs: `python scripts/ci/bench_report.py --reports-dir bench-artifacts --output-html report.html`.
-- **HTML artifact**: self-contained `benchmark-report` (single `report.html` with tables + inline CSS bar charts, no external assets) uploaded via `actions/upload-artifact`.
-- **Sticky PR comment**: single comment with `<!-- bench-report -->` marker containing headline speedups and a link to the run, updated in place on each push (gh api `PATCH` if existing, `POST` otherwise). Push to `main` skips the comment.
-
-The report marks a missing configuration as an incomplete matrix. Missing baseline timers or phases appear as `n/a` in phase comparisons rather than zero.
-
-Runtime: 20 jobs each build both binaries and run 10 IDs × (10 orig + 10 new + 2 --time) = 220 simplify invocations per job. Across the matrix, the benchmark runs 4,000 sampled invocations plus 400 ops runs (4,400 total). The separate correctness sweep covers 20 × 10 cases.
+Runtime: 20 jobs each build once and run 10 IDs ×5 averages +10 --time runs =60 simplify invocations. On a local Release build the full 20×10 correctness sweep (~200 Fréchet runs) and 20×10 benchmark sweep (~1000 timed runs) each complete in under a few minutes; measured total for the entire matrix (both workflows sequentially, `BENCH_RUNS=5`) is reported in the PR that introduced the matrix.
 
 ### gui-build.yml - Qt GUI build
 **Triggers:** Push to main, pull requests to main, manual dispatch

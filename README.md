@@ -17,8 +17,7 @@ https://simplify-viewer-522405269791.asia-east2.run.app
 
 ## Repository layout
 
-- `simplify_core.h`: headless streaming algorithm and its anchor workspace.
-- `simplify.cpp`: headless command-line and web-trace front-ends.
+- `simplify.cpp`: headless implementation of the paper's algorithm.
 - `simplify_with_gui.cpp`, `drawing.cpp`, `drawing.h`: optional Qt viewer.
 - `scripts/prepare_dataset.py`: download T-Drive and normalize it into the canonical curve format.
 - `scripts/benchmark.py`: long-running comparison against the DOTS baseline.
@@ -117,7 +116,9 @@ x y
 This reads `data/1/original.txt` and writes `data/1/simplify.txt`. The
 shorthand `./build/simplify 1` is equivalent to `--in 1 --out`. Useful options
 include `-d DELTA`, `-e EPSILON`, `--dist`, `--time` (opt-in phase timers on
-stderr), and `--gui` on the GUI target.
+stderr; runs single-threaded), `--threads N` (threads for the per-step anchor
+updates; defaults to the usable CPUs capped at 8, and the output is identical
+for any N), and `--gui` on the GUI target.
 
 ### Visualize output
 
