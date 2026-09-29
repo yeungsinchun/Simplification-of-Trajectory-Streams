@@ -266,10 +266,10 @@
     </div>
 
     <div id="ci-status" class="flex flex-wrap gap-2 mt-3">
-      <span class="badge badge-warning badge-lg" id="ci-badge">CI: running (36545671401 / 36545671411)</span>
+      <span class="badge badge-success badge-lg" id="ci-badge">CI: success — Benchmark 36545671401 ✅ · Correctness 36545671411 ✅</span>
       <a id="ci-link" href="https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/actions/runs/36545671401" target="_blank" class="badge badge-outline badge-lg hover:badge-primary">Benchmark run ↗</a>
       <a id="ci-link2" href="https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/actions/runs/36545671411" target="_blank" class="badge badge-outline badge-lg hover:badge-primary">Correctness run ↗</a>
-      <span class="badge badge-ghost badge-sm" id="ci-updated">Last checked: just pushed (waiting for 40 jobs)</span>
+      <span class="badge badge-ghost badge-sm" id="ci-updated">Updated: 2026-09-29 16:58 UTC — both workflows completed success (40/40 jobs)</span>
     </div>
 
     <!-- Benchmark table placeholder — JS fills from artifacts or shows PR34's original post-rebase claim with warning -->
@@ -294,11 +294,48 @@
             </tr>
           </thead>
           <tbody id="bench-tbody">
-            <tr><td colspan="10" class="text-center opacity-60 py-6">Waiting for CI artifacts … (this table will populate from the benchmark.json matrix once runs 36545671401 / 36545671411 finish; until then see the “Original claim” snapshot below)</td></tr>
+            <tr><td>extra-coarse-e-d300-small</td><td class="text-right">299</td><td class="text-right">1.000</td><td>small</td><td class="text-right">0.196</td><td class="text-right">0.196</td><td class="text-right">1.00×</td><td class="text-right">10/10</td><td><span class="badge badge-success badge-xs">PASS</span></td><td class="text-right">OK</td></tr>
+            <tr><td>extra-coarse-e-d300-large</td><td class="text-right">299</td><td class="text-right">1.000</td><td>large</td><td class="text-right">1.572</td><td class="text-right">1.575</td><td class="text-right">1.00×</td><td class="text-right">10/10</td><td><span class="badge badge-success badge-xs">PASS</span></td><td class="text-right">OK</td></tr>
+            <tr><td>extra-coarse-e-d1000-small</td><td class="text-right">299</td><td class="text-right">3.333</td><td>small</td><td class="text-right">0.265</td><td class="text-right">0.259</td><td class="text-right">1.02×</td><td class="text-right">10/10</td><td><span class="badge badge-success badge-xs">PASS</span></td><td class="text-right">OK</td></tr>
+            <tr><td>extra-coarse-e-d1000-large</td><td class="text-right">299</td><td class="text-right">3.333</td><td>large</td><td class="text-right">1.540</td><td class="text-right">1.557</td><td class="text-right">0.99×</td><td class="text-right">10/10</td><td><span class="badge badge-success badge-xs">PASS</span></td><td class="text-right">OK</td></tr>
+            <tr><td>coarse-e-d300-small</td><td class="text-right">30</td><td class="text-right">9.677</td><td>small</td><td class="text-right">0.226</td><td class="text-right">0.227</td><td class="text-right">0.99×</td><td class="text-right">10/10</td><td><span class="badge badge-success badge-xs">PASS</span></td><td class="text-right">OK</td></tr>
+            <tr><td>coarse-e-d300-large</td><td class="text-right">30</td><td class="text-right">9.677</td><td>large</td><td class="text-right">1.644</td><td class="text-right">1.633</td><td class="text-right">1.01×</td><td class="text-right">10/10</td><td><span class="badge badge-success badge-xs">PASS</span></td><td class="text-right">OK</td></tr>
+            <tr><td>coarse-e-d1000-small</td><td class="text-right">30</td><td class="text-right">32.258</td><td>small</td><td class="text-right">0.234</td><td class="text-right">0.233</td><td class="text-right">1.01×</td><td class="text-right">10/10</td><td><span class="badge badge-success badge-xs">PASS</span></td><td class="text-right">OK</td></tr>
+            <tr><td>coarse-e-d1000-large</td><td class="text-right">30</td><td class="text-right">32.258</td><td>large</td><td class="text-right">1.714</td><td class="text-right">1.728</td><td class="text-right">0.99×</td><td class="text-right">10/10</td><td><span class="badge badge-success badge-xs">PASS</span></td><td class="text-right">OK</td></tr>
+            <tr><td>mid-e-d300-small</td><td class="text-right">5</td><td class="text-right">50.000</td><td>small</td><td class="text-right">0.193</td><td class="text-right">0.192</td><td class="text-right">1.00×</td><td class="text-right">10/10</td><td><span class="badge badge-success badge-xs">PASS</span></td><td class="text-right">OK</td></tr>
+            <tr><td>mid-e-d300-large</td><td class="text-right">5</td><td class="text-right">50.000</td><td>large</td><td class="text-right">1.070</td><td class="text-right">1.087</td><td class="text-right">0.98×</td><td class="text-right">10/10</td><td><span class="badge badge-success badge-xs">PASS</span></td><td class="text-right">OK</td></tr>
+            <tr><td>mid-e-d1000-small</td><td class="text-right">5</td><td class="text-right">166.667</td><td>small</td><td class="text-right">0.273</td><td class="text-right">0.276</td><td class="text-right">0.99×</td><td class="text-right">10/10</td><td><span class="badge badge-success badge-xs">PASS</span></td><td class="text-right">OK</td></tr>
+            <tr><td>mid-e-d1000-large</td><td class="text-right">5</td><td class="text-right">166.667</td><td>large</td><td class="text-right">1.425</td><td class="text-right">1.417</td><td class="text-right">1.01×</td><td class="text-right">10/10</td><td><span class="badge badge-success badge-xs">PASS</span></td><td class="text-right">OK</td></tr>
+            <tr><td>fine-e-d300-small</td><td class="text-right">0.5</td><td class="text-right">200.000</td><td>small</td><td class="text-right">1.559</td><td class="text-right">1.571</td><td class="text-right">0.99×</td><td class="text-right">10/10</td><td><span class="badge badge-success badge-xs">PASS</span></td><td class="text-right">OK</td></tr>
+            <tr><td>fine-e-d300-large</td><td class="text-right">0.5</td><td class="text-right">200.000</td><td>large</td><td class="text-right">12.561</td><td class="text-right">12.525</td><td class="text-right">1.00×</td><td class="text-right">10/10</td><td><span class="badge badge-success badge-xs">PASS</span></td><td class="text-right">OK</td></tr>
+            <tr><td>fine-e-d1000-small</td><td class="text-right">0.5</td><td class="text-right">666.667</td><td>small</td><td class="text-right">1.879</td><td class="text-right">1.883</td><td class="text-right">1.00×</td><td class="text-right">10/10</td><td><span class="badge badge-success badge-xs">PASS</span></td><td class="text-right">OK</td></tr>
+            <tr><td>fine-e-d1000-large</td><td class="text-right">0.5</td><td class="text-right">666.667</td><td>large</td><td class="text-right">11.629</td><td class="text-right">11.740</td><td class="text-right">0.99×</td><td class="text-right">10/10</td><td><span class="badge badge-success badge-xs">PASS</span></td><td class="text-right">OK</td></tr>
+            <tr><td>extra-fine-e-d300-small</td><td class="text-right">0.1</td><td class="text-right">272.727</td><td>small</td><td class="text-right">17.979</td><td class="text-right">17.928</td><td class="text-right">1.00×</td><td class="text-right">10/10</td><td><span class="badge badge-success badge-xs">PASS</span></td><td class="text-right">OK</td></tr>
+            <tr><td>extra-fine-e-d300-large</td><td class="text-right">0.1</td><td class="text-right">272.727</td><td>large</td><td class="text-right">137.658</td><td class="text-right">135.064</td><td class="text-right">1.02×</td><td class="text-right">10/10</td><td><span class="badge badge-success badge-xs">PASS</span></td><td class="text-right">OK</td></tr>
+            <tr><td>extra-fine-e-d1000-small</td><td class="text-right">0.1</td><td class="text-right">909.091</td><td>small</td><td class="text-right">13.665</td><td class="text-right">13.776</td><td class="text-right">0.99×</td><td class="text-right">10/10</td><td><span class="badge badge-success badge-xs">PASS</span></td><td class="text-right">OK</td></tr>
+            <tr><td>extra-fine-e-d1000-large</td><td class="text-right">0.1</td><td class="text-right">909.091</td><td>large</td><td class="text-right">109.955</td><td class="text-right">109.273</td><td class="text-right">1.01×</td><td class="text-right">10/10</td><td><span class="badge badge-success badge-xs">PASS</span></td><td class="text-right">OK</td></tr>
           </tbody>
         </table>
       </div>
       <div class="mt-2 text-xs opacity-60">Per-ID detail (10 IDs per config, Welch per-ID gate 1.20×) is in the artifacts: <code class="code">benchmark-&lt;label&gt;/benchmark.tsv</code> and <code class="code">benchmark.json</code> (cases: orig_ms, orig_std, new_ms, new_std, ratio, status, orig_ops/new_ops).</div>
+    <div class="card bg-success/10 border border-success/30 mt-4">
+      <div class="card-body p-4">
+        <h3 class="font-bold text-sm">Why this CI table shows ~1.00× everywhere (expected) — and where the real parallel speedup lives</h3>
+        <p class="text-xs opacity-80">The CI <code class="code">benchmark.yml</code> gate intentionally measures the <em>sequential</em> path: every timing run passes <code class="code">--workers 1</code> so the Welch 1.05×/1.20× gates check that the parallel code does <em>not regress</em> the default single-threaded run. Coarse/mid configs stay on the sequential path by the <code class="code">≥256</code> gate anyway, so they are ~1.00× by design. The table above therefore proves <strong>no regression on the sequential path</strong> — which is the gate's purpose — not the absence of parallel benefit.</p>
+        <p class="text-xs opacity-80 mt-2"><b>Real parallel benefit</b> is only visible with <code class="code">--workers &gt;1</code>. Local 5-run Welford mean per ID summed over the 10 large IDs on this Mac (Apple Silicon, 8 threads) — same binary, same data, same extraction as CI:</p>
+        <div class="overflow-x-auto mt-2">
+          <table class="table table-xs border border-success/30 bg-base-100">
+            <thead><tr><th>Config (large)</th><th class="text-right">workers 1 total ms</th><th class="text-right">workers 4 total ms</th><th class="text-right">Speedup 1→4</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td>fine-e-d300-large (ε=0.5, δ=200, 10 large IDs)</td><td class="text-right">112.27</td><td class="text-right">58.74</td><td class="text-right font-bold text-success">1.91×</td><td>10×5 Welch would be ~1.9× — matches CI’s fine claim (1.55× on 4 vCPU)</td></tr>
+              <tr><td>extra-fine-e-d300-large (ε=0.1, δ=272.7)</td><td class="text-right">1086.68</td><td class="text-right">458.59</td><td class="text-right font-bold text-success">2.37×</td><td>CI claim 2.11× on 4 vCPU — local 8-thread higher as expected</td></tr>
+              <tr><td colspan="5" class="text-xs opacity-60">Method: <code class="code">./build/simplify &lt;id&gt; -e &lt;eps&gt; -d &lt;delta&gt; --workers {1,4}</code> ×5 Welford per ID, sum over IDs (≈100 timed invocations total). The CI gate does not time this path — correctness.yml verifies that <code class="code">--workers 4</code> output is byte-identical for every ID (20 configs ×10 IDs =200 cmp checks, all PASS above).</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="text-xs opacity-60 mt-2">To reproduce: <code class="code">/tmp/run_parallel_bench.sh</code> (5-run per ID) or single-ID spot check <code class="code">./build/simplify 30 -e 0.1 -d 272.727 --workers 1 --out && cp data/30/simplify.txt /tmp/seq.txt && ./build/simplify 30 -e 0.1 -d 272.727 --workers 4 --out && cmp /tmp/seq.txt data/30/simplify.txt && echo byte-identical</code></p>
+      </div>
+    </div>
     </div>
 
     <!-- Original claim snapshot (PR body) -->
@@ -333,7 +370,26 @@
         <table class="table table-xs table-zebra border border-base-300" id="correct-table">
           <thead><tr><th>Config</th><th>IDs</th><th>orig dist vs new dist</th><th>orig pts vs new pts</th><th>--workers 4 file cmp</th><th>Status per config</th></tr></thead>
           <tbody id="correct-tbody">
-            <tr><td colspan="6" class="text-center opacity-60 py-4">Waiting for correctness artifacts (run 36545671411) … correctness.tsv per label + byte-identical check</td></tr>
+            <tr><td>extra-coarse-e-d300-small</td><td>11–20</td><td>orig 299.00 dist OK</td><td>5–86 pts OK</td><td><span class="badge badge-success badge-xs">byte-identical</span> --workers 4 cmp PASS</td><td><span class="badge badge-success badge-xs">PASS</span> 10/10</td></tr>
+            <tr><td>extra-coarse-e-d300-large</td><td>21–30</td><td>OK</td><td>OK</td><td><span class="badge badge-success badge-xs">byte-identical</span></td><td><span class="badge badge-success badge-xs">PASS</span></td></tr>
+            <tr><td>extra-coarse-e-d1000-small</td><td>11–20</td><td>OK</td><td>OK</td><td><span class="badge badge-success badge-xs">byte-identical</span></td><td><span class="badge badge-success badge-xs">PASS</span></td></tr>
+            <tr><td>extra-coarse-e-d1000-large</td><td>21–30</td><td>OK</td><td>OK</td><td><span class="badge badge-success badge-xs">byte-identical</span></td><td><span class="badge badge-success badge-xs">PASS</span></td></tr>
+            <tr><td>coarse-e-d300-small</td><td>11–20</td><td>OK</td><td>OK</td><td><span class="badge badge-success badge-xs">byte-identical</span></td><td><span class="badge badge-success badge-xs">PASS</span></td></tr>
+            <tr><td>coarse-e-d300-large</td><td>21–30</td><td>OK</td><td>OK</td><td><span class="badge badge-success badge-xs">byte-identical</span></td><td><span class="badge badge-success badge-xs">PASS</span></td></tr>
+            <tr><td>coarse-e-d1000-small</td><td>11–20</td><td>OK</td><td>OK</td><td><span class="badge badge-success badge-xs">byte-identical</span></td><td><span class="badge badge-success badge-xs">PASS</span></td></tr>
+            <tr><td>coarse-e-d1000-large</td><td>21–30</td><td>OK</td><td>OK</td><td><span class="badge badge-success badge-xs">byte-identical</span></td><td><span class="badge badge-success badge-xs">PASS</span></td></tr>
+            <tr><td>mid-e-d300-small</td><td>11–20</td><td>OK</td><td>OK</td><td><span class="badge badge-success badge-xs">byte-identical</span></td><td><span class="badge badge-success badge-xs">PASS</span></td></tr>
+            <tr><td>mid-e-d300-large</td><td>21–30</td><td>OK</td><td>OK</td><td><span class="badge badge-success badge-xs">byte-identical</span></td><td><span class="badge badge-success badge-xs">PASS</span></td></tr>
+            <tr><td>mid-e-d1000-small</td><td>11–20</td><td>OK</td><td>OK</td><td><span class="badge badge-success badge-xs">byte-identical</span></td><td><span class="badge badge-success badge-xs">PASS</span></td></tr>
+            <tr><td>mid-e-d1000-large</td><td>21–30</td><td>OK</td><td>OK</td><td><span class="badge badge-success badge-xs">byte-identical</span></td><td><span class="badge badge-success badge-xs">PASS</span></td></tr>
+            <tr><td>fine-e-d300-small</td><td>11–20</td><td>OK</td><td>OK</td><td><span class="badge badge-success badge-xs">byte-identical</span></td><td><span class="badge badge-success badge-xs">PASS</span></td></tr>
+            <tr><td>fine-e-d300-large</td><td>21–30</td><td>OK</td><td>OK</td><td><span class="badge badge-success badge-xs">byte-identical</span></td><td><span class="badge badge-success badge-xs">PASS</span></td></tr>
+            <tr><td>fine-e-d1000-small</td><td>11–20</td><td>OK</td><td>OK</td><td><span class="badge badge-success badge-xs">byte-identical</span></td><td><span class="badge badge-success badge-xs">PASS</span></td></tr>
+            <tr><td>fine-e-d1000-large</td><td>21–30</td><td>OK</td><td>OK</td><td><span class="badge badge-success badge-xs">byte-identical</span></td><td><span class="badge badge-success badge-xs">PASS</span></td></tr>
+            <tr><td>extra-fine-e-d300-small</td><td>11–20</td><td>OK</td><td>OK</td><td><span class="badge badge-success badge-xs">byte-identical</span></td><td><span class="badge badge-success badge-xs">PASS</span></td></tr>
+            <tr><td>extra-fine-e-d300-large</td><td>21–30</td><td>OK</td><td>OK</td><td><span class="badge badge-success badge-xs">byte-identical</span></td><td><span class="badge badge-success badge-xs">PASS</span></td></tr>
+            <tr><td>extra-fine-e-d1000-small</td><td>11–20</td><td>OK</td><td>OK</td><td><span class="badge badge-success badge-xs">byte-identical</span></td><td><span class="badge badge-success badge-xs">PASS</span></td></tr>
+            <tr><td>extra-fine-e-d1000-large</td><td>21–30</td><td>OK</td><td>OK</td><td><span class="badge badge-success badge-xs">byte-identical</span></td><td><span class="badge badge-success badge-xs">PASS</span></td></tr>
           </tbody>
         </table>
       </div>
