@@ -17,7 +17,7 @@ on:
 
 jobs:
   web-trace:
-    name: "web-trace trace=${{ env.TRACE_ID }} eps=${{ env.EPSILON }}"
+    name: web-trace
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
