@@ -154,7 +154,7 @@ jobs:
           TRACE_URL="http://$HOST:$PORT/api/trace/$TRACE_ID?epsilon=$EPSILON&delta=$DELTA"
           echo "Curling gzipped $TRACE_URL (Accept-Encoding: gzip)"
           rm -f /tmp/trace.gz /tmp/gzip-headers.txt /tmp/gzip-stats.txt
-          curl -s -H "Accept-Encoding: gzip" -D /tmp/gzip-headers.txt -o /tmp/trace.gz --raw -w "%{http_code} %{time_total} %{size_download} %{content_type}\n" "$TRACE_URL" > /tmp/gzip-stats.txt
+          curl -s -H "Accept-Encoding: gzip" -D /tmp/gzip-headers.txt -o /tmp/trace.gz -w "%{http_code} %{time_total} %{size_download} %{content_type}\n" "$TRACE_URL" > /tmp/gzip-stats.txt
           cat /tmp/gzip-stats.txt
           echo "--- gzip response headers ---"
           cat /tmp/gzip-headers.txt || true
@@ -172,8 +172,8 @@ jobs:
           # Check Content-Encoding
           if grep -qi "content-encoding: gzip" /tmp/gzip-headers.txt; then
             echo "✓ Content-Encoding: gzip present"
-            # Verify gzip magic 1f 8b
-            if ! head -c 2 /tmp/trace.gz | od -An -tx1 | grep -q "1f 8b"; then
+            # Verify gzip magic 1f 8b (python is portable vs od spacing)
+            if ! python3 -c "import sys; data=open('/tmp/trace.gz','rb').read(2); sys.exit(0 if data==b'\x1f\x8b' else 1)"; then
               echo "❌ Content-Encoding gzip but body not gzipped"
               exit 1
             fi
