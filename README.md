@@ -170,7 +170,7 @@ reproduced on this hardware with the same inputs, same metric and no cherry-pick
 **Warmups, repeats, ordering, and statistics**
 - 1 discarded warmup + **10 timed repetitions** per algorithm/case, each as a **fresh process** (so per-process grid caches start cold), Welford mean and **sample** stddev (not population) over the 10 values.
 - Algorithm order **shuffled round-robin** per repetition with seed 20260928; no concurrent workers, `*_NUM_THREADS=1` pinned.
-- Case-balanced (descriptive) means are shown below; we do **not** hide variance behind a single global average — the compact `results/fair-core/summary.csv` and `docs/fair-core-benchmark.md` preserve per-case raw samples, stddevs and point counts.
+- Case-balanced (descriptive) means are shown below; we do **not** hide variance behind a single global average — the compact `results/fair-core/summary.csv` preserves the aggregated means; per-case raw samples and stddevs stay local in gitignored `results/fair-core/before.json` and can be re-generated via `scripts/fair_benchmark.py`.
 
 **Calibration to a common Fréchet bound (why equal parameters would be unfair)**
 - SOTS: ε, δ are dimensionless / distance-scale.  DP: ε is perpendicular distance.  DOTS: LSSD threshold.  SQUISH: kept-ratio.  Passing the same number to each would compare different error objectives.
@@ -278,7 +278,7 @@ python3 scripts/fair_benchmark.py --phase before --build-dir build   # 200 cases
 # summary: results/fair-core/summary.csv (compact, tracked); raw samples stay in ignored results/fair-core/before.json
 # for smoke: add --ids 21 --epsilons 0.5 --bounds 300 --runs 2
 ```
-See `docs/fair-core-benchmark.md` for the full correctness contract, calibration algorithm, and timing boundary definitions; its matrix and tool versions are authoritative and **identical to CI** (`.github/workflows/benchmark.yml`).
+The full correctness contract, calibration algorithm and timing boundaries are as documented in the methodology above; the CI matrix and tool versions are authoritative and **identical to CI** (`.github/workflows/benchmark.yml`).
 
 The long-running `scripts/benchmark.py` (≈1k trajectories, workers) remains available but is **not** the source of the tables above:
 ```bash
