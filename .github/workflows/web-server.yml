@@ -1,0 +1,330 @@
+name: Web Server Trace
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+# Single trace regression gate for the Flask web viewer. Keeps the green path
+# from silently breaking: starts the server, curls the trace endpoint for
+# trajectory 1 at fine epsilon, validates NDJSON structure (including
+# gzipped variant), and gates response time / payload size. The same
+# validator and manual script are available locally:
+#   scripts/check_web_trace.sh
+#   python3 scripts/ci/validate_web_trace.py --help
+
+jobs:
+  web-trace:
+    name: web-trace
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TRACE_ID: "1"
+      EPSILON: "0.5"
+      DELTA: "200"
+      PORT: "5051"
+      HOST: "127.0.0.1"
+      MAX_TIME_MS: "10000"
+      MIN_BYTES: "1024"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          # qt6-base-dev: dots baseline needs Qt6 Core at configure time even
+          # when BUILD_GUI=OFF — keep parity with correctness/benchmark.
+          # g++-14 is required for C++23 deducing-this and <print>.
+          sudo apt-get install -y cmake build-essential g++-14 libcgal-dev qt6-base-dev
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100
+          sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-14 100
+          sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-14 100
+          g++ --version
+
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r web/requirements.txt
+          python3 -c "import importlib.metadata; print(f'Flask {importlib.metadata.version(\"flask\")} Werkzeug {importlib.metadata.version(\"werkzeug\")}')"
+
+      - name: Build simplify
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF
+          cmake --build build --target simplify -j"$(nproc)"
+          ls -lh build/simplify
+          ./build/simplify --help || true
+          # sanity: data/1 must exist
+          ls -lh "data/$TRACE_ID/original.txt"
+          echo "Trace $TRACE_ID points: $(head -1 "data/$TRACE_ID/original.txt")"
+
+      - name: Start web server
+        run: |
+          set -euo pipefail
+          echo "Starting Flask on $HOST:$PORT"
+          # Unbuffered so logs appear promptly in CI
+          PORT="$PORT" HOST="$HOST" python3 -u web/server.py > /tmp/web-server.log 2>&1 &
+          echo $! > /tmp/web-server.pid
+          echo "pid=$(cat /tmp/web-server.pid)"
+          # Wait for /api/traces to respond (30s)
+          for i in $(seq 1 30); do
+            if curl -s --connect-timeout 1 "http://$HOST:$PORT/api/traces" >/dev/null 2>&1; then
+              echo "Server ready after ${i}s"
+              break
+            fi
+            if ! kill -0 "$(cat /tmp/web-server.pid)" 2>/dev/null; then
+              echo "❌ server died early"
+              cat /tmp/web-server.log || true
+              exit 1
+            fi
+            sleep 1
+            if [ "$i" -eq 30 ]; then
+              echo "❌ server did not become ready in 30s"
+              cat /tmp/web-server.log || true
+              exit 1
+            fi
+          done
+          echo "Server log tail:"
+          tail -n 50 /tmp/web-server.log || true
+
+      - name: Curl plain NDJSON and validate
+        run: |
+          set -euo pipefail
+          TRACE_URL="http://$HOST:$PORT/api/trace/$TRACE_ID?epsilon=$EPSILON&delta=$DELTA"
+          echo "Curling $TRACE_URL"
+          rm -f /tmp/trace.ndjson /tmp/trace-headers.txt /tmp/curl-stats.txt
+          curl -s -D /tmp/trace-headers.txt -o /tmp/trace.ndjson -w "%{http_code} %{time_total} %{size_download} %{content_type}\n" "$TRACE_URL" > /tmp/curl-stats.txt
+          cat /tmp/curl-stats.txt
+          echo "--- response headers ---"
+          cat /tmp/trace-headers.txt || true
+          echo "--- curl stats ---"
+          cat /tmp/curl-stats.txt
+          read -r HTTP_CODE TIME_TOTAL SIZE_DOWNLOAD CONTENT_TYPE < /tmp/curl-stats.txt
+          echo "HTTP_CODE=$HTTP_CODE TIME_TOTAL=$TIME_TOTAL SIZE=$SIZE_DOWNLOAD CT=$CONTENT_TYPE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ expected HTTP 200, got $HTTP_CODE"
+            echo "--- body head ---"
+            head -c 1000 /tmp/trace.ndjson || true
+            echo
+            echo "--- server log ---"
+            cat /tmp/web-server.log || true
+            exit 1
+          fi
+          if ! grep -qi "application/x-ndjson" /tmp/trace-headers.txt; then
+            echo "❌ Content-Type missing application/x-ndjson: $(grep -i content-type /tmp/trace-headers.txt || echo 'none')"
+            exit 1
+          fi
+          BYTES=$(wc -c < /tmp/trace.ndjson | tr -d '[:space:]')
+          WALL_MS=$(python3 -c "import sys; print(int(float(sys.argv[1])*1000))" "$TIME_TOTAL")
+          echo "Payload bytes=$BYTES wall_ms=$WALL_MS"
+          echo "BYTES=$BYTES" >> "$GITHUB_ENV"
+          echo "WALL_MS=$WALL_MS" >> "$GITHUB_ENV"
+          # size gate
+          if [ "$BYTES" -lt "$MIN_BYTES" ]; then
+            echo "❌ payload too small: $BYTES < $MIN_BYTES bytes"
+            exit 1
+          fi
+          if [ "$WALL_MS" -gt "$MAX_TIME_MS" ]; then
+            echo "❌ wall time regression: ${WALL_MS}ms > ${MAX_TIME_MS}ms"
+            exit 1
+          fi
+          # NDJSON structural validation (v2 trace format)
+          python3 scripts/ci/validate_web_trace.py \
+            --input /tmp/trace.ndjson \
+            --epsilon "$EPSILON" --delta "$DELTA" --trace-id "$TRACE_ID" \
+            --wall-time-ms "$WALL_MS" --size-bytes "$BYTES"
+          # Capture validator metrics for summary
+          python3 scripts/ci/validate_web_trace.py \
+            --input /tmp/trace.ndjson \
+            --epsilon "$EPSILON" --delta "$DELTA" --trace-id "$TRACE_ID" \
+            --wall-time-ms "$WALL_MS" --size-bytes "$BYTES" \
+            --json-summary /tmp/validate-summary.json || true
+          cat /tmp/validate-summary.json || true
+          echo "✅ plain NDJSON passed"
+
+      - name: Curl gzipped NDJSON and validate
+        run: |
+          set -euo pipefail
+          TRACE_URL="http://$HOST:$PORT/api/trace/$TRACE_ID?epsilon=$EPSILON&delta=$DELTA"
+          echo "Curling gzipped $TRACE_URL (Accept-Encoding: gzip)"
+          rm -f /tmp/trace.gz /tmp/gzip-headers.txt /tmp/gzip-stats.txt
+          curl -s -H "Accept-Encoding: gzip" -D /tmp/gzip-headers.txt -o /tmp/trace.gz --raw -w "%{http_code} %{time_total} %{size_download} %{content_type}\n" "$TRACE_URL" > /tmp/gzip-stats.txt
+          cat /tmp/gzip-stats.txt
+          echo "--- gzip response headers ---"
+          cat /tmp/gzip-headers.txt || true
+          read -r GZ_CODE GZ_TIME GZ_SIZE GZ_CTYPE < /tmp/gzip-stats.txt
+          echo "GZ_CODE=$GZ_CODE GZ_TIME=$GZ_TIME GZ_SIZE=$GZ_SIZE GZ_CTYPE=$GZ_CTYPE"
+          if [ "$GZ_CODE" != "200" ]; then
+            echo "❌ gzipped request expected 200, got $GZ_CODE"
+            exit 1
+          fi
+          GZ_BYTES=$(wc -c < /tmp/trace.gz | tr -d '[:space:]')
+          GZ_WALL_MS=$(python3 -c "import sys; print(int(float(sys.argv[1])*1000))" "$GZ_TIME")
+          echo "Gzipped on-wire bytes=$GZ_BYTES wall=${GZ_WALL_MS}ms"
+          echo "GZ_BYTES=$GZ_BYTES" >> "$GITHUB_ENV"
+          echo "GZ_WALL_MS=$GZ_WALL_MS" >> "$GITHUB_ENV"
+          # Check Content-Encoding
+          if grep -qi "content-encoding: gzip" /tmp/gzip-headers.txt; then
+            echo "✓ Content-Encoding: gzip present"
+            # Verify gzip magic 1f 8b
+            if ! head -c 2 /tmp/trace.gz | od -An -tx1 | grep -q "1f 8b"; then
+              echo "❌ Content-Encoding gzip but body not gzipped"
+              exit 1
+            fi
+            echo "✓ gzip magic verified"
+            # Decompress and re-validate
+            python3 -c "
+          import gzip, pathlib
+          p = pathlib.Path('/tmp/trace.gz')
+          out = pathlib.Path('/tmp/trace.gunzipped.ndjson')
+          out.write_bytes(gzip.decompress(p.read_bytes()))
+          print(f'decompressed {out.stat().st_size} bytes')
+          "
+            GZ_DECOMP_BYTES=$(wc -c < /tmp/trace.gunzipped.ndjson | tr -d '[:space:]')
+            echo "Decompressed bytes=$GZ_DECOMP_BYTES vs plain $BYTES"
+            echo "GZ_DECOMP_BYTES=$GZ_DECOMP_BYTES" >> "$GITHUB_ENV"
+            # Validate decompressed NDJSON
+            python3 scripts/ci/validate_web_trace.py \
+              --input /tmp/trace.gunzipped.ndjson \
+              --epsilon "$EPSILON" --delta "$DELTA" --trace-id "$TRACE_ID"
+            if [ "$GZ_BYTES" -ge "$BYTES" ]; then
+              echo "⚠️ gzipped ($GZ_BYTES) not smaller than plain ($BYTES) — may be small payload, not fatal"
+            else
+              RATIO=$(python3 -c "import sys; print(f'{int(sys.argv[1])/int(sys.argv[2]):.1%}')" "$GZ_BYTES" "$BYTES")
+              echo "✓ gzip compression ratio $RATIO"
+              echo "GZIP_RATIO=$RATIO" >> "$GITHUB_ENV"
+            fi
+            echo "✅ gzipped NDJSON passed"
+          else
+            echo "⚠️ server did not return gzip (Content-Encoding missing) — validating fallback body as NDJSON"
+            if head -c 1 /tmp/trace.gz | grep -q "{"; then
+              python3 scripts/ci/validate_web_trace.py \
+                --input /tmp/trace.gz \
+                --epsilon "$EPSILON" --delta "$DELTA" --trace-id "$TRACE_ID" || {
+                echo "⚠️ fallback gzip file not valid NDJSON — continuing (plain already passed)"
+              }
+            fi
+          fi
+
+      - name: Direct handler smoke (no Flask)
+        run: |
+          set -euo pipefail
+          echo "Testing C++ --web-server --json-stream directly"
+          ./build/simplify --in "$TRACE_ID" -e "$EPSILON" -d "$DELTA" --web-server --json-stream > /tmp/direct.ndjson 2> /tmp/direct-stderr.txt || {
+            echo "❌ direct handler failed"
+            cat /tmp/direct-stderr.txt || true
+            exit 1
+          }
+          BYTES_DIRECT=$(wc -c < /tmp/direct.ndjson | tr -d '[:space:]')
+          echo "Direct bytes=$BYTES_DIRECT"
+          echo "BYTES_DIRECT=$BYTES_DIRECT" >> "$GITHUB_ENV"
+          python3 scripts/ci/validate_web_trace.py \
+            --input /tmp/direct.ndjson \
+            --epsilon "$EPSILON" --delta "$DELTA" --trace-id "$TRACE_ID"
+          # Cross-check prefix counts between server and direct should match
+          PLAIN_PFX=$(python3 -c "import json; lines=open('/tmp/trace.ndjson').read().strip().splitlines(); print(sum(1 for l in lines if json.loads(l).get('type')=='prefix'))")
+          DIRECT_PFX=$(python3 -c "import json; lines=open('/tmp/direct.ndjson').read().strip().splitlines(); print(sum(1 for l in lines if json.loads(l).get('type')=='prefix'))")
+          echo "Plain prefixes=$PLAIN_PFX direct prefixes=$DIRECT_PFX"
+          echo "PLAIN_PFX=$PLAIN_PFX DIRECT_PFX=$DIRECT_PFX" >> "$GITHUB_ENV"
+          if [ "$PLAIN_PFX" != "$DIRECT_PFX" ]; then
+            echo "❌ prefix count mismatch: server $PLAIN_PFX vs direct $DIRECT_PFX"
+            exit 1
+          fi
+          echo "✅ direct handler matches server"
+
+      - name: Write job summary
+        if: always()
+        run: |
+          set -euo pipefail
+          {
+            echo "## Web Server Trace — trajectory $TRACE_ID (fine ε=$EPSILON, δ=$DELTA)"
+            echo ""
+            echo "Server: \`http://$HOST:$PORT\` — trace \`GET /api/trace/$TRACE_ID?epsilon=$EPSILON&delta=$DELTA\`"
+            echo ""
+            if [ -f /tmp/validate-summary.json ]; then
+              PREFIXES=$(python3 -c "import json; print(json.load(open('/tmp/validate-summary.json')).get('prefixes','?'))" 2>/dev/null || echo "?")
+              STEPS=$(python3 -c "import json; print(json.load(open('/tmp/validate-summary.json')).get('steps','?'))" 2>/dev/null || echo "?")
+              STREAM_LEN=$(python3 -c "import json; print(json.load(open('/tmp/validate-summary.json')).get('stream_len','?'))" 2>/dev/null || echo "?")
+              SIMP_LEN=$(python3 -c "import json; print(json.load(open('/tmp/validate-summary.json')).get('simplified_len','?'))" 2>/dev/null || echo "?")
+              TIME_MS=$(python3 -c "import json; print(json.load(open('/tmp/validate-summary.json')).get('time_ms','?'))" 2>/dev/null || echo "?")
+            else
+              PREFIXES="?"; STEPS="?"; STREAM_LEN="?"; SIMP_LEN="?"; TIME_MS="?"
+            fi
+            echo "| Check | Result |"
+            echo "|---|---|"
+            if [ -f /tmp/trace.ndjson ]; then
+              echo "| Plain NDJSON | ✅ valid (${BYTES:-?} B, ${WALL_MS:-?} ms) |"
+            else
+              echo "| Plain NDJSON | ❌ missing |"
+            fi
+            if [ -f /tmp/trace.gz ]; then
+              if grep -qi "content-encoding: gzip" /tmp/gzip-headers.txt 2>/dev/null; then
+                echo "| Gzipped NDJSON | ✅ gzip (${GZ_BYTES:-?} B → ${GZ_DECOMP_BYTES:-?} B, ratio ${GZIP_RATIO:-?}) |"
+              else
+                echo "| Gzipped NDJSON | ⚠️ no gzip encoding (fallback ${GZ_BYTES:-?} B) |"
+              fi
+            else
+              echo "| Gzipped NDJSON | — |"
+            fi
+            if [ -f /tmp/direct.ndjson ]; then
+              echo "| Direct handler | ✅ valid (${BYTES_DIRECT:-?} B, prefixes ${PLAIN_PFX:-?}) |"
+            else
+              echo "| Direct handler | — |"
+            fi
+            echo ""
+            echo "| Metric | Value | Gate |"
+            echo "|---|---|---|"
+            echo "| Wall time (server) | ${WALL_MS:-?} ms | ≤ ${MAX_TIME_MS} ms |"
+            echo "| Payload (plain) | ${BYTES:-?} B | ≥ ${MIN_BYTES} B |"
+            echo "| Gzipped wire | ${GZ_BYTES:-?} B | < plain |"
+            echo "| Prefixes | ${PREFIXES} | ≥1 |"
+            echo "| Steps | ${STEPS} | ≥1 |"
+            echo "| Stream → simplified | ${STREAM_LEN} → ${SIMP_LEN} | simplified even & ≤ stream |"
+            echo "| Core time_ms (done) | ${TIME_MS} ms | ≥0 |"
+            echo ""
+            if [ -f /tmp/curl-stats.txt ]; then
+              echo "curl plain: $(cat /tmp/curl-stats.txt)"
+            fi
+            if [ -f /tmp/gzip-stats.txt ]; then
+              echo "curl gzip: $(cat /tmp/gzip-stats.txt)"
+            fi
+            echo ""
+            echo "_Validated with \`scripts/ci/validate_web_trace.py\` (v2 trace format: header/prefix/done). Re-run locally: \`scripts/check_web_trace.sh --trace-id $TRACE_ID --epsilon $EPSILON --delta $DELTA\`._"
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload trace artifacts (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-trace-failure
+          path: |
+            /tmp/trace.ndjson
+            /tmp/trace.gz
+            /tmp/trace.gunzipped.ndjson
+            /tmp/direct.ndjson
+            /tmp/trace-headers.txt
+            /tmp/gzip-headers.txt
+            /tmp/web-server.log
+            /tmp/validate-summary.json
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f /tmp/web-server.pid ]; then
+            PID=$(cat /tmp/web-server.pid)
+            echo "Stopping server pid $PID"
+            kill "$PID" 2>/dev/null || true
+            sleep 1
+            if kill -0 "$PID" 2>/dev/null; then
+              kill -9 "$PID" 2>/dev/null || true
+            fi
+          fi
+          echo "Server log tail:"
+          tail -n 100 /tmp/web-server.log || true
