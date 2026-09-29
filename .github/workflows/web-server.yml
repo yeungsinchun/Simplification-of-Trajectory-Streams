@@ -52,7 +52,7 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip
           python3 -m pip install -r web/requirements.txt
-          python3 -c "import flask, werkzeug; print(f'Flask {flask.__version__} Werkzeug {werkzeug.__version__}')"
+          python3 -c "import importlib.metadata; print(f'Flask {importlib.metadata.version(\"flask\")} Werkzeug {importlib.metadata.version(\"werkzeug\")}')"
 
       - name: Build simplify
         run: |
