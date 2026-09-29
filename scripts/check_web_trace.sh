@@ -250,9 +250,10 @@ fi
 # ---------------------------------------------------------------------------
 echo "==> curl gzipped NDJSON (Accept-Encoding: gzip)"
 rm -f "$TRACE_GZ" "$GZIP_HEADERS" "$CURL_STATS"
-# Use --raw to keep gzip encoding, -H to request gzip; do not use --compressed which auto-decompresses
+# Request gzip; curl decodes chunked transfer-encoding but keeps Content-Encoding: gzip
+# (do not use --compressed which auto-decompresses gzip, and do not use --raw which disables chunked decoding)
 set +e
-curl -s -H "Accept-Encoding: gzip" -D "$GZIP_HEADERS" -o "$TRACE_GZ" --raw -w "%{http_code} %{time_total} %{size_download} %{content_type}\n" "$TRACE_URL" > "$CURL_STATS" 2>&1
+curl -s -H "Accept-Encoding: gzip" -D "$GZIP_HEADERS" -o "$TRACE_GZ" -w "%{http_code} %{time_total} %{size_download} %{content_type}\n" "$TRACE_URL" > "$CURL_STATS" 2>&1
 CURL_RC=$?
 set -e
 if [ "$CURL_RC" -ne 0 ]; then
@@ -267,7 +268,7 @@ else
     if grep -qi "content-encoding: gzip" "$GZIP_HEADERS"; then
       HAS_GZIP=1
       echo "    ✓ gzip Content-Encoding present"
-      if head -c 2 "$TRACE_GZ" | od -An -tx1 | grep -q "1f 8b"; then
+      if python3 -c "import sys; data=open('$TRACE_GZ','rb').read(2); sys.exit(0 if data==b'\x1f\x8b' else 1)"; then
         echo "    ✓ gzip magic present"
       else
         echo "warn: Content-Encoding gzip but file not gzipped (may be auto-decompressed by curl/proxy)" >&2
