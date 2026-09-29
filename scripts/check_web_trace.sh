@@ -137,6 +137,7 @@ fi
 
 # Check data trace exists
 if [ ! -f "$REPO_ROOT/data/$TRACE_ID/original.txt" ]; then
+  # shellcheck disable=SC2012 # ls is fine for numeric trace dirs; find would be noisy here
   fail "data/$TRACE_ID/original.txt not found (available ids: $(ls "$REPO_ROOT/data" 2>/dev/null | tr '\n' ' '))"
 fi
 ORIG_N="$(head -1 "$REPO_ROOT/data/$TRACE_ID/original.txt" | tr -d '[:space:]')"
