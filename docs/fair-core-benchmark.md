@@ -1,0 +1,240 @@
+# Four-way core simplification benchmark
+
+The comparison uses native SOTS, DOTS, SQUISH and Douglas–Peucker (DP), built
+with CMake from the same checkout. `scripts/fair_benchmark.py` runs them serially
+on the same input coordinates. It measures only their native `*_CORE_MS` markers.
+No baseline is synthesized, and missing timing markers fail the run.
+
+## Correctness contract
+
+The approved comparison uses a **common measured continuous Fréchet upper
+bound**, not equal actual distances. SOTS can emit coordinates between grid
+samples, whereas the other algorithms select input vertices. Exact equality
+across implementations is generally unattainable: on the five-point dataset 8,
+SOTS at ε=0.5, δ=200 has distance 291.547594742265. Exhaustively checking all
+eight endpoint-preserving input subsequences gives either zero or at least
+1414.2135627750365. No DP or DOTS parameter can bridge that gap.
+The enumerated distances are preserved in
+`results/fair-core/equality-counterexample.json`.
+
+Every reported output is independently measured by `FrechetDist.jl`'s
+`frechet_c_compute`. The numerical slack on a bound B is `max(1e-7, 1e-9 * B)`;
+actual distances are retained without rounding. The optimized SOTS must produce
+byte-identical curve files and exactly the same measured distance as the initial
+SOTS. Retained point counts and actual distances accompany every runtime row.
+Equal bounds do not mean equal compression, equal errors, or equal guarantees.
+
+SOTS uses dimensionless ε and distance scale δ. DP's epsilon is a perpendicular
+distance, DOTS uses local integral squared synchronous distance (LSSD), and
+SQUISH uses a retained-point ratio. Passing the same number to those controls
+would compare different error objectives. Calibration selects native baseline
+controls outside all reported timings, verifies their measured Fréchet error,
+then freezes them for both benchmark phases.
+
+For DP and DOTS, calibration tests a near-zero threshold, brackets a failing
+threshold by doubling, and performs 14 refinement steps. SQUISH searches integer
+buffer capacities from three through full retention. Its pinned implementation
+has an invalid buffer≤2 path that can omit the final endpoint, so the comparison
+does not use that path. Among evaluated feasible candidates, selection minimizes
+retained points, then prefers larger actual error. Fréchet error is not assumed
+to be monotone in native controls: this search finds a verified feasible output,
+**not a proven globally optimal compression**. All calibration trials are saved.
+
+## Workload and timing
+
+- The complete CI matrix: IDs 11–30, ε in {299, 30, 5, 0.5, 0.1}, and
+  B in {300, 1000}; δ is `B/(1+ε)` formatted to 15 significant digits, exactly
+  as in CI. These are 200 cases using 20 deterministic trajectory prefixes.
+  IDs 18 and 28 both contain the same five-point original; sizes are actual
+  counts, not an assertion that every "large" curve has 1000 points.
+- Ten samples per algorithm/case after one discarded warmup. Each sample is a
+  fresh process, so SOTS's per-process grid caches start cold. Algorithm order
+  is shuffled within sequential rounds with seed 20260928. No concurrent
+  benchmark workers, OpenMP, or algorithm threads are used; library thread
+  environment variables are fixed to one.
+- Native timed regions: SOTS `Simplifier::simplify`; DOTS
+  `DotsSimplifier::batchDotsByIndex`; DP recursive selection plus sort/unique;
+  SQUISH buffer simplification. Input reading, process startup, curve writing,
+  calibration, Fréchet checking, trace/GUI generation, and phase timers are
+  excluded. The existing SOTS marker also excludes its bounding-box scan;
+  baseline parsing constructs coordinate/time arrays outside their timers.
+  Results compare these native core boundaries, not whole-application latency.
+- Markers resolve to 0.0001 ms. Very small measurements have material
+  quantization/noise; zero means never produce an infinite claimed speedup.
+  Per-case means and **sample** standard deviations use the ten raw values.
+  `speedup_vs_sots = SOTS mean / algorithm mean`: larger means the baseline is
+  faster. Case-balanced group means are descriptive, not uncertainty estimates.
+- The after phase also interleaves the untouched original SOTS binary. This
+  contemporaneous reference distinguishes optimization gains from host drift.
+  It verifies binary hashes, input hashes, configuration, frozen controls and
+  output identity. macOS provides no CPU affinity here; this is a shared host,
+  so the preserved samples and deviations matter more than isolated minima.
+
+## Reproduce
+
+Initialize the pinned submodule and install the README's CMake, CGAL, Qt6 Core,
+Julia and FrechetDist dependencies. Build with the same compiler/Release flags
+for all targets, with no fast-math or algorithm parallelization:
+
+```sh
+cmake -S . -B build-before -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF
+cmake --build build-before --target simplify dp dots squish --parallel 1
+python3 scripts/fair_benchmark.py --phase before --build-dir build-before
+```
+
+Preserve those binaries. After applying an optimization, build SOTS separately
+and copy the unchanged baseline binaries into the new build directory:
+
+```sh
+cmake -S . -B build-after -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF
+cmake --build build-after --target simplify --parallel 1
+cp build-before/dp build-before/dots build-before/squish build-after/
+python3 scripts/fair_benchmark.py --phase after --build-dir build-after \
+  --reference build-before/simplify
+```
+
+Default output is `results/fair-core/`: raw samples, summaries, all calibration
+trials, input/binary hashes, and per-dataset CSV tables. Completed phase evidence
+is never overwritten; use a different `--output` for another experiment. A
+failed partial phase may be restarted; hash-checked calibrations are reused.
+Small smoke runs can pass `--ids 18 --epsilons 0.5 --bounds 300 --runs 2` to both
+phases. Keep the same options for both phases.
+
+For profiling, independently from benchmark collection:
+
+```sh
+cmake --build build-before --target profile_sots --parallel 1
+xctrace record --template 'Time Profiler' --time-limit 10s \
+  --output profile.trace --launch -- \
+  "$PWD/build-before/profile_sots" "$PWD/data/21/original.txt" 0.1 272.727272727273 10000
+# Linux equivalent: perf record -g -- build-before/profile_sots ...
+build-before/simplify 21 -e 0.1 -d 272.727272727273 --time
+```
+
+The repeated profiler workload warms shape caches after the first iteration;
+the CLI phase timers expose cold grid initialization too. Neither profiler nor
+instrumented phase durations are used as the performance result.
+
+## Profile and chosen optimization
+
+Instruments Time Profiler 27.0 sampled the original implementation for ten
+seconds on ID 21, ε=0.1, δ=272.727272727273. It recorded 9,872 samples on one
+main thread. Edge cropping and its inline helpers account for 7,216 samples
+(73.1%); tangent selection accounts for 623 (6.3%). The exported leaf-frame
+counts are in `results/fair-core/profile-before.json`. These are sampled
+attributions, not precise phase durations. `timers-before.txt` independently
+attributes 78.7% of an instrumented invocation to intersection, with 68,296
+intersection calls and 72,914 wedge updates for 588 input points.
+
+The implemented change batches four determinant tests in the already-inside
+prefix of `crop_to_left_of_edge`. It removes per-vertex branching from that
+common path and exposes independent arithmetic to the compiler. A block with
+an outside vertex falls back to the existing scalar path. Edge traversal,
+intersection formulas, vertex order, tangent selection, and floating-point
+flags stay the same. The optimization uses no new threads, persistent caches,
+or extra trajectory storage.
+
+`test_clip_batch` compares the crop against an independent scalar
+Sutherland–Hodgman oracle, bit for bit, over every inside/outside/on-edge pattern
+through ten vertices and 20,000 seeded random rings (including non-convex
+subjects). Run it with:
+
+```sh
+cmake --build build-after --target test_clip_batch --parallel 1
+build-after/test_clip_batch
+python3 -m unittest discover -s scripts -p test_fair_benchmark.py
+```
+
+The complete after benchmark additionally checks the actual output hashes and
+continuous Fréchet measurements for every case and all four algorithms.
+Local validation passed in both Release and Debug with AddressSanitizer and
+UndefinedBehaviorSanitizer. The benchmark parser tests and existing
+`python3 scripts/ci/test_bench_report.py` report test passed. Chrome checks
+covered the board's case filters, phase switch, SVG charts and contained table
+scrolling on a narrow viewport. Pipeline review and CI are a separate handoff.
+
+## Further work toward baseline performance
+
+The native algorithms solve different optimization problems. Loop tuning alone
+cannot plausibly remove the large gap at fine ε: SOTS updates many independent
+anchor polygons per input step, while the baselines avoid that work. Useful next
+experiments, in priority order:
+
+1. Prove and implement anchor dominance or equivalent-state elimination. This
+   can reduce the number of polygon updates, but must preserve the longest stab
+   and the current last-anchor tie order. Merely dropping nearby anchors can
+   change the output and is outside this optimization's correctness contract.
+2. Investigate an incremental convex clip representation that avoids scanning
+   all crop edges for each anchor. Its handling of tangencies, degenerate rings
+   and rounded intersection coordinates needs differential validation before
+   adoption.
+3. Prototype a structure-of-arrays layout for longer rings and explicitly
+   vectorized orientation batches, retaining scalar crossings and the same
+   rounding behavior. Coarse cases have short rings, so dispatch overhead must
+   be measured separately.
+
+Fréchet-result caching cannot reduce the measured core: the verifier already
+runs outside it. Grid hull/outline shapes and clip storage are already cached
+within a process; cold phase timers show grid construction is a small fraction
+of this workload. A persistent-process benchmark would measure a different
+workload and must be reported separately.
+
+## Recorded results (2026-09-28) — corrected 2026-09-29
+
+Local M1 (Apple clang 21.0.0, CMake 4.1.1, Release `-O3 -DNDEBUG -arch arm64`;
+Julia 1.12.6 / FrechetDist 2.1.0; `results/fair-core/build.json`) measured 1.115×
+vs paired reference on that shared host, but **CI (Ubuntu 24.04 g++-14, 20
+configs ×10 IDs =200 cases, 10 runs, Welch 95% high-confidence) shows mean
+speedup 1.00× (neutral, 0% cut)**. Per-config CI speedups (orig/new): 0.94–1.08×,
+20/20 passed; per-phase intersect 1.07× (3152→2944 ms) but overall neutral. See
+[bench-report](https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/actions/runs/36460949757)
+(Run 36460949757). The table below is the local M1 case-balanced mean
+**core_ms** per ε tier (40 cases), retained as measured; the authoritative
+claim is CI's 1.00×, not the earlier 10.3%.
+
+Each entry below is the case-balanced mean **core_ms** for that ε tier (40
+cases) on the local M1 host, not a pooled uncertainty estimate. Per-dataset
+means, sample standard deviations, speedups, actual Fréchet errors and retained
+counts are in [before.csv](../results/fair-core/before.csv) and
+[after.csv](../results/fair-core/after.csv). Raw ten-sample arrays are in the
+corresponding JSON files. CI per-config means (orig→new, ms): extra-coarse
+0.21–1.57→0.22–1.61, coarse 0.23–1.73→0.24–1.75, mid 0.14–1.72→0.15–1.76, fine
+1.51–14.67→1.51–14.51, extra-fine 17.63–135.66→16.68–128.67.
+
+| ε | Initial SOTS (M1) | Original rerun (M1) | Optimized SOTS (M1) | DOTS after | SQUISH after | DP after | SOTS gain vs rerun (M1 local) |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 299 | 0.94597 | 0.80139 | 0.79851 | 0.19118 | 0.04077 | 0.01765 | 1.004× |
+| 30 | 0.92995 | 0.79505 | 0.79203 | 0.19111 | 0.03919 | 0.01722 | 1.004× |
+| 5 | 0.90183 | 0.81170 | 0.81802 | 0.19557 | 0.04054 | 0.01726 | 0.992× |
+| 0.5 | 8.98599 | 7.03965 | 6.57931 | 0.19359 | 0.04028 | 0.01709 | 1.070× |
+| 0.1 | 78.55734 | 65.59837 | 58.31398 | 0.19202 | 0.03974 | 0.01751 | 1.125× |
+
+Across all 200 cases on that M1 host, final SOTS averaged 13.4604 ms versus
+15.0092 ms for the original binary in the same run (1.115× local).
+**Corrected claim per CI: 1.00× mean (0% cut, neutral)** across 20 configs
+(Run 36460949757; e.g., extra-coarse-e-d300-small 1.00×, large 0.98×,
+extra-fine-e-d300-large 1.08×, d1000-large 1.05×; mean 1.00×). The local 10.3%
+was within host noise and shared-host drift and is not reproduced under CI's
+high-confidence Welch gating (per-ID ≤1.20×, mean ≤1.05×).
+
+Performance parity is not achieved. On final case-balanced means SOTS still
+takes 69.9× DOTS time, 335.6× SQUISH time, and 776.1× DP time (local M1; CI
+shows similar gaps). Different point counts and actual errors remain visible;
+these ratios compare a common verified upper bound, not identical outputs
+across algorithms.
+
+All 200 cases (local) preserve the four output hashes and measured distances
+across phases, and satisfy their common bound. The local run included 8,000
+initial and 10,000 final timed invocations (plus discarded warmups).
+**This is now correctly reported as a neutral result (1.00×) with exact output
+preservation on this matrix, not a 10.3% cut nor a claim of parity or
+universal speedup.** CI gates 20/20 passed at 1.20× per-ID and 1.05× mean.
+
+The self-contained [Lavish board](../.lavish/sots-fair-bench/index.html)
+includes bar/line charts, dataset/ε/bound filters, a phase-switchable table
+and a raw evidence download. The board now shows the corrected conclusion
+(1.00× neutral) alongside the local evidence. Rebuild it with:
+
+```sh
+python3 scripts/render_fair_benchmark.py
+```

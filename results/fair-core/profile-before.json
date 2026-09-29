@@ -1,0 +1,118 @@
+{
+  "samples": 9872,
+  "threads": [
+    "Main Thread (0xbb77ad6) (profile_sots, pid: 56557)"
+  ],
+  "top_frames": [
+    [
+      "sh_double::crop_to_left_of_edge(std::__1::array<double, 2ul> const*, unsigned long, sh_double::ClipEdge const&, std::__1::array<double, 2ul>*, unsigned long&)",
+      5100
+    ],
+    [
+      "sh_double::crop_to_left_of_edge(std::__1::array<double, 2ul> const*, unsigned long, sh_double::ClipEdge const&, std::__1::array<double, 2ul>*, unsigned long&)::'lambda'(std::__1::array<double, 2ul> const&, double)::operator()(std::__1::array<double, 2ul> const&, double) const",
+      1851
+    ],
+    [
+      "find_tangent_idx(CGAL::Point_2<CGAL::Epick> const&, std::__1::span<CGAL::Point_2<CGAL::Epick> const, 18446744073709551615ul>)",
+      623
+    ],
+    [
+      "ConvexClipper::clip(std::__1::span<CGAL::Point_2<CGAL::Epick> const, 18446744073709551615ul>, ConvexRegion const&, std::__1::vector<CGAL::Point_2<CGAL::Epick>, std::__1::allocator<CGAL::Point_2<CGAL::Epick>>>&, AxisBounds*)",
+      519
+    ],
+    [
+      "_platform_memmove",
+      330
+    ],
+    [
+      "sh_double::crop_to_left_of_edge(std::__1::array<double, 2ul> const*, unsigned long, sh_double::ClipEdge const&, std::__1::array<double, 2ul>*, unsigned long&)::'lambda'(std::__1::array<double, 2ul> const&)::operator()(std::__1::array<double, 2ul> const&) const",
+      265
+    ],
+    [
+      "CGAL::Point_2<CGAL::Epick>& std::__1::vector<CGAL::Point_2<CGAL::Epick>, std::__1::allocator<CGAL::Point_2<CGAL::Epick>>>::emplace_back<double const&, double const&>(double const&, double const&)",
+      170
+    ],
+    [
+      "ray_hit_bbox(CGAL::Point_2<CGAL::Epick> const&, CGAL::Point_2<CGAL::Epick> const&)::'lambda'(double)::operator()(double) const",
+      156
+    ],
+    [
+      "ray_hit_bbox(CGAL::Point_2<CGAL::Epick> const&, CGAL::Point_2<CGAL::Epick> const&)",
+      110
+    ],
+    [
+      "ConvexClipper::clip(std::__1::span<CGAL::Point_2<CGAL::Epick> const, 18446744073709551615ul>, ConvexRegion const&, std::__1::vector<CGAL::Point_2<CGAL::Epick>, std::__1::allocator<CGAL::Point_2<CGAL::Epick>>>&, AxisBounds*)::'lambda'(std::__1::array<double, 2ul> const&, std::__1::array<double, 2ul> const&)::operator()(std::__1::array<double, 2ul> const&, std::__1::array<double, 2ul> const&) const",
+      92
+    ],
+    [
+      "CGAL::Point_2<CGAL::Epick>& std::__1::vector<CGAL::Point_2<CGAL::Epick>, std::__1::allocator<CGAL::Point_2<CGAL::Epick>>>::emplace_back<CGAL::Point_2<CGAL::Epick> const&>(CGAL::Point_2<CGAL::Epick> const&)",
+      71
+    ],
+    [
+      "std::__1::__math::abs[abi:nqe220106](double)",
+      59
+    ],
+    [
+      "std::__1::vector<std::__1::array<double, 2ul>, std::__1::allocator<std::__1::array<double, 2ul>>>::data[abi:nqe220106]()",
+      59
+    ],
+    [
+      "DYLD-STUB$$memmove",
+      48
+    ],
+    [
+      "find_F(CGAL::Point_2<CGAL::Epick> const&, std::__1::span<CGAL::Point_2<CGAL::Epick> const, 18446744073709551615ul>, std::__1::vector<CGAL::Point_2<CGAL::Epick>, std::__1::allocator<CGAL::Point_2<CGAL::Epick>>>&, AxisBounds const*, AxisBounds const*, bool*)",
+      44
+    ],
+    [
+      "std::__1::vector<std::__1::array<double, 2ul>, std::__1::allocator<std::__1::array<double, 2ul>>>::size[abi:nqe220106]() const",
+      37
+    ],
+    [
+      "Anchor::advance(ConvexRegion const&, StepWorkspace&)",
+      33
+    ],
+    [
+      "Timer::~Timer()",
+      31
+    ],
+    [
+      "std::__1::__wrap_iter<sh_double::ClipEdge const*>::operator++[abi:nqe220106]()",
+      31
+    ],
+    [
+      "std::__1::vector<CGAL::Point_2<CGAL::Epick>, std::__1::allocator<CGAL::Point_2<CGAL::Epick>>>::size[abi:nqe220106]() const",
+      28
+    ],
+    [
+      "which_edge(CGAL::Point_2<CGAL::Epick> const&)",
+      22
+    ],
+    [
+      "point_in_convex(CGAL::Point_2<CGAL::Epick> const&, std::__1::span<CGAL::Point_2<CGAL::Epick> const, 18446744073709551615ul>, bool)",
+      17
+    ],
+    [
+      "append_rect_pts(std::__1::vector<CGAL::Point_2<CGAL::Epick>, std::__1::allocator<CGAL::Point_2<CGAL::Epick>>>&, Bbox_edge, Bbox_edge, bool)",
+      17
+    ],
+    [
+      "std::__1::pair<CGAL::Point_2<CGAL::Epick> const*, std::__1::back_insert_iterator<std::__1::vector<CGAL::Point_2<CGAL::Epick>, std::__1::allocator<CGAL::Point_2<CGAL::Epick>>>>> std::__1::__copy_impl::operator()[abi:nqe220106]<CGAL::Point_2<CGAL::Epick> const*, CGAL::Point_2<CGAL::Epick> const*, std::__1::back_insert_iterator<std::__1::vector<CGAL::Point_2<CGAL::Epick>, std::__1::allocator<CGAL::Point_2<CGAL::Epick>>>>, 0>(CGAL::Point_2<CGAL::Epick> const*, CGAL::Point_2<CGAL::Epick> const*, std::__1::back_insert_iterator<std::__1::vector<CGAL::Point_2<CGAL::Epick>, std::__1::allocator<CGAL::Point_2<CGAL::Epick>>>>) const",
+      15
+    ],
+    [
+      "find_F(CGAL::Point_2<CGAL::Epick> const&, std::__1::span<CGAL::Point_2<CGAL::Epick> const, 18446744073709551615ul>, std::__1::vector<CGAL::Point_2<CGAL::Epick>, std::__1::allocator<CGAL::Point_2<CGAL::Epick>>>&, AxisBounds const*, AxisBounds const*, bool*)::'lambda'(double, double)::operator()(double, double) const",
+      13
+    ]
+  ],
+  "tool": "Instruments Time Profiler 27.0 (27A266a)",
+  "duration_seconds": 10,
+  "dataset": 21,
+  "epsilon": 0.1,
+  "delta": 272.727272727273,
+  "repetitions_requested": 10000,
+  "cache_state": "Warm after first repetition",
+  "phase_timers_enabled": false,
+  "source_revision": "ae91e5633d0cec1d994750dee5b37787877e36a6",
+  "exit": "Profiler stopped workload at time limit (SIGKILL; xctrace exit 54)"
+}

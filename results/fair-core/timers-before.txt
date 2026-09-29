@@ -1,0 +1,22 @@
+SIMPLIFY_CORE_MS: 119.9553
+
+========== TIMING SUMMARY ==========
+Operation                       Wall (ms)    Self (ms)      Calls   % Total  % Parent
+--------------------------------------------------------------------------------
+total                              119.95         0.01          1    100.0%    100.0%
+  get_longest_stab                 119.94        11.45         43    100.0%    100.0%
+    boundary_P                       0.13         0.13         43      0.1%      0.1%
+    find_F                          13.52        13.52      72914     11.3%     11.3%
+    hull_Gi                          0.24         0.24        587      0.2%      0.2%
+    intersect                       94.41        94.41      68296     78.7%     78.7%
+    prepare_clip_polygon             0.18         0.18        587      0.2%      0.2%
+--------------------------------------------------------------------------------
+TOTAL (wall time)                  119.95
+====================================
+TIMER_MS boundary_P 0.1331 43
+TIMER_MS find_F 13.5180 72914
+TIMER_MS get_longest_stab 119.9410 43
+TIMER_MS hull_Gi 0.2450 587
+TIMER_MS intersect 94.4131 68296
+TIMER_MS prepare_clip_polygon 0.1843 587
+TIMER_MS total 119.9550 1

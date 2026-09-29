@@ -209,4 +209,7 @@ ui_*.h
 
 *.log
 
-/.lavish
+/.lavish/*
+!/.lavish/sots-fair-bench/
+/.lavish/sots-fair-bench/*
+!/.lavish/sots-fair-bench/index.html
