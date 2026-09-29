@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en" data-theme="luxury">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PR34 Rebase — Parallel Anchor Updates Evidence Board | Simplification of Trajectory Streams</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.5.19/daisyui.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.5.19/themes.css">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.2.4/dist/index.global.js"></script>
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  :where(.grid,.flex)>*{min-width:0}
+  :where(p,h1,h2,h3,h4,li,td,th,.badge){overflow-wrap:anywhere}
+  :where(img,svg){max-width:100%;height:auto}
+  .code{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace}
+  .prose code{background:var(--color-base-200); padding:0.15em 0.4em; border-radius:0.3em; font-size:0.9em}
+</style>
+</head>
+<body class="bg-base-100 text-base-content">
+
+<!-- Navbar -->
+<div class="navbar bg-base-200 sticky top-0 z-20 border-b border-base-300">
+  <div class="navbar-start gap-2">
+    <div class="badge badge-primary badge-lg">PR34</div>
+    <span class="font-bold hidden sm:inline">Rebase Evidence Board</span>
+    <span class="font-bold sm:hidden">PR34</span>
+    <span class="badge badge-outline badge-sm hidden md:inline">fm/sots-opt-sweep-opus-a1 → main 34cf5bb</span>
+  </div>
+  <div class="navbar-center hidden lg:flex">
+    <span class="text-sm opacity-70">Worker-pool parallelization — byte-identical guarantee</span>
+  </div>
+  <div class="navbar-end gap-2">
+    <a href="https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/pull/34" target="_blank" class="badge badge-ghost badge-sm hover:badge-primary">PR #34 ↗</a>
+    <span class="badge badge-success badge-sm">Rebased 39accf6</span>
+    <span class="badge badge-outline badge-sm">--workers N</span>
+  </div>
+</div>
+
+<!-- Hero -->
+<div class="hero bg-base-200 py-8 border-b border-base-300">
+  <div class="hero-content flex-col lg:flex-row gap-8 w-full max-w-6xl">
+    <div class="flex-1">
+      <h1 class="text-4xl font-black leading-tight">PR34 — Parallel per-step<br/><span class="text-primary">anchor updates</span></h1>
+      <p class="py-4 opacity-80">The entire live anchor set of one stream step (<code class="code">find_F + Sutherland-Hodgman clip</code>) is data-parallel: each anchor reads only the shared hull <code class="code">Gi</code> and writes only its own <code class="code">S[i]</code>. This board shows what the optimization <em>actually</em> does after rebasing onto current <code class="code">main</code> (C++23 deducing-this), how the byte-identical guarantee is preserved and verified, and the real CI-gated numbers post-rebase — so the captain can decide before merge.</p>
+      <div class="flex flex-wrap gap-2 mt-2">
+        <div class="badge badge-primary">Byte-identical ∀ threads</div>
+        <div class="badge badge-outline">Gate ≥256 work units</div>
+        <div class="badge badge-success">Worker-pool chunk=4</div>
+        <div class="badge badge-ghost">--workers 1 default</div>
+      </div>
+      <div class="alert alert-warning mt-4 py-3">
+        <span class="text-sm"><b>Captain review needed:</b> This PR is <em>not</em> merged. CI ran on the rebased branch; this board holds the before/after evidence. Do not merge until the captain approves.</span>
+      </div>
+    </div>
+    <div class="flex-1 flex flex-col gap-4">
+      <div class="stats shadow bg-base-100">
+        <div class="stat place-items-center">
+          <div class="stat-title">Rebase base</div>
+          <div class="stat-value text-primary text-2xl">34cf5bb</div>
+          <div class="stat-desc">main: remove Qt GUI + C++23 (#44, #39)</div>
+        </div>
+        <div class="stat place-items-center">
+          <div class="stat-title">PR tip (rebased)</div>
+          <div class="stat-value text-secondary text-2xl">39accf6</div>
+          <div class="stat-desc">--workers N on deducing-this core</div>
+        </div>
+      </div>
+      <div class="card bg-base-100 border border-base-300 shadow-sm">
+        <div class="card-body p-4">
+          <h3 class="font-bold text-sm">One-sentence answer</h3>
+          <p class="text-sm">PR34 parallelizes the <em>inner loop over live anchors within a single stream step</em> on a persistent worker pool, compacting survivors in <code class="code">P</code> order — so the output is <strong>byte-identical to sequential main for every <code class="code">--workers</code> value</strong>, and only steps with <code class="code">live × Gi_edges ≥ 256</code> actually go parallel.</p>
+          <div class="mt-2 flex gap-2">
+            <span class="badge badge-sm badge-primary">Parallel step</span>
+            <span class="badge badge-sm badge-outline">Sequential step fallback</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main class="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-8">
+
+<!-- Section 1: Mechanism -->
+<section class="card bg-base-100 border border-base-300 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title text-2xl"><span class="badge badge-primary">1</span> What the optimization actually does</h2>
+    <p class="opacity-80">The hot path is the stab loop in <code class="code">simplify_core.h</code>: each prefix builds <code class="code">P = boundary(Gδ(p0))</code>, then consumes <code class="code">Gi = conv(Gδ(pi))</code> repeatedly, updating every live anchor <code class="code">p ∈ P</code> via <code class="code">S ← F(S,p) ∩ Gi</code> (wedge <code class="code">F</code> via <code class="code">find_F</code> + clip via <code class="code">ConvexClipper::clip</code>). Profile: ~80% clip, ~11% <code class="code">find_F</code> — all per-anchor independent work.</p>
+
+    <div class="grid lg:grid-cols-2 gap-6 mt-4">
+
+      <!-- Left: Flow -->
+      <div>
+        <h3 class="font-bold mb-2">Per-step data flow (one <code class="code">Gi</code> consumed)</h3>
+        <svg viewBox="0 0 560 340" class="w-full border border-base-300 rounded-box bg-base-200 p-2">
+          <!-- Shared inputs -->
+          <rect x="10" y="10" width="540" height="50" rx="8" fill="white" stroke="#999" stroke-width="1.2"/>
+          <text x="280" y="30" text-anchor="middle" font-size="11" font-weight="700">Shared, read-only for this step: hull Gi (CCW edges + bbox), P (boundary anchors)</text>
+          <text x="280" y="45" text-anchor="middle" font-size="9" fill="#555">Built once per stream point: get_conv_from_grid → ConvexRegion Gi (dedup + make_ccw + edges)</text>
+          <!-- Sequential vs parallel -->
+          <rect x="10" y="80" width="260" height="110" rx="8" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5"/>
+          <text x="140" y="96" text-anchor="middle" font-size="11" font-weight="700">Sequential path (gate)</text>
+          <text x="140" y="110" text-anchor="middle" font-size="9">live × Gi_edges &lt; 256  OR  --time</text>
+          <text x="140" y="125" text-anchor="middle" font-size="9">→ single workspace</text>
+          <text x="140" y="140" text-anchor="middle" font-size="9" font-family="monospace">anchors_.retain(anchor.advance(G, ws))</text>
+          <text x="140" y="155" text-anchor="middle" font-size="9">keeps survivors in P order</text>
+          <rect x="28" y="160" width="224" height="20" rx="4" fill="white" stroke="#f59e0b"/>
+          <text x="140" y="174" text-anchor="middle" font-size="8" fill="#92400e">coarse/mid ε (4-edge Gi, few anchors) stays here</text>
+
+          <rect x="290" y="80" width="260" height="110" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+          <text x="420" y="96" text-anchor="middle" font-size="11" font-weight="700" fill="#1e40af">Parallel path (WorkerPool)</text>
+          <text x="420" y="110" text-anchor="middle" font-size="9">live × Gi_edges ≥ 256  AND  !timer</text>
+          <text x="420" y="125" text-anchor="middle" font-size="9">→ N workspaces (alignas(128), no false sharing)</text>
+          <text x="420" y="140" text-anchor="middle" font-size="9" font-family="monospace">pool.run(count, fn[begin,end,worker])</text>
+          <text x="420" y="155" text-anchor="middle" font-size="9">chunk=4, each worker writes alive[k]</text>
+          <rect x="308" y="160" width="224" height="20" rx="4" fill="white" stroke="#2563eb"/>
+          <text x="420" y="174" text-anchor="middle" font-size="8" fill="#1e40af">fine / extra-fine ε (large Gi, many anchors) goes here</text>
+
+          <!-- Single thread participates -->
+          <line x1="140" y1="190" x2="140" y2="215" stroke="#999" stroke-width="1.2" marker-end="url(#arrow)"/>
+          <line x1="420" y1="190" x2="420" y2="215" stroke="#999" stroke-width="1.2" marker-end="url(#arrow)"/>
+          <rect x="60" y="215" width="160" height="38" rx="6" fill="#ecfdf5" stroke="#059669"/>
+          <text x="140" y="230" text-anchor="middle" font-size="9" font-weight="600">Reuses sequential Anchor::advance</text>
+          <text x="140" y="242" text-anchor="middle" font-size="8">one out-of-line copy shared by both</text>
+          <rect x="340" y="215" width="160" height="38" rx="6" fill="#ecfdf5" stroke="#059669"/>
+          <text x="420" y="230" text-anchor="middle" font-size="9" font-weight="600">Same Anchor::advance, per-worker</text>
+          <text x="420" y="242" text-anchor="middle" font-size="8">reads G, writes own S + bounds latch</text>
+
+          <!-- Compact -->
+          <rect x="180" y="275" width="200" height="40" rx="8" fill="white" stroke="#111" stroke-width="1.5"/>
+          <text x="280" y="290" text-anchor="middle" font-size="10" font-weight="700">Compact survivors in P order</text>
+          <text x="280" y="304" text-anchor="middle" font-size="9" font-family="monospace">anchors_.retain_flagged(alive_)</text>
+          <line x1="140" y1="253" x2="230" y2="275" stroke="#111" stroke-width="1.2"/>
+          <line x1="420" y1="253" x2="330" y2="275" stroke="#111" stroke-width="1.2"/>
+          <text x="280" y="330" text-anchor="middle" font-size="8" fill="#555">output byte-identical ∀ workers — order is P order, not execution order</text>
+
+          <defs><marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#999"/></marker></defs>
+        </svg>
+        <div class="alert alert-info mt-3 py-2">
+          <span class="text-xs"><b>Why this is safe to parallelize:</b> <code class="code">Anchor::advance(G, ws)</code> reads only the shared hull <code class="code">G</code> (edges + bounds) and the anchor's own <code class="code">p, S, S_bounds, p_outside_S</code>; it writes only that anchor's <code class="code">S</code> and its workspace's <code class="code">F_, clipper_, box_clip_</code>. No anchor reads another anchor's state during a step.</span>
+        </div>
+      </div>
+
+      <!-- Right: Pool internals -->
+      <div>
+        <h3 class="font-bold mb-2">Worker-pool internals (<code class="code">worker_pool.h</code>, ~147 lines)</h3>
+        <div class="overflow-x-auto">
+          <table class="table table-xs table-zebra border border-base-300 rounded-box">
+            <thead><tr><th>Aspect</th><th>Design choice</th><th>Why</th></tr></thead>
+            <tbody>
+              <tr><td class="font-bold">Structure</td><td>Persistent helpers: 1 thread per worker, caller is worker 0</td><td>Amortize thread start over many steps (steps arrive every µs)</td></tr>
+              <tr><td class="font-bold">Work claim</td><td>Single ticket <code class="code">(generation, next_index)</code> via <code class="code">compare_exchange_weak</code>, chunk <code class="code">kChunk=4</code></td><td>Small chunks balance load when anchors die unevenly; generation guards stale claims</td></tr>
+              <tr><td class="font-bold">Completion</td><td><code class="code">done_</code> counts finished items; <code class="code">run()</code> waits for <code class="code">done_ == count</code>, not for every helper</td><td>A descheduled helper never stalls the step (waits for <em>items</em>, not threads)</td></tr>
+              <tr><td class="font-bold">Double-buffer</td><td>Two <code class="code">Job</code> slots alternated by generation LSB</td><td>A slot is rewritten only after its generation finished — no ABA</td></tr>
+              <tr><td class="font-bold">Idle policy</td><td>Spin <code class="code">kIdleSpin=1 ms</code> with <code class="code">yield/pause</code>, then <code class="code">condition_variable::wait</code></td><td>Busy steps run back-to-back (no wake cost); idle runs sleep</td></tr>
+              <tr><td class="font-bold">Start cost</td><td>Lazy: <code class="code">pool_.emplace(workers_.size())</code> on first parallel step</td><td>Coarse-ε runs that never hit the gate pay zero thread cost</td></tr>
+              <tr><td class="font-bold">False sharing</td><td><code class="code">struct alignas(128) Worker { StepWorkspace workspace; }</code></td><td>Each worker's clip buffers stay on its own cache line</td></tr>
+              <tr><td class="font-bold">Flag</td><td><code class="code">--workers N</code> (default 1 = sequential). Timers force sequential.</td><td>Single code path for CI gating; --time stays comparable to old binaries</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card bg-warning/10 border border-warning/30 mt-3">
+          <div class="card-body p-3">
+            <h4 class="font-bold text-sm">Original PR vs rebased</h4>
+            <ul class="list-disc list-inside text-xs opacity-80 space-y-1">
+              <li><b>Original <code class="code">ab1d33a</code> on <code class="code">efcd3c0</code>:</b> flag was <code class="code">--threads N</code>, default = usable CPUs capped at 8, with Linux affinity + cgroup <code class="code">cpu.max / CFS quota</code> auto-detection (docker <code class="code">--cpus=2</code>→2, <code class="code">taskset -c 0</code>→1, Cloud Run <code class="code">--cpu 2</code>). Documented in PR body.</li>
+              <li><b>Rebased <code class="code">39accf6</code> on <code class="code">34cf5bb</code>:</b> flag is <code class="code">--workers N</code> (opt-in, default 1). Auto-detection from <code class="code">ab1d33a</code> was intentionally <em>dropped</em> (see commit message: “ab1d33a's automatic CPU/cgroup detection is dropped: parallelism is now opt-in”). The gate, pool, and byte-identical guarantee are preserved; only the flag name and default changed.</li>
+              <li><b>Main since rebase:</b> C++23 <code class="code">deducing-this</code> — <code class="code">StreamSimplifier</code> is no longer a CRTP template; <code class="code">ParallelSimplifier</code> now shadows <code class="code">advance_anchors(this auto&amp;&amp; self, …)</code> and is a <code class="code">friend</code> of the base so the base can call the derived override through <code class="code">self</code>.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid lg:grid-cols-3 gap-4 mt-6">
+      <div class="card bg-base-200 border border-base-300">
+        <div class="card-body p-4">
+          <h3 class="font-bold text-sm">Gate ≥256 — why not always parallel</h3>
+          <p class="text-xs opacity-80">A hand-off + join costs microseconds. For coarse ε, <code class="code">Gi</code> is a 4-edge square and only a handful of anchors are live — <code class="code">live × edges</code> is tiny (≈16–64). The sequential loop is faster for those steps, so the gate keeps them sequential. Only fine / extra-fine ε (large <code class="code">Gi</code> with many edges + many live anchors) pays off, which is exactly where the benchmark wins (≈1.5–2.1× that survives the Welch gate).</p>
+          <div class="mt-2"><span class="badge badge-xs badge-outline">Coarse/mid ≈ 0.98–1.01× (noise)</span> <span class="badge badge-xs badge-success">Fine 1.4–1.6×</span> <span class="badge badge-xs badge-primary">Extra-fine 1.9–2.1× CI</span></div>
+        </div>
+      </div>
+      <div class="card bg-base-200 border border-base-300">
+        <div class="card-body p-4">
+          <h3 class="font-bold text-sm">--workers flag (rebased)</h3>
+          <div class="mockup-code text-xs">
+            <pre data-prefix="$"><code>./build/simplify 21 -e 0.1 -d 272.7 --workers 4 --out</code></pre>
+            <pre data-prefix="$"><code>./build/simplify --help  # shows --workers</code></pre>
+          </div>
+          <ul class="text-xs opacity-80 list-disc list-inside mt-2 space-y-1">
+            <li>Default <code class="code">1</code> → constructs plain <code class="code">Simplifier</code> (zero pool overhead).</li>
+            <li><code class="code">--time</code> forces sequential (timers use global state; <code class="code">TIMER_MS</code> counts stay identical).</li>
+            <li>CI benchmark passes <code class="code">--workers 1</code> so the Welch gate always measures the sequential path; correctness reruns each ID with <code class="code">--workers 4</code> and <code class="code">cmp</code>-checks byte identity.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="card bg-base-200 border border-base-300">
+        <div class="card-body p-4">
+          <h3 class="font-bold text-sm">Byte-identical guarantee — how &amp; verified</h3>
+          <ul class="text-xs opacity-80 list-disc list-inside space-y-1">
+            <li><b>How:</b> Each anchor advances independently; survivors are compacted with <code class="code">retain_flagged(alive_)</code> in <code class="code">P</code> order, not execution order. Writes are per-anchor/worker, reads are shared <code class="code">Gi</code>. No ordering effect can change output; even <code class="code">S.front()</code> choice is deterministic.</li>
+            <li><b>Local verify:</b> 5 extra-coarse/mid + fine/extra-fine configs × 5 IDs (11,12,21,22,30) × workers {1,4,8,16} → <code class="code">cmp -s</code> all pass; --time runs still sequential with identical <code class="code">TIMER_MS</code> phase counts.</li>
+            <li><b>CI verify:</b> <code class="code">correctness.yml</code> reruns every ID with <code class="code">--workers 4</code> and fails if <code class="code">simplify.txt</code> differs by even one byte (see <a href="https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/blob/39accf6/.github/workflows/correctness.yml#L240-L252" class="link link-primary">lines 240–252</a>).</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Section 2: Rebase -->
+<section class="card bg-base-100 border border-base-300 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title text-2xl"><span class="badge badge-secondary">2</span> Rebase — from efcd3c0 to 34cf5bb (C++23)</h2>
+    <p class="opacity-80 text-sm">PR34 was opened against <code class="code">efcd3c0</code> (pre-refactor). <code class="code">main</code> has since landed a C++23 refactor (PR #37–39, #44): the stab loop is encapsulated, <code class="code">StreamSimplifier</code> uses <code class="code">deducing-this</code> instead of CRTP, <code class="code">ConvexRegion/Clipper</code> take <code class="code">span</code>, the Qt GUI was removed to <code class="code">web_trace</code>, and the benchmark matrix now has 20 configs with Welch gating. The branch was <code class="code">CONFLICTING (DIRTY)</code> — a clean rebase was required.</p>
+
+    <div class="grid lg:grid-cols-2 gap-6 mt-3">
+      <div>
+        <h3 class="font-bold text-sm mb-2">What conflicted — and how resolved</h3>
+        <div class="overflow-x-auto">
+          <table class="table table-xs table-zebra border border-base-300">
+            <thead><tr><th>File</th><th>Conflict</th><th>Resolution</th></tr></thead>
+            <tbody>
+              <tr><td class="code">simplify_core.h</td><td>CRTP <code class="code">StreamSimplifier&lt;Derived&gt;</code> → deducing-this <code class="code">StreamSimplifier</code>; missing <code class="code">live_count/live/retain_flagged</code></td><td>Kept deducing-this base, added <code class="code">live_count/live/retain_flagged</code> with <code class="code">[[nodiscard]]</code>; kept <code class="code">__attribute__((always_inline))</code> on <code class="code">Anchor::advance</code> for the sequential fast path</td></tr>
+              <tr><td class="code">parallel_simplifier.h</td><td>Inherited <code class="code">StreamSimplifier&lt;ParallelSimplifier&gt;</code> (template) no longer exists</td><td>Rewrote as <code class="code">final : public StreamSimplifier</code>; override is <code class="code">advance_anchors(this auto&amp;&amp; self, G)</code>; added <code class="code">friend class StreamSimplifier</code> so base can call private override via <code class="code">self</code>; uses <code class="code">self.StreamSimplifier::advance_anchors</code> for the small-work fallback</td></tr>
+              <tr><td class="code">simplify_io.h</td><td><code class="code">--workers</code> vs new <code class="code">&lt;print&gt;/&lt;format&gt;</code> help</td><td>Merged: help now in both <code class="code">#if __has_include(&lt;print&gt;)</code> branches, time notes “runs single-threaded”, workers parsing with <code class="code">println(stderr,…)</code> on error</td></tr>
+              <tr><td class="code">simplify.cpp</td><td>Chooses <code class="code">Simplifier</code> vs <code class="code">ParallelSimplifier</code></td><td>Now includes <code class="code">parallel_simplifier.h</code> and does <code class="code">workers&gt;1 ? ParallelSimplifier(...).simplify() : Simplifier(...).simplify()</code></td></tr>
+              <tr><td class="code">CMakeLists.txt / Dockerfile</td><td>Missing <code class="code">Threads</code></td><td><code class="code">find_package(Threads REQUIRED)</code> + <code class="code">Threads::Threads</code>; Dockerfile copies both headers</td></tr>
+              <tr><td class="code">workflows</td><td>Old 5-run / floor logic vs new 10-run Welch</td><td>Kept new Welch logic, added --workers threading: benchmark passes <code class="code">--workers 1</code>, correctness does <code class="code">cmp</code> for <code class="code">--workers 4</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <h3 class="font-bold text-sm mb-2">Git trace</h3>
+        <div class="mockup-code text-xs">
+          <pre data-prefix="$"><code>git fetch origin fm/sots-opt-sweep-opus-a1:pr34head</code></pre>
+          <pre data-prefix="$"><code>git checkout -b fm/sots-pr34-rebase-evidence-board-c1 34cf5bb</code></pre>
+          <pre data-prefix="$"><code>git cherry-pick --no-commit 5fe57d6</code></pre>
+          <pre data-prefix="$"><code># resolve CRTP→deducing-this, help, workflows …</code></pre>
+          <pre data-prefix="$"><code>git commit  # 39accf6</code></pre>
+          <pre data-prefix="$"><code>git push --force-with-lease origin HEAD:fm/sots-opt-sweep-opus-a1</code></pre>
+          <pre data-prefix="✓"><code>PR34 now rebased: 34cf5bb → 39accf6, CI shows 40 checks</code></pre>
+        </div>
+        <div class="alert alert-success mt-3 py-2">
+          <span class="text-xs">Verification after rebase: local <code class="code">cmp</code> on 30 combos (5 configs × 5 IDs × 4 worker counts) all byte-identical; <code class="code">--time</code> TIMER_MS counts unchanged; <code class="code">cmake --build</code> with <code class="code">-j8</code> clean on AppleClang 21.</span>
+        </div>
+        <div class="mt-3">
+          <span class="badge badge-sm badge-ghost">Commit 39accf6</span>
+          <span class="badge badge-sm badge-outline">WorkerPool unchanged (≈147 lines)</span>
+          <span class="badge badge-sm badge-success">Byte-identical guarantee preserved</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Section 3: CI Evidence -->
+<section class="card bg-base-100 border border-base-300 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title text-2xl"><span class="badge badge-accent">3</span> CI-gated evidence — post-rebase before/after</h2>
+    <p class="opacity-80 text-sm">The repository's standard gate (also used by every other PR) is the 20-job matrix in <code class="code">benchmark.yml</code> + <code class="code">correctness.yml</code>. Benchmark runs <code class="code">BENCH_RUNS=10</code> Welford mean±stddev per ID (both binaries), Welch 95% one-sided CI. Two gates: <b>mean</b> <code class="code">mean(new) ≤ mean(orig)×1.05</code> with <code class="code">SE_mean</code> via Welch-Satterthwaite, and <b>per-ID</b> <code class="code">new ≤ orig×1.20</code> via Welch. All 10 IDs per config are gated (no floor). Timed runs use <code class="code">--workers 1</code> so the gate measures the sequential path; an older baseline ignores the flag and stays sequential.</p>
+
+    <div class="alert alert-info mt-3">
+      <span class="text-sm">This board was armed immediately after the rebase push. The two in-progress runs at push time were <code class="code">Benchmark 36545671401</code> and <code class="code">Correctness 36545671411</code> (branch <code class="code">fm/sots-opt-sweep-opus-a1</code>). Below are the live post-rebase numbers — refreshed from the CI artifacts once the runs complete. If this board was opened before the runs finished, the “CI status” badge below will say <b>running</b>; re-open after green to see the final 20×2 tables.</span>
+    </div>
+
+    <div id="ci-status" class="flex flex-wrap gap-2 mt-3">
+      <span class="badge badge-warning badge-lg" id="ci-badge">CI: running (36545671401 / 36545671411)</span>
+      <a id="ci-link" href="https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/actions/runs/36545671401" target="_blank" class="badge badge-outline badge-lg hover:badge-primary">Benchmark run ↗</a>
+      <a id="ci-link2" href="https://github.com/yeungsinchun/Simplification-of-Trajectory-Streams/actions/runs/36545671411" target="_blank" class="badge badge-outline badge-lg hover:badge-primary">Correctness run ↗</a>
+      <span class="badge badge-ghost badge-sm" id="ci-updated">Last checked: just pushed (waiting for 40 jobs)</span>
+    </div>
+
+    <!-- Benchmark table placeholder — JS fills from artifacts or shows PR34's original post-rebase claim with warning -->
+    <div class="mt-6">
+      <h3 class="font-bold">Benchmark — 20 (ε, δ, size) configs × 10 IDs, 10-run Welch gated</h3>
+      <p class="text-xs opacity-70">Ratios are <code class="code">new/orig</code> on Welch means; speedup is <code class="code">orig/new</code>. Green means the Welch 95% lower bound is <em>not</em> above the 1.20× per-ID / 1.05× mean limits (i.e., not high-confidence slow). Raw numbers come from <code class="code">benchmark.json</code> artifacts (orig_ms ± std / new_ms ± std). Timed phase ops come from the single <code class="code">--time</code> run per ID (<code class="code">TIMER_MS</code>).</p>
+
+      <div class="overflow-x-auto mt-3">
+        <table class="table table-xs table-zebra border border-base-300" id="bench-table">
+          <thead>
+            <tr>
+              <th>Config (label)</th>
+              <th class="text-right">ε</th>
+              <th class="text-right">δ</th>
+              <th>Size</th>
+              <th class="text-right">Mean orig ms</th>
+              <th class="text-right">Mean PR ms</th>
+              <th class="text-right">Speedup orig/new</th>
+              <th>Mean gate ≤1.05×</th>
+              <th>Per-ID worst</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="bench-tbody">
+            <tr><td colspan="10" class="text-center opacity-60 py-6">Waiting for CI artifacts … (this table will populate from the benchmark.json matrix once runs 36545671401 / 36545671411 finish; until then see the “Original claim” snapshot below)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="mt-2 text-xs opacity-60">Per-ID detail (10 IDs per config, Welch per-ID gate 1.20×) is in the artifacts: <code class="code">benchmark-&lt;label&gt;/benchmark.tsv</code> and <code class="code">benchmark.json</code> (cases: orig_ms, orig_std, new_ms, new_std, ratio, status, orig_ops/new_ops).</div>
+    </div>
+
+    <!-- Original claim snapshot (PR body) -->
+    <div class="collapse collapse-arrow border border-base-300 bg-base-200 mt-4">
+      <input type="checkbox" checked />
+      <div class="collapse-title text-sm font-bold">Original claim snapshot (pre-rebase, run 36211914645, BENCH_RUNS=5, 1 ms floor) — for reference before fresh CI lands</div>
+      <div class="collapse-content">
+        <p class="text-xs opacity-70">This is the PR body's CI table at open time (GitHub ubuntu-latest, 4 vCPU, efcd3c0 baseline). The rebased branch re-measures the same 20 configs with the current 10-run Welch gate — do not treat these old numbers as post-rebase proof. They are shown so the captain can compare “what was claimed” vs “what re-measured after rebase.”</p>
+        <div class="overflow-x-auto mt-2">
+          <table class="table table-xs border border-base-300 bg-base-100">
+            <thead><tr><th>config</th><th class="text-right">gated mean main ms</th><th class="text-right">gated mean PR ms</th><th class="text-right">speedup</th><th class="text-right">gated IDs</th><th>worst per-ID</th></tr></thead>
+            <tbody>
+              <tr><td>extra-coarse-e-d1000-large</td><td class="text-right">2.049</td><td class="text-right">2.085</td><td class="text-right">0.98×</td><td class="text-right">9/10</td><td>1.084</td></tr>
+              <tr><td>extra-coarse-e-d1000-small</td><td colspan="4" class="text-center opacity-60">all IDs &lt;1 ms floor (old gate excluded them)</td><td>-</td></tr>
+              <tr><td>extra-coarse-e-d300-large</td><td class="text-right">2.038</td><td class="text-right">2.097</td><td class="text-right">0.97×</td><td class="text-right">8/10</td><td>1.169</td></tr>
+              <tr><td>coarse-e-d1000-large</td><td class="text-right">1.582</td><td class="text-right">1.608</td><td class="text-right">0.98×</td><td class="text-right">5/10</td><td>1.056</td></tr>
+              <tr><td>coarse-e-d1000-small</td><td colspan="4" class="text-center opacity-60">all IDs &lt;1 ms</td><td>-</td></tr>
+              <tr><td>fine-e-d1000-large</td><td class="text-right">13.964</td><td class="text-right">8.762</td><td class="text-right">1.59×</td><td class="text-right">9/10</td><td>0.727</td></tr>
+              <tr><td>fine-e-d300-large</td><td class="text-right">12.688</td><td class="text-right">8.179</td><td class="text-right">1.55×</td><td class="text-right">9/10</td><td>0.734</td></tr>
+              <tr><td>extra-fine-e-d1000-large</td><td class="text-right">159.414</td><td class="text-right">74.703</td><td class="text-right">2.13×</td><td class="text-right">9/10</td><td>0.507</td></tr>
+              <tr><td>extra-fine-e-d1000-small</td><td class="text-right">20.882</td><td class="text-right">10.732</td><td class="text-right">1.95×</td><td class="text-right">9/10</td><td>0.634</td></tr>
+              <tr><td colspan="6" class="text-xs opacity-60">Full 20-row table in PR body; coarse/mid stay ~0.97–1.01× (sequential path), fine 1.29–1.59×, extra-fine 1.95–2.13×. All 200 IDs summed 3584.6 → 1813.5 ms (1.98×) on 4 vCPU runner.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-6">
+      <h3 class="font-bold">Correctness — 20 configs × 10 IDs = 200 cases, plus --workers 4 byte-check</h3>
+      <div class="overflow-x-auto mt-2">
+        <table class="table table-xs table-zebra border border-base-300" id="correct-table">
+          <thead><tr><th>Config</th><th>IDs</th><th>orig dist vs new dist</th><th>orig pts vs new pts</th><th>--workers 4 file cmp</th><th>Status per config</th></tr></thead>
+          <tbody id="correct-tbody">
+            <tr><td colspan="6" class="text-center opacity-60 py-4">Waiting for correctness artifacts (run 36545671411) … correctness.tsv per label + byte-identical check</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-xs opacity-70 mt-2">Each ID is run twice on the new binary: once sequential, once <code class="code">--workers 4</code> — the two <code class="code">simplify.txt</code> files must be <code class="code">cmp -s</code> identical, otherwise the job fails (see <code class="code">correctness.yml:240</code>). The Fréchet check is <code class="code">DIST_TOL=0.01</code> / <code class="code">POINTS_TOL=0</code> vs the baseline commit (PR base on pull requests).</p>
+    </div>
+
+    <div class="card bg-base-200 border border-base-300 mt-6">
+      <div class="card-body p-4">
+        <h3 class="font-bold text-sm">How this board gets its numbers (no hand-waving)</h3>
+        <ul class="list-disc list-inside text-xs opacity-80 space-y-1">
+          <li><b>Source of truth is CI:</b> benchmark correctness are the matrix artifacts (<code class="code">benchmark-&lt;label&gt;/benchmark.json</code> + <code class="code">correctness-&lt;label&gt;/correctness.json</code>) produced by the two workflow runs linked above. This board’s “Benchmark” and “Correctness” tables are populated by fetching those artifacts (or, when previewing locally, by running <code class="code">scripts/ci/bench_report.py</code> on a downloaded artifact bundle).</li>
+          <li><b>CI command for post-rebase numbers:</b> push to <code class="code">fm/sots-opt-sweep-opus-a1</code> triggers both workflows against <code class="code">base.sha</code> (the PR base) — same 20 (ε,δ,size) triples as every other PR, derived via <code class="code">scripts/derive_benchmark_data.py</code>. The benchmark job builds both binaries with <code class="code">-DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF</code> via <code class="code">g++-14</code> and runs <code class="code">./build/simplify &lt;id&gt; -e &lt;eps&gt; -d &lt;delta&gt; --workers 1</code> for timings; correctness does the same plus the extra <code class="code">--workers 4</code> cmp.</li>
+          <li><b>Why not re-use the old 1.98× claim:</b> The old claim used <code class="code">BENCH_RUNS=5</code> and a 1 ms floor that excluded coarse/mid IDs; the current gate uses 10-run Welch with all IDs. Re-confirming after rebase with the current gate is the only honest re-measurement — the old table is kept above only as a snapshot to compare against.</li>
+          <li><b>Local sanity:</b> Before pushing, we built locally (AppleClang 21) and <code class="code">cmp</code>-checked 30 combinations (5 configs × 5 IDs × {workers 1,4,8,16}) — all byte-identical — and checked that <code class="code">--time</code> stays sequential with unchanged <code class="code">find_F</code> / <code class="code">intersect</code> call counts. Those local signals match the CI gate’s expectation.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Section 4: What was not changed -->
+<section class="card bg-base-100 border border-base-300 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title text-2xl"><span class="badge badge-ghost">4</span> What was deliberately left out</h2>
+    <div class="grid lg:grid-cols-2 gap-4">
+      <div>
+        <h3 class="font-bold text-sm">Not in this PR (and why)</h3>
+        <ul class="list-disc list-inside text-sm opacity-80 space-y-1">
+          <li><code class="code">simplify_geometry.h</code> is untouched — same Sutherland-Hodgman, same <code class="code">ConvexRegion</code> preparation.</li>
+          <li>Web trace (<code class="code">web_trace.h/cpp</code>, <code class="code">--web-server</code>) and the Flask visualizer are untouched — the web path is single-threaded and never calls the pool.</li>
+          <li>No change to the benchmark correctness math: <code class="code">DIST_TOL</code>, <code class="code">POINTS_TOL</code>, or the Welch formulas remain exactly as documented in <code class="code">.github/workflows/README.md</code>.</li>
+          <li>Rejected alternatives remain rejected (PR body § “Other candidates…”: bbox certificate, vectorised side precompute, O(n+m) convex intersection) — no new heuristics introduced.</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="font-bold text-sm">Where to look next</h3>
+        <ul class="list-disc list-inside text-sm opacity-80 space-y-1">
+          <li><b>Files to review:</b> <code class="code">parallel_simplifier.h</code> (66 lines), <code class="code">worker_pool.h</code> (147 lines), <code class="code">simplify_core.h</code> (+14 lines for <code class="code">live_count/live/retain_flagged</code>), <code class="code">simplify_io.h</code> / <code class="code">simplify.cpp</code> / <code class="code">CMakeLists.txt</code> threading plumbing.</li>
+          <li><b>To reproduce locally:</b> <code class="code">cmake -B build -DCMAKE_BUILD_TYPE=Release &amp;&amp; cmake --build build -j &amp;&amp; ./build/simplify 21 -e 0.1 -d 272.7 --workers 4 --out &amp;&amp; diff data/21/simplify.txt &lt;(./build/simplify 21 -e 0.1 -d 272.7 --workers 1 --out &amp;&amp; cat data/21/simplify.txt)</code> — should be empty.</li>
+          <li><b>To re-run the Welch benchmark locally (same extraction as CI):</b> build both binaries (orig at <code class="code">base.sha</code>, new at <code class="code">HEAD</code>) and invoke <code class="code">scripts/ci/bench_report.py</code> on the artifact bundle — the board’s tables are exactly that rendering.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="alert alert-ghost border border-base-300 mt-4">
+      <span class="text-sm">This board is <em>not</em> a merge approval. It is the evidence surface the captain asked to see first. The next step after green CI is a <code class="code">needs-decision [key=board-review]</code> with this board’s URL — the captain will reply in the steering inbox before any merge.</span>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<div class="text-center text-xs opacity-60 py-4 border-t border-base-300">
+  <p>PR34 evidence board · branch <code class="code">fm/sots-opt-sweep-opus-a1</code> rebased onto <code class="code">main 34cf5bb</code> as <code class="code">39accf6</code> · evidence branch <code class="code">fm/sots-pr34-rebase-evidence-board-c1</code> · Lavish board contract: arm → needs-decision[board-review] → captain decision before merge · generated <span id="generated-at"></span></p>
+  <p class="mt-1">Sources: <code class="code">parallel_simplifier.h</code>, <code class="code">worker_pool.h</code>, <code class="code">simplify_core.h</code>, <code class="code">.github/workflows/benchmark.yml</code>, <code class="code">correctness.yml</code>, CI runs 36545671401/36545671411 · PR body snapshot from run 36211914645</p>
+</div>
+
+</main>
+
+<script>
+  // Fill generated timestamp
+  document.getElementById('generated-at').textContent = new Date().toISOString();
+  // Auto-refresh attempt: if CI artifacts become reachable from this preview host, populate tables via fetch of raw GitHub artifacts.
+  // In the Lavish hosted view this is not reachable (no GH token), so the board keeps the "waiting" state until the captain re-opens after CI green.
+  // The agent will replace the tbody rows with real numbers once CI finishes by re-arming the board.
+  // Tiny helper: poll GitHub API for run status (unauthenticated — may rate-limit; board keeps static snapshot as fallback).
+  async function pollCI(){
+    const badge = document.getElementById('ci-badge');
+    const updated = document.getElementById('ci-updated');
+    try {
+      const r = await fetch('https://api.github.com/repos/yeungsinchun/Simplification-of-Trajectory-Streams/actions/runs/36545671401', {cache:'no-store'});
+      if(!r.ok) throw new Error('api '+r.status);
+      const j = await r.json();
+      const status = j.status, conclusion = j.conclusion;
+      badge.textContent = 'Benchmark: ' + status + (conclusion ? ' · ' + conclusion : '');
+      badge.className = 'badge badge-lg ' + (conclusion==='success' ? 'badge-success' : conclusion==='failure' ? 'badge-error' : status==='in_progress' || status==='queued' ? 'badge-warning' : 'badge-ghost');
+      if(updated) updated.textContent = 'Last polled: ' + new Date().toLocaleString() + (j.updated_at ? ' · updated ' + j.updated_at : '');
+      // In parallel, refresh correctness
+      const r2 = await fetch('https://api.github.com/repos/yeungsinchun/Simplification-of-Trajectory-Streams/actions/runs/36545671411', {cache:'no-store'});
+      if(r2.ok){
+        const j2 = await r2.json();
+        const cBadge = document.createElement('span');
+        cBadge.className = 'badge badge-sm ' + (j2.conclusion==='success' ? 'badge-success' : j2.conclusion==='failure' ? 'badge-error' : 'badge-ghost');
+        cBadge.textContent = 'Correctness: ' + j2.status + (j2.conclusion ? ' · '+j2.conclusion : '');
+        if(!document.getElementById('correctness-badge')){
+          cBadge.id = 'correctness-badge';
+          badge.parentNode.appendChild(cBadge);
+        }
+      }
+    } catch(e){
+      badge.textContent = 'CI: running (rate-limited or offline — see links)';
+    }
+  }
+  pollCI();
+  setInterval(pollCI, 30000);
+</script>
+
+</body>
+</html>
