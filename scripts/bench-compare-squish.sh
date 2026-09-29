@@ -264,13 +264,13 @@ bench_stats_squish() {
 }
 
 # Build check
-echo "Building simplify and squish (Release, BUILD_GUI=OFF)..." >&2
+echo "Building simplify and squish (Release)..." >&2
 if [ ! -f "${REPO_ROOT}/build/simplify" ] || [ ! -f "${REPO_ROOT}/build/squish" ]; then
-  cmake -B "${BUILD_DIR}" -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF > /dev/null
+  cmake -B "${BUILD_DIR}" -DCMAKE_BUILD_TYPE=Release > /dev/null
   cmake --build "${BUILD_DIR}" --target simplify squish -j "$( (nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4) )" > /dev/null
 fi
 # Rebuild to ensure latest
-cmake -B "${BUILD_DIR}" -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF > /dev/null 2>&1 || true
+cmake -B "${BUILD_DIR}" -DCMAKE_BUILD_TYPE=Release > /dev/null 2>&1 || true
 cmake --build "${BUILD_DIR}" --target simplify squish -j "$( (nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4) )" > /dev/null 2>&1 || {
   echo "Build failed, trying verbose..." >&2
   cmake --build "${BUILD_DIR}" --target simplify squish -j 4

@@ -66,17 +66,6 @@ The report marks a missing configuration as an incomplete matrix. Missing baseli
 
 Runtime: 20 jobs each build both binaries and run 10 IDs × (10 orig + 10 new + 2 --time) = 220 simplify invocations per job. Across the matrix, the benchmark runs 4,000 sampled invocations plus 400 ops runs (4,400 total). The separate correctness sweep covers 20 × 10 cases.
 
-### gui-build.yml - Qt GUI build
-**Triggers:** Push to main, pull requests to main, manual dispatch
-
-Builds the `simplify_with_gui` target with the default `BUILD_GUI=ON`
-using distro Qt packages (`qt6-base-dev`, `qt6-svg-dev`) plus pinned
-CGAL 6.x headers fetched from the CGAL release tarball (cached): Ubuntu
-24.04 ships CGAL 5.6, which is Qt5-only, while the GUI target needs
-`CGAL::CGAL_Qt6`. The correctness and benchmark workflows build with
-`-DBUILD_GUI=OFF`, so without this job a Qt-only breakage (e.g. an
-identifier colliding with Qt's `emit` macro) compiles clean in CI.
-
 ### deploy.yml - Cloud Run deploy
 **Triggers:** Push to main, manual dispatch
 

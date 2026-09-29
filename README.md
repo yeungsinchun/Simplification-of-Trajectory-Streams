@@ -2,12 +2,12 @@
 
 This repository contains the streaming delta-simplification algorithm from
 [Simplification of Trajectory Streams](https://arxiv.org/abs/2503.23025), a
-headless command-line program, an optional Qt viewer, and comparison tooling
+headless command-line program, a web visualizer, and comparison tooling
 for trajectory-simplification baselines.
 
 The project is research software. It is tested primarily on macOS arm64;
-other platforms may work with equivalent CGAL, Qt, CMake, Julia, and C++
-dependencies.
+other platforms may work with equivalent CGAL, CMake, Julia, and C++
+dependencies. Qt 6 Core is still required for the vendored DOTS baseline.
 
 ## Live demo
 
@@ -18,8 +18,8 @@ https://simplify-viewer-522405269791.asia-east2.run.app
 ## Repository layout
 
 - `simplify_core.h`: headless streaming algorithm and its anchor workspace.
-- `simplify.cpp`: headless command-line and web-trace front-ends.
-- `simplify_with_gui.cpp`, `drawing.cpp`, `drawing.h`: optional Qt viewer.
+- `simplify.cpp`: headless command-line front-end (core logic only).
+- `web_trace.h` / `web_trace.cpp`: web-trace emission for the Flask visualizer (NDJSON).
 - `scripts/prepare_dataset.py`: download T-Drive and normalize it into the canonical curve format.
 - `scripts/benchmark.py`: long-running comparison against the DOTS baseline.
 - `scripts/frechet.jl`: Julia wrapper for continuous Frechet distance.
@@ -37,10 +37,9 @@ Required for the headless program:
 - C++23 compiler with deducing-this support (GCC 14+, Clang 18+, or Apple Clang 16+; Ubuntu 24.04's default `g++` 13 lacks deducing-this and `<print>` so install `g++-14` — the `Dockerfile` and CI select it via `update-alternatives`; `<print>` has a `__has_include` fallback to `<format>`). The build sets `CMAKE_CXX_STANDARD 23` with `CMAKE_CXX_STANDARD_REQUIRED ON` and `CMAKE_CXX_EXTENSIONS OFF` (CGAL itself only needs C++17).
 - CMake 3.16 or newer
 - CGAL
-- Qt 6 Core (used by the vendored DOTS target)
+- Qt 6 Core (used by the vendored DOTS target for the web compare pane and benchmark)
 
-The Qt viewer additionally needs the CGAL Qt6 component and Qt 6 Widgets. The
-web visualizer additionally needs Flask (`web/requirements.txt`). The Frechet
+The web visualizer additionally needs Flask (`web/requirements.txt`). The Frechet
 wrapper and benchmark additionally need Julia, `FrechetDist.jl`, and Python 3
 with `psutil`.
 
@@ -56,7 +55,7 @@ On Ubuntu (24.04):
 
 ```bash
 sudo apt update
-sudo apt install build-essential g++-14 cmake libcgal-dev libcgal-qt6-dev \
+sudo apt install build-essential g++-14 cmake libcgal-dev \
   qt6-base-dev julia python3-pip
 # make g++-14 the default (as the Dockerfile and CI do)
 sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100 && \
@@ -78,14 +77,10 @@ The build produces these main targets within the `build` directory:
 
 | Target | Purpose |
 | --- | --- |
-| `simplify` | Headless streaming simplifier |
-| `simplify_with_gui` | Qt viewer and simplifier (`-DBUILD_GUI=ON`) |
+| `simplify` | Headless streaming simplifier (core + web trace) |
 | `dots` | DOTS baseline (Qt6 Core only; web compare pane and `benchmark.py`) |
 | `dp` | DP baseline for the web compare pane (when the submodule source is present) |
 | `squish` | SQUISH baseline for the web compare pane (when the submodule source is present) |
-
-Headless / Docker builds use `-DBUILD_GUI=OFF`, which skips `simplify_with_gui`
-but still builds `simplify`, `dots`, `dp`, and `squish` when their sources exist.
 
 ### Download and prepare data
 
@@ -119,19 +114,13 @@ x y
 
 This reads `data/1/original.txt` and writes `data/1/simplify.txt`. The
 shorthand `./build/simplify 1` is equivalent to `--in 1 --out`. Useful options
-include `-d DELTA`, `-e EPSILON`, `--dist`, `--time` (opt-in phase timers on
-stderr), and `--gui` on the GUI target.
+include `-d DELTA`, `-e EPSILON`, `--dist`, and `--time` (opt-in phase timers on
+stderr).
 
 ### Visualize output
 
-
-```bash
-./build/simplify_with_gui --in 1 --gui --out
-```
-
-The optional `plot_curve` viewer from older local builds may be unavailable in
-the current CMake configuration; use `simplify_with_gui` for the supported GUI
-workflow.
+Use the web visualizer (see next section) — the former Qt GUI has been
+removed and the web viewer supersedes it.
 
 ### Compare baselines in the web visualizer
 
@@ -144,9 +133,8 @@ python3 web/server.py
 ```
 
 Open the printed URL, load a trace, pick a baseline, and run it. `dots`, `dp`,
-and `squish` are produced whenever their `traj-compression` sources exist,
-including with `-DBUILD_GUI=OFF` (`dots` needs Qt6 Core only). If a baseline
-binary is missing, initialize the submodule and rebuild.
+and `squish` are produced whenever their `traj-compression` sources exist
+(`dots` needs Qt6 Core only). If a baseline binary is missing, initialize the submodule and rebuild.
 
 ## Benchmarking
 
