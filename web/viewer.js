@@ -1135,6 +1135,30 @@
     return { displayIdx, total: cyclePool.length, stillOpen };
   }
 
+  // v2 trace diet: steps carry only alive + just-died candidates (dead
+  // anchors come from the prefix P array). Expand back to positional form
+  // so every downstream consumer can keep indexing step.candidates by P
+  // position. v1 traces (no "v" key) are already positional and skip this.
+  function expandDietPrefix(pfx) {
+    const n = pfx && pfx.P ? pfx.P.length : 0;
+    if (!n || !pfx.steps) return;
+    for (const step of pfx.steps) {
+      const sparse = step.candidates || [];
+      const positional = new Array(n);
+      for (let i = 0; i < n; ++i) positional[i] = { idx: i, alive: false };
+      for (const c of sparse) {
+        if (c && Number.isInteger(c.idx) && c.idx >= 0 && c.idx < n) positional[c.idx] = c;
+      }
+      step.candidates = positional;
+    }
+  }
+
+  function normalizeTraceVersion(trace) {
+    if (trace && trace.v >= 2 && Array.isArray(trace.prefixes)) {
+      for (const pfx of trace.prefixes) expandDietPrefix(pfx);
+    }
+  }
+
   function candidateStatusTitle(stillOpen) {
     const openBit = Number.isFinite(stillOpen)
       ? ` ${stillOpen} still open.`
@@ -1397,6 +1421,7 @@
         // Batch JSON accidentally delivered as one NDJSON line.
         if (!msg.type && Array.isArray(msg.prefixes)) {
           applySampleTraceYOffset(msg);
+          normalizeTraceVersion(msg);
           state.trace = msg;
           initTraceUI();
           finalizeTraceLoad();
@@ -1409,6 +1434,7 @@
         if (msg.type === "header") {
           applySampleTraceYOffset(msg);
           state.trace = {
+            v: msg.v ?? 1,
             eps: msg.eps,
             delta: msg.delta,
             grid_val: msg.grid_val,
@@ -1437,6 +1463,7 @@
           }
           const prefix = msg.data;
           applySampleTraceYOffsetToPrefix(prefix);
+          if (state.trace.v >= 2) expandDietPrefix(prefix);
           state.trace.prefixes.push(prefix);
           if (state.prefixIdx === 0 && prefix.steps.length > 0) {
             state.stepIdx = 0;
@@ -1478,6 +1505,7 @@
       }
       if (!msg.type && Array.isArray(msg.prefixes)) {
         applySampleTraceYOffset(msg);
+        normalizeTraceVersion(msg);
         state.trace = msg;
         initTraceUI();
         finalizeTraceLoad();
@@ -1522,6 +1550,7 @@
     }
     stopPlaying();
     applySampleTraceYOffset(parsed);
+    normalizeTraceVersion(parsed);
     state.trace = parsed;
     initTraceUI();
     finalizeTraceLoad();
@@ -2116,18 +2145,33 @@
   //  grows down, so we flip Y when projecting.
   // -------------------------------------------------------------------------
 
+  // Last devicePixelRatio applied to the canvas transform. Reallocating the
+  // backing store on every render clears it, so only touch canvas.width /
+  // height when the size (or dpr) actually changed.
+  let lastCanvasDpr = 0;
+
   function resizeCanvas() {
     const rect = canvasContainer.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.max(1, Math.round(rect.width * dpr));
-    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    const w = Math.max(1, Math.round(rect.width * dpr));
+    const h = Math.max(1, Math.round(rect.height * dpr));
+    if (canvas.width === w && canvas.height === h && lastCanvasDpr === dpr) return false;
+    canvas.width = w;
+    canvas.height = h;
+    lastCanvasDpr = dpr;
     canvas.style.width = rect.width + "px";
     canvas.style.height = rect.height + "px";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return true;
   }
 
+  // Per-render cache of the container rect. render() sets it once; every
+  // worldToScreen call in that frame reuses it instead of forcing a layout
+  // query per point. Outside render() it falls back to a live query.
+  let cachedContainerRect = null;
+
   function worldToScreen(x, y) {
-    const rect = canvasContainer.getBoundingClientRect();
+    const rect = cachedContainerRect || canvasContainer.getBoundingClientRect();
     const sx = (x - state.cam.x) * state.cam.scale + rect.width / 2;
     const sy = -(y - state.cam.y) * state.cam.scale + rect.height / 2;
     return [sx, sy];
@@ -2812,11 +2856,108 @@
   }
 
   // -------------------------------------------------------------------------
+  //  Static stream layer (offscreen cache)
+  //
+  //  The full input-stream polyline + dots never change between frames that
+  //  share the camera, canvas size, trace, and committed-output exclusion, so
+  //  they are painted once to an offscreen canvas and blitted per frame while
+  //  only overlays (candidates, balls, labels) draw live.
+  // -------------------------------------------------------------------------
+
+  const staticLayer = document.createElement("canvas");
+  const staticCtx = staticLayer.getContext("2d");
+  let staticCacheTrace = null;
+  let staticCacheKey = null;
+
+  // Committed-output points excluded from the gray stream dots (same rule as
+  // the live overlay: prior prefixes' outputs, plus this prefix's output once
+  // its last step is reached).
+  function staticExcludedPoints(t, pfx, step) {
+    const excluded = new Set();
+    for (let i = 0; i < state.prefixIdx; ++i) {
+      const pfxOutput = t.prefixes[i].output;
+      excluded.add(`${pfxOutput[0][0]},${pfxOutput[0][1]}`);
+      excluded.add(`${pfxOutput[1][0]},${pfxOutput[1][1]}`);
+    }
+    if (pfx && step && state.stepIdx === pfx.steps.length - 1) {
+      excluded.add(`${pfx.output[0][0]},${pfx.output[0][1]}`);
+      const isLastPrefix = state.prefixIdx === t.prefixes.length - 1;
+      if (!isLastPrefix) {
+        excluded.add(`${pfx.output[1][0]},${pfx.output[1][1]}`);
+      }
+    }
+    return excluded;
+  }
+
+  function staticStreamKey(showOriginal) {
+    const pfx = currentPrefix();
+    const step = currentStep();
+    const onLastStep = pfx && step && state.stepIdx === pfx.steps.length - 1 ? 1 : 0;
+    return [
+      state.cam.x, state.cam.y, state.cam.scale,
+      canvas.width, canvas.height,
+      state.prefixIdx, onLastStep, showOriginal ? 1 : 0,
+    ].join("|");
+  }
+
+  function paintStaticStreamLayer(t) {
+    const dpr = window.devicePixelRatio || 1;
+    if (staticLayer.width !== canvas.width || staticLayer.height !== canvas.height) {
+      staticLayer.width = canvas.width;
+      staticLayer.height = canvas.height;
+    }
+    staticCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    staticCtx.clearRect(0, 0, staticLayer.width / dpr, staticLayer.height / dpr);
+    const pts = t.stream;
+    if (pts && pts.length >= 2) {
+      staticCtx.beginPath();
+      const [x0, y0] = worldToScreen(pts[0][0], pts[0][1]);
+      staticCtx.moveTo(x0, y0);
+      for (let i = 1; i < pts.length; ++i) {
+        const [x, y] = worldToScreen(pts[i][0], pts[i][1]);
+        staticCtx.lineTo(x, y);
+      }
+      staticCtx.strokeStyle = "#3d4456";
+      staticCtx.lineWidth = 1.25;
+      staticCtx.stroke();
+    }
+    if (pts) {
+      const excluded = staticExcludedPoints(t, currentPrefix(), currentStep());
+      staticCtx.fillStyle = "#4a5266";
+      for (const p of pts) {
+        if (excluded.has(`${p[0]},${p[1]}`)) continue;
+        const [x, y] = worldToScreen(p[0], p[1]);
+        staticCtx.beginPath();
+        staticCtx.arc(x, y, 0.8, 0, Math.PI * 2);
+        staticCtx.fill();
+      }
+    }
+  }
+
+  // Blit the cached static layer; repaint it first when the key changed.
+  function drawStaticStreamLayer(t, showOriginal) {
+    const key = staticStreamKey(showOriginal);
+    if (staticCacheTrace !== t || staticCacheKey !== key) {
+      paintStaticStreamLayer(t);
+      staticCacheTrace = t;
+      staticCacheKey = key;
+    }
+    const w = cachedContainerRect ? cachedContainerRect.width : canvas.width;
+    const h = cachedContainerRect ? cachedContainerRect.height : canvas.height;
+    const smoothing = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(staticLayer, 0, 0, w, h);
+    ctx.imageSmoothingEnabled = smoothing;
+  }
+
+  // -------------------------------------------------------------------------
   //  Main render
   // -------------------------------------------------------------------------
 
   function render() {
     resizeCanvas();
+    cachedContainerRect = canvasContainer.getBoundingClientRect();
+    try {
     const rect = canvasWrap.getBoundingClientRect();
     ctx.clearRect(0, 0, rect.width, rect.height);
     renderStatus();
@@ -2869,36 +3010,13 @@
       mobileSegmentForwardBtn.disabled = traceNotReady || state.prefixIdx >= prefixCount - 1;
     }
 
-    // 1. Full input stream (faint polyline + small filled dots).
+    // 1. Full input stream (faint polyline + small filled dots) — cached
+    // offscreen, blitted per frame; only overlays draw live below.
     const showOriginal = toggles.stream
       ? toggles.stream.checked
       : !!state.resultVisible.original;
     if (showOriginal) {
-      strokePath(t.stream, "#3d4456", 1.25);
-      
-      // Collect all simplified output points to avoid drawing them twice
-      const simplifiedPoints = new Set();
-      for (let i = 0; i < state.prefixIdx; ++i) {
-        const pfxOutput = t.prefixes[i].output;
-        simplifiedPoints.add(`${pfxOutput[0][0]},${pfxOutput[0][1]}`);
-        simplifiedPoints.add(`${pfxOutput[1][0]},${pfxOutput[1][1]}`);
-      }
-      if (pfx && step && state.stepIdx === pfx.steps.length - 1) {
-        simplifiedPoints.add(`${pfx.output[0][0]},${pfx.output[0][1]}`);
-        // Do NOT add output[1] if this is the very last prefix - that's the trajectory endpoint
-        const isLastPrefix = state.prefixIdx === t.prefixes.length - 1;
-        if (!isLastPrefix) {
-          simplifiedPoints.add(`${pfx.output[1][0]},${pfx.output[1][1]}`);
-        }
-      }
-      
-      // Draw stream dots, but skip those that are part of simplified output
-      for (const p of t.stream) {
-        const key = `${p[0]},${p[1]}`;
-        if (!simplifiedPoints.has(key)) {
-          dot(p, 0.8, "#4a5266", null);
-        }
-      }
+      drawStaticStreamLayer(t, showOriginal);
     }
 
     // 3. Simplified output committed so far (all prior prefixes' outputs).
@@ -3232,6 +3350,9 @@
         ctx.fillText("Current", pix, piy);
         ctx.restore();
       }
+    }
+    } finally {
+      cachedContainerRect = null;
     }
   }
 
