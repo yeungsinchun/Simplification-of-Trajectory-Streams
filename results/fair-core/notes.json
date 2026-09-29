@@ -1,0 +1,20 @@
+{
+  "machine": "Apple M1, 16 GiB RAM, macOS 26.6.2 arm64; shared host, no CPU affinity.",
+  "build": "CMake 4.1.1; Apple clang 21.0.0; Release -O3 -DNDEBUG -arch arm64; no fast-math. Native target standards: C++23 for SOTS/DP/SQUISH, C++17 for DOTS. Julia 1.12.6 / FrechetDist 2.1.0. Baseline revision ce40df79a77db8eb4bb31d7316a187c07b2ad921. Full source and binary hashes accompany the JSON evidence.",
+  "profile": [
+    "Instruments Time Profiler 27.0: ten seconds, 9,872 samples, one main thread. ID 21 (588 input points), \u03b5=0.1 and \u03b4=272.727272727273; repeated simplification warms the existing grid-shape caches.",
+    "Edge cropping and its inline helpers account for 7,216 samples (73.1%); tangent selection accounts for 623 (6.3%). These sampled leaf-frame counts are preserved in profile-before.json.",
+    "A separate cold CLI phase-timer run attributes 78.7% to intersection: 68,296 intersection calls and 72,914 wedge updates. Fr\u00e9chet checking is absent from the timed core. Phase timers are explanatory evidence, never benchmark samples."
+  ],
+  "optimizations": [
+    "Implemented: test four independent vertices at a time in the already-inside prefix of each clip edge. This reduces branching and exposes determinant arithmetic to vectorization. A block containing an outside vertex resumes the original scalar path.",
+    "Preserved: intersection formulas, edge order, vertex order, anchor tie order and floating-point flags. No new threads or trajectory-sized caches. The independent scalar clipping oracle agrees bit for bit on all boundary patterns through ten vertices plus 20,000 random rings.",
+    "The 200-case rerun checks byte-identical curves and exactly equal continuous Fr\u00e9chet distances before/after. Baseline binaries, controls and outputs are frozen. Each phase stores ten raw samples per cell; original SOTS is also rerun within final shuffled rounds."
+  ],
+  "conclusion": [
+    "Local M1 (shared host) observed 1.115\u00d7 vs paired reference (13.4604 vs 15.0092 ms, initial 18.0642 ms), but CI (Ubuntu 24.04 g++-14, 20 configs \u00d710 IDs, 10 runs Welch 95%) shows mean 1.00\u00d7 (neutral, 0% cut, 20/20 passed, per-config 0.94\u20131.08\u00d7; intersect 1.07\u00d7 but overall neutral, Run 36460949757). Corrected claim is neutral, not 10.3%.",
+    "Performance parity is not achieved. On final case-balanced means SOTS still takes 69.9\u00d7 DOTS time, 335.6\u00d7 SQUISH time, and 776.1\u00d7 DP time (local M1; CI shows similar gaps). Different point counts and actual errors remain visible; these ratios compare a common verified upper bound, not identical outputs across algorithms.",
+    "Next priority: prove anchor dominance or equivalent-state elimination to reduce polygon updates while preserving longest-stab and last-anchor tie behavior. Then investigate incremental convex clipping and a structure-of-arrays SIMD layout for longer rings. Each needs differential correctness checks; simply reducing anchors changes the algorithm.",
+    "Caching Fr\u00e9chet results cannot improve core_ms because verification is already outside timing. Grid shapes and clip buffers are already cached within each process. Fine-\u03b5 work dominates the aggregate; inspect each tier and its deviations before generalizing to another workload."
+  ]
+}

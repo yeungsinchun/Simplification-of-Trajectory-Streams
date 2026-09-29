@@ -69,6 +69,21 @@ crop_to_left_of_edge(const Vec2 *polygon, size_t n, const ClipEdge &edge,
     double orient_prev = side(polygon[n - 1]);
     size_t i = 0;
     double orient_curr = 0.0;
+    // Most clip edges leave a long prefix (often the entire ring) inside.
+    // Test four independent vertices together so the compiler can vectorize
+    // the determinants. Keep the scalar emission path and its arithmetic/order
+    // unchanged when a block contains an outside vertex.
+    if (orient_prev >= 0.0) {
+        for (; i + 4 <= n; i += 4) {
+            const double a = side(polygon[i]);
+            const double b = side(polygon[i + 1]);
+            const double c = side(polygon[i + 2]);
+            const double d = side(polygon[i + 3]);
+            if ((a < 0.0) | (b < 0.0) | (c < 0.0) | (d < 0.0))
+                break;
+            orient_prev = d;
+        }
+    }
     for (; i < n; ++i) {
         orient_curr = side(polygon[i]);
         if (orient_curr < 0.0 || orient_prev < 0.0)
