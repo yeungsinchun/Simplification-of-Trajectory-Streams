@@ -75,7 +75,7 @@ Checks:
 - HTTP 200 and `Content-Type: application/x-ndjson`
 - NDJSON is valid JSON per line with `type` `header`/`prefix`/`done` (fails on `type: error`)
 - Header epsilon/delta match request, grid/r positive finite, bbox 4 numbers, stream points `N`
-- Each prefix has `p0`, `p0_idx`/`end_idx`, `P`, `output[2]`, `steps` (and steps have `stream_idx`/`pi`/`Gi`/`buffer`/`candidates`); candidates have `idx`/`alive`/`F`/`F_Si`/`S` (alive `S` ≥3)
+- Each prefix has `p0`, `p0_idx`/`end_idx`, `P`, `output[2]`, `steps` (and steps have `stream_idx`/`pi`/`Gi`/`candidates` — buffer[2] optional, v1 only); candidates have `idx`/`alive`/`F`/`F_Si`/`S` (alive `S` ≥3)
 - `done` has finite `time_ms ≥0` and `simplified` length even and `=2×prefixes`
 - Gzipped round-trip (best-effort): request with `Accept-Encoding: gzip` — if `Content-Encoding: gzip` is returned, verify gzip magic, decompressed NDJSON validation, and gzipped size < plain (warn if not smaller); otherwise validate plain NDJSON fallback — streaming endpoint does not gzip, only the JSON trace endpoint does
 - Direct handler smoke: `simplify --web-server --json-stream` output for the same trace must also pass validation and match the server's prefix count

@@ -4,7 +4,7 @@ Validate NDJSON (or gzipped NDJSON) trace emitted by the web server / simplify h
 
 Expects the v2 trace format:
   header line:  {type:"header", eps, delta, grid_val, r_val, expected_frechet, bbox[4], stream:[[x,y]]}
-  prefix lines: {type:"prefix", data:{p0, p0_idx, end_idx, P, output[2], steps:[{stream_idx, pi, Gi, buffer[2], candidates:[{idx, alive, F, F_Si, S}]}]}}
+  prefix lines: {type:"prefix", data:{p0, p0_idx, end_idx, P, output[2], steps:[{stream_idx, pi, Gi, candidates:[{idx, alive, F, F_Si, S}]}]}} (buffer[2] optional, v1 only)
   done line:    {type:"done", time_ms, simplified:[[x,y]], frechet_distance}
 
 Usage:
