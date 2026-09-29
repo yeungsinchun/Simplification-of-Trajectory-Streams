@@ -3,6 +3,7 @@
 
 #include <array>
 #include <concepts>
+#include <cstdint>
 #include <vector>
 
 #include "simplify_geometry.h"
@@ -53,7 +54,12 @@ class Anchor {
 
     // S ← F(S, p) ∩ G. Returns false when the intersection is empty, after
     // which the anchor is dead for the rest of the stab.
-    bool advance(const ConvexRegion &G, StepWorkspace &ws) {
+    //
+    // Always inlined: the sequential loop and the worker loop each get their
+    // own copy. Once it had two callers, clang outlined it and slowed the
+    // sequential loop by ~5%.
+    __attribute__((always_inline)) bool advance(const ConvexRegion &G,
+                                                StepWorkspace &ws) {
         Wedge wedge;
         {
             TIMER("find_F");
@@ -115,6 +121,18 @@ class AnchorSet {
         for (const int i : live_)
             if (keep(anchors_[i]))
                 live_[kept++] = i;
+        live_.resize(kept);
+    }
+
+    [[nodiscard]] size_t live_count() const { return live_.size(); }
+    Anchor &live(size_t k) { return anchors_[live_[k]]; }
+
+    // Keeps live anchor k iff alive[k], in order.
+    void retain_flagged(const std::vector<uint8_t> &alive) {
+        size_t kept = 0;
+        for (size_t k = 0; k < live_.size(); ++k)
+            if (alive[k])
+                live_[kept++] = live_[k];
         live_.resize(kept);
     }
 

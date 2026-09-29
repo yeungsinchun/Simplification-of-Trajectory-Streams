@@ -21,7 +21,7 @@ RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100 && \
 WORKDIR /build
 
 # Headless simplify sources (web trace is separate from core)
-COPY simplify.cpp web_trace.cpp web_trace.h simplify_core.h simplify_geometry.h simplify_io.h timer.h CMakeLists.txt ./
+COPY simplify.cpp web_trace.cpp web_trace.h simplify_core.h simplify_geometry.h simplify_io.h parallel_simplifier.h worker_pool.h timer.h CMakeLists.txt ./
 
 # Pin traj-compression to the gitlink SHA. The Docker context excludes .git
 # (and Cloud Run uploads exclude the submodule), so baseline sources are

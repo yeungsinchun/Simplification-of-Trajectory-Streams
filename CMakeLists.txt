@@ -14,12 +14,14 @@ endif()
 # Headless simplify binary — no Qt dependency. Web-trace emission lives in
 # web_trace.cpp, kept separate from simplify.cpp per refactor.
 find_package(CGAL REQUIRED)
+find_package(Threads REQUIRED)
 add_executable(simplify
   simplify.cpp
   web_trace.cpp
 )
 target_link_libraries(simplify
   CGAL::CGAL
+  Threads::Threads
 )
 
 # Baseline binaries used by the web compare pane and benchmark.py.

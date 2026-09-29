@@ -33,6 +33,9 @@ inline bool web_server_flag = false;
 inline bool json_stream_flag = false;
 inline bool help_flag = false;
 inline bool time_flag = false;
+// Threads advancing the anchors of a step (--workers); 1 runs the sequential
+// simplifier. Output is identical for every value.
+inline int workers = 1;
 inline std::string json_output_path = "";
 
 // ===========================================================================
@@ -61,7 +64,9 @@ inline void print_help(const char* prog) {
     std::println("  --json-output <path>  Write JSON trace to file instead of "
                  "stdout (use with --web-server)");
     std::println("  --time           Opt-in phase timers (stderr TIMING "
-                 "SUMMARY + TIMER_MS lines)");
+                 "SUMMARY + TIMER_MS lines; runs single-threaded)");
+    std::println("  --workers <n>    Threads advancing each step's anchors "
+                 "(default 1 = sequential; output is identical for any n)");
     std::println("  -h               Show this help and exit");
     std::println("");
     std::println(
@@ -81,8 +86,6 @@ inline void print_help(const char* prog) {
               << std::format(
                      "  -e <epsilon>     Override EPSILON (default {})\n",
                      EPSILON)
-              << "  --dump-intersect Dump every (F_poly, Gi_poly) pair fed to "
-                 "intersect() to data/<id>/intersect_pairs.txt\n"
               << "  --web-server     Emit a machine-readable JSON trace of the "
                  "algorithm to stdout for the web visualizer (suppresses all "
                  "other stdout text)\n"
@@ -91,7 +94,9 @@ inline void print_help(const char* prog) {
               << "  --json-output <path>  Write JSON trace to file instead of "
                  "stdout (use with --web-server)\n"
               << "  --time           Opt-in phase timers (stderr TIMING "
-                 "SUMMARY + TIMER_MS lines)\n"
+                 "SUMMARY + TIMER_MS lines; runs single-threaded)\n"
+              << "  --workers <n>    Threads advancing each step's anchors "
+                 "(default 1 = sequential; output is identical for any n)\n"
               << "  -h               Show this help and exit\n"
               << "\n"
               << std::format("Shorthand: {} <id> [flags] is equivalent to "
@@ -110,6 +115,17 @@ inline int parse_arguments(int argc, char** argv, int& test_case_no) {
             json_output_path = argv[++i];
         }
         else if (strcmp(argv[i],"--time") == 0) time_flag = true;
+        else if (strcmp(argv[i],"--workers") == 0 && i+1 < argc) {
+            try { workers = std::stoi(argv[++i]); } catch (...) { workers = 0; }
+            if (workers < 1) {
+#if __has_include(<print>)
+                std::println(stderr, "Invalid --workers value");
+#else
+                std::cerr << std::format("Invalid --workers value\n");
+#endif
+                return 1;
+            }
+        }
         else if (strcmp(argv[i],"-d") == 0 && i+1 < argc) {
             try {
                 DELTA = std::stod(argv[++i]);

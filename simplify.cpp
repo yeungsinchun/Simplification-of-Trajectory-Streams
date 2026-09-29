@@ -5,6 +5,7 @@
 #include <print>
 #endif
 
+#include "parallel_simplifier.h"
 #include "simplify_core.h"
 #include "simplify_io.h"
 #include "timer.h"
@@ -21,7 +22,10 @@ std::vector<Point> simplify(const std::vector<Point>& stream,
     auto t0 = std::chrono::high_resolution_clock::now();
     {
         TIMER("total");
-        simplified = Simplifier(EPSILON, DELTA).simplify(stream);
+        simplified =
+            workers > 1
+                ? ParallelSimplifier(EPSILON, DELTA, workers).simplify(stream)
+                : Simplifier(EPSILON, DELTA).simplify(stream);
     }
     double ms = std::chrono::duration<double, std::milli>(
         std::chrono::high_resolution_clock::now() - t0).count();
