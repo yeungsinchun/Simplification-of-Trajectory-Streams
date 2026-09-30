@@ -60,6 +60,10 @@ Either form renders as an inline playable video. Do not rewrite it to a `release
 
 Do **not** run `security find-generic-password -s "Chrome Safe Storage" -w`, do **not** read the macOS Keychain, `Chrome Safe Storage`, browser Cookies / `Cookies` SQLite, or any stored credential, do **not** decrypt a browser profile, and do **not** log in via copied cookies as another user. The `user-attachments/assets` upload must be via `gh --attach` or manual browser drag-and-drop as the logged-in PR author — not via stolen credentials.
 
+### Viewer demo at both sizes
+
+When the change touches the web viewer UI, layout, styling or behavior, record the demo/walkthrough video at both sizes — a laptop-size video (1280x720 or 1280x800) and a mobile-size video (390x844). Upload each via `gh --attach` (gh 2.100.0) and embed the resulting bare `https://github.com/user-attachments/assets/...` URL (or `![...](url)` markdown) so each renders inline. Unless the change is invisible at one size, in which case note why in the PR.
+
 Once you have the verified `user-attachments/assets` URL, add it to the PR (if you obtained it via a separate upload):
 
 ```bash
