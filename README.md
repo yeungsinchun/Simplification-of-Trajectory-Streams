@@ -22,7 +22,7 @@ dependencies. Qt 6 Core is still required for the vendored DOTS baseline.
 
 Short walkthrough of the web viewer on a real trajectory (Trajectory 1, 588 points, ε = 0.9, δ = 500): loading the stream, toggling original (gray) versus SOTS simplified result (green), scrubbing through streaming prefixes/steps, animating with Play/Pause and speed controls, and adjusting ε/δ. A second trajectory is loaded briefly to show scale.
 
-https://github.com/user-attachments/assets/PLACEHOLDER
+https://github.com/user-attachments/assets/69021ae2-c0ac-4d60-ae8f-ef3acecc01c8
 
 ## Live demo
 
