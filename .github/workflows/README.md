@@ -89,6 +89,22 @@ python3 scripts/ci/validate_web_trace.py --input /tmp/trace.ndjson --epsilon 0.5
 ```
 Artifacts on failure: plain/gz/gunzipped/direct NDJSON plus `web-server.log`. Job summary reports wall bytes, prefixes/steps, stream→simplified, and core `time_ms`.
 
+### web-perf.yml - Web viewer latency / throughput
+**Triggers:** Push to main, pull requests to main, manual dispatch
+
+Existing coverage before this workflow: `web-server.yml` validates trace *correctness* and applies a single coarse wall-time bar (`≤10 s` for one request); nothing measured time-to-first-byte, streaming throughput, the static/API paths, or concurrent requests.
+
+`scripts/ci/web_perf.py` (stdlib only) probes the running Flask viewer for trajectory 1 at `ε=0.5, δ=200` (first run of each metric is a discarded warm-up; median and worst of 5 are gated):
+- Static `/`, `/viewer.js` and API `/api/traces`, `/api/trace/1/original`: median `≤500 ms`, worst `≤1500 ms`, always HTTP 200
+- Trace stream (plain and gzip): TTFB `≤1 s`, first prefix `≤3 s`, total `≤10 s` median / `≤20 s` worst, throughput `≥0.2 MB/s`
+- 4 parallel stream clients × 2 rounds: all 200, `≥0.1 req/s`, slowest `≤60 s`
+
+Ceilings are deliberately generous (healthy local run: TTFB ~15 ms, stream ~3 s) so shared-runner noise does not flake; they catch buffering-until-done, serialised requests and order-of-magnitude slowdowns. Results land in the job summary and the `web-perf` artifact.
+
+**Path scoping:** the workflow always starts on PRs; a `changes` job diffs against the PR base and `web-perf` runs only if the diff touches `web/` (excluding `web/usability/` and `web/USABILITY.md`), the `simplify*` core sources/headers, `web_trace.*`, `timer.h`, `CMakeLists.txt`, `data/`, or the gate itself. Otherwise the job is *skipped*, which satisfies a required `web-perf` check. A workflow-level `paths:` filter is deliberately not used: it would leave the required check pending forever on unrelated PRs.
+
+Local: `python3 scripts/ci/web_perf.py --base-url http://127.0.0.1:5051` against a running `web/server.py`.
+
 ### deploy.yml - Cloud Run deploy
 **Triggers:** Push to main, manual dispatch
 
