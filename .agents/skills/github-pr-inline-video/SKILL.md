@@ -18,29 +18,49 @@ Only the `user-attachments/assets` attachment flow renders inline.
 
 ## Correct flow
 
-### Preferred: web UI drag-and-drop (always works)
+### Preferred scripted: `gh --attach` (verified gh 2.100.0)
 
-1. Edit the PR description or add a new comment.
-2. Drag-and-drop the `.mp4` into the markdown editor (or click to attach) and wait for upload to complete.
-3. Keep the markdown GitHub inserts verbatim, e.g.:
+`gh` 2.100.0 adds first-class attachment upload that produces real `user-attachments/assets` URLs without browser automation. Prefer this over manual drag-and-drop when `gh` is available:
 
-   ```markdown
-   https://github.com/user-attachments/assets/<uuid>
-   ```
+```bash
+# Append a video asset to the existing PR description (keeps current body):
+gh pr edit <number> --attach /path/to/video.mp4
 
-   or
+# Or create a new PR comment with an attachment:
+gh pr comment <number> --attach /path/to/video.mp4 --body "context text"
+gh issue comment <number> --attach /path/to/video.mp4 --body "context text"
+```
 
-   ```markdown
-   ![description](https://github.com/user-attachments/assets/<uuid>)
-   ```
+Up to 50 files per invocation (`--attach` may be repeated). `gh` appends the `https://github.com/user-attachments/assets/<uuid>` markdown to the PR body/comment verbatim — keep it as-is (do not rewrite to `releases/download/...`). The existing body is preserved; `--attach` does not overwrite it.
 
-   Either form renders as an inline playable video. Do not rewrite it to a `releases/download/...` URL.
+**Video alt-text limitation (verified):** do not append `#alt text` to a video attachment (`video.mp4#something` fails with `cannot set alt text on video`). Upload the bare `.mp4`.
 
-### Scripted alternative (verify before use)
+### Fallback: web UI drag-and-drop (always works)
 
-There is **no stable single-command `gh` attachment upload**. To automate, you must upload via the GitHub API to obtain a `user-attachments/assets` URL and then reference that URL in a PR comment. Any `gh api` upload invocation must be verified against the current GitHub API documentation before use — do not invent or assume an endpoint (e.g., do not assume `POST /repos/{owner}/{repo}/attachments` exists without verifying it). The web UI above is the guaranteed path.
+If `gh --attach` is unavailable, edit the PR description or add a new comment, drag-and-drop the `.mp4` into the markdown editor (or click to attach), wait for upload, and keep the markdown GitHub inserts verbatim, e.g.:
 
-Once you have the verified `user-attachments/assets` URL, add it to the PR:
+```markdown
+https://github.com/user-attachments/assets/<uuid>
+```
+
+or
+
+```markdown
+![description](https://github.com/user-attachments/assets/<uuid>)
+```
+
+Either form renders as an inline playable video. Do not rewrite it to a `releases/download/...` URL.
+
+### What not to do
+
+- Raw `gh api` upload to an assumed `POST /repos/{owner}/{repo}/attachments` or `POST https://github.com/upload/policies/assets` with a PAT does **not** work in this repo (verified: returns `404 Not Found` or `"Oh no"` HTML). Do not invent or assume such endpoints.
+- Never use a `releases/download/...` URL for PR-inline video — it renders as a plain link, not an inline player.
+
+### Prohibited: credential / Keychain / cookie reuse
+
+Do **not** run `security find-generic-password -s "Chrome Safe Storage" -w`, do **not** read the macOS Keychain, `Chrome Safe Storage`, browser Cookies / `Cookies` SQLite, or any stored credential, do **not** decrypt a browser profile, and do **not** log in via copied cookies as another user. The `user-attachments/assets` upload must be via `gh --attach` or manual browser drag-and-drop as the logged-in PR author — not via stolen credentials.
+
+Once you have the verified `user-attachments/assets` URL, add it to the PR (if you obtained it via a separate upload):
 
 ```bash
 gh pr comment <number> --body "![description](https://github.com/user-attachments/assets/<uuid>)"
