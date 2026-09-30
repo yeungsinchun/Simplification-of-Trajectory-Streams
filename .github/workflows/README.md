@@ -41,7 +41,7 @@ Tolerances (unchanged without evidence): `DIST_TOL=0.01`, `POINTS_TOL=0`.
 Artifacts: `correctness-<label>` with `correctness.tsv` and `correctness.json`. Job summary tables show per-ID wins/fails. Delta is printed as `DELTA_NUMER/(1+EPSILON) = DELTA` in logs.
 
 ### benchmark.yml - Performance regression
-**Triggers:** Push to main, pull requests to main, manual dispatch
+**Triggers:** Push to main, pull requests to main, manual dispatch. The workflow always starts (no workflow-level `paths`, which would leave a required check pending on skipped runs); a cheap `bench scope` job runs `scripts/ci/perf_paths.sh` on the changed files and the 20 matrix jobs plus `bench report` run only when a performance-relevant path changed (root `*.cpp`/`*.h`, `CMakeLists.txt`, `traj-compression`, `data/`, `scripts/derive_benchmark_data.py`, `scripts/ci/{welch,bench_report,test_bench_report}`, `benchmark.yml`, the gate script itself). README, docs, web viewer, Dockerfile, deploy and other workflows skip the matrix; skipped jobs count as passing for required checks. Manual dispatch and an unusable diff always run the benchmark. Edit the list in `perf_paths.sh` when a new benchmark input appears.
 
 Same 20 parallel `(ε, δ, size)` matrix jobs as correctness (table above). For each setting, runs `BENCH_RUNS=10` Release invocations of `SIMPLIFY_CORE_MS` per ID for each binary (small: 11..20 or large: 21..30, new vs the same baseline commit as correctness), computes per-ID mean and sample stddev via Welford's online algorithm, and enforces high-confidence gates (one-sided 95% CI with Welch t, fail only when confident new is worse):
 
