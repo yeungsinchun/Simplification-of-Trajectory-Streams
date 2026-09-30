@@ -18,6 +18,12 @@ The project is research software. It is tested primarily on macOS arm64;
 other platforms may work with equivalent CGAL, CMake, Julia, and C++
 dependencies. Qt 6 Core is still required for the vendored DOTS baseline.
 
+## Demo — Viewer walkthrough (1 min)
+
+Short walkthrough of the web viewer on a real trajectory (Trajectory 1, 588 points, ε = 0.9, δ = 500): loading the stream, toggling original (gray) versus SOTS simplified result (green), scrubbing through streaming prefixes/steps, animating with Play/Pause and speed controls, and adjusting ε/δ. A second trajectory is loaded briefly to show scale.
+
+https://github.com/user-attachments/assets/PLACEHOLDER
+
 ## Live demo
 
 A Cloud Run deployment of the web visualizer is available at:
