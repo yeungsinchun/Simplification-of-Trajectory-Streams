@@ -39,7 +39,7 @@ jobs:
           # app and static assets, the C++ stream producer it spawns (simplify
           # + its headers, web_trace, timer), the build config, preloaded trace
           # data, and this gate itself. Usability screenshots/notes are not runtime.
-          CHANGED=$(git diff --name-only "$BASE_SHA" HEAD)
+          CHANGED=$(git diff --no-renames --name-only "$BASE_SHA" HEAD)
           echo "$CHANGED"
           RELEVANT=$(echo "$CHANGED" | grep -Ev '^(web/usability/|web/USABILITY\.md$)' || true)
           if echo "$RELEVANT" | grep -Eq '^(web/|simplify\.cpp$|simplify_[a-z]+\.h$|web_trace\.(cpp|h)$|timer\.h$|CMakeLists\.txt$|data/|scripts/ci/web_perf\.py$|\.github/workflows/web-perf\.yml$)'; then

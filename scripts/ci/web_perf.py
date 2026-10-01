@@ -36,6 +36,7 @@ import sys
 import threading
 import time
 import urllib.parse
+import zlib
 
 
 def _conn(base: str, timeout: float) -> tuple[http.client.HTTPConnection, str]:
@@ -48,35 +49,62 @@ def fetch(base: str, path: str, *, timeout: float = 60.0, gzip_ok: bool = False)
     conn, prefix = _conn(base, timeout)
     headers = {"Accept-Encoding": "gzip" if gzip_ok else "identity"}
     t0 = time.perf_counter()
-    conn.request("GET", prefix + path, headers=headers)
-    resp = conn.getresponse()
     ttfb = first_prefix = None
     nbytes = prefixes = 0
     tail = b""
-    ndjson = "ndjson" in (resp.getheader("Content-Type") or "")
-    gz = (resp.getheader("Content-Encoding") or "") == "gzip"
-    while True:
-        chunk = resp.read1(65536)
-        if not chunk:
-            break
-        now = time.perf_counter()
-        if ttfb is None:
-            ttfb = now - t0
-        nbytes += len(chunk)
-        # Timing of the first prefix needs plaintext; only scan identity bodies.
-        if ndjson and not gz:
-            buf = tail + chunk
-            *lines, tail = buf.split(b"\n")
-            for ln in lines:
-                if ln.startswith(b'{"type":"prefix"') or ln.startswith(b'{"type": "prefix"'):
-                    prefixes += 1
-                    if first_prefix is None:
-                        first_prefix = now - t0
-    total = time.perf_counter() - t0
-    conn.close()
+    valid, header, done = True, False, False
+
+    def record(line: bytes, now: float):
+        nonlocal valid, header, done, prefixes, first_prefix
+        try:
+            message = json.loads(line)
+        except ValueError:
+            valid = False
+            return
+        typ = message.get("type") if isinstance(message, dict) else None
+        if done:
+            valid = False
+        elif typ == "header" and not header:
+            header = True
+        elif typ == "prefix" and header:
+            prefixes += 1
+            if first_prefix is None:
+                first_prefix = now - t0
+        elif typ == "done" and header and prefixes:
+            done = True
+        else:
+            valid = False
+
+    try:
+        conn.request("GET", prefix + path, headers=headers)
+        resp = conn.getresponse()
+        ndjson = "ndjson" in (resp.getheader("Content-Type") or "")
+        gz = (resp.getheader("Content-Encoding") or "") == "gzip"
+        decoder = zlib.decompressobj(31) if ndjson and gz else None
+        while True:
+            chunk = resp.read1(65536)
+            if not chunk:
+                break
+            if ttfb is None:
+                ttfb = time.perf_counter() - t0
+            nbytes += len(chunk)
+            if ndjson:
+                decoded = decoder.decompress(chunk) if decoder is not None else chunk
+                now = time.perf_counter()
+                *lines, tail = (tail + decoded).split(b"\n")
+                for line in lines:
+                    record(line, now)
+        if ndjson and tail:
+            record(tail, time.perf_counter())
+        if decoder is not None and (not decoder.eof or decoder.unused_data):
+            valid = False
+        total = time.perf_counter() - t0
+    finally:
+        conn.close()
     out = {"status": resp.status, "bytes": nbytes, "total_ms": total * 1e3,
-           "ttfb_ms": (ttfb if ttfb is not None else total) * 1e3}
-    if ndjson and not gz:
+           "ttfb_ms": (ttfb if ttfb is not None else total) * 1e3,
+           "stream_ok": ndjson and valid and done}
+    if ndjson:
         out["prefixes"] = prefixes
         if first_prefix is not None:
             out["first_prefix_ms"] = first_prefix * 1e3
@@ -95,13 +123,19 @@ def concurrent(base: str, path: str, workers: int, rounds: int) -> dict:
     """`workers` simultaneous stream requests, repeated `rounds` times."""
     t0 = time.perf_counter()
     results: list[dict] = []
+    errors: list[str] = []
     lock = threading.Lock()
 
     def worker():
         for _ in range(rounds):
-            r = fetch(base, path)
-            with lock:
-                results.append(r)
+            try:
+                r = fetch(base, path)
+            except Exception as error:
+                with lock:
+                    errors.append(str(error))
+            else:
+                with lock:
+                    results.append(r)
 
     threads = [threading.Thread(target=worker) for _ in range(workers)]
     for t in threads:
@@ -109,14 +143,17 @@ def concurrent(base: str, path: str, workers: int, rounds: int) -> dict:
     for t in threads:
         t.join()
     wall = time.perf_counter() - t0
+    successful = [r for r in results if r["status"] == 200 and r.get("stream_ok", False)]
     return {
         "requests": len(results),
-        "all_ok": all(r["status"] == 200 for r in results),
+        "successful_requests": len(successful),
+        "errors": errors,
+        "all_ok": not errors and len(successful) == workers * rounds,
         "wall_s": wall,
-        "requests_per_s": len(results) / wall,
-        "mb_per_s": sum(r["bytes"] for r in results) / 1e6 / wall,
-        "max_total_ms": max(r["total_ms"] for r in results),
-        "median_total_ms": statistics.median(r["total_ms"] for r in results),
+        "requests_per_s": len(successful) / wall,
+        "mb_per_s": sum(r["bytes"] for r in successful) / 1e6 / wall,
+        "max_total_ms": max((r["total_ms"] for r in results), default=0.0),
+        "median_total_ms": statistics.median(r["total_ms"] for r in results) if results else 0.0,
     }
 
 
@@ -171,6 +208,7 @@ def main() -> int:
 
     rs = sample(lambda: fetch(base, stream_path), runs)
     g.le("stream status!=200 count", sum(r["status"] != 200 for r in rs), 0, "")
+    g.le("stream unsuccessful count", sum(not r.get("stream_ok", False) for r in rs), 0, "")
     g.ge("stream prefixes", min(r.get("prefixes", 0) for r in rs), 1, "")
     g.le("stream TTFB median", med(rs, "ttfb_ms"), 1000)
     g.le("stream first-prefix median", med(rs, "first_prefix_ms") if all("first_prefix_ms" in r for r in rs) else float("inf"),
@@ -183,12 +221,16 @@ def main() -> int:
 
     gz = sample(lambda: fetch(base, stream_path, gzip_ok=True), runs)
     g.le("stream(gzip) status!=200 count", sum(r["status"] != 200 for r in gz), 0, "")
+    g.le("stream(gzip) unsuccessful count", sum(not r.get("stream_ok", False) for r in gz), 0, "")
     g.le("stream(gzip) TTFB median", med(gz, "ttfb_ms"), 1000)
+    g.le("stream(gzip) first-prefix median", med(gz, "first_prefix_ms") if all("first_prefix_ms" in r for r in gz) else float("inf"),
+         3000)
     g.le("stream(gzip) total median", med(gz, "total_ms"), 10000)
-    report["stream_gzip"] = {k: med(gz, k) for k in ("ttfb_ms", "total_ms", "bytes")}
+    report["stream_gzip"] = {k: med(gz, k) for k in ("ttfb_ms", "first_prefix_ms", "total_ms", "bytes")
+                             if all(k in r for r in gz)}
 
     cc = concurrent(base, stream_path, workers, rounds)
-    g.le("concurrent non-200 responses", 0 if cc["all_ok"] else 1, 0, "")
+    g.le("concurrent unsuccessful workload", 0 if cc["all_ok"] else 1, 0, "")
     g.ge(f"concurrent x{workers} requests/s", cc["requests_per_s"], 0.1, "req/s")
     g.le(f"concurrent x{workers} slowest", cc["max_total_ms"], 60000)
     report["concurrent"] = {"workers": workers, **cc}

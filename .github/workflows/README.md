@@ -96,8 +96,9 @@ Existing coverage before this workflow: `web-server.yml` validates trace *correc
 
 `scripts/ci/web_perf.py` (stdlib only) probes the running Flask viewer for trajectory 1 at `ε=0.5, δ=200` (first run of each metric is a discarded warm-up; median and worst of 5 are gated):
 - Static `/`, `/viewer.js` and API `/api/traces`, `/api/trace/1/original`: median `≤500 ms`, worst `≤1500 ms`, always HTTP 200
-- Trace stream (plain and gzip): TTFB `≤1 s`, first prefix `≤3 s`, total `≤10 s` median / `≤20 s` worst, throughput `≥0.2 MB/s`
-- 4 parallel stream clients × 2 rounds: all 200, `≥0.1 req/s`, slowest `≤60 s`
+- Trace stream (plain and gzip): always HTTP 200 with valid NDJSON ending in `done` and no error records; median TTFB `≤1 s`, first prefix `≤3 s`, total `≤10 s`
+- Plain stream additionally: total `≤20 s` worst, median throughput `≥0.2 MB/s` (wire bytes)
+- 4 parallel stream clients × 2 rounds: all eight complete successfully, `≥0.1 successful req/s`, slowest `≤60 s`
 
 Ceilings are deliberately generous (healthy local run: TTFB ~15 ms, stream ~3 s) so shared-runner noise does not flake; they detect absolute latency and throughput limit violations, not serialization by itself or relative regressions. Results land in the job summary and the `web-perf` artifact.
 
