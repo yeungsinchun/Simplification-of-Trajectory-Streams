@@ -37,7 +37,7 @@ if [ -z "$base" ] || [ -z "$head" ] || [[ "$base" =~ ^0+$ ]]; then
   exit 0
 fi
 
-if ! files=$(git diff --name-only "$base" "$head" --); then
+if ! files=$(git diff --no-renames --name-only "$base" "$head" --); then
   echo "git diff failed; running benchmark" >&2
   emit true
   exit 0
