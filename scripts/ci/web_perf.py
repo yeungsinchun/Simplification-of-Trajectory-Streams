@@ -15,11 +15,10 @@ user of the viewer feels:
   concurrent  N parallel stream requests: aggregate requests/s and MB/s,
               and the slowest request's total_ms
 
-Each metric is sampled `--runs` times (first run is a discarded warm-up) and
-the median and worst are compared to generous absolute ceilings, which are
-tuned to catch order-of-magnitude regressions (buffering the whole stream
-before the first byte, serialising concurrent requests, a slow static path)
-on noisy shared runners rather than small drifts.
+Each metric is sampled five times (first run is a discarded warm-up) and
+the median and worst are compared to generous absolute limits on noisy shared
+runners. These detect latency and throughput limit violations, not serialization
+by itself or relative regressions.
 
 Usage:
   python3 scripts/ci/web_perf.py --base-url http://127.0.0.1:5051
@@ -147,36 +146,22 @@ def worst(rs: list[dict], key: str) -> float:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--base-url", default="http://127.0.0.1:5051")
-    ap.add_argument("--trace-id", type=int, default=1)
-    ap.add_argument("--epsilon", default="0.5")
-    ap.add_argument("--delta", default="200")
-    ap.add_argument("--runs", type=int, default=5, help="measured runs per metric (plus one warm-up)")
-    ap.add_argument("--workers", type=int, default=4, help="parallel stream clients")
-    ap.add_argument("--rounds", type=int, default=2, help="requests per parallel client")
     ap.add_argument("--json-out")
     ap.add_argument("--markdown-out")
-    # Ceilings are generous (well above a healthy run); see .github/workflows/README.md.
-    ap.add_argument("--max-static-ms", type=float, default=500)
-    ap.add_argument("--max-api-ms", type=float, default=500)
-    ap.add_argument("--max-ttfb-ms", type=float, default=1000)
-    ap.add_argument("--max-first-prefix-ms", type=float, default=3000)
-    ap.add_argument("--max-stream-ms", type=float, default=10000)
-    ap.add_argument("--min-stream-mbps", type=float, default=0.2)
-    ap.add_argument("--min-concurrent-rps", type=float, default=0.1)
-    ap.add_argument("--max-concurrent-slowest-ms", type=float, default=60000)
     a = ap.parse_args()
 
     base = a.base_url
-    qs = f"epsilon={a.epsilon}&delta={a.delta}"
-    stream_path = f"/api/trace/{a.trace_id}?{qs}"
-    report: dict = {"trace_id": a.trace_id, "epsilon": a.epsilon, "delta": a.delta}
+    trace_id, epsilon, delta = 1, "0.5", "200"
+    runs, workers, rounds = 5, 4, 2
+    stream_path = f"/api/trace/{trace_id}?epsilon={epsilon}&delta={delta}"
+    report: dict = {"trace_id": trace_id, "epsilon": epsilon, "delta": delta}
     g = Gates()
 
     for name, path in (("static /", "/"), ("static /viewer.js", "/viewer.js"),
                        ("api /api/traces", "/api/traces"),
-                       (f"api /api/trace/{a.trace_id}/original", f"/api/trace/{a.trace_id}/original")):
-        rs = sample(lambda p=path: fetch(base, p), a.runs)
-        limit = a.max_static_ms if name.startswith("static") else a.max_api_ms
+                       (f"api /api/trace/{trace_id}/original", f"/api/trace/{trace_id}/original")):
+        rs = sample(lambda p=path: fetch(base, p), runs)
+        limit = 500
         bad = [r["status"] for r in rs if r["status"] != 200]
         g.le(f"{name} status!=200 count", len(bad), 0, "")
         g.le(f"{name} median", med(rs, "total_ms"), limit)
@@ -184,34 +169,34 @@ def main() -> int:
         report[name] = {"median_ms": med(rs, "total_ms"), "worst_ms": worst(rs, "total_ms"),
                         "bytes": rs[0]["bytes"]}
 
-    rs = sample(lambda: fetch(base, stream_path), a.runs)
+    rs = sample(lambda: fetch(base, stream_path), runs)
     g.le("stream status!=200 count", sum(r["status"] != 200 for r in rs), 0, "")
     g.ge("stream prefixes", min(r.get("prefixes", 0) for r in rs), 1, "")
-    g.le("stream TTFB median", med(rs, "ttfb_ms"), a.max_ttfb_ms)
+    g.le("stream TTFB median", med(rs, "ttfb_ms"), 1000)
     g.le("stream first-prefix median", med(rs, "first_prefix_ms") if all("first_prefix_ms" in r for r in rs) else float("inf"),
-         a.max_first_prefix_ms)
-    g.le("stream total median", med(rs, "total_ms"), a.max_stream_ms)
-    g.le("stream total worst", worst(rs, "total_ms"), a.max_stream_ms * 2)
-    g.ge("stream throughput median", med(rs, "mb_per_s"), a.min_stream_mbps, "MB/s")
+         3000)
+    g.le("stream total median", med(rs, "total_ms"), 10000)
+    g.le("stream total worst", worst(rs, "total_ms"), 20000)
+    g.ge("stream throughput median", med(rs, "mb_per_s"), 0.2, "MB/s")
     report["stream"] = {k: med(rs, k) for k in ("ttfb_ms", "first_prefix_ms", "total_ms", "mb_per_s", "prefixes_per_s", "bytes")
                         if all(k in r for r in rs)}
 
-    gz = sample(lambda: fetch(base, stream_path, gzip_ok=True), a.runs)
+    gz = sample(lambda: fetch(base, stream_path, gzip_ok=True), runs)
     g.le("stream(gzip) status!=200 count", sum(r["status"] != 200 for r in gz), 0, "")
-    g.le("stream(gzip) TTFB median", med(gz, "ttfb_ms"), a.max_ttfb_ms)
-    g.le("stream(gzip) total median", med(gz, "total_ms"), a.max_stream_ms)
+    g.le("stream(gzip) TTFB median", med(gz, "ttfb_ms"), 1000)
+    g.le("stream(gzip) total median", med(gz, "total_ms"), 10000)
     report["stream_gzip"] = {k: med(gz, k) for k in ("ttfb_ms", "total_ms", "bytes")}
 
-    cc = concurrent(base, stream_path, a.workers, a.rounds)
+    cc = concurrent(base, stream_path, workers, rounds)
     g.le("concurrent non-200 responses", 0 if cc["all_ok"] else 1, 0, "")
-    g.ge(f"concurrent x{a.workers} requests/s", cc["requests_per_s"], a.min_concurrent_rps, "req/s")
-    g.le(f"concurrent x{a.workers} slowest", cc["max_total_ms"], a.max_concurrent_slowest_ms)
-    report["concurrent"] = {"workers": a.workers, **cc}
+    g.ge(f"concurrent x{workers} requests/s", cc["requests_per_s"], 0.1, "req/s")
+    g.le(f"concurrent x{workers} slowest", cc["max_total_ms"], 60000)
+    report["concurrent"] = {"workers": workers, **cc}
 
     report["gates"] = [{"name": n, "value": v, "limit": l, "ok": ok} for n, v, l, _, ok in g.rows]
     report["ok"] = g.ok
 
-    lines = [f"## Web viewer latency / throughput — trace {a.trace_id} (ε={a.epsilon}, δ={a.delta})", "",
+    lines = [f"## Web viewer latency / throughput — trace {trace_id} (ε={epsilon}, δ={delta})", "",
              "| Metric | Value | Gate | |", "|---|---|---|---|"]
     for n, v, l, _, ok in g.rows:
         lines.append(f"| {n} | {v:.1f} | {l} | {'✅' if ok else '❌'} |")
