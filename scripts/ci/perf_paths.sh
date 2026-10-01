@@ -18,8 +18,8 @@ is_perf_path() {
     CMakeLists.txt | traj-compression | traj-compression/*) return 0 ;;
     # Benchmark trajectories and their derivation.
     data/* | scripts/derive_benchmark_data.py) return 0 ;;
-    # Benchmark statistics, reporting and their tests.
-    scripts/ci/welch.py | scripts/ci/bench_report.py | scripts/ci/test_bench_report.py) return 0 ;;
+    # Benchmark statistics and reporting.
+    scripts/ci/welch.py | scripts/ci/bench_report.py) return 0 ;;
     # The benchmark workflow itself and this gate.
     .github/workflows/benchmark.yml | scripts/ci/perf_paths.sh) return 0 ;;
     *) return 1 ;;

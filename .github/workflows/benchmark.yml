@@ -36,7 +36,7 @@ jobs:
         env:
           EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          HEAD: ${{ github.sha }}
         run: |
           if [ "$EVENT" = workflow_dispatch ]; then
             echo "perf=true" >> "$GITHUB_OUTPUT"
