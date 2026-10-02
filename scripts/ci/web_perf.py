@@ -2,29 +2,27 @@
 """
 Latency / throughput probe for the running Flask web viewer (stdlib only).
 
-Complements scripts/ci/validate_web_trace.py (structure) by measuring what a
-user of the viewer feels:
+Complements scripts/ci/validate_web_trace.py (structure) by measuring HTTP
+response latency and throughput, not browser rendering:
 
   static    GET /, /viewer.js           time to last byte
   api       GET /api/traces, /api/trace/<id>/original
   stream    GET /api/trace/<id>?epsilon&delta   (NDJSON green-path stream)
-              ttfb_ms         request sent -> first body byte (header line)
-              first_prefix_ms request sent -> first {"type":"prefix"} line
-              total_ms        request sent -> last byte
+              ttfb_ms         request sent -> first wire body byte
+              first_prefix_ms request sent -> first complete decoded prefix line
+              total_ms        request sent -> last wire byte
               MB/s, prefixes/s over the whole stream
-  concurrent  N parallel stream requests: aggregate requests/s and MB/s,
-              and the slowest request's total_ms
+  concurrent  parallel clients making sequential requests: aggregate successful
+              requests/s and MB/s, and the slowest request's total_ms
 
-Each metric is sampled five times (first run is a discarded warm-up) and
-the median and worst are compared to generous absolute limits on noisy shared
-runners. These detect latency and throughput limit violations, not serialization
-by itself or relative regressions.
+See .github/workflows/README.md under web-perf.yml for workload, sampling,
+and gate policy.
 
 Usage:
   python3 scripts/ci/web_perf.py --base-url http://127.0.0.1:5051
   python3 scripts/ci/web_perf.py --base-url ... --json-out perf.json --markdown-out perf.md
 
-Exit 0 when every gate passes, 1 otherwise (all gates are always evaluated).
+Exit 0 when every gate passes; failures return a nonzero exit status.
 """
 from __future__ import annotations
 

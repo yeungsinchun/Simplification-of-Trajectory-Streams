@@ -77,7 +77,7 @@ Checks:
 - Header epsilon/delta match request, grid/r positive finite, bbox 4 numbers, stream points `N`
 - Each prefix has `p0`, `p0_idx`/`end_idx`, `P`, `output[2]`, `steps` (and steps have `stream_idx`/`pi`/`Gi`/`candidates` — buffer[2] optional, v1 only); candidates have `idx`/`alive`/`F`/`F_Si`/`S` (alive `S` ≥3)
 - `done` has finite `time_ms ≥0` and `simplified` length even and `=2×prefixes`
-- Gzipped round-trip (best-effort): request with `Accept-Encoding: gzip` — if `Content-Encoding: gzip` is returned, verify gzip magic, decompressed NDJSON validation, and gzipped size < plain (warn if not smaller); otherwise validate plain NDJSON fallback — streaming endpoint does not gzip, only the JSON trace endpoint does
+- Gzipped round-trip (best-effort): request with `Accept-Encoding: gzip` — if `Content-Encoding: gzip` is returned, verify gzip magic, decompressed NDJSON validation, and gzipped size < plain (warn if not smaller); otherwise attempt NDJSON validation of the plain fallback. See `stream_simplify_trace` in `web/server.py` for encoding behavior.
 - Direct handler smoke: `simplify --web-server --json-stream` output for the same trace must also pass validation and match the server's prefix count
 - Speed/size gates: wall time `≤10 s` (`MAX_TIME_MS`), payload `≥1 KiB` (`MIN_BYTES`); done `time_ms` is reported for regression visibility
 
@@ -94,15 +94,15 @@ Artifacts on failure: plain/gz/gunzipped/direct NDJSON plus `web-server.log`. Jo
 
 Existing coverage before this workflow: `web-server.yml` validates trace *correctness* and applies a single coarse wall-time bar (`≤10 s` for one request); nothing measured time-to-first-byte, streaming throughput, the static/API paths, or concurrent requests.
 
-`scripts/ci/web_perf.py` (stdlib only) probes the running Flask viewer for trajectory 1 at `ε=0.5, δ=200` (first run of each metric is a discarded warm-up; median and worst of 5 are gated):
+`scripts/ci/web_perf.py` (stdlib only) probes the running Flask viewer for trajectory 1 at `ε=0.5, δ=200`. Each sequential endpoint/encoding probe discards one warm-up request, then measures five requests; the gates below specify which medians and worst values are checked. The concurrent workload runs once without a discarded warm-up:
 - Static `/`, `/viewer.js` and API `/api/traces`, `/api/trace/1/original`: median `≤500 ms`, worst `≤1500 ms`, always HTTP 200
-- Trace stream (plain and gzip): always HTTP 200 with valid NDJSON ending in `done` and no error records; median TTFB `≤1 s`, first prefix `≤3 s`, total `≤10 s`
+- Trace stream (identity and gzip-accepting requests; plain fallback allowed): always HTTP 200 with parsed NDJSON records in `header`/`prefix`/terminal `done` order and no error records; median TTFB `≤1 s` (first wire body byte), first prefix `≤3 s` (complete decoded record), total `≤10 s`. Detailed geometry validation remains in `web-server.yml`.
 - Plain stream additionally: total `≤20 s` worst, median throughput `≥0.2 MB/s` (wire bytes)
-- 4 parallel stream clients × 2 rounds: all eight complete successfully, `≥0.1 successful req/s`, slowest `≤60 s`
+- 4 parallel stream clients, each making 2 sequential requests: all eight complete successfully, `≥0.1 successful req/s`, slowest `≤60 s`
 
 Ceilings are deliberately generous (healthy local run: TTFB ~15 ms, stream ~3 s) so shared-runner noise does not flake; they detect absolute latency and throughput limit violations, not serialization by itself or relative regressions. Results land in the job summary and the `web-perf` artifact.
 
-**Path scoping:** the workflow always starts on PRs and pushes to main; a `changes` job diffs against the PR base on PRs or the event's before SHA on pushes, and `web-perf` runs only if the diff touches `web/` (excluding `web/usability/` and `web/USABILITY.md`), the `simplify*` core sources/headers, `web_trace.*`, `timer.h`, `CMakeLists.txt`, `data/`, or the gate itself. Otherwise the job is *skipped*, which satisfies a required `web-perf` check. A workflow-level `paths:` filter is deliberately not used: it would leave the required check pending forever on unrelated PRs.
+**Path scoping:** the workflow always starts on PRs and pushes to main; a `changes` job diffs against the PR base on PRs or the event's before SHA on pushes, counting both old and new paths for renames, and `web-perf` runs only if the diff touches `web/` (excluding `web/usability/` and `web/USABILITY.md`), the `simplify*` core sources/headers, `web_trace.*`, `timer.h`, `CMakeLists.txt`, `data/`, or the gate itself. Otherwise the job is *skipped*, which satisfies a required `web-perf` check. A workflow-level `paths:` filter is deliberately not used: it would leave the required check pending forever on unrelated PRs.
 
 Local: `python3 scripts/ci/web_perf.py --base-url http://127.0.0.1:5051` against a running `web/server.py`.
 
