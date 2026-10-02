@@ -13,9 +13,42 @@ on:
 #   epsilon tiers: 299 (extra-coarse), 30 (coarse), 5 (mid), 0.5 (fine), 0.1 (extra-fine)
 #   delta = 300/(1+epsilon) or 1000/(1+epsilon) computed exactly in the job
 #   size: small ~100 pts (IDs 11..20), large ~1000 pts (IDs 21..30) derived via scripts/derive_benchmark_data.py
+#
+# Scoping: the workflow triggers on every push/PR (no workflow-level `paths`,
+# which would leave a required check pending forever on skipped runs). The cheap
+# `changes` job always runs and decides, via scripts/ci/perf_paths.sh (the
+# explicit list of performance-relevant paths), whether the matrix runs. Skipped
+# jobs report as skipped, which satisfies required checks.
 jobs:
+  changes:
+    name: bench scope
+    runs-on: ubuntu-latest
+    outputs:
+      perf: ${{ steps.gate.outputs.perf }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Detect performance-relevant changes
+        id: gate
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.sha }}
+        run: |
+          if [ "$EVENT" = workflow_dispatch ]; then
+            echo "perf=true" >> "$GITHUB_OUTPUT"
+          else
+            scripts/ci/perf_paths.sh "$BASE" "$HEAD" >> "$GITHUB_OUTPUT"
+          fi
+          cat "$GITHUB_OUTPUT"
+
   bench-vs-prev:
     name: "bench ${{ matrix.label }} e=${{ matrix.epsilon }}"
+    needs: changes
+    if: needs.changes.outputs.perf == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -502,8 +535,8 @@ jobs:
 
   bench-report:
     name: bench report
-    needs: bench-vs-prev
-    if: always()
+    needs: [changes, bench-vs-prev]
+    if: always() && needs.changes.outputs.perf == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read

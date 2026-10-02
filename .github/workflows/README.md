@@ -41,7 +41,7 @@ Tolerances (unchanged without evidence): `DIST_TOL=0.01`, `POINTS_TOL=0`.
 Artifacts: `correctness-<label>` with `correctness.tsv` and `correctness.json`. Job summary tables show per-ID wins/fails. Delta is printed as `DELTA_NUMER/(1+EPSILON) = DELTA` in logs.
 
 ### benchmark.yml - Performance regression
-**Triggers:** Push to main, pull requests to main, manual dispatch
+**Triggers:** Push to main, pull requests to main, manual dispatch. The workflow always starts (no workflow-level `paths`, which would leave a required check pending on skipped runs); a cheap `bench scope` job runs [`scripts/ci/perf_paths.sh`](../../scripts/ci/perf_paths.sh) on the changed files. That script owns the explicit performance-relevant path list; edit it when a new benchmark input appears. The 20 matrix jobs plus `bench report` run only when the gate enables benchmarking. Changes confined to README, docs, the web viewer, Dockerfile, deploy or other workflows skip both; skipped jobs count as passing for required checks. The gate compares the PR base with the evaluated merge commit on pull requests, and before/after commits on pushes, treating renames as deletions and additions. Manual dispatch and an unusable diff always run the benchmark.
 
 Same 20 parallel `(ε, δ, size)` matrix jobs as correctness (table above). For each setting, runs `BENCH_RUNS=10` Release invocations of `SIMPLIFY_CORE_MS` per ID for each binary (small: 11..20 or large: 21..30, new vs the same baseline commit as correctness), computes per-ID mean and sample stddev via Welford's online algorithm, and enforces high-confidence gates (one-sided 95% CI with Welch t, fail only when confident new is worse):
 
@@ -56,11 +56,11 @@ Gated averages intentionally omit `--time` so timing stays comparable to older b
 
 Artifacts: `benchmark-<label>` with `benchmark.tsv` / `benchmark.json`. TSV header is `id e d orig_ms orig_std new_ms new_std ratio gated status orig_ops new_ops`; its statistics are rounded for display. JSON `cases` preserve the Welford mean and sample stddev at the precision used by the Welch gates. Job summaries show `orig_ms ± std` / `new_ms ± std` and mark `FAIL_SLOW` only when the Welch 95% lower bound exceeds the limit. Each job logs `Computed DELTA=… from NUMER/(1+EPSILON)` and `Synced IDs: …`.
 
-After all 20 matrix jobs, `bench-report` (always runs) aggregates `benchmark.json` across all labels via `scripts/ci/bench_report.py` (`--reports-dir`, `--output-md/html/comment`):
+After the matrix jobs finish, `bench-report` (subject to the scope gate above, even if matrix jobs fail) aggregates `benchmark.json` across all labels via `scripts/ci/bench_report.py` (`--reports-dir`, `--output-md/html/comment`):
 
 - **Job summary (GITHUB_STEP_SUMMARY)**: overall table per configuration (mean orig ms, new ms, speedup orig/new, pass/fail vs thresholds — all 10 IDs) plus per-phase before/after table with time shares (intersect/clip, find_F, Gi hull, Gi prep, boundary_P, other) aggregated from the `TIMER_MS` lines (summed over IDs per label, share = phase/total). The same rendering is used locally on saved logs: `python scripts/ci/bench_report.py --reports-dir bench-artifacts --output-html report.html`.
 - **HTML artifact**: self-contained `benchmark-report` (single `report.html` with tables + inline CSS bar charts, no external assets) uploaded via `actions/upload-artifact`.
-- **Sticky PR comment**: single comment with `<!-- bench-report -->` marker containing headline speedups and a link to the run, updated in place on each push (gh api `PATCH` if existing, `POST` otherwise). Push to `main` skips the comment.
+- **Sticky PR comment**: single comment with `<!-- bench-report -->` marker containing headline speedups and a link to the run, updated in place on benchmarked PR runs (gh api `PATCH` if existing, `POST` otherwise). Push to `main` skips the comment.
 
 The report marks a missing configuration as an incomplete matrix. Missing baseline timers or phases appear as `n/a` in phase comparisons rather than zero.
 
