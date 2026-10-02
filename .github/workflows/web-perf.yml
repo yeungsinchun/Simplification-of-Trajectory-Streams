@@ -1,0 +1,121 @@
+name: Web Viewer Perf
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+# Latency / throughput gate for the Flask web viewer (TTFB, time to first
+# prefix, stream time, MB/s, parallel-request throughput). web-server.yml only
+# checks trace correctness plus one coarse wall-time bar.
+#
+# Path filtering is done by the `changes` job, NOT by an `on.pull_request.paths`
+# filter: a workflow skipped by a workflow-level path filter never reports its
+# checks, which leaves a required `web-perf` check "Expected — waiting" forever
+# on PRs that do not touch the viewer. Here the workflow always starts, and the
+# `web-perf` job is merely skipped (a skipped job satisfies required checks).
+
+jobs:
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      viewer: ${{ steps.filter.outputs.viewer }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Did the viewer or what it depends on change?
+        id: filter
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          # Viewer files and whatever the viewer's speed depends on: the Flask
+          # app and static assets, the C++ stream producer it spawns (simplify
+          # + its headers, web_trace, timer), the build config, preloaded trace
+          # data, and this gate itself. Usability screenshots/notes are not runtime.
+          CHANGED=$(git diff --no-renames --name-only "$BASE_SHA" HEAD)
+          echo "$CHANGED"
+          RELEVANT=$(echo "$CHANGED" | grep -Ev '^(web/usability/|web/USABILITY\.md$)' || true)
+          if echo "$RELEVANT" | grep -Eq '^(web/|simplify\.cpp$|simplify_[a-z]+\.h$|web_trace\.(cpp|h)$|timer\.h$|CMakeLists\.txt$|data/|scripts/ci/web_perf\.py$|\.github/workflows/web-perf\.yml$)'; then
+            echo "viewer=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "viewer=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  web-perf:
+    name: web-perf
+    needs: changes
+    if: needs.changes.outputs.viewer == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PORT: "5052"
+      HOST: "127.0.0.1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          # Same toolchain as web-server.yml (g++-14 for C++23, Qt6 for configure).
+          sudo apt-get install -y cmake build-essential g++-14 libcgal-dev qt6-base-dev
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100
+          sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-14 100
+          sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-14 100
+
+      - name: Install Python dependencies
+        run: python3 -m pip install -r web/requirements.txt
+
+      - name: Build simplify
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF
+          cmake --build build --target simplify -j"$(nproc)"
+
+      - name: Start web server
+        run: |
+          set -euo pipefail
+          PORT="$PORT" HOST="$HOST" python3 -u web/server.py > /tmp/web-server.log 2>&1 &
+          echo $! > /tmp/web-server.pid
+          for i in $(seq 1 30); do
+            if curl -s --connect-timeout 1 "http://$HOST:$PORT/api/traces" >/dev/null 2>&1; then
+              echo "Server ready after ${i}s"; exit 0
+            fi
+            kill -0 "$(cat /tmp/web-server.pid)" 2>/dev/null || { echo "❌ server died early"; cat /tmp/web-server.log; exit 1; }
+            sleep 1
+          done
+          echo "❌ server not ready in 30s"; cat /tmp/web-server.log; exit 1
+
+      - name: Measure latency and throughput
+        run: |
+          python3 scripts/ci/web_perf.py \
+            --base-url "http://$HOST:$PORT" \
+            --json-out /tmp/web-perf.json --markdown-out /tmp/web-perf.md
+
+      - name: Write job summary
+        if: always()
+        run: '[ ! -f /tmp/web-perf.md ] || cat /tmp/web-perf.md >> "$GITHUB_STEP_SUMMARY"'
+
+      - name: Upload perf results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-perf
+          path: |
+            /tmp/web-perf.json
+            /tmp/web-perf.md
+            /tmp/web-server.log
+
+      - name: Stop server
+        if: always()
+        run: |
+          [ ! -f /tmp/web-server.pid ] || kill "$(cat /tmp/web-server.pid)" 2>/dev/null || true

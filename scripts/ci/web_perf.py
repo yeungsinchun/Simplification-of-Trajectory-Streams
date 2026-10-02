@@ -1,0 +1,259 @@
+#!/usr/bin/env python3
+"""
+Latency / throughput probe for the running Flask web viewer (stdlib only).
+
+Complements scripts/ci/validate_web_trace.py (structure) by measuring HTTP
+response latency and throughput, not browser rendering:
+
+  static    GET /, /viewer.js           time to last byte
+  api       GET /api/traces, /api/trace/<id>/original
+  stream    GET /api/trace/<id>?epsilon&delta   (NDJSON green-path stream)
+              ttfb_ms         request sent -> first wire body byte
+              first_prefix_ms request sent -> first complete decoded prefix line
+              total_ms        request sent -> last wire byte
+              MB/s, prefixes/s over the whole stream
+  concurrent  parallel clients making sequential requests: aggregate successful
+              requests/s and MB/s, and the slowest request's total_ms
+
+See .github/workflows/README.md under web-perf.yml for workload, sampling,
+and gate policy.
+
+Usage:
+  python3 scripts/ci/web_perf.py --base-url http://127.0.0.1:5051
+  python3 scripts/ci/web_perf.py --base-url ... --json-out perf.json --markdown-out perf.md
+
+Exit 0 when every gate passes; failures return a nonzero exit status.
+"""
+from __future__ import annotations
+
+import argparse
+import http.client
+import json
+import statistics
+import sys
+import threading
+import time
+import urllib.parse
+import zlib
+
+
+def _conn(base: str, timeout: float) -> tuple[http.client.HTTPConnection, str]:
+    u = urllib.parse.urlsplit(base)
+    return http.client.HTTPConnection(u.hostname, u.port or 80, timeout=timeout), u.path.rstrip("/")
+
+
+def fetch(base: str, path: str, *, timeout: float = 60.0, gzip_ok: bool = False) -> dict:
+    """GET path; return timings (ms), size and, for NDJSON, first-prefix time."""
+    conn, prefix = _conn(base, timeout)
+    headers = {"Accept-Encoding": "gzip" if gzip_ok else "identity"}
+    t0 = time.perf_counter()
+    ttfb = first_prefix = None
+    nbytes = prefixes = 0
+    tail = b""
+    valid, header, done = True, False, False
+
+    def record(line: bytes, now: float):
+        nonlocal valid, header, done, prefixes, first_prefix
+        try:
+            message = json.loads(line)
+        except ValueError:
+            valid = False
+            return
+        typ = message.get("type") if isinstance(message, dict) else None
+        if done:
+            valid = False
+        elif typ == "header" and not header:
+            header = True
+        elif typ == "prefix" and header:
+            prefixes += 1
+            if first_prefix is None:
+                first_prefix = now - t0
+        elif typ == "done" and header and prefixes:
+            done = True
+        else:
+            valid = False
+
+    try:
+        conn.request("GET", prefix + path, headers=headers)
+        resp = conn.getresponse()
+        ndjson = "ndjson" in (resp.getheader("Content-Type") or "")
+        gz = (resp.getheader("Content-Encoding") or "") == "gzip"
+        decoder = zlib.decompressobj(31) if ndjson and gz else None
+        while True:
+            chunk = resp.read1(65536)
+            if not chunk:
+                break
+            if ttfb is None:
+                ttfb = time.perf_counter() - t0
+            nbytes += len(chunk)
+            if ndjson:
+                decoded = decoder.decompress(chunk) if decoder is not None else chunk
+                now = time.perf_counter()
+                *lines, tail = (tail + decoded).split(b"\n")
+                for line in lines:
+                    record(line, now)
+        if ndjson and tail:
+            record(tail, time.perf_counter())
+        if decoder is not None and (not decoder.eof or decoder.unused_data):
+            valid = False
+        total = time.perf_counter() - t0
+    finally:
+        conn.close()
+    out = {"status": resp.status, "bytes": nbytes, "total_ms": total * 1e3,
+           "ttfb_ms": (ttfb if ttfb is not None else total) * 1e3,
+           "stream_ok": ndjson and valid and done}
+    if ndjson:
+        out["prefixes"] = prefixes
+        if first_prefix is not None:
+            out["first_prefix_ms"] = first_prefix * 1e3
+        out["prefixes_per_s"] = prefixes / total if total > 0 else 0.0
+    out["mb_per_s"] = nbytes / 1e6 / total if total > 0 else 0.0
+    return out
+
+
+def sample(fn, runs: int) -> list[dict]:
+    """Run fn() runs+1 times, dropping the first (warm-up: page cache, imports)."""
+    results = [fn() for _ in range(runs + 1)]
+    return results[1:]
+
+
+def concurrent(base: str, path: str, workers: int, rounds: int) -> dict:
+    """`workers` simultaneous stream requests, repeated `rounds` times."""
+    t0 = time.perf_counter()
+    results: list[dict] = []
+    errors: list[str] = []
+    lock = threading.Lock()
+
+    def worker():
+        for _ in range(rounds):
+            try:
+                r = fetch(base, path)
+            except Exception as error:
+                with lock:
+                    errors.append(str(error))
+            else:
+                with lock:
+                    results.append(r)
+
+    threads = [threading.Thread(target=worker) for _ in range(workers)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    wall = time.perf_counter() - t0
+    successful = [r for r in results if r["status"] == 200 and r.get("stream_ok", False)]
+    return {
+        "requests": len(results),
+        "successful_requests": len(successful),
+        "errors": errors,
+        "all_ok": not errors and len(successful) == workers * rounds,
+        "wall_s": wall,
+        "requests_per_s": len(successful) / wall,
+        "mb_per_s": sum(r["bytes"] for r in successful) / 1e6 / wall,
+        "max_total_ms": max((r["total_ms"] for r in results), default=0.0),
+        "median_total_ms": statistics.median(r["total_ms"] for r in results) if results else 0.0,
+    }
+
+
+class Gates:
+    def __init__(self):
+        self.rows: list[tuple[str, float, str, float, bool]] = []
+
+    def le(self, name: str, value: float, limit: float, unit: str = "ms"):
+        self.rows.append((name, value, f"≤ {limit:g} {unit}", limit, value <= limit))
+
+    def ge(self, name: str, value: float, limit: float, unit: str = ""):
+        self.rows.append((name, value, f"≥ {limit:g} {unit}".strip(), limit, value >= limit))
+
+    @property
+    def ok(self) -> bool:
+        return all(r[4] for r in self.rows)
+
+
+def med(rs: list[dict], key: str) -> float:
+    return statistics.median(r[key] for r in rs)
+
+
+def worst(rs: list[dict], key: str) -> float:
+    return max(r[key] for r in rs)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--base-url", default="http://127.0.0.1:5051")
+    ap.add_argument("--json-out")
+    ap.add_argument("--markdown-out")
+    a = ap.parse_args()
+
+    base = a.base_url
+    trace_id, epsilon, delta = 1, "0.5", "200"
+    runs, workers, rounds = 5, 4, 2
+    stream_path = f"/api/trace/{trace_id}?epsilon={epsilon}&delta={delta}"
+    report: dict = {"trace_id": trace_id, "epsilon": epsilon, "delta": delta}
+    g = Gates()
+
+    for name, path in (("static /", "/"), ("static /viewer.js", "/viewer.js"),
+                       ("api /api/traces", "/api/traces"),
+                       (f"api /api/trace/{trace_id}/original", f"/api/trace/{trace_id}/original")):
+        rs = sample(lambda p=path: fetch(base, p), runs)
+        limit = 500
+        bad = [r["status"] for r in rs if r["status"] != 200]
+        g.le(f"{name} status!=200 count", len(bad), 0, "")
+        g.le(f"{name} median", med(rs, "total_ms"), limit)
+        g.le(f"{name} worst", worst(rs, "total_ms"), limit * 3)
+        report[name] = {"median_ms": med(rs, "total_ms"), "worst_ms": worst(rs, "total_ms"),
+                        "bytes": rs[0]["bytes"]}
+
+    rs = sample(lambda: fetch(base, stream_path), runs)
+    g.le("stream status!=200 count", sum(r["status"] != 200 for r in rs), 0, "")
+    g.le("stream unsuccessful count", sum(not r.get("stream_ok", False) for r in rs), 0, "")
+    g.ge("stream prefixes", min(r.get("prefixes", 0) for r in rs), 1, "")
+    g.le("stream TTFB median", med(rs, "ttfb_ms"), 1000)
+    g.le("stream first-prefix median", med(rs, "first_prefix_ms") if all("first_prefix_ms" in r for r in rs) else float("inf"),
+         3000)
+    g.le("stream total median", med(rs, "total_ms"), 10000)
+    g.le("stream total worst", worst(rs, "total_ms"), 20000)
+    g.ge("stream throughput median", med(rs, "mb_per_s"), 0.2, "MB/s")
+    report["stream"] = {k: med(rs, k) for k in ("ttfb_ms", "first_prefix_ms", "total_ms", "mb_per_s", "prefixes_per_s", "bytes")
+                        if all(k in r for r in rs)}
+
+    gz = sample(lambda: fetch(base, stream_path, gzip_ok=True), runs)
+    g.le("stream(gzip) status!=200 count", sum(r["status"] != 200 for r in gz), 0, "")
+    g.le("stream(gzip) unsuccessful count", sum(not r.get("stream_ok", False) for r in gz), 0, "")
+    g.le("stream(gzip) TTFB median", med(gz, "ttfb_ms"), 1000)
+    g.le("stream(gzip) first-prefix median", med(gz, "first_prefix_ms") if all("first_prefix_ms" in r for r in gz) else float("inf"),
+         3000)
+    g.le("stream(gzip) total median", med(gz, "total_ms"), 10000)
+    report["stream_gzip"] = {k: med(gz, k) for k in ("ttfb_ms", "first_prefix_ms", "total_ms", "bytes")
+                             if all(k in r for r in gz)}
+
+    cc = concurrent(base, stream_path, workers, rounds)
+    g.le("concurrent unsuccessful workload", 0 if cc["all_ok"] else 1, 0, "")
+    g.ge(f"concurrent x{workers} requests/s", cc["requests_per_s"], 0.1, "req/s")
+    g.le(f"concurrent x{workers} slowest", cc["max_total_ms"], 60000)
+    report["concurrent"] = {"workers": workers, **cc}
+
+    report["gates"] = [{"name": n, "value": v, "limit": l, "ok": ok} for n, v, l, _, ok in g.rows]
+    report["ok"] = g.ok
+
+    lines = [f"## Web viewer latency / throughput — trace {trace_id} (ε={epsilon}, δ={delta})", "",
+             "| Metric | Value | Gate | |", "|---|---|---|---|"]
+    for n, v, l, _, ok in g.rows:
+        lines.append(f"| {n} | {v:.1f} | {l} | {'✅' if ok else '❌'} |")
+    md = "\n".join(lines) + "\n"
+    print(md)
+    if a.json_out:
+        with open(a.json_out, "w") as f:
+            json.dump(report, f, indent=2)
+    if a.markdown_out:
+        with open(a.markdown_out, "w") as f:
+            f.write(md)
+    if not g.ok:
+        print("❌ web perf gate failed", file=sys.stderr)
+        return 1
+    print("✅ web perf gates passed")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
